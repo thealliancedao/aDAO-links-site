@@ -113,12 +113,12 @@ let walletMobileSearchMode = 'full';
 
 
 // --- Config ---
-const METADATA_URL = "https://cdn.jsdelivr.net/gh/defipatriot/nft-metadata/all_nfts_metadata.json";
+const METADATA_URL = "/assets/nft-metadata/all_nfts_metadata.json";  // served from this repo (Vercel edge-cached); was jsDelivr → defipatriot/nft-metadata
 const STATUS_DATA_URL = "https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/nfts.json";
 
-// Canonical rarity files (defipatriot/nft-metadata) — ranks come ONLY from these.
-const RARITY_INTENDED_URL = "https://raw.githubusercontent.com/defipatriot/nft-metadata/main/adao-rarity-intended.json";
-const RARITY_BBL_URL = "https://raw.githubusercontent.com/defipatriot/nft-metadata/main/adao-rarity-bbl.json";
+// Canonical rarity files (/assets/nft-metadata/, migrated from defipatriot 2026-08-09) — ranks come ONLY from these.
+const RARITY_INTENDED_URL = "/assets/nft-metadata/adao-rarity-intended.json";
+const RARITY_BBL_URL = "/assets/nft-metadata/adao-rarity-bbl.json";
 // Active rank system: 'intended' (default) or 'bbl'. Persisted per session.
 let rankMode = sessionStorage.getItem('adao_rank_mode') === 'bbl' ? 'bbl' : 'intended';
 let bblRarityBuilt = null; // BBL file top-level `built` — "last time BBL ranks moved"
@@ -576,7 +576,7 @@ const calculateRanks = () => {
 
     // Second pass: per-NFT trait values/counts (still used by trait filters, medals, matching checks).
     // NOTE: ranks are NOT derived here anymore — intended_rank / bbl_rank come only from the
-    // canonical files in defipatriot/nft-metadata (joined in initializeExplorer). The old
+    // canonical files in /assets/nft-metadata (joined in initializeExplorer). The old
     // within-grade tie-break sort + subRank (source of the "40/1" display) is retired.
     allNfts.forEach(nft => {
         // Grade (1-40): canonical intended file is authoritative; metadata Rarity attr as fallback.
@@ -2397,11 +2397,11 @@ const createNftCard = (nft, toggleSelector) => {
         topRightStack.appendChild(img);
     };
 
-    if (isDaoOwned) addBadge('https://raw.githubusercontent.com/defipatriot/aDAO-Image-Files/main/Alliance%20DAO%20Logo.png', 'Owned by DAO');
-    if (nft.staked_daodao) addBadge('https://raw.githubusercontent.com/defipatriot/aDAO-Image-Files/main/DAODAO.png', 'Staked on DAODAO');
-    if (nft.boost_market) addBadge('https://raw.githubusercontent.com/defipatriot/aDAO-Image-Files/main/Boost%20Logo.png', 'Listed on Boost');
-    if (nft.bbl_market) addBadge('https://raw.githubusercontent.com/defipatriot/aDAO-Image-Files/main/BBL%20No%20Background.png', 'Listed on BBL');
-    if (nft.staked_enterprise_legacy) addBadge('https://raw.githubusercontent.com/defipatriot/aDAO-Image-Files/main/Enterprise.jpg', 'Staked on Enterprise');
+    if (isDaoOwned) addBadge('/assets/images/Alliance%20DAO%20Logo.png', 'Owned by DAO');
+    if (nft.staked_daodao) addBadge('/assets/images/DAODAO.png', 'Staked on DAODAO');
+    if (nft.boost_market) addBadge('/assets/images/Boost%20Logo.png', 'Listed on Boost');
+    if (nft.bbl_market) addBadge('/assets/images/BBL%20No%20Background.png', 'Listed on BBL');
+    if (nft.staked_enterprise_legacy) addBadge('/assets/images/Enterprise.jpg', 'Staked on Enterprise');
 
     if (topRightStack.children.length > 0) {
         imageContainer.appendChild(topRightStack);
@@ -3209,7 +3209,7 @@ const generateShareImage = (nft, button) => {
     }
     
     // Load both NFT image and logo (text logo with "THE ALLIANCE DAO")
-    const logoUrl = 'https://raw.githubusercontent.com/defipatriot/aDAO-Image-Files/main/aDAO%20Logo%20txt%20no%20background%20.png';
+    const logoUrl = '/assets/images/aDAO%20Logo%20txt%20no%20background%20.png';
     const logo = new Image();
     logo.crossOrigin = "anonymous";
     
@@ -4216,12 +4216,12 @@ const initializeStarfield = () => {
         
         // Images from aDAO-Image-Planets-Empty repo
         const imageAssets = {
-            daodao: 'https://raw.githubusercontent.com/defipatriot/aDAO-Image-Planets-Empty/main/daodao-planet.png',
-            bbl: 'https://raw.githubusercontent.com/defipatriot/aDAO-Image-Planets-Empty/main/bbl-planet.png',
-            boost: 'https://raw.githubusercontent.com/defipatriot/aDAO-Image-Planets-Empty/main/boost-ship.png',
-            enterprise: 'https://raw.githubusercontent.com/defipatriot/aDAO-Image-Planets-Empty/main/enterprise-blackhole.png',
-            allianceLogo: 'https://raw.githubusercontent.com/defipatriot/aDAO-Image-Files/main/aDAO%20Logo%20No%20Background.png',
-            terra: 'https://raw.githubusercontent.com/defipatriot/aDAO-Image-Planets-Empty/main/Terra.PNG'
+            daodao: '/assets/planets/daodao-planet.png',
+            bbl: '/assets/planets/bbl-planet.png',
+            boost: '/assets/planets/boost-ship.png',
+            enterprise: '/assets/planets/enterprise-blackhole.png',
+            allianceLogo: '/assets/images/aDAO%20Logo%20No%20Background.png',
+            terra: '/assets/planets/Terra.PNG'
         };
 
         const imagePromises = Object.entries(imageAssets).map(([id, url]) => {
