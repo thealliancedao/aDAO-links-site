@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns:xodm="http://www.corel.com/coreldraw/odm/2003" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="Layer_1" x="0px" y="0px" viewBox="0 0 2500 2500" style="enable-background:new 0 0 2500 2500;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#F6E35D;}
+	.st1{fill-rule:evenodd;clip-rule:evenodd;fill:url(#SVGID_1_);}
+	.st2{fill-rule:evenodd;clip-rule:evenodd;fill:url(#SVGID_00000161596114940346450640000009544769862690693510_);}
+	.st3{fill:none;}
+</style>
+<g id="Layer_x0020_1">
+	<g id="_2990341337296">
+		<g>
+			<path class="st0" d="M100,1393c0,608,492,1100,1099,1100s1099-493,1099-1100c0-608-492-1100-1099-1100S100,786,100,1393z"></path>
+			
+				<linearGradient id="SVGID_1_" gradientUnits="userSpaceOnUse" x1="978.9382" y1="1014.1302" x2="1408.9324" y2="116.1423" gradientTransform="matrix(1 0 0 -1 0 2497.8899)">
+				<stop offset="0" style="stop-color:#FFD33D"></stop>
+				<stop offset="1" style="stop-color:#F21325"></stop>
+			</linearGradient>
+			<path class="st1" d="M144,1727c68,218,208,420,420,568c523,367,1175,211,1584-227c9-9,0-25-12-20c-73,34-158,47-246,31     c-158-30-283-155-313-313c-41-214,91-407,280-461l-211-26L145,1727H144z"></path>
+			
+				<linearGradient id="SVGID_00000038409845786517790170000012692090774339250846_" gradientUnits="userSpaceOnUse" x1="509.1143" y1="1985.9795" x2="1471.1058" y2="900.989" gradientTransform="matrix(1 0 0 -1 0 2497.8899)">
+				<stop offset="0" style="stop-color:#FFD33D"></stop>
+				<stop offset="1" style="stop-color:#F21325"></stop>
+			</linearGradient>
+			<path style="fill-rule:evenodd;clip-rule:evenodd;fill:url(#SVGID_00000038409845786517790170000012692090774339250846_);" d="     M1539,8c-58,142-282,197-413,234c-136,40-299,100-434,171C187,679-7,1244,145,1728c122,345,484,482,872,331     c223-87,279-155,417-394c94-163,230-295,415-356c154-50,355-42,543-3c11,2,20-11,12-20c-115-128-279-213-464-225     c-67-4-135,2-200,17c-63,15-124,39-180,72c-27,15-56,30-86,43c-19,8-39,14-58,19c-37,9-75,14-113,14c-124,0-242-56-311-160     c-117-176-61-389,115-506c115-71,244-115,348-214c96-90,134-167,111-334c-1-8-7-12-13-12c-5,0-10,3-12,8H1539z"></path>
+		</g>
+		<rect y="0" class="st3" width="2500" height="2499.9"></rect>
+	</g>
+</g>
+</svg>
