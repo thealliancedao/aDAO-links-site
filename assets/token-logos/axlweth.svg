@@ -1,0 +1,30 @@
+<svg width="800" height="800" xmlns="http://www.w3.org/2000/svg" xml:space="preserve" version="1.0">
+ <desc>Created with Sketch.</desc>
+
+ <g>
+  <title>Layer 1</title>
+  <g stroke="null" id="All">
+   <g stroke="null" id="Developer-Center">
+    <g stroke="null" id="Group-28">
+     <g stroke="null" id="Group-29">
+      <g stroke="null" id="Group-10">
+       <g stroke="null" id="Group-13">
+        <g stroke="null" id="Group-46">
+         <g stroke="null" id="Group-45">
+          <circle stroke="null" fill="#627EEA" r="398.29999" cy="400" cx="400" class="st0" id="Oval"/>
+          <polygon stroke="null" fill-opacity="0.602" fill="#FFFFFF" points="412.412841796875,101.22065734863281 412.412841796875,322.03863525390625 599.0410766601562,405.4442443847656 " class="st1" id="Path"/>
+          <polygon stroke="null" fill="#FFFFFF" points="412.412841796875,101.22065734863281 225.78456115722656,405.4442443847656 412.412841796875,322.03863525390625 " class="st2" id="Path_1_"/>
+          <polygon stroke="null" fill-opacity="0.602" fill="#FFFFFF" points="412.412841796875,548.5187377929688 412.412841796875,698.5616455078125 599.1499633789062,440.178466796875 " class="st1" id="Path_2_"/>
+          <polygon stroke="null" fill="#FFFFFF" points="412.412841796875,698.5616455078125 412.412841796875,548.5187377929688 225.78456115722656,440.178466796875 " class="st2" id="Path_3_"/>
+          <polygon stroke="null" fill-opacity="0.2" fill="#FFFFFF" points="412.412841796875,513.784423828125 599.0410766601562,405.4442443847656 412.412841796875,322.03863525390625 " class="st3" id="Path_4_"/>
+         </g>
+         <polygon stroke="null" fill-opacity="0.602" fill="#FFFFFF" points="225.78456115722656,405.4442443847656 412.412841796875,513.784423828125 412.412841796875,322.03863525390625 " class="st1" id="Path_5_"/>
+        </g>
+       </g>
+      </g>
+     </g>
+    </g>
+   </g>
+  </g>
+ </g>
+</svg>
