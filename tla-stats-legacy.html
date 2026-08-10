@@ -2352,7 +2352,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span id="footer-rev" class="font-mono">Rev 3</span>
+                    <span id="footer-rev" class="font-mono">Rev 3.1</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                     <span id="footer-rev-date" class="opacity-50 ml-1"></span>
@@ -2432,15 +2432,14 @@
         // Per-epoch pool data (new cron repos) — used to build last-completed-epoch
         // averages for the Pools tab "Epoch Avg" columns. Astroport file is the LIVE
         // file for the current epoch (it carries epochs[N-1] frozen inside).
-        astroportEpochBaseUrl: 'https://raw.githubusercontent.com/defipatriot/astroport-pool-data_2026/main/astroport',  // append /astroport-epoch-{N}.json
-        ssWeeklyAvgBaseUrl:    'https://raw.githubusercontent.com/defipatriot/ss-pool-data_2026/main/data/weekly-avg',   // append /2026-epoch-{N}.csv
+        astroportEpochBaseUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/epochs',  // append /astroport-epoch-{N}.json (org fold, tla-core)
+        ssWeeklyAvgBaseUrl:    'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/skeletonswap/weekly-avg',   // append /2026-epoch-{N}.csv — CANONICAL epoch labels (relabeled 2026-08-10; N = the epoch the data describes)
 
         // Daily pool snapshots — powers the Pools tab bucket charts (7 days of
-        // past epoch + N days of current epoch).
-        //   Astroport: data/daily/YYYY-MM-DD.csv (immutable)
-        //   SS:        data/{month}_backup/YYYY-MM-DD.csv  (e.g. may_backup, june_backup)
-        astroportDailyBaseUrl: 'https://raw.githubusercontent.com/defipatriot/astroport-pool-data_2026/main/data/daily',
-        ssDailyBaseUrl:        'https://raw.githubusercontent.com/defipatriot/ss-pool-data_2026/main/data',
+        // past epoch + N days of current epoch). Both trees are flat dated files
+        // in tla-core (org): <base>/YYYY-MM-DD.csv (immutable).
+        astroportDailyBaseUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/daily-csv',
+        ssDailyBaseUrl:        'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/skeletonswap/daily-csv',
 
         // Legacy data sources (still in use)
         epochDatesUrl:     'https://raw.githubusercontent.com/defipatriot/tla_json_storage/main/epoch_1-300_date.json',
@@ -2565,8 +2564,8 @@
             staleMs: 36 * 60 * 60 * 1000,
             // Heartbeat file written on every successful run; falls back to per-epoch JSON
             // if heartbeat doesn't exist yet (e.g. before the cron has been redeployed)
-            sourceUrl: 'https://raw.githubusercontent.com/defipatriot/astroport-pool-data_2026/main/data/heartbeat.json',
-            sourceUrlFallbackFn: (epoch) => `https://raw.githubusercontent.com/defipatriot/astroport-pool-data_2026/main/astroport/astroport-epoch-${epoch - 1}.json`,
+            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/epochs/heartbeat.json',
+            sourceUrlFallbackFn: (epoch) => `https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/epochs/astroport-epoch-${epoch - 1}.json`,
             description: 'Astroport pool TVL + volume (feeds TLA Snapshot)',
         },
         'skeletonswap': {
@@ -2576,7 +2575,7 @@
             warningMs: 26 * 60 * 60 * 1000,
             staleMs: 36 * 60 * 60 * 1000,
             // Heartbeat file (added in cron after previous CSV-only outputs lacked a timestamp)
-            sourceUrl: 'https://raw.githubusercontent.com/defipatriot/ss-pool-data_2026/main/data/heartbeat.json',
+            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/skeletonswap/rolling/heartbeat.json',
             // No fallback — if heartbeat isn't there yet, status will be 'stale' until cron redeploys
             description: 'Skeleton Swap pool data (feeds TLA Snapshot)',
         },
@@ -4233,9 +4232,9 @@
     // unchanged. Field names `liq_4ep_avg` / `vol_4ep_avg` are preserved; they now
     // hold a TRUE trailing-window rolling average (default 4 epochs) for Astroport.
     //
-    //   astroEpochJson: JSON from astroport-pool-data_2026/astroport/astroport-epoch-{currentEpoch}.json
+    //   astroEpochJson: JSON from tla-core dex-data/astroport/epochs/astroport-epoch-{currentEpoch}.json
     //                   (live file — carries an epochs{} map with several past epochs)
-    //   ssWeeklyAvgCsv: text from ss-pool-data_2026/data/weekly-avg/2026-epoch-{N}.csv
+    //   ssWeeklyAvgCsv: text from tla-core dex-data/skeletonswap/weekly-avg/2026-epoch-{N}.csv (canonical labels)
     //   endEpoch:       the most-recent epoch the window ends on (inclusive)
     //   windowSize:     how many epochs back to average over (default 4)
     //
@@ -4344,10 +4343,10 @@
     //   - 7 days of the last completed epoch (e.g. 184d1...184d7)
     //   - 1..N days of the current epoch as it progresses (185d1...)
     //
-    // Coverage caveats (May 2026):
-    //   - Astroport's data/daily/ only has recent days; older days return 404
-    //     and show as gaps in the chart lines.
-    //   - SS's data/{month}_backup/ has fuller history.
+    // Coverage (2026-08-10, org trees): Astroport daily-csv banked back to
+    //   2026-05-12 (three schema eras, all handled by the field fallbacks
+    //   below); SS daily-csv back to 2026-01-12. Missing days 404 and show
+    //   as honest gaps in the chart lines.
     //
     // Schema variations handled:
     //   - Astroport CSV uses `pool` (May 12-13) OR `pool_name` (May 14+)
@@ -4368,12 +4367,6 @@
             out.push(d.toISOString().slice(0, 10));
         }
         return out;
-    }
-
-    function ssMonthBackupFolder(dateISO) {
-        const d = new Date(dateISO + 'T00:00:00Z');
-        const m = d.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' }).toLowerCase();
-        return `${m}_backup`;
     }
 
     function extractDailyPoolName(row, dex) {
@@ -4419,7 +4412,7 @@
         const plan = [];
         for (const date of dates) {
             plan.push({ dex: 'Astroport',     date, url: `${CONFIG.astroportDailyBaseUrl}/${date}.csv` });
-            plan.push({ dex: 'Skeleton Swap', date, url: `${CONFIG.ssDailyBaseUrl}/${ssMonthBackupFolder(date)}/${date}.csv` });
+            plan.push({ dex: 'Skeleton Swap', date, url: `${CONFIG.ssDailyBaseUrl}/${date}.csv` });
         }
 
         const results = await Promise.all(plan.map(p =>
@@ -7403,11 +7396,11 @@
         
         const data = store.dailyChartData;
         const bucketPools = store.pools.filter(p => p.bucket === bucket && p.is_active !== false);
-        // TEMPORARY (May 17 2026): exclude Skeleton Swap pools from chart.
-        // The SS cron's upstream API has been serving frozen data since ~May 4
-        // (SS migrated their API to /api/pools and the old endpoint is stale).
-        // Re-enable once the cron is updated to call the new endpoint.
-        // See: ss-pool-data_2026 cron update in flight.
+        // SS pools still excluded from this chart — the May 2026 freeze that
+        // caused it is FIXED (org fold reads the chain directly since 05-18,
+        // trust-gated series in tla-core). Re-enabling is queued in
+        // CHANGES_PENDING (rendering change, decided separately from the
+        // 2026-08-10 reader repoint).
         const lpKeys = bucketPools
             .filter(p => p.dex === 'Astroport')
             .map(p => `${p.name}|${p.dex}`)

@@ -8027,8 +8027,8 @@
                     cadenceMs: 24 * 60 * 60 * 1000,
                     warningMs: 26 * 60 * 60 * 1000,
                     staleMs: 36 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/defipatriot/astroport-pool-data_2026/main/data/heartbeat.json',
-                    sourceUrlFallbackFn: (epoch) => `https://raw.githubusercontent.com/defipatriot/astroport-pool-data_2026/main/astroport/astroport-epoch-${epoch - 1}.json`,
+                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/epochs/heartbeat.json',
+                    sourceUrlFallbackFn: (epoch) => `https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/epochs/astroport-epoch-${epoch - 1}.json`,
                     description: 'Astroport pool TVL + volume (feeds TLA Snapshot)',
                 },
                 'skeletonswap': {
@@ -8037,7 +8037,7 @@
                     cadenceMs: 24 * 60 * 60 * 1000,
                     warningMs: 26 * 60 * 60 * 1000,
                     staleMs: 36 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/defipatriot/ss-pool-data_2026/main/data/heartbeat.json',
+                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/skeletonswap/rolling/heartbeat.json',
                     description: 'Skeleton Swap pool data (feeds TLA Snapshot)',
                 },
                 'votion': {
@@ -15373,7 +15373,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.70', REV_DATE = '2026-08-04';   // rev-footer law: bump BOTH every change
+        const REV = '3.71', REV_DATE = '2026-08-10';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });

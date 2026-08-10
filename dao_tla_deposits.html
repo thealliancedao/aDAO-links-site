@@ -624,13 +624,13 @@
             const isoDay = d => (d.getUTCDay() === 0 ? 7 : d.getUTCDay());
             const days = [...new Set([isoDay(new Date()), isoDay(new Date(Date.now() - 864e5))])];
             const dexes = [
-                { norm: 'astroport',    repo: 'astroport-pool-data_2026' },
-                { norm: 'skeletonswap', repo: 'ss-pool-data_2026' },
+                { norm: 'astroport',    base: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/rolling' },
+                { norm: 'skeletonswap', base: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/skeletonswap/rolling' },
             ];
             const map = {}; // `${norm}|${pool}` -> { apr, date }  (apr is a fraction)
             await Promise.all(dexes.flatMap(dx => days.map(async n => {
                 try {
-                    const r = await fetch(`https://raw.githubusercontent.com/defipatriot/${dx.repo}/main/day-${n}.csv`);
+                    const r = await fetch(`${dx.base}/day-${n}.csv`);
                     if (!r.ok) return;
                     const lines = (await r.text()).trim().split('\n');
                     if (lines.length < 2) return;
@@ -1352,7 +1352,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 2.3</span>
+                    <span class="font-mono">Rev 2.4</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>
