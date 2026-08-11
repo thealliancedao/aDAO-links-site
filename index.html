@@ -13173,7 +13173,11 @@
                     _v2Promise = (async () => {
                         const get = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); };
                         const [lh, ba, se, asal, bsal, rar] = await Promise.all([
-                            get(V2_BASE + 'listing-history.json'), get(V2_BASE + 'broken-at.json'),
+                            // HARDENED 2026-08-11: these two were unguarded, so a single
+                            // 404 threw and killed the ENTIRE v2 pipeline — Atrium stuck on
+                            // "Loading pipeline data…" and every marketplace total blank.
+                            // Each optional input now fails to null independently.
+                            get(V2_BASE + 'listing-history.json').catch(() => null), get(V2_BASE + 'broken-at.json').catch(() => null),
                             get(V2_BASE + 'sales-enriched.json'), get(V2_BASE + 'atrium-sales.json').catch(() => null),
                             get(V2_BASE + 'boost-sales.json').catch(() => null), get(V2_RARITY).catch(() => null)
                         ]);
