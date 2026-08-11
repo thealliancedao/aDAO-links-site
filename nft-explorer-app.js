@@ -114,7 +114,7 @@ let walletMobileSearchMode = 'full';
 
 // --- Config ---
 const METADATA_URL = "/assets/nft-metadata/all_nfts_metadata.json";  // served from this repo (Vercel edge-cached); was jsDelivr → defipatriot/nft-metadata
-const STATUS_DATA_URL = "https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/nfts.json";
+const STATUS_DATA_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json";
 
 // Canonical rarity files (/assets/nft-metadata/, migrated from defipatriot 2026-08-09) — ranks come ONLY from these.
 const RARITY_INTENDED_URL = "/assets/nft-metadata/adao-rarity-intended.json";
@@ -130,7 +130,7 @@ const rankDisplay = (nft) => {
     const r = getActiveRank(nft);
     return r == null ? `Rarity ${grade}, Unranked` : `Rarity ${grade}, Rank ${r}`;
 };
-const MEMBERS_CSV_URL = "https://raw.githubusercontent.com/defipatriot/adao_json_storage/main/members.csv";
+const MEMBERS_CSV_URL = "https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/members.csv";
 const DAO_WALLET_ADDRESS = "terra1sffd4efk2jpdt894r04qwmtjqrrjfc52tmj6vkzjxqhd8qqu2drs3m5vzm";
 const EXPECTED_TOTAL_NFTS = 10000; // Fixed collection size — used to hard-fail on a truncated/partial feed.
 
@@ -1255,13 +1255,13 @@ function switchView(viewName, fromHistory = false) {
 //   data/v2/summary.json         (backing + marketplace listing state)
 //   data/v2/sales-enriched.json  (per-sale, for highest/biggest sales)
 // ============================================================================
-const ANALYTICS_URL = "https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/nft-analytics.json";
-const ANALYTICS_SUMMARY_URL = "https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/summary.json";
-const ANALYTICS_ENRICHED_URL = "https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/sales-enriched.json";
-const BROKEN_AT_URL = "https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/broken-at.json";
-const LISTING_HISTORY_URL = "https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/listing-history.json";
-const LUNA_ORACLE_URL = "https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/luna-usd-daily.json";
-const BLUNA_ORACLE_URL = "https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/bluna-usd-daily.json";
+const ANALYTICS_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nft-analytics.json";
+const ANALYTICS_SUMMARY_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/summary.json";
+const ANALYTICS_ENRICHED_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/sales-enriched.json";
+const BROKEN_AT_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/broken-at.json";
+const LISTING_HISTORY_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/listing-first-seen.json";
+const LUNA_ORACLE_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/luna-usd-daily.json";
+const BLUNA_ORACLE_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/bluna-usd-daily.json";
 const DENOM_BLUNA = "cw20:terra17aj4ty4sz4yhgm08na8drc0v03v2jwr3waxcqrwhajj729zhl7zqnpc0ml";
 const DENOM_SOLID = "cw20:terra10aa3zdkrc7jwuf8ekl3zq7e7m42vmzqehcmu74e4egc7xkm5kr2s0muyst";
 
