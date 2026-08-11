@@ -2544,7 +2544,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span id="footer-rev" class="font-mono">Rev T3.5</span>
+                    <span id="footer-rev" class="font-mono">Rev T3.6</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                     <span id="footer-rev-date" class="opacity-50 ml-1"></span>
@@ -2613,8 +2613,8 @@
     const CONFIG = {
         // New continuous data sources (post-2026 cron rebuild)
         tlaSnapshotUrl:    'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/current.json',  // org fold (member-data VP absorber), 2026-08-10
-        aprHistoryUrl:     'https://raw.githubusercontent.com/defipatriot/tla-snapshot-data_2026/main/data/apr-history.json',
-        poolStatusHistoryUrl: 'https://raw.githubusercontent.com/defipatriot/tla-snapshot-data_2026/main/data/pool-status-history.json',
+        aprHistoryUrl:     'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/apr-history.json',
+        poolStatusHistoryUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/pool-status-history.json',
         networkPricesUrl:  'https://raw.githubusercontent.com/thealliancedao/tla-core/main/network-and-prices/current.json',
         adaoPositionsUrl:  'https://raw.githubusercontent.com/defipatriot/adao-positions-data_2026/main/data/current.json',
         pdBribesProductUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/pd-bribes/current.json',
@@ -9670,7 +9670,7 @@ ${(() => {
     async function loadLockedInBaseline(snap) {
         const startedAt = snap?.epoch?.epochStartedAt;
         if (!startedAt) return;
-        const base = 'https://raw.githubusercontent.com/defipatriot/tla-snapshot-data_2026/main/data/daily';
+        const base = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/daily';
         const start = new Date(startedAt);
         for (let back = 1; back <= 3; back++) {
             const d = new Date(start.getTime() - back * 86400000);

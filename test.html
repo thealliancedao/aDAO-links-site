@@ -276,7 +276,7 @@
         adaoPositionsUrl: 'https://raw.githubusercontent.com/defipatriot/adao-positions-data_2026/main/data/current.json',
         alliesUrl: 'https://raw.githubusercontent.com/defipatriot/adao-allies-data_2026/main/data/current.json',
         orgNftSummaryUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/summary.json',
-        snapshotUrl: 'https://raw.githubusercontent.com/defipatriot/tla-snapshot-data_2026/main/data/tla-snapshot.json',
+        snapshotUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/current.json',
         nftsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json',
         floorsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/floor-history.json',
         dailyBaseUrl: 'https://raw.githubusercontent.com/defipatriot/adao-positions-data_2026/main/data/daily',   // registered-member daily archive (trend engine)
@@ -333,7 +333,7 @@
             j(CONFIG.participantsUrl), j(CONFIG.adaoPositionsUrl), j(CONFIG.alliesUrl), j(CONFIG.orgNftSummaryUrl), j(CONFIG.snapshotUrl),
             j('https://raw.githubusercontent.com/thealliancedao/tla-core/main/token-catalog/snapshots/current.json'),
             j('https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/distributions/history.json').catch(() => null),
-            j('https://raw.githubusercontent.com/defipatriot/tla-snapshot-data_2026/main/data/pool-status-history.json').catch(() => null),
+            j('https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/pool-status-history.json').catch(() => null),
         ]);
         // vote-shift inputs for the APR projection: last-payout VP (distributions)
         // vs votes NOW (pool-status latest epoch) — the same two layers tla-stats

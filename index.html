@@ -3971,7 +3971,7 @@
                 if (_tlaFeed) return _tlaFeed;
                 if (!window.TileFeed) { console.error('[tla-tile] tile-feed.js not loaded'); return null; }
                 const CRON_URL = 'https://raw.githubusercontent.com/defipatriot/tla-snapshot-data_2026/main/data/dao-dashboard.json';
-                const HB_URL   = 'https://raw.githubusercontent.com/defipatriot/tla-snapshot-data_2026/main/data/heartbeat.json';
+                const HB_URL   = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/heartbeat.json';
                 const usd0 = n => '$' + Math.round(n).toLocaleString('en-US');
                 async function loadCron() {
                     const j = await TileFeed.fetchJson(CRON_URL);
@@ -5003,7 +5003,7 @@
                 //   nft-inventory .../v2/daily/DATE.json        -> DAODAO/Enterprise/held/supply (since 2026-06-07)
                 //   network-and-prices .../ratio-history.json   -> LST ratios (since 2026-05-13)
                 // ─────────────────────────────────────────────────────────────────
-                const SNAP_BASE = 'https://raw.githubusercontent.com/defipatriot/tla-snapshot-data_2026/main/data/daily';
+                const SNAP_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/daily';
                 const BK_BASE   = 'https://raw.githubusercontent.com/defipatriot/backing-data_2026/main/snapshots/daily';
                 const V2_BASE   = 'https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/daily';
                 const RATIO_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/network-and-prices/ratio-history.json';
@@ -7991,7 +7991,7 @@
                     cadenceMs: 60 * 60 * 1000,
                     warningMs: 75 * 60 * 1000,
                     staleMs: 2 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/defipatriot/tla-snapshot-data_2026/main/data/heartbeat.json',
+                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/heartbeat.json',
                     description: 'Unified aggregator — powers pools, pie, VP totals',
                 },
                 'network-and-prices': {
@@ -15373,7 +15373,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.71', REV_DATE = '2026-08-10';   // rev-footer law: bump BOTH every change
+        const REV = '3.72', REV_DATE = '2026-08-11';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
