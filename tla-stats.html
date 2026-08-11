@@ -2544,7 +2544,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span id="footer-rev" class="font-mono">Rev T3.8</span>
+                    <span id="footer-rev" class="font-mono">Rev T3.9</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                     <span id="footer-rev-date" class="opacity-50 ml-1"></span>
@@ -2622,13 +2622,13 @@
         // Community layer (Stage A, 2026-07): all TLA lockers w/ names + first participation,
         // registered allies (Pixel Lions / Lion DAO), and the org-side aDAO staker roster.
         tlaParticipantsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/current.json',
-        adaoAlliesUrl:      'https://raw.githubusercontent.com/defipatriot/adao-allies-data_2026/main/data/current.json',
+        adaoAlliesUrl:      'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/current.json',  // ORG 2026-08-11: allies cron retired; participants carries the community layer (adapter maps .members -> .allies)
         orgNftSummaryUrl:   'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/summary.json',
         orgMemberDataUrl:   'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/snapshots/current.json',
         // Schema-6 briber leaderboard (org tla-voting rollups) — powers the Top Bribers board.
         orgVotingRollupsUrl:'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/events/rollups.json',
-        bribesCurrentUrl:  'https://raw.githubusercontent.com/defipatriot/bribes-data_2026/main/data/current-state.json',
-        votionBaseUrl:     'https://raw.githubusercontent.com/defipatriot/votion-data_2026/main/votion',  // append /votion-epoch-{N}.json
+        bribesCurrentUrl:  'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/bribe-state/2026/08.json',  // ORG: month file is a LIST of harvests; adapter takes latest -> .active_bribes (buckets byte-identical to legacy)
+        votionBaseUrl:     'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/snapshots',  // ORG current.json (chain-derived); legacy per-epoch files were website copy-paste, retired,  // append /votion-epoch-{N}.json
 
         // Per-epoch pool data (new cron repos) — used to build last-completed-epoch
         // averages for the Pools tab "Epoch Avg" columns. Astroport file is the LIVE
@@ -2644,15 +2644,19 @@
 
         // Legacy data sources (still in use)
         epochDatesUrl:     'https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/epoch_1-300_date.json',  // org 2026-08-11 (byte-identical to legacy)
-        pdBribesUrl:       'https://raw.githubusercontent.com/defipatriot/tla-ext_json_storage/main/tla_pd_bribes.json',
-        docsUrl:           'https://raw.githubusercontent.com/defipatriot/tla_json_storage/main/tla_docs.json',
-        knownTokensUrl:    'https://raw.githubusercontent.com/defipatriot/tla_json_storage/main/tla_known_tokens.json',
+        pdBribesUrl:       'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/pd-bribes/current.json',  // ORG chain-derived placements (adapter maps to legacy shape)
+        docsUrl:           'https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/tla-docs-content.json',  // ORG (legacy file already 404)
+        knownTokensUrl:    'https://raw.githubusercontent.com/thealliancedao/tla-core/main/token-catalog/snapshots/current.json',  // ORG token-catalog (adapter maps .tokens -> legacy name map)
         // FUEL token price index (FUEL isn't in the network-and-prices feed). The history[]
         // entries carry avgPrice in USD; we use the latest to price FUEL bribes.
-        fuelIndexUrl:      'https://raw.githubusercontent.com/defipatriot/fuel-data_2026/main/snapshots/index.json',
+        // RETIRED 2026-08-11: no org fuel series. FUEL price falls back to the
+        // pool-derived value in network-and-prices. Rebuild org-side or retire the chart.
+        fuelIndexUrl:      null,
         historicalUrls: {
-            2025: 'https://raw.githubusercontent.com/defipatriot/tla-ext_json_storage/main/tla_ext_historical_2025.json',
-            2026: 'https://raw.githubusercontent.com/defipatriot/tla-ext_json_storage/main/tla_ext_historical_2026.json'
+            // RETIRED 2026-08-11: hand-corrected 'staging_4day_corrected' series with
+            // missing=zero volume — failed the trust test; deleted with the repo.
+            2025: null,
+            2026: null   // RETIRED (same). Live LP liquidity/volume comes from org dex-data.
         },
 
         // Weekly archives for member portfolios (epoch-N.json)
@@ -2740,7 +2744,7 @@
             cadenceMs: 60 * 60 * 1000,
             warningMs: 75 * 60 * 1000,
             staleMs: 3 * 60 * 60 * 1000,
-            sourceUrl: 'https://raw.githubusercontent.com/defipatriot/adao-allies-data_2026/main/data/heartbeat.json',
+            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/heartbeat.json',
             description: 'Registered Pixel Lions + Lion DAO members',
         },
         'network-and-prices': {
@@ -2758,7 +2762,7 @@
             cadenceMs: 24 * 60 * 60 * 1000,
             warningMs: 26 * 60 * 60 * 1000,
             staleMs: 36 * 60 * 60 * 1000,
-            sourceUrl: 'https://raw.githubusercontent.com/defipatriot/bribes-data_2026/main/data/heartbeat.json',
+            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/events/heartbeat.json',
             description: 'PD bribes + epoch archives',
             // Bribes are SPORADIC — a single briber, additions days/weeks apart. An
             // unchanged data fingerprint is normal, not a failure, so dataFreshness
@@ -2806,8 +2810,8 @@
             staleMs: 10 * 24 * 60 * 60 * 1000,
             // Heartbeat written by votion cron starting 2026-05-18 freshness rollout.
             // Falls back to the per-epoch JSON for any captures before that date.
-            sourceUrl: 'https://raw.githubusercontent.com/defipatriot/votion-data_2026/main/data/heartbeat.json',
-            sourceUrlFallbackFn: (epoch) => `https://raw.githubusercontent.com/defipatriot/votion-data_2026/main/votion/votion-epoch-${epoch}.json`,
+            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/heartbeat.json',
+            sourceUrlFallbackFn: (epoch) => `https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/snapshots/current.json`,
             description: 'Next-epoch vote optimization data',
         },
         'nft-inventory': {
@@ -2816,7 +2820,7 @@
             cadenceMs: 60 * 60 * 1000,
             warningMs: 75 * 60 * 1000,  // 1h 15m
             staleMs: 2 * 60 * 60 * 1000, // 2h
-            sourceUrl: 'https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/heartbeat.json',
+            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/heartbeat.json',
             description: 'Per-NFT chain ownership + broken status (10k NFTs)',
         },
         'marketplace-stats': {
@@ -2825,7 +2829,7 @@
             cadenceMs: 60 * 60 * 1000,
             warningMs: 75 * 60 * 1000,
             staleMs: 2 * 60 * 60 * 1000,
-            sourceUrl: 'https://raw.githubusercontent.com/defipatriot/marketplace-data_2026/main/data/heartbeat.json',
+            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/heartbeat.json',
             description: 'BBL + Boost floors, listings, activity, sales history',
         },
     };
@@ -3574,19 +3578,45 @@
                 fetch(CONFIG.tlaSnapshotUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('tla-snapshot fetch:', e.message); return null; }),
                 fetch(CONFIG.networkPricesUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('network-prices fetch:', e.message); return null; }),
                 fetch(CONFIG.adaoPositionsUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('adao-positions fetch:', e.message); return null; }),
-                fetch(CONFIG.bribesCurrentUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('bribes fetch:', e.message); return null; }),
-                fetch(CONFIG.pdBribesUrl).then(r => r.ok ? r.json() : null).catch(() => null),
-                fetch(CONFIG.historicalUrls[2026]).then(r => r.ok ? r.json() : null).catch(() => null),
+                fetch(CONFIG.bribesCurrentUrl).then(r => r.ok ? r.json() : null)
+                    // ORG ADAPTER: bribe-state month file is a LIST of harvests; the
+                    // page expects {active_bribes:[...]}. Latest harvest's buckets are
+                    // byte-identical to the legacy active_bribes entries.
+                    .then(m => Array.isArray(m) && m.length
+                        ? { schemaVersion: 1, capturedAt: m[m.length - 1].harvested_at, active_bribes: m[m.length - 1].buckets || [] }
+                        : m)
+                    .catch(e => { console.warn('bribes fetch:', e.message); return null; }),
+                fetch(CONFIG.pdBribesUrl).then(r => r.ok ? r.json() : null)
+                    // ORG ADAPTER: chain-derived placements -> the legacy per-window
+                    // shape buildBribesIndex() consumes. Only fields that exist on
+                    // chain are mapped; nothing is invented.
+                    .then(pd => {
+                        if (!pd || !Array.isArray(pd.placements)) return pd;
+                        return pd.placements.map(p => ({
+                            proposal_id: p.proposal_id,
+                            title: p.title,
+                            start_epoch: p.start_epoch ?? p.epoch ?? null,
+                            end_epoch: p.end_epoch ?? p.epoch ?? null,
+                            epoch_range: (p.start_epoch != null && p.end_epoch != null) ? `[${p.start_epoch}-${p.end_epoch}]` : null,
+                            bribes: (p.legs || []).map(leg => ({
+                                gauge: leg.gauge ?? null,
+                                pool: leg.pool_name ?? leg.pool ?? null,
+                                pool_gauge_id: leg.pool_gauge_id ?? null,
+                                denom: leg.denom ?? null,
+                                amount: leg.net ?? leg.amount ?? null,
+                            })),
+                        }));
+                    })
+                    .catch(() => null),
+                CONFIG.historicalUrls[2026] ? fetch(CONFIG.historicalUrls[2026]).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
                 // Votion: same epoch-boundary pattern as astroport below — the votion
                 // roller creates epoch-N.json on its first run inside epoch N, so on
                 // day 1 the current file 404s (observed live e197, 2026-08-03).
                 // The N-1 file keeps the votion boards populated until it lands.
-                fetch(`${CONFIG.votionBaseUrl}/votion-epoch-${currentEpoch}.json`)
-                    .then(r => {
-                        if (r.ok) return r.json();
-                        return fetch(`${CONFIG.votionBaseUrl}/votion-epoch-${currentEpoch - 1}.json`)
-                            .then(r2 => r2.ok ? r2.json() : null);
-                    })
+                // ORG: one canonical votion snapshot (chain/har-derived, hourly) replaces
+                // the legacy per-epoch files. No epoch-boundary 404 dance needed.
+                fetch(`${CONFIG.votionBaseUrl}/current.json`)
+                    .then(r => r.ok ? r.json() : null)
                     .catch(() => null),
                 // Astroport: live file for current epoch — carries epochs[N-1] inside.
                 // Fallback to the previous epoch's file: the nightly roller creates
@@ -3610,18 +3640,39 @@
                     })
                     .catch(e => { console.warn('ss-weekly-avg fetch:', e.message); return null; }),
                 // Known-token name overrides (manual mapping for raw cw20:/native: addresses)
-                fetch(CONFIG.knownTokensUrl).then(r => r.ok ? r.json() : null).catch(() => null),
+                fetch(CONFIG.knownTokensUrl).then(r => r.ok ? r.json() : null)
+                    // ORG ADAPTER: token-catalog keys tokens BY ADDRESS with rich
+                    // records; the page wants { tokens: { 'cw20:addr'|'native:denom': NAME } }.
+                    .then(tc => {
+                        if (!tc || !tc.tokens) return tc;
+                        const out = {};
+                        for (const [addr, t] of Object.entries(tc.tokens)) {
+                            const name = t?.symbol || t?.name;
+                            if (!name) continue;
+                            out[addr] = name;
+                            out[addr.startsWith('ibc/') || addr.startsWith('factory/') ? `native:${addr}` : `cw20:${addr}`] = name;
+                        }
+                        return { schemaVersion: 1, tokens: out, _org_source: 'token-catalog' };
+                    })
+                    .catch(() => null),
                 // Per-epoch APR rollup (apr-history cron). Graceful null until the file exists.
                 fetch(CONFIG.aprHistoryUrl).then(r => r.ok ? r.json() : null).catch(() => null),
                 // Per-epoch pool VP + active-status history (pool-status-history cron).
                 // Powers Threshold Watch trend + the 4-epoch drop list. Graceful null until it exists.
                 fetch(CONFIG.poolStatusHistoryUrl).then(r => r.ok ? r.json() : null).catch(() => null),
                 // FUEL price index (FUEL not in network-and-prices feed). Graceful null.
-                fetch(CONFIG.fuelIndexUrl).then(r => r.ok ? r.json() : null).catch(() => null),
+                CONFIG.fuelIndexUrl ? fetch(CONFIG.fuelIndexUrl).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
                 // Community layer — all fail-soft: page renders fully without them,
                 // the community pie mode / people boards just show their empty states.
                 fetch(CONFIG.tlaParticipantsUrl).then(r => r.ok ? r.json() : null).catch(() => null),
-                fetch(CONFIG.adaoAlliesUrl).then(r => r.ok ? r.json() : null).catch(() => null),
+                fetch(CONFIG.adaoAlliesUrl).then(r => r.ok ? r.json() : null)
+                    // ORG ADAPTER: the allies cron is retired. participants/current.json
+                    // carries the same community layer under .members; expose it as
+                    // .allies so the ally boards keep rendering.
+                    .then(p => (p && !p.allies && Array.isArray(p.members))
+                        ? { ...p, allies: p.members, ally_count: p.members.length, _org_source: 'member-data/participants' }
+                        : p)
+                    .catch(() => null),
                 fetch(CONFIG.orgNftSummaryUrl).then(r => r.ok ? r.json() : null).catch(() => null),
                 fetch(CONFIG.orgMemberDataUrl).then(r => r.ok ? r.json() : null).catch(() => null),
             ]);
