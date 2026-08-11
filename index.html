@@ -3619,7 +3619,7 @@
             // --- NFT Analytics banner: live preview stats (non-blocking; "—" on any failure) ---
             (async function populateNftAnalyticsBanner() {
                 try {
-                    const V2 = 'https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/';
+                    const V2 = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/';
                     const [aR, sR] = await Promise.all([fetch(V2 + 'nft-analytics.json'), fetch(V2 + 'summary.json')]);
                     if (!aR.ok || !sR.ok) return;
                     const a = await aR.json(), s = await sR.json();
@@ -3661,7 +3661,7 @@
             
             // --- Function to fetch Avg Daily Gain from GitHub snapshots ---
             // Backing cron data repo
-            const BACKING_INDEX_URL = 'https://raw.githubusercontent.com/defipatriot/backing-data_2026/main/snapshots/index.json';
+            const BACKING_INDEX_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/backing-history.json';
             let backingCronHistory = null; // Cache
 
             async function fetchBackingCronHistory() {
@@ -3681,7 +3681,7 @@
             // LUNA staking APR history. Source: tla-ext_json_storage/Staking APR.csv
             // Format: "title","apr"\n"YYYY-MM-DD","XX.XXXX"\n... where APR is a percentage (e.g. 24.2235).
             // Returns a Map<dateString, aprNumber> for O(1) lookup. Cached after first fetch.
-            const STAKING_APR_URL = 'https://raw.githubusercontent.com/defipatriot/tla-ext_json_storage/main/Staking%20APR.csv';
+            const STAKING_APR_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/staking-apr.csv';
             let stakingAprMap = null;
             
             async function fetchStakingAprHistory() {
@@ -4046,7 +4046,7 @@
                     return _trappedNftsCache.result;
                 }
                 try {
-                    const r = await fetch('https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/nfts.json');
+                    const r = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json');
                     if (!r.ok) return null;
                     const data = await r.json();
                     const records = data?.records || [];
@@ -5004,8 +5004,8 @@
                 //   network-and-prices .../ratio-history.json   -> LST ratios (since 2026-05-13)
                 // ─────────────────────────────────────────────────────────────────
                 const SNAP_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/daily';
-                const BK_BASE   = 'https://raw.githubusercontent.com/defipatriot/backing-data_2026/main/snapshots/daily';
-                const V2_BASE   = 'https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/daily';
+                const BK_BASE   = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/backing-history.json';  // ORG: one canonical series (rows[]), not per-day files
+                const V2_BASE   = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/state-history';  // ORG: {yyyy}/{mm}.json with days keyed by date
                 const RATIO_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/network-and-prices/ratio-history.json';
                 // Backfilled daily LUNA price (luna_market.usd_price), covering the full
                 // chart range (since 2026-05-13) — fixes USD lines that previously started
@@ -7178,7 +7178,7 @@
                 (async function paintFromCron() {
                     const t0 = performance.now();
                     try {
-                        const V2 = 'https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/';
+                        const V2 = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/';
                         const NET = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/network-and-prices/current.json';
                         const [sumR, netR] = await Promise.all([
                             fetch(V2 + 'summary.json').catch(() => null),
@@ -7311,7 +7311,7 @@
                  // Rev 3.53: deving.zone (dead pipeline, stale data, slow responses) replaced
                  // with the v2 chain-of-truth inventory. The adapter below maps records[]
                  // into the legacy {collection_stats, nfts} shape this function consumes.
-                 const onChainStatsUrl = 'https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/nfts.json';
+                 const onChainStatsUrl = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json';
                  const contractRewardsQuery = btoa(JSON.stringify({ all_nft_info: { token_id: "9068" } }));
                  const contractUrl = `https://terra.publicnode.com/cosmwasm/wasm/v1/contract/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9/smart/${contractRewardsQuery}`;
                  const ampLunaRateQuery = btoa(JSON.stringify({ exchange_rates: {} }));
@@ -8009,7 +8009,7 @@
                     cadenceMs: 24 * 60 * 60 * 1000,
                     warningMs: 26 * 60 * 60 * 1000,
                     staleMs: 36 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/defipatriot/bribes-data_2026/main/data/heartbeat.json',
+                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/events/heartbeat.json',
                     description: 'PD bribes + epoch archives',
                 },
                 'adao-positions': {
@@ -8046,8 +8046,8 @@
                     cadenceMs: 7 * 24 * 60 * 60 * 1000,
                     warningMs: 8 * 24 * 60 * 60 * 1000,
                     staleMs: 10 * 24 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/defipatriot/votion-data_2026/main/data/heartbeat.json',
-                    sourceUrlFallbackFn: (epoch) => `https://raw.githubusercontent.com/defipatriot/votion-data_2026/main/votion/votion-epoch-${epoch}.json`,
+                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/heartbeat.json',
+                    sourceUrlFallbackFn: (epoch) => `https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/snapshots/current.json`,
                     description: 'Next-epoch vote optimization data',
                 },
                 'nft-inventory': {
@@ -8059,7 +8059,7 @@
                     cadenceMs: 15 * 60 * 1000,
                     warningMs: 45 * 60 * 1000,
                     staleMs: 2 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/heartbeat.json',
+                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/heartbeat.json',
                     description: 'Per-NFT chain ownership + broken status (10k NFTs, v2 pipeline)',
                 },
                 'marketplace-stats': {
@@ -8068,7 +8068,7 @@
                     cadenceMs: 60 * 60 * 1000,
                     warningMs: 75 * 60 * 1000,
                     staleMs: 2 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/defipatriot/marketplace-data_2026/main/data/heartbeat.json',
+                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/heartbeat.json',
                     description: 'BBL + Boost floors, listings, activity, sales history',
                 },
             };
@@ -11713,8 +11713,8 @@
                 
                 const CLOUDFLARE_CDN = 'https://imagedelivery.net/v_zOWVQCPb7Xpcbu-gQC1A/alliance_dao';
                 // Rev 3.53: deving.zone replaced with the v2 chain-of-truth inventory
-                const STATUS_URL = 'https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/nfts.json';
-                const SALES_BASE_URL = 'https://raw.githubusercontent.com/defipatriot/adao_json_storage/main/';
+                const STATUS_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json';
+                const SALES_BASE_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/';  // ORG: sales-history.json (chain backfill, 1221 sales from 2023-12-27) replaces nft-sales-YYYY.json
                 const BBL_CONTRACT = 'terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9';
                 const PIXELIONS_CONTRACT = 'terra17z7fpaa8kah698xn5tarrcucvualdy4wsztkfc404g3garucpu6qmxp50g';
                 const TLA_LOCKS_CONTRACT = 'terra1uqhj8agyeaz8fu6mdggfuwr3lp32jlrx5hqag4jxexde92rzkamq3l62zg';
@@ -13005,7 +13005,7 @@
                 // One lazy load shared by: Atrium listings, multi-venue Live Activity, live Top 10,
                 // and the analytics banner's market cap. Good data or no data — failures leave
                 // legacy behaviour untouched.
-                const V2_BASE = 'https://raw.githubusercontent.com/defipatriot/nft-inventory-data_2026/main/data/v2/';
+                const V2_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/';
                 const V2_RARITY = '/assets/nft-metadata/adao-rarity-intended.json';
                 window.v2Events = null; window.v2Top10 = null;
                 let _v2Promise = null;
@@ -15243,7 +15243,7 @@
         async function checkForLiveProposals() {
             try {
                 // Load known proposals from registry
-                const PROPS_URL = 'https://raw.githubusercontent.com/defipatriot/adao_json_storage/main/adao_props.json';
+                const PROPS_URL = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/proposals.json';
                 const propsRes = await fetch(PROPS_URL);
                 let maxKnownId = 0;
                 
@@ -15373,7 +15373,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.74', REV_DATE = '2026-08-11';   // rev-footer law: bump BOTH every change
+        const REV = '3.75', REV_DATE = '2026-08-11';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
