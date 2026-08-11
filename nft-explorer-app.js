@@ -5002,7 +5002,7 @@ const showSnapshotTool = async () => {
     const contentDiv = document.getElementById('snapshot-content');
     
     try {
-        const epochResponse = await fetch('https://raw.githubusercontent.com/defipatriot/tla_json_storage/main/epoch_1-300_date.json');
+        const epochResponse = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/epoch_1-300_date.json');
         if (!epochResponse.ok) throw new Error('Failed to fetch epoch data');
         const epochs = await epochResponse.json();
         

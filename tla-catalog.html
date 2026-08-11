@@ -464,8 +464,8 @@
     const DRAFTS_KEY = 'adao_catalog_drafts_v1';
     let drafts = {};            // { 'filename.json': { 'address': { ...fields } } }
 
-    const CATALOG_URL = 'https://raw.githubusercontent.com/defipatriot/tla-chain-registry/main/2026/current.json';
-    const CURATED_BASE = 'https://raw.githubusercontent.com/defipatriot/tla-chain-registry/main/curated/';
+    const CATALOG_URL = 'https://raw.githubusercontent.com/defipatriot/tla-chain-registry/main/2026/current.json';  // TODO: org catalog/snapshots/current.json has a DIFFERENT schema — adapter needed, tracked in SITE-DATA-CONTRACT
+    const CURATED_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/curated/';  // org 2026-08-11: org copies are a SUPERSET (token_overrides 15.5K vs 10K, wallets 8K vs 2.2K)
 
     // Mapping: which entity type → which curated file → container key
     const FILE_FOR_KIND = {

@@ -9961,7 +9961,7 @@
             async function getCurrentEpoch() {
                 try {
                     // Try fetching epoch reference file
-                    const epochRefUrl = 'https://raw.githubusercontent.com/defipatriot/tla_json_storage/main/epoch_1-300_date.json';
+                    const epochRefUrl = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/epoch_1-300_date.json';
                     const response = await fetch(epochRefUrl);
                     if (response.ok) {
                         const epochs = await response.json();
@@ -15373,7 +15373,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.72', REV_DATE = '2026-08-11';   // rev-footer law: bump BOTH every change
+        const REV = '3.73', REV_DATE = '2026-08-11';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });

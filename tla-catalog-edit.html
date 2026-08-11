@@ -215,7 +215,7 @@
                 <li>The current file's contents load automatically — you'll see existing entries</li>
                 <li>Fill in the form to add a new entry, OR click an existing entry to edit it</li>
                 <li>Preview the updated JSON, then <strong>Copy</strong> or <strong>Download</strong></li>
-                <li>Paste into GitHub at <span class="mono text-cyan-400">defipatriot/tla-chain-registry/curated/[file].json</span> and commit</li>
+                <li>Paste into GitHub at <span class="mono text-cyan-400">thealliancedao/tla-core/docs/curated/[file].json</span> and commit</li>
                 <li>Next cron run picks up the change</li>
             </ol>
         </div>
@@ -415,8 +415,8 @@
     let currentData = null;
     let editingKey = null;  // if set, we're editing this existing entry
 
-    const CURATED_BASE = 'https://raw.githubusercontent.com/defipatriot/tla-chain-registry/main/curated/';
-    const GITHUB_EDIT_BASE = 'https://github.com/defipatriot/tla-chain-registry/edit/main/curated/';
+    const CURATED_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/curated/';
+    const GITHUB_EDIT_BASE = 'https://github.com/thealliancedao/tla-core/edit/main/docs/curated/';
 
     // ============================================================
     // LOAD FILE
