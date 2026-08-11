@@ -2544,7 +2544,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span id="footer-rev" class="font-mono">Rev T3.7</span>
+                    <span id="footer-rev" class="font-mono">Rev T3.8</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                     <span id="footer-rev-date" class="opacity-50 ml-1"></span>
@@ -2616,12 +2616,12 @@
         aprHistoryUrl:     'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/apr-history.json',
         poolStatusHistoryUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/pool-status-history.json',
         networkPricesUrl:  'https://raw.githubusercontent.com/thealliancedao/tla-core/main/network-and-prices/current.json',
-        adaoPositionsUrl:  'https://raw.githubusercontent.com/defipatriot/adao-positions-data_2026/main/data/current.json',
+        adaoPositionsUrl:  'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/current.json',
         pdBribesProductUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/pd-bribes/current.json',
-        adaoMembersUrl:    'https://raw.githubusercontent.com/defipatriot/adao-positions-data_2026/main/data/members.json',
+        adaoMembersUrl:    'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/members.json',
         // Community layer (Stage A, 2026-07): all TLA lockers w/ names + first participation,
         // registered allies (Pixel Lions / Lion DAO), and the org-side aDAO staker roster.
-        tlaParticipantsUrl: 'https://raw.githubusercontent.com/defipatriot/tla-participants-data_2026/main/data/current.json',
+        tlaParticipantsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/current.json',
         adaoAlliesUrl:      'https://raw.githubusercontent.com/defipatriot/adao-allies-data_2026/main/data/current.json',
         orgNftSummaryUrl:   'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/summary.json',
         orgMemberDataUrl:   'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/snapshots/current.json',
@@ -2656,7 +2656,7 @@
         },
 
         // Weekly archives for member portfolios (epoch-N.json)
-        adaoWeeklyArchiveBaseUrl: 'https://raw.githubusercontent.com/defipatriot/adao-positions-data_2026/main/data/weekly',
+        adaoWeeklyArchiveBaseUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/weekly',
 
         defaultPhase: 'end',
         maxHistoricalEpochs: 26 // ~6 months of data for charts
@@ -2731,7 +2731,7 @@
             cadenceMs: 60 * 60 * 1000,
             warningMs: 75 * 60 * 1000,
             staleMs: 3 * 60 * 60 * 1000,
-            sourceUrl: 'https://raw.githubusercontent.com/defipatriot/tla-participants-data_2026/main/data/heartbeat.json',
+            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/heartbeat.json',
             description: 'All TLA lockers — names, VP, first participation',
         },
         'adao-allies': {
@@ -2772,7 +2772,7 @@
             cadenceMs: 7 * 24 * 60 * 60 * 1000,
             warningMs: 8 * 24 * 60 * 60 * 1000,
             staleMs: 10 * 24 * 60 * 60 * 1000,
-            sourceUrl: 'https://raw.githubusercontent.com/defipatriot/adao-positions-data_2026/main/data/heartbeat.json',
+            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/heartbeat.json',
             description: 'Treasury + 46 member portfolios',
         },
         'astroport': {

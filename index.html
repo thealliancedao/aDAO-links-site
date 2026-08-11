@@ -4356,7 +4356,7 @@
                     return _tlaVpCronHistoryCache.result;
                 }
 
-                const BASE = 'https://raw.githubusercontent.com/defipatriot/adao-positions-data_2026/main/data';
+                const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions';
                 const wrapFetch = async (url) => {
                     try {
                         const r = await fetch(url);
@@ -8018,7 +8018,7 @@
                     cadenceMs: 7 * 24 * 60 * 60 * 1000,
                     warningMs: 8 * 24 * 60 * 60 * 1000,
                     staleMs: 10 * 24 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/defipatriot/adao-positions-data_2026/main/data/heartbeat.json',
+                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/heartbeat.json',
                     description: 'Treasury + 46 member portfolios',
                 },
                 'astroport': {
@@ -15373,7 +15373,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.73', REV_DATE = '2026-08-11';   // rev-footer law: bump BOTH every change
+        const REV = '3.74', REV_DATE = '2026-08-11';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });

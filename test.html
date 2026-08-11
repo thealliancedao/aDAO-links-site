@@ -268,25 +268,25 @@
     'use strict';
 
     const CONFIG = {
-        participantsUrl: 'https://raw.githubusercontent.com/defipatriot/tla-participants-data_2026/main/data/current.json',
+        participantsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/current.json',
         votionPositionsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/snapshots/current.json',      // ORG feed (org-votion) — personal votion-positions repo retired from this page 2026-08-03
         votionDailyBaseUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/snapshots/daily',              // org daily archive, since 2026-07-16
         votionTrackStart: '2026-07-16',
         pnlUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-flows/pnl/rollup.json',
-        adaoPositionsUrl: 'https://raw.githubusercontent.com/defipatriot/adao-positions-data_2026/main/data/current.json',
+        adaoPositionsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/current.json',
         alliesUrl: 'https://raw.githubusercontent.com/defipatriot/adao-allies-data_2026/main/data/current.json',
         orgNftSummaryUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/summary.json',
         snapshotUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/current.json',
         nftsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json',
         floorsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/floor-history.json',
-        dailyBaseUrl: 'https://raw.githubusercontent.com/defipatriot/adao-positions-data_2026/main/data/daily',   // registered-member daily archive (trend engine)
+        dailyBaseUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/daily',   // registered-member daily archive (trend engine)
         rollupsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/events/rollups.json', // voter claims = bribe income
         trackStart: '2026-06-13',   // first daily archive — every earlier day is permanently missing
         memberDataUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/snapshots/current.json',  // ORG: all TLA lock holders, ranked
         ledgerBaseUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-flows/pnl/ledger',              // ORG: per-wallet epoch ledger (deep history, SPEC-portfolio-epoch-ledger)
         heartbeats: [
-            ['TLA participants', 'https://raw.githubusercontent.com/defipatriot/tla-participants-data_2026/main/data/heartbeat.json'],
-            ['aDAO positions', 'https://raw.githubusercontent.com/defipatriot/adao-positions-data_2026/main/data/heartbeat.json'],
+            ['TLA participants', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/heartbeat.json'],
+            ['aDAO positions', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/heartbeat.json'],
             ['aDAO allies', 'https://raw.githubusercontent.com/defipatriot/adao-allies-data_2026/main/data/heartbeat.json'],
             ['NFT tracker (org)', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/heartbeat.json'],
             ['P&L rollup (org)', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-flows/pnl/heartbeat.json'],

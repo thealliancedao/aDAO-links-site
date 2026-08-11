@@ -359,7 +359,7 @@
                     <input type="text" id="search-registry" onkeyup="renderRegistry()" placeholder="Search by name or address..." 
                            class="bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm flex-1 max-w-md">
                     <button onclick="loadRegistry().then(() => renderRegistry())" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-sm">🔄 Reload</button>
-                    <a id="registry-github-link" href="https://github.com/thealliancedao/dao-originations/blob/main/aDAO/governance/registry.json" target="_blank" 
+                    <a id="registry-github-link" href="https://github.com/thealliancedao/dao-originations/blob/main/adao/governance/registry.json" target="_blank" 
                        class="text-xs text-gray-500 hover:text-purple-400">📁 View on GitHub ↗</a>
                 </div>
                 <div class="glass rounded-xl overflow-hidden">
@@ -470,9 +470,9 @@ const daoConfigs = {
         core: 'terra1csp8gsjk2yyxzqewza6lkjvwkspn7zs2jvamk9uf05crtcakf6gszk2g8y',
         votingModule: 'terra1c57ur376szdv8rtes6sa9nst4k536dynunksu8tx5zu4z5u3am6qmvqx47',
         nftCollection: 'terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9',
-        registryUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/aDAO/governance/registry.json',
-        membersUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/aDAO/governance/members.csv',
-        propsUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/aDAO/governance/proposals.json',
+        registryUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/registry.json',
+        membersUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/members.csv',
+        propsUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/proposals.json',
         quorum: 10,
         threshold: 50,
         votingPeriod: 7,
@@ -487,8 +487,8 @@ const daoConfigs = {
         treasury: 'terra1tkersa2mqwy2h8exj799qx2xrhdu0dkymk9psp6v0k4kz4tkxucssgluec',
         core: 'terra1tkersa2mqwy2h8exj799qx2xrhdu0dkymk9psp6v0k4kz4tkxucssgluec',  // Main DAO address
         registryUrl: '',
-        membersUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/Lion-DAO/governance/members.csv',
-        propsUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/Lion-DAO/governance/proposals.json',  // FIX: legacy URL 404'd (file was liondao_proposals.json)
+        membersUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/lion-dao/governance/members.csv',
+        propsUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/lion-dao/governance/proposals.json',  // FIX: legacy URL 404'd (file was liondao_proposals.json)
         quorum: 10,
         threshold: 50,
         color: '#F59E0B'
@@ -502,8 +502,8 @@ const daoConfigs = {
         treasury: 'terra1c690mdrwdetnr09zfk3tf9xz9jhrgd9wpjyf3tuccj74ql09eqmq6sh7en',
         core: 'terra1c690mdrwdetnr09zfk3tf9xz9jhrgd9wpjyf3tuccj74ql09eqmq6sh7en',  // Main DAO address
         registryUrl: '',
-        membersUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/Pixel-Lions/governance/members.csv',
-        propsUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/Pixel-Lions/governance/proposals.json',  // FIX: legacy URL 404'd
+        membersUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/pixel-lions/governance/members.csv',
+        propsUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/pixel-lions/governance/proposals.json',  // FIX: legacy URL 404'd
         quorum: 10,
         threshold: 50,
         color: '#EC4899'
@@ -1179,9 +1179,9 @@ async function loadMembersFromGitHub(customUrl = null) {
 // Load ALL member files from all DAOs and combine them
 async function loadAllMemberFiles() {
     const memberUrls = [
-        'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/aDAO/governance/members.csv',           // Alliance DAO
-        'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/Lion-DAO/governance/members.csv', // Lion DAO
-        'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/Pixel-Lions/governance/members.csv' // PixelLions
+        'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/members.csv',           // Alliance DAO
+        'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/lion-dao/governance/members.csv', // Lion DAO
+        'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/pixel-lions/governance/members.csv' // PixelLions
     ];
     
     console.log('📋 Loading member files from all DAOs...');
