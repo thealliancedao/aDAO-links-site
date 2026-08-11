@@ -273,7 +273,12 @@
         votionTrackStart: '2026-07-16',
         pnlUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-flows/pnl/rollup.json',
         adaoPositionsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/current.json',
-        alliesUrl: 'https://raw.githubusercontent.com/defipatriot/adao-allies-data_2026/main/data/current.json',
+        // RETIRED 2026-08-11: the adao-allies cron is dead and its repo deleted.
+        // Org participants/ is a FLAT member list — it has no allies[].members[]
+        // grouping, so pointing here would silently render empty ally boards.
+        // Null = honest absence; the ally sections show their empty state until an
+        // org ally/collection roster exists (rebuild or retire the feature).
+        alliesUrl: null,
         orgNftSummaryUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/summary.json',
         snapshotUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/current.json',
         nftsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json',
@@ -286,7 +291,7 @@
         heartbeats: [
             ['TLA participants', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/heartbeat.json'],
             ['aDAO positions', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/heartbeat.json'],
-            ['aDAO allies', 'https://raw.githubusercontent.com/defipatriot/adao-allies-data_2026/main/data/heartbeat.json'],
+            ['aDAO allies', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/heartbeat.json'],
             ['NFT tracker (org)', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/heartbeat.json'],
             ['P&L rollup (org)', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-flows/pnl/heartbeat.json'],
         ],

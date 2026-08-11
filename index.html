@@ -3670,7 +3670,11 @@
                     const r = await fetch(BACKING_INDEX_URL);
                     if (!r.ok) return null;
                     const idx = await r.json();
-                    backingCronHistory = idx.history || [];
+                    // ORG 2026-08-11: backing-history.json is ONE canonical series
+                    // ({rows:[{date,ampLunaPerNft,ampLunaRate,backingInLuna}]}) that
+                    // merges the retired backing cron's 2026-04-13.. history with the
+                    // org NFT layer's forward rows. Legacy shape was {history:[...]}.
+                    backingCronHistory = idx.rows || idx.history || [];
                     return backingCronHistory;
                 } catch (e) {
                     console.warn('Backing cron index fetch failed:', e.message);
@@ -5005,6 +5009,44 @@
                 // ─────────────────────────────────────────────────────────────────
                 const SNAP_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/daily';
                 const BK_BASE   = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/backing-history.json';  // ORG: one canonical series (rows[]), not per-day files
+                // ORG ADAPTER (2026-08-11): the retired backing cron wrote one file per
+                // day; the org series is a single file with rows[]. Fetch once, index by
+                // date, and hand each day's row to the same consumer below unchanged.
+                let _bkRowsPromise = null;
+                async function backingRowsMap() {
+                    if (!_bkRowsPromise) {
+                        _bkRowsPromise = fetch(BK_BASE)
+                            .then(r => r.ok ? r.json() : null)
+                            .then(d => {
+                                const m = new Map();
+                                for (const row of ((d && (d.rows || d.history)) || [])) {
+                                    if (row && row.date) m.set(row.date, row);
+                                }
+                                return m;
+                            })
+                            .catch(() => new Map());
+                    }
+                    return _bkRowsPromise;
+                }
+                async function backingRowFor(date) {
+                    const m = await backingRowsMap();
+                    return m.get(date) || null;
+                }
+                // Same pattern for NFT day-state: fetch each MONTH once, cache it,
+                // and return the requested day's row.
+                const _stateMonths = new Map();
+                async function stateRowFor(date) {
+                    const ym = String(date).slice(0, 7);            // yyyy-mm
+                    const [y, m] = ym.split('-');
+                    if (!_stateMonths.has(ym)) {
+                        _stateMonths.set(ym, fetch(`${V2_BASE}/${y}/${m}.json`)
+                            .then(r => r.ok ? r.json() : null)
+                            .then(d => (d && d.days) || {})
+                            .catch(() => ({})));
+                    }
+                    const days = await _stateMonths.get(ym);
+                    return days[date] || null;
+                }
                 const V2_BASE   = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/state-history';  // ORG: {yyyy}/{mm}.json with days keyed by date
                 const RATIO_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/network-and-prices/ratio-history.json';
                 // Backfilled daily LUNA price (luna_market.usd_price), covering the full
@@ -5043,8 +5085,12 @@
                     const V2_EARLIEST = '2026-06-07'; // nft-inventory v2 daily begins
                     const [dd, bk, vd, td, np] = await Promise.all([
                         date >= DD_EARLIEST ? jget(SNAP_BASE + '/dao-dashboard-' + date + '.json') : Promise.resolve(null),
-                        jget(BK_BASE + '/' + date + '.json'),
-                        date >= V2_EARLIEST ? jget(V2_BASE + '/' + date + '.json') : Promise.resolve(null),
+                        // ORG: one canonical backing series — look the date up in the
+                        // prefetched map instead of a per-day file fetch.
+                        Promise.resolve(await backingRowFor(date)),
+                        // ORG: NFT day-state lives in state-history/{yyyy}/{mm}.json
+                        // (days keyed by date), not one file per day.
+                        date >= V2_EARLIEST ? stateRowFor(date) : Promise.resolve(null),
                         jget(SNAP_BASE + '/' + date + '.json'),
                         jget(NP_BASE + '/' + date + '.json'),
                     ]);
@@ -8004,22 +8050,36 @@
                     description: 'LUNA price, LST ratios, token prices',
                 },
                 'bribes-history': {
-                    label: 'Bribes History',
-                    cadence: 'daily',
-                    cadenceMs: 24 * 60 * 60 * 1000,
-                    warningMs: 26 * 60 * 60 * 1000,
-                    staleMs: 36 * 60 * 60 * 1000,
+                    label: 'Voting & Bribes',
+                    // org-tla-voting captures continuously (~15min), not daily.
+                    cadence: 'hourly',
+                    cadenceMs: 60 * 60 * 1000,
+                    warningMs: 2 * 60 * 60 * 1000,
+                    staleMs: 4 * 60 * 60 * 1000,
                     sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/events/heartbeat.json',
                     description: 'PD bribes + epoch archives',
                 },
                 'adao-positions': {
                     label: 'aDAO Positions',
-                    cadence: 'weekly',
-                    cadenceMs: 7 * 24 * 60 * 60 * 1000,
-                    warningMs: 8 * 24 * 60 * 60 * 1000,
-                    staleMs: 10 * 24 * 60 * 60 * 1000,
+                    // 2026-08-11: folded into org-member-data, which runs HOURLY —
+                    // the old weekly thresholds would hide a day-long outage.
+                    cadence: 'hourly',
+                    cadenceMs: 60 * 60 * 1000,
+                    warningMs: 90 * 60 * 1000,
+                    staleMs: 3 * 60 * 60 * 1000,
                     sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/heartbeat.json',
-                    description: 'Treasury + 46 member portfolios',
+                    description: 'Treasury, council + all aDAO member portfolios',
+                },
+                'tla-participants': {
+                    label: 'TLA Participants',
+                    // New org product (2026-08-11 fold): every veLUNA lock holder's
+                    // portfolio. Same hourly job as positions.
+                    cadence: 'hourly',
+                    cadenceMs: 60 * 60 * 1000,
+                    warningMs: 90 * 60 * 1000,
+                    staleMs: 3 * 60 * 60 * 1000,
+                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/heartbeat.json',
+                    description: 'All lock holders — names, locks, LPs, pending rewards',
                 },
                 'astroport': {
                     label: 'Astroport Pools',
@@ -15373,7 +15433,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.75', REV_DATE = '2026-08-11';   // rev-footer law: bump BOTH every change
+        const REV = '3.76', REV_DATE = '2026-08-11';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
