@@ -152,7 +152,6 @@
 <script src="/lib/cron-registry.js"></script>
 <script>
 const ORG='https://raw.githubusercontent.com/thealliancedao/tla-core/main';
-const RAW='https://raw.githubusercontent.com/defipatriot';
 // 2026-08-12: health now comes from lib/cron-registry.js (live org heartbeats),
 // not the frozen legacy system-health file. Endpoint checks come from the org
 // system-health invariants product.
@@ -201,27 +200,61 @@ async function loadUpdates(){
   }catch(e){ document.getElementById('updates').innerHTML='<div class="loading">No updates yet — the changelog will appear here.</div>'; }
 }
 function parseChangelog(md){
-  // each "## Title — Rev N (date) [TAGS]" starts an entry; bullet lines are steps
-  const lines=md.split('\n'); let out=''; let cur=null;
-  const flush=()=>{ if(!cur)return;
-    const isM=cur.tags.includes('MILESTONE');
-    out+=`<div class="upd-item ${isM?'milestone':''}">
-      <div class="upd-date">${esc(cur.date||'')}${cur.rev?' · '+esc(cur.rev):''}</div>
-      <div class="upd-title">${esc(cur.title)} ${cur.tags.map(t=>`<span class="tag ${t}">${t}</span>`).join('')}</div>
-      ${cur.body?`<div class="upd-body">${esc(cur.body)}</div>`:''}
-      ${cur.steps.length?`<div class="upd-steps">${cur.steps.map(s=>`<div class="upd-step">${fmtStep(s)}</div>`).join('')}</div>`:''}
-    </div>`; cur=null; };
-  for(let line of lines){
-    const h=line.match(/^##\s+(.+?)\s+—\s+Rev\s+([\d.]+)\s*\(([^)]+)\)\s*(.*)$/);
-    if(h){ flush(); const tags=(h[4].match(/\[([A-Z]+)\]/g)||[]).map(t=>t.replace(/[\[\]]/g,''));
-      cur={title:h[1],rev:'Rev '+h[2],date:h[3],tags,body:'',steps:[]}; continue; }
-    if(!cur)continue;
-    const b=line.match(/^-\s+(.+)$/);
-    if(b){ cur.steps.push(b[1]); }
-    else if(line.trim()&&!line.startsWith('#')&&!line.startsWith('Format:')&&!line.startsWith('Discipline:')&&!line.startsWith('Entry tags')){ cur.body+=(cur.body?' ':'')+line.trim(); }
+  // ORG FORMAT (2026-08-12): CHANGES_PENDING.md is the live build queue, written
+  // as "## YYYY-MM-DD — Title" or "## Rev X.Y — YYYY-MM-DD — Title", with bold
+  // status markers in the body. The old parser expected the retired repo's
+  // "## Title — Rev N (date) [TAGS]" shape and matched nothing, so this tab read
+  // "No milestones logged yet" while the queue was full.
+  //
+  // Status is INFERRED from the text the queue already uses, so nothing has to
+  // be maintained twice: EXECUTED/DONE -> SHIPPED, BUILT+GATED -> READY,
+  // everything else -> BUILDING. That makes this tab an honest picture of what
+  // is actually in flight.
+  const lines = md.split('\n');
+  let out = '', cur = null;
+  const tagFor = (txt) => {
+    const t = txt.toUpperCase();
+    if (/EXECUTED|✅✅|— DONE|COMPLETE/.test(t)) return 'SHIPPED';
+    if (/BUILT \+ GATED|BUILT AND GATED|COMMIT PENDING|DEPLOY PENDING/.test(t)) return 'READY';
+    if (/PRIORITY LOCK|DEFINITION OF DONE/.test(t)) return 'MILESTONE';
+    return 'BUILDING';
+  };
+  const flush = () => {
+    if (!cur) return;
+    if (cur.title) {
+      const tag = tagFor(cur.title + ' ' + cur.body);
+      out += `<div class="upd-item ${tag === 'MILESTONE' ? 'milestone' : ''}">
+        <div class="upd-date">${esc(cur.date || '')}</div>
+        <div class="upd-title">${esc(cur.title)} <span class="tag ${tag}">${tag}</span></div>
+        ${cur.body ? `<div class="upd-body">${esc(cur.body.slice(0, 420))}${cur.body.length > 420 ? '…' : ''}</div>` : ''}
+        ${cur.steps.length ? `<div class="upd-steps">${cur.steps.slice(0, 6).map(x => `<div class="upd-step">${fmtStep(x)}</div>`).join('')}</div>` : ''}
+      </div>`;
+    }
+    cur = null;
+  };
+  for (const line of lines) {
+    // "## Rev 1.2 — 2026-08-11 — Title"  |  "## 2026-08-11 — Title"  |  "## Title"
+    const h = line.match(/^##\s+(.+)$/);
+    if (h) {
+      flush();
+      let rest = h[1].replace(/\*\*/g, '').trim();
+      let date = '';
+      const dm = rest.match(/(\d{4}-\d{2}-\d{2})/);
+      if (dm) { date = dm[1]; rest = rest.replace(dm[1], '').replace(/^[\s—–-]+|[\s—–-]+$/g, ''); }
+      const rm = rest.match(/^Rev\s+([\d.]+)\s*[—–-]*\s*/i);
+      if (rm) { date = (date ? date + ' · ' : '') + 'Rev ' + rm[1]; rest = rest.slice(rm[0].length); }
+      cur = { title: rest.replace(/^[\s—–-]+/, ''), date, body: '', steps: [] };
+      continue;
+    }
+    if (!cur) continue;
+    const b = line.match(/^\s*[-*]\s+(.+)$/) || line.match(/^\s*\d+[.)]\s+(.+)$/);
+    if (b) { cur.steps.push(b[1]); continue; }
+    if (line.trim() && !line.startsWith('#') && !line.startsWith('|') && !/^[-=]{3,}$/.test(line.trim())) {
+      cur.body += (cur.body ? ' ' : '') + line.trim().replace(/\*\*/g, '');
+    }
   }
   flush();
-  return out||'<div class="loading">No milestones logged yet.</div>';
+  return out || '<div class="loading">The build queue is empty right now.</div>';
 }
 function fmtStep(s){ // bold the **x.y** step marker + render [TAG]s
   s=esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\[([A-Z]+)\]/g,'<span class="tag $1" style="font-size:8px">$1</span>'); return s; }
@@ -321,25 +354,44 @@ async function loadHealth(){
         </div>
         <div class="card-links"><span style="color:var(--faint);font:11px var(--mono)">job: ${esc(r.job)}</span></div>
       </div>`).join('')).join('');
-    // endpoints grid — if monitor hasn't published endpoint data yet, show the
-    // known list in a "checking" state so the tab is never blank.
-    const KNOWN_EP=[
-      ['terra-lcd (primary)','Terra LCD — chain queries (primary)'],
-      ['terra-rest (fallback)','Terra LCD — chain queries (fallback)'],
-      ['daodao indexer','DAODAO indexer — staker resolution'],
-      ['pfpk','PFPK — wallet name resolution'],
-      ['coingecko','CoinGecko — base asset prices'],
-      ['eris backend','Eris Protocol — LST/pool data'],
-      ['warlock (BBL)','BackBone Labs — marketplace listings'],
+    // ENDPOINTS (2026-08-12): org system-health publishes INVARIANTS, not
+    // upstream probes — there is no endpoint feed to read, which is why this
+    // tab sat on "checking" forever. Instead of faking it or leaving it blank,
+    // probe the upstreams LIVE from the browser: a HEAD/GET that resolves at
+    // all proves the host is reachable. CORS blocks reading most responses,
+    // so we report reachability + latency only, and say so.
+    const EPS = [
+      ['terra-lcd (primary)',  'https://terra-lcd.publicnode.com/cosmos/base/tendermint/v1beta1/syncing', 'Terra LCD — chain queries (primary)'],
+      ['terra-rest (fallback)','https://phoenix-lcd.terra.dev/cosmos/base/tendermint/v1beta1/syncing',    'Terra LCD — chain queries (fallback)'],
+      ['daodao indexer',       'https://indexer.daodao.zone/',                                            'DAODAO indexer — staker resolution'],
+      ['pfpk',                 'https://pfpk.daodao.zone/',                                               'PFPK — wallet name resolution'],
+      ['coingecko',            'https://api.coingecko.com/api/v3/ping',                                   'CoinGecko — base asset prices'],
+      ['eris backend',         'https://backend.erisprotocol.com/',                                       'Eris Protocol — LST/pool data'],
+      ['warlock (BBL)',        'https://warlock.backbonelabs.io/api/v1/',                                 'BackBone Labs — marketplace listings'],
+      ['skeletonswap',         'https://skeletonswap.backbonelabs.io/mainnet/phoenix-1/pools_list.json',   'Skeleton Swap — pool metadata'],
+      ['github raw',           'https://raw.githubusercontent.com/thealliancedao/tla-core/main/README.md', 'GitHub raw — every data read on this site'],
     ];
-    const eps=(d.endpoints&&d.endpoints.length)?d.endpoints.slice().sort((a,b)=>order[a.health]-order[b.health])
-      :KNOWN_EP.map(([k,r])=>({key:k,role:r,health:'info',up:null,reason:'Awaiting first endpoint check (monitor will report shortly).'}));
-    document.getElementById('epGrid').innerHTML=eps.map(e=>`
-      <div class="card ${e.health}">
-        <div class="card-top"><span class="card-name">${esc(e.key)}</span><span class="card-stat">${e.health==='info'?'checking':e.up?(e.latency_ms!=null?e.latency_ms+'ms':'up'):'down'}</span></div>
-        <div class="card-role">${esc(e.role||'')}</div>
-        <div class="card-reason">${esc(e.reason||'')}</div>
-      </div>`).join('');
+    const probe = ([name, url, desc]) => {
+      const t0 = performance.now();
+      return fetch(url, { mode: 'no-cors', cache: 'no-store' })
+        .then(() => ({ name, desc, ms: Math.round(performance.now() - t0), up: true }))
+        .catch(() => ({ name, desc, ms: Math.round(performance.now() - t0), up: false }));
+    };
+    Promise.all(EPS.map(probe)).then(list => {
+      const down = list.filter(e => !e.up).length;
+      const eb = document.getElementById('epBadge');
+      eb.textContent = down ? down + ' unreachable' : 'all reachable';
+      eb.className = 'badge ' + (down ? 'down' : 'ok');
+      document.getElementById('epGrid').innerHTML = list
+        .sort((a, b) => (a.up === b.up ? a.ms - b.ms : (a.up ? 1 : -1)))
+        .map(e => `
+          <div class="card ${e.up ? 'ok' : 'down'}">
+            <div class="card-top"><span class="card-name">${esc(e.name)}</span><span class="card-stat">${e.up ? e.ms + 'MS' : 'UNREACHABLE'}</span></div>
+            <div class="card-reason">${esc(e.desc)}</div>
+            <div class="card-reason" style="color:var(--faint);margin-top:6px">${e.up ? 'Responded in ' + e.ms + 'ms (reachability only — CORS hides the status code).' : 'No response from the browser — may still work server-side.'}</div>
+          </div>`).join('');
+    });
+
   }catch(e){
     document.getElementById('healthGrid').innerHTML='<div class="loading">System health data not available yet — the monitor may not have run.</div>';
     document.getElementById('epGrid').innerHTML='<div class="loading">Endpoint data not available yet.</div>';
