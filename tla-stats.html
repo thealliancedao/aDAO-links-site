@@ -2544,7 +2544,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span id="footer-rev" class="font-mono">Rev T3.9</span>
+                    <span id="footer-rev" class="font-mono">Rev T3.10</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                     <span id="footer-rev-date" class="opacity-50 ml-1"></span>
@@ -2606,7 +2606,8 @@
     </div>
 
     
-    <script>
+    <script src="/lib/cron-registry.js"></script>
+<script>
     // ============================================================
     // CONFIGURATION
     // ============================================================
@@ -2719,120 +2720,30 @@
     // CRON HEALTH REGISTRY
     // Each cron's expected cadence + the URL that exposes its capturedAt.
     // ============================================================
-    const CRON_REGISTRY = {
-        'tla-snapshot': {
-            label: 'TLA Snapshot',
-            cadence: 'hourly',
-            cadenceMs: 60 * 60 * 1000,
-            warningMs: 75 * 60 * 1000,  // 1h 15m
-            staleMs: 2 * 60 * 60 * 1000, // 2h
-            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/heartbeat.json',
-            description: 'Unified aggregator — powers pools, pie, VP totals',
-        },
-        'tla-participants': {
-            label: 'TLA Participants',
-            cadence: 'hourly',
-            cadenceMs: 60 * 60 * 1000,
-            warningMs: 75 * 60 * 1000,
-            staleMs: 3 * 60 * 60 * 1000,
-            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/heartbeat.json',
-            description: 'All TLA lockers — names, VP, first participation',
-        },
-        'adao-allies': {
-            label: 'aDAO Allies',
-            cadence: 'hourly',
-            cadenceMs: 60 * 60 * 1000,
-            warningMs: 75 * 60 * 1000,
-            staleMs: 3 * 60 * 60 * 1000,
-            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/heartbeat.json',
-            description: 'Registered Pixel Lions + Lion DAO members',
-        },
-        'network-and-prices': {
-            label: 'Network & Prices',
-            cadence: 'hourly',
-            cadenceMs: 60 * 60 * 1000,
-            warningMs: 75 * 60 * 1000,
-            staleMs: 2 * 60 * 60 * 1000,
-            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/network-and-prices/heartbeat.json',
-            description: 'LUNA price, LST ratios, token prices',
-        },
-        'bribes-history': {
-            label: 'Bribes History',
-            cadence: 'daily',
-            cadenceMs: 24 * 60 * 60 * 1000,
-            warningMs: 26 * 60 * 60 * 1000,
-            staleMs: 36 * 60 * 60 * 1000,
-            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/events/heartbeat.json',
-            description: 'PD bribes + epoch archives',
-            // Bribes are SPORADIC — a single briber, additions days/weeks apart. An
-            // unchanged data fingerprint is normal, not a failure, so dataFreshness
-            // 'stuck' must NOT escalate to a page-wide red alarm here. A genuinely
-            // dead cron is still caught by the age-based warning/stale thresholds above.
-            sporadicData: true,
-        },
-        'adao-positions': {
-            label: 'aDAO Positions',
-            cadence: 'weekly',
-            cadenceMs: 7 * 24 * 60 * 60 * 1000,
-            warningMs: 8 * 24 * 60 * 60 * 1000,
-            staleMs: 10 * 24 * 60 * 60 * 1000,
-            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/heartbeat.json',
-            description: 'Treasury + 46 member portfolios',
-        },
-        'astroport': {
-            label: 'Astroport Pools',
-            cadence: 'daily',
-            cadenceMs: 24 * 60 * 60 * 1000,
-            warningMs: 26 * 60 * 60 * 1000,
-            staleMs: 36 * 60 * 60 * 1000,
-            // Heartbeat file written on every successful run; falls back to per-epoch JSON
-            // if heartbeat doesn't exist yet (e.g. before the cron has been redeployed)
-            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/epochs/heartbeat.json',
-            sourceUrlFallbackFn: (epoch) => `https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/epochs/astroport-epoch-${epoch - 1}.json`,
-            description: 'Astroport pool TVL + volume (feeds TLA Snapshot)',
-        },
-        'skeletonswap': {
-            label: 'Skeleton Swap',
-            cadence: 'daily',
-            cadenceMs: 24 * 60 * 60 * 1000,
-            warningMs: 26 * 60 * 60 * 1000,
-            staleMs: 36 * 60 * 60 * 1000,
-            // Heartbeat file (added in cron after previous CSV-only outputs lacked a timestamp)
-            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/skeletonswap/rolling/heartbeat.json',
-            // No fallback — if heartbeat isn't there yet, status will be 'stale' until cron redeploys
-            description: 'Skeleton Swap pool data (feeds TLA Snapshot)',
-        },
-        'votion': {
-            label: 'Votion',
-            cadence: 'weekly',
-            cadenceMs: 7 * 24 * 60 * 60 * 1000,
-            warningMs: 8 * 24 * 60 * 60 * 1000,
-            staleMs: 10 * 24 * 60 * 60 * 1000,
-            // Heartbeat written by votion cron starting 2026-05-18 freshness rollout.
-            // Falls back to the per-epoch JSON for any captures before that date.
-            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/heartbeat.json',
-            sourceUrlFallbackFn: (epoch) => `https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/snapshots/current.json`,
-            description: 'Next-epoch vote optimization data',
-        },
-        'nft-inventory': {
-            label: 'NFT Inventory',
-            cadence: 'hourly',
-            cadenceMs: 60 * 60 * 1000,
-            warningMs: 75 * 60 * 1000,  // 1h 15m
-            staleMs: 2 * 60 * 60 * 1000, // 2h
-            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/heartbeat.json',
-            description: 'Per-NFT chain ownership + broken status (10k NFTs)',
-        },
-        'marketplace-stats': {
-            label: 'Marketplace Stats',
-            cadence: 'hourly',
-            cadenceMs: 60 * 60 * 1000,
-            warningMs: 75 * 60 * 1000,
-            staleMs: 2 * 60 * 60 * 1000,
-            sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/heartbeat.json',
-            description: 'BBL + Boost floors, listings, activity, sales history',
-        },
-    };
+    // CRON_REGISTRY is now DERIVED from lib/cron-registry.js — the single
+    // source of truth shared with index.html and transparency-hub.html.
+    // Before 2026-08-12 each page kept its own copy and they drifted: this
+    // page still described adao-positions as "weekly" and votion as "weekly"
+    // long after both moved hourly, so the modal showed healthy jobs red.
+    // Adding a cron = one entry in the shared file, and it appears everywhere.
+    const CRON_REGISTRY = (function buildRegistry() {
+        const out = {};
+        const src = (typeof CronRegistry !== 'undefined' && CronRegistry.CRONS) || [];
+        for (const c of src) {
+            out[c.key] = {
+                label: c.label,
+                cadence: c.cadence,
+                cadenceMs: c.cadenceMs,
+                warningMs: c.warningMs,
+                staleMs: c.staleMs,
+                sourceUrl: c.sourceUrl,
+                description: c.description,
+                job: c.job,
+                group: c.group,
+            };
+        }
+        return out;
+    })();
 
     // Per-source cadence label for the modal
     function cronCadenceLabel(key) {

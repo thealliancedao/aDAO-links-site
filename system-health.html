@@ -138,7 +138,11 @@
 </div>
 
 <script>
-const SRC = 'https://raw.githubusercontent.com/defipatriot/system-health-data_2026/main/data/system-health.json';
+// ORG 2026-08-12: the legacy system-health cron is dead (its product froze).
+// org-system-health publishes a different, better model — INVARIANTS (assertions
+// about the data that must hold) rather than endpoint pings. Adapter below maps
+// it onto this page's existing render contract; no rendering changes.
+const SRC = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/system-health/current.json';
 const C = { ok:'var(--ok)', warn:'var(--warn)', down:'var(--down)', info:'var(--info)',
             healthy:'var(--ok)', watch:'var(--warn)', minor:'var(--warn)', degraded:'var(--down)' };
 
@@ -154,8 +158,8 @@ async function load(){
   try{
     const r = await fetch(SRC + '?t=' + Date.now());
     if(!r.ok) throw new Error('fetch '+r.status);
-    const d = await r.json();
-    render(d);
+    const raw = await r.json();
+    render(adaptOrgHealth(raw));
   }catch(e){
     document.getElementById('systems').innerHTML =
       '<div class="error">Couldn\'t load system health.<br>The health monitor may not have run yet, or the data repo is empty.</div>';
@@ -163,6 +167,46 @@ async function load(){
     document.getElementById('verdictReason').textContent = 'The monitor hasn\'t published yet — check back shortly.';
     document.getElementById('updated').textContent = 'no data';
   }
+}
+
+// ── ORG ADAPTER ────────────────────────────────────────────────────────────
+// org-system-health emits { meta:{version,generated_at,status}, invariants:{
+//   <key>: { status: ok|violation|skipped, detail, measured } } }.
+// This page renders { overall, overall_reason, capturedAt, confidence_pct,
+//   counts:{ok,warn,down}, attention:[], systems:[] }. Map, don't invent:
+//   violation -> down (needs attention), skipped -> info (not a failure),
+//   ok -> ok. Confidence = ok / (ok + violations), skipped excluded because a
+//   skipped check is neither passing nor failing.
+function adaptOrgHealth(raw){
+  if (!raw || !raw.invariants) return raw;          // already legacy-shaped
+  const inv = raw.invariants;
+  const HEALTH = { ok:'ok', violation:'down', skipped:'info', warn:'warn' };
+  const systems = Object.entries(inv).map(([key, v]) => ({
+    key,
+    tier: 'invariant',
+    health: HEALTH[v.status] || 'info',
+    status: v.status,
+    reason: v.detail || '',
+  }));
+  const counts = { ok:0, warn:0, down:0 };
+  for (const s of systems) if (counts[s.health] != null) counts[s.health]++;
+  const scored = counts.ok + counts.down;
+  const confidence_pct = scored ? Math.round((counts.ok / scored) * 100) : 100;
+  const attention = systems.filter(s => s.health === 'down')
+    .map(s => ({ key: s.key, health: s.health, status: s.status, reason: s.reason }));
+  const overall = counts.down ? 'degraded' : 'ok';
+  return {
+    overall,
+    overall_reason: counts.down
+      ? `${counts.down} invariant${counts.down > 1 ? 's' : ''} violated`
+      : 'all invariants holding',
+    capturedAt: raw.meta && raw.meta.generated_at,
+    confidence_pct,
+    counts,
+    attention,
+    systems,
+    _org_source: raw.meta && raw.meta.version,
+  };
 }
 
 function render(d){

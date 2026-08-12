@@ -145,24 +145,37 @@
   </div>
 
   <div class="foot">
-    Everything here is public and verifiable. Health &amp; endpoint data refreshes from <code>system-health-data_2026</code> (updated ~every 30 min). Updates &amp; docs read from the <code>website-adao-core</code> repo. No wallet, no tracking.
+    Everything here is public and verifiable. Health reads every org cron's live heartbeat via <code>lib/cron-registry.js</code>; updates read the live build queue and docs read <code>tla-core/docs</code>. No wallet, no tracking.
   </div>
 </div>
 
+<script src="/lib/cron-registry.js"></script>
 <script>
+const ORG='https://raw.githubusercontent.com/thealliancedao/tla-core/main';
 const RAW='https://raw.githubusercontent.com/defipatriot';
-const HEALTH_SRC=`${RAW}/system-health-data_2026/main/data/system-health.json`;
-const CHANGELOG_SRC=`${RAW}/website-adao-core/main/CHANGELOG.md`;
+// 2026-08-12: health now comes from lib/cron-registry.js (live org heartbeats),
+// not the frozen legacy system-health file. Endpoint checks come from the org
+// system-health invariants product.
+const ENDPOINT_SRC=`${ORG}/system-health/current.json`;
+// Updates tab = what we're actively building. CHANGES_PENDING is the live
+// queue (org), so this tab now reflects real current work instead of a
+// changelog frozen in a retired repo.
+const CHANGELOG_SRC=`${ORG}/docs/pending-changes/CHANGES_PENDING.md`;
 
-// doc library — chapters (editable titles). file = path in website-adao-core.
+// doc library — chapters (editable titles). file = path under tla-core/docs/.
+// Docs surface the org knowledge base. `file` is a path under tla-core/docs/.
+// Anything added to those folders can be surfaced by adding a row here.
+const DOCS_BASE=`${ORG}/docs`;
 const DOCS=[
-  {ch:'Vision', title:'Mission', file:'MISSION.md', desc:'Why TLA Stats exists — the three-layer strategy (aDAO, Allies, LP grading).'},
-  {ch:'Method', title:'Pricing Doctrine', file:'PRICING-DOCTRINE.md', desc:'How every asset is priced and why — match the source to the asset.'},
-  {ch:'Operations', title:'System Audit & Ops', file:'SYSTEM-AUDIT-AND-OPS.md', desc:'Every cron, repo, schedule, and the cleanup + year-rollover plan.'},
-  {ch:'Spec', title:'Portfolio Tracker', file:'SPEC-portfolio-tracker.md', desc:'The unified NFT + TLA + Votion position companion.'},
-  {ch:'Spec', title:'LP Grading', file:'SPEC-lp-grading.md', desc:'The incentive-routing oracle — grade every LP on real quality.'},
-  {ch:'Spec', title:'Votion Capture', file:'SPEC-votion-capture.md', desc:'How per-user Votion vault holdings are captured.'},
-  {ch:'Notes', title:'arbLUNA Pricing', file:'NOTE-arbLUNA-pricing-gap.md', desc:'The pricing investigation — and what it taught us.'},
+  {ch:'Vision', title:'Mission', file:'archive-2026-08/MISSION.md', desc:'Why TLA Stats exists — the three-layer strategy (aDAO, Allies, LP grading).'},
+  {ch:'Method', title:'Pricing Doctrine', file:'ecosystem-knowledge/PRICING-DOCTRINE.md', desc:'How every asset is priced and why — match the source to the asset.'},
+  {ch:'Operations', title:'Repo Catalog', file:'REPO-CATALOG.md', desc:'What lives where, who writes it, who reads it — the platform map.'},
+  {ch:'Operations', title:'Site Data Contract', file:'pending-changes/SITE-DATA-CONTRACT.md', desc:'Every page, every data source, and where each one comes from.'},
+  {ch:'Spec', title:'Portfolio Tracker', file:'archive-2026-08/SPEC-portfolio-tracker.md', desc:'The unified NFT + TLA + Votion position companion.'},
+  {ch:'Spec', title:'DAO Governance Capture', file:'pending-changes/SPEC-dao-governance-capture.md', desc:'How proposals, members and the trust registry are captured.'},
+  {ch:'Spec', title:'NFT Onboarding Blueprint', file:'archive-2026-08/SPEC-nft-onboarding-blueprint.md', desc:'How a new NFT collection joins the platform.'},
+  {ch:'Ecosystem', title:'TLA Stats System', file:'ecosystem-knowledge/tla-stats-system.md', desc:'How the platform itself is put together.'},
+  {ch:'Ecosystem', title:'Terra Liquidity Alliance', file:'ecosystem-knowledge/terra-liquidity-alliance.md', desc:'The alliance, its mechanics and its vocabulary.'},
 ];
 
 const C={ok:'var(--ok)',warn:'var(--warn)',down:'var(--down)',info:'var(--info)',healthy:'var(--ok)',watch:'var(--warn)',minor:'var(--warn)',degraded:'var(--down)'};
@@ -226,7 +239,7 @@ async function openDoc(i){
   document.getElementById('docView').classList.add('active');
   document.getElementById('docContent').innerHTML='<div class="loading">Loading…</div>';
   try{
-    const md=await (await fetch(`${RAW}/website-adao-core/main/${d.file}?t=${Date.now()}`)).text();
+    const md=await (await fetch(`${DOCS_BASE}/${d.file}?t=${Date.now()}`)).text();
     document.getElementById('docContent').innerHTML=miniMd(md);
   }catch(e){ document.getElementById('docContent').innerHTML='<p>Could not load this doc.</p>'; }
 }
@@ -265,7 +278,14 @@ function miniMd(md){
 let healthLoaded=false;
 async function loadHealth(){
   try{
-    const d=await (await fetch(HEALTH_SRC+'?t='+Date.now())).json();
+    const results = await CronRegistry.fetchAll();
+    const sum = CronRegistry.summarize(results);
+    const d = { confidence_pct: sum.confidence, overall: sum.overall,
+                capturedAt: sum.newestAt,
+                overall_reason: sum.attention.length
+                  ? sum.attention.map(a=>a.label).join(', ') + ' need attention'
+                  : 'every scheduled job reporting on time',
+                endpoints: [] };
     healthLoaded=true;
     // badges
     const hb=document.getElementById('healthBadge');
@@ -279,15 +299,28 @@ async function loadHealth(){
       <div class="conf"><div><div class="big">${d.confidence_pct}%</div><div class="lbl">Confidence</div></div>
       <div><div style="font-weight:700;font-size:17px;display:flex;align-items:center;gap:8px"><span class="dot" style="background:${C[d.overall]}"></span>${({healthy:'All systems healthy',watch:'Minor items to watch',minor:'Auxiliary feed down',degraded:'Core data degraded'})[d.overall]||d.overall}</div>
       <div class="verdict">${esc(d.overall_reason||'')} · updated ${ago(d.capturedAt)}</div></div></div>`;
-    // systems grid
-    const order={down:0,warn:1,info:2,ok:3};
-    document.getElementById('healthGrid').innerHTML=(d.systems||[]).slice().sort((a,b)=>order[a.health]-order[b.health]).map(s=>`
-      <div class="card ${s.health}">
-        <div class="card-top"><span class="card-name">${s.key}</span><span class="card-stat">${(s.status||s.health||'').replace(/_/g,' ')}</span></div>
-        <div class="card-reason">${esc(s.reason||'')}</div>
-        ${(s.recent_errors&&s.recent_errors.length)?`<div class="card-err">${s.recent_errors.map(e=>`<div><span class="s">${esc(e.step)}</span>${e.code?' ['+e.code+']':''}: ${esc(e.message)}</div>`).join('')}</div>`:''}
-        <div class="card-links">${s.update_url?`<a class="upd" href="${s.update_url}" target="_blank" rel="noopener" title="${esc(s.note||'Update this manual source')}">update ↗</a>`:''}${s.data_repo_url?`<a href="${s.data_repo_url}" target="_blank" rel="noopener">${s.manual?'csv':'data'} ↗</a>`:''}${(s.cron_source_url&&!s.manual)?`<a href="${s.cron_source_url}" target="_blank" rel="noopener">cron ↗</a>`:''}</div>
-      </div>`).join('');
+    // systems grid — driven by the SHARED registry (lib/cron-registry.js), so
+    // this page, index.html and tla-stats.html can never disagree again. Each
+    // card shows the schedule and which Render job writes it, so a red dot
+    // tells you exactly where to look.
+    const order={stale:0,warning:1,unknown:2,due:3,fresh:4};
+    const GL=CronRegistry.GROUP_LABELS, SL=CronRegistry.STATE_LABELS, SC=CronRegistry.STATE_COLORS;
+    const byGroup={};
+    results.slice().sort((a,b)=>order[a.state]-order[b.state]).forEach(r=>{ (byGroup[r.group]=byGroup[r.group]||[]).push(r); });
+    document.getElementById('healthGrid').innerHTML = CronRegistry.GROUPS.filter(g=>byGroup[g]).map(g=>`
+      <div style="grid-column:1/-1;margin:14px 0 2px;font:600 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">${GL[g]||g}</div>
+      ` + byGroup[g].map(r=>`
+      <div class="card" style="border-left:3px solid ${SC[r.state]}">
+        <div class="card-top">
+          <span class="card-name">${esc(r.label)}</span>
+          <span class="card-stat" style="color:${SC[r.state]}">${SL[r.state]||r.state}</span>
+        </div>
+        <div class="card-reason">${esc(r.description)}</div>
+        <div class="card-reason" style="color:var(--faint);margin-top:6px">
+          runs ${esc(r.cadence)} · last ${esc(r.ageText||'—')}${r.declared&&r.declared!=='ok'?` · reported <b>${esc(r.declared)}</b>`:''}
+        </div>
+        <div class="card-links"><span style="color:var(--faint);font:11px var(--mono)">job: ${esc(r.job)}</span></div>
+      </div>`).join('')).join('');
     // endpoints grid — if monitor hasn't published endpoint data yet, show the
     // known list in a "checking" state so the tab is never blank.
     const KNOWN_EP=[

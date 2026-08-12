@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- PWA: detect standalone mode + redirect to user's preferred default page on launch -->
-    <script>
+    <script src="/lib/cron-registry.js"></script>
+<script>
     (function() {
         var isStandalone = window.matchMedia('(display-mode: standalone)').matches
                         || window.navigator.standalone === true;
@@ -8034,108 +8035,21 @@
             // ============================================================
             window.cronHealth = {};   // { [cronKey]: { capturedAt, error, dataFreshness, ... } }
 
-            const CRON_REGISTRY = {
-                'tla-snapshot': {
-                    label: 'TLA Snapshot',
-                    cadence: 'hourly',
-                    cadenceMs: 60 * 60 * 1000,
-                    warningMs: 75 * 60 * 1000,
-                    staleMs: 2 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/heartbeat.json',
-                    description: 'Unified aggregator — powers pools, pie, VP totals',
-                },
-                'network-and-prices': {
-                    label: 'Network & Prices',
-                    cadence: 'hourly',
-                    cadenceMs: 60 * 60 * 1000,
-                    warningMs: 75 * 60 * 1000,
-                    staleMs: 2 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/network-and-prices/heartbeat.json',
-                    description: 'LUNA price, LST ratios, token prices',
-                },
-                'bribes-history': {
-                    label: 'Voting & Bribes',
-                    // org-tla-voting captures continuously (~15min), not daily.
-                    cadence: 'hourly',
-                    cadenceMs: 60 * 60 * 1000,
-                    warningMs: 2 * 60 * 60 * 1000,
-                    staleMs: 4 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/events/heartbeat.json',
-                    description: 'PD bribes + epoch archives',
-                },
-                'adao-positions': {
-                    label: 'aDAO Positions',
-                    // 2026-08-11: folded into org-member-data, which runs HOURLY —
-                    // the old weekly thresholds would hide a day-long outage.
-                    cadence: 'hourly',
-                    cadenceMs: 60 * 60 * 1000,
-                    warningMs: 90 * 60 * 1000,
-                    staleMs: 3 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/heartbeat.json',
-                    description: 'Treasury, council + all aDAO member portfolios',
-                },
-                'tla-participants': {
-                    label: 'TLA Participants',
-                    // New org product (2026-08-11 fold): every veLUNA lock holder's
-                    // portfolio. Same hourly job as positions.
-                    cadence: 'hourly',
-                    cadenceMs: 60 * 60 * 1000,
-                    warningMs: 90 * 60 * 1000,
-                    staleMs: 3 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/heartbeat.json',
-                    description: 'All lock holders — names, locks, LPs, pending rewards',
-                },
-                'astroport': {
-                    label: 'Astroport Pools',
-                    cadence: 'daily',
-                    cadenceMs: 24 * 60 * 60 * 1000,
-                    warningMs: 26 * 60 * 60 * 1000,
-                    staleMs: 36 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/epochs/heartbeat.json',
-                    sourceUrlFallbackFn: (epoch) => `https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/epochs/astroport-epoch-${epoch - 1}.json`,
-                    description: 'Astroport pool TVL + volume (feeds TLA Snapshot)',
-                },
-                'skeletonswap': {
-                    label: 'Skeleton Swap',
-                    cadence: 'daily',
-                    cadenceMs: 24 * 60 * 60 * 1000,
-                    warningMs: 26 * 60 * 60 * 1000,
-                    staleMs: 36 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/skeletonswap/rolling/heartbeat.json',
-                    description: 'Skeleton Swap pool data (feeds TLA Snapshot)',
-                },
-                'votion': {
-                    label: 'Votion',
-                    cadence: 'weekly',
-                    cadenceMs: 7 * 24 * 60 * 60 * 1000,
-                    warningMs: 8 * 24 * 60 * 60 * 1000,
-                    staleMs: 10 * 24 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/heartbeat.json',
-                    sourceUrlFallbackFn: (epoch) => `https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/snapshots/current.json`,
-                    description: 'Next-epoch vote optimization data',
-                },
-                'nft-inventory': {
-                    label: 'NFT Inventory',
-                    // v2 pipeline: hot runs every 15 min. The old data/heartbeat.json froze
-                    // on 2026-06-07 when the cron moved to data/v2/ — reading it produced a
-                    // false "5d stale" alarm while the real pipeline was green.
-                    cadence: '15-min (hot)',
-                    cadenceMs: 15 * 60 * 1000,
-                    warningMs: 45 * 60 * 1000,
-                    staleMs: 2 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/heartbeat.json',
-                    description: 'Per-NFT chain ownership + broken status (10k NFTs, v2 pipeline)',
-                },
-                'marketplace-stats': {
-                    label: 'Marketplace Stats',
-                    cadence: 'hourly',
-                    cadenceMs: 60 * 60 * 1000,
-                    warningMs: 75 * 60 * 1000,
-                    staleMs: 2 * 60 * 60 * 1000,
-                    sourceUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/heartbeat.json',
-                    description: 'BBL + Boost floors, listings, activity, sales history',
-                },
-            };
+            // DERIVED from lib/cron-registry.js (shared with tla-stats +
+            // transparency-hub). One entry there = every page updated.
+            const CRON_REGISTRY = (function () {
+                const out = {};
+                const src = (typeof CronRegistry !== "undefined" && CronRegistry.CRONS) || [];
+                for (const c of src) {
+                    out[c.key] = {
+                        label: c.label, cadence: c.cadence, cadenceMs: c.cadenceMs,
+                        warningMs: c.warningMs, staleMs: c.staleMs,
+                        sourceUrl: c.sourceUrl, description: c.description,
+                        job: c.job, group: c.group,
+                    };
+                }
+                return out;
+            })();
 
             function recordCronCapture(key, capturedAt, errorMessage = null, freshness = {}) {
                 if (!CRON_REGISTRY[key]) {
@@ -15441,7 +15355,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.77', REV_DATE = '2026-08-11';   // rev-footer law: bump BOTH every change
+        const REV = '3.78', REV_DATE = '2026-08-12';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
