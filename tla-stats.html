@@ -2544,16 +2544,13 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span id="footer-rev" class="font-mono">Rev T3.10</span>
+                    <span id="footer-rev" class="font-mono">Rev T3.11</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                     <span id="footer-rev-date" class="opacity-50 ml-1"></span>
                 </button>
                 <span class="opacity-40 mx-2">·</span>
-                <button id="cronHealthTrigger" class="cron-health-trigger" data-overall="unknown" title="Click for cron status details">
-                    <span class="dot"></span>
-                    <span class="label">Cron status</span>
-                </button>
+                <a href="transparency-hub.html" id="cronHealthTrigger" class="cron-health-trigger" data-overall="unknown" title="View full System Health" style="text-decoration:none"><span class="dot"></span><span class="label">System Health</span></a>
             </div>
         </div>
     </footer>
@@ -2575,35 +2572,8 @@
             </div>
         </div>
     </div>
-
-    <!-- Cron Health Modal -->
-    <div id="cronHealthModal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden opacity-0">
-        <div class="modal-content bg-[#0f1117] border border-cyan-700/40 rounded-xl shadow-xl w-full max-w-2xl relative text-white opacity-0 scale-95 p-6 max-h-[85vh] overflow-y-auto">
-            <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-3xl leading-none" data-close="cronHealthModal">&times;</button>
-            <h3 class="text-2xl font-bold text-cyan-400 mb-1 flex items-center gap-3">
-                <i class="fas fa-heart-pulse"></i>
-                Cron Health
-            </h3>
-            <p class="text-gray-500 text-xs mb-4">
-                Data freshness for each scheduled job. Computed from each cron's <span class="font-mono">capturedAt</span> timestamp and <span class="font-mono">dataFingerprint</span>.
-            </p>
-            <div class="flex items-center gap-4 text-xs text-gray-400 mb-4 px-2 flex-wrap">
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-green-500"></span>Fresh</span>
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>Approaching stale</span>
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>Stale</span>
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#dc2626; box-shadow:0 0 6px rgba(220,38,38,0.8)"></span>Data stuck</span>
-                <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-gray-500" style="outline:1px dashed #9ca3af; outline-offset:1px"></span>No freshness signal</span>
-            </div>
-            <div id="cronHealthModalBody" class="border border-white/5 rounded-lg overflow-hidden bg-black/20">
-                <div class="text-gray-500 text-center py-8">
-                    <i class="fas fa-spinner fa-spin mr-2"></i>Loading…
-                </div>
-            </div>
-            <p class="text-[10px] text-gray-600 mt-4 text-center">
-                Re-checks every 30 seconds. Auto-refreshes when this modal is open.
-            </p>
-        </div>
-    </div>
+    <!-- Cron Health modal removed 2026-08-12: every page now links to the
+         transparency hub instead of carrying its own health UI. -->
 
     
     <script src="/lib/cron-registry.js"></script>
@@ -2865,7 +2835,11 @@
     }
 
     // Update the footer indicator dot color.
+    // 2026-08-12: the footer dot is now driven by the SHARED registry via
+    // lib/site-footer.js, so tla-stats, index and the hub can never disagree.
+    // This local version stays as a fallback if the shared script is absent.
     function refreshHealthIndicator() {
+        if (typeof SiteFooter !== 'undefined' && SiteFooter.wireHealth) { SiteFooter.wireHealth(); return; }
         const btn = document.getElementById('cronHealthTrigger');
         if (!btn) return;
         const overall = getOverallCronHealth();
@@ -2975,7 +2949,7 @@
         refreshWidgetStaleness();
         // Only re-render modal body if it's currently open
         const modal = document.getElementById('cronHealthModal');
-        if (modal && !modal.classList.contains('hidden')) renderCronHealthModal();
+        /* modal removed 2026-08-12 — health lives on the transparency hub */
     }
 
     // Lightweight fetch of just the capturedAt for crons the page doesn't otherwise read.
@@ -14108,7 +14082,9 @@ ${(() => {
     // ============================================================
     function setupCronHealthUI() {
         const trigger = document.getElementById('cronHealthTrigger');
+        // modal removed 2026-08-12 — guard so the old wiring is a no-op
         const modal   = document.getElementById('cronHealthModal');
+        if (!modal) return;
         if (!trigger || !modal) return;
 
         const openModal = () => {

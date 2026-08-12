@@ -402,5 +402,13 @@ async function loadHealth(){
 loadUpdates(); renderDocList(); loadHealth();
 setInterval(()=>{ if(healthLoaded)loadHealth(); },120000);
 </script>
+
+<!-- Shared footer (2026-08-12): same format as index — socials, links,
+     rev + changelog, and a live System Health dot that links to the
+     transparency hub. One implementation in lib/site-footer.js. -->
+<div id="site-footer"></div>
+<script src="/lib/cron-registry.js"></script>
+<script src="/lib/site-footer.js"></script>
+<script>SiteFooter.mount({ rev: '1.1', revDate: '2026-08-12', page: 'index' });</script>
 </body>
 </html>

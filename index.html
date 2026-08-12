@@ -15355,7 +15355,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.78', REV_DATE = '2026-08-12';   // rev-footer law: bump BOTH every change
+        const REV = '3.79', REV_DATE = '2026-08-12';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -15975,5 +15975,11 @@
             if (bottomActive) bottomActive.classList.add('active');
         })();
     </script>
+
+<!-- Shared health wiring (2026-08-12): index keeps its own footer markup,
+     but its System Health dot is lit from lib/cron-registry.js — the same
+     source every other page uses, so they can never disagree. -->
+<script src="/lib/site-footer.js"></script>
+<script>if (window.SiteFooter) SiteFooter.wireHealth();</script>
 </body>
 </html>
