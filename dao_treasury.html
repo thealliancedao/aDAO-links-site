@@ -1431,7 +1431,7 @@
             // shape incl. dashboard.treasury + token_prices). Fresh-gated at 26h so a
             // stuck emitter falls back to the honest legacy walk-back below.
             try {
-                const r = await fetch('https://raw.githubusercontent.com/defipatriot/tla-snapshot-data_2026/main/data/dao-dashboard.json');
+                const r = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/dao-dashboard/current.json');
                 if (r.ok) {
                     const dd = await r.json();
                     const ageH = (Date.now() - Date.parse(dd?.meta?.generated_at || 0)) / 36e5;
@@ -1582,7 +1582,7 @@
             try {
                 const have = new Set(snapshots.map(s => s.epoch));
                 const REF = new Date('2025-12-01T00:00:00Z'), REFN = 162, WK = 7 * 24 * 3600e3;
-                const DD = 'https://raw.githubusercontent.com/defipatriot/tla-snapshot-data_2026/main/data/daily/dao-dashboard-';
+                const DD = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/dao-dashboard/daily/';
                 for (let ep = Math.max(186, currentEpoch - 20); ep <= currentEpoch; ep++) {
                     if (have.has(ep)) continue;
                     const epochEnd = new Date(REF.getTime() + (ep - REFN + 1) * WK);

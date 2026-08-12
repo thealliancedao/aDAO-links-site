@@ -3974,7 +3974,7 @@
             function mountTlaDepositsTile() {
                 if (_tlaFeed) return _tlaFeed;
                 if (!window.TileFeed) { console.error('[tla-tile] tile-feed.js not loaded'); return null; }
-                const CRON_URL = 'https://raw.githubusercontent.com/defipatriot/tla-snapshot-data_2026/main/data/dao-dashboard.json';
+                const CRON_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/dao-dashboard/current.json';
                 const HB_URL   = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/heartbeat.json';
                 const usd0 = n => '$' + Math.round(n).toLocaleString('en-US');
                 async function loadCron() {
@@ -5008,6 +5008,10 @@
                 //   network-and-prices .../ratio-history.json   -> LST ratios (since 2026-05-13)
                 // ─────────────────────────────────────────────────────────────────
                 const SNAP_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/daily';
+                // ORG 2026-08-11: dao-dashboard folded into member-data — its daily
+                // archive moved from tla-snapshot-data/data/daily/dao-dashboard-DATE.json
+                // to member-data/dao-dashboard/daily/DATE.json (own tree, no prefix).
+                const DD_DAILY_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/dao-dashboard/daily';
                 const BK_BASE   = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/backing-history.json';  // ORG: one canonical series (rows[]), not per-day files
                 // ORG ADAPTER (2026-08-11): the retired backing cron wrote one file per
                 // day; the org series is a single file with rows[]. Fetch once, index by
@@ -5084,7 +5088,7 @@
                     const DD_EARLIEST = '2026-06-12'; // dao-dashboard daily begins
                     const V2_EARLIEST = '2026-06-07'; // nft-inventory v2 daily begins
                     const [dd, bk, vd, td, np] = await Promise.all([
-                        date >= DD_EARLIEST ? jget(SNAP_BASE + '/dao-dashboard-' + date + '.json') : Promise.resolve(null),
+                        date >= DD_EARLIEST ? jget(DD_DAILY_BASE + '/' + date + '.json') : Promise.resolve(null),
                         // ORG: one canonical backing series — look the date up in the
                         // prefetched map instead of a per-day file fetch.
                         Promise.resolve(await backingRowFor(date)),
@@ -10062,7 +10066,7 @@
                     // below works unchanged. Accepted only when fresh (< 26h) — a stale
                     // emitter must not mask the honest legacy walk-back staleness pill.
                     try {
-                        const ddResp = await fetch('https://raw.githubusercontent.com/defipatriot/tla-snapshot-data_2026/main/data/dao-dashboard.json');
+                        const ddResp = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/dao-dashboard/current.json');
                         if (ddResp.ok) {
                             const dd = await ddResp.json();
                             const ageHours = (Date.now() - Date.parse(dd?.meta?.generated_at || 0)) / 36e5;
@@ -15437,7 +15441,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.76', REV_DATE = '2026-08-11';   // rev-footer law: bump BOTH every change
+        const REV = '3.77', REV_DATE = '2026-08-11';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
