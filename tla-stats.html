@@ -1257,7 +1257,7 @@
             </div>
             </div>
             
-            <!-- Unlock Runway (Rev T3.1 — Camron 2026-08-03): VP scheduled to
+            <!-- Unlock Runway (Rev T3.1 — DeFi_Patriot 2026-08-03): VP scheduled to
                  leave as non-auto-max locks hit their unlock. Early exit-pressure
                  telemetry: someone letting a lock run out is often pulling LUNA. -->
             <div class="mt-6 glass-card p-6">
@@ -1417,7 +1417,7 @@
                 <div id="exit-risk-summary" class="mb-4"></div>
                 <!-- Slippage simulator (Stage B3) -->
                 <div class="rounded-lg bg-white/[0.02] p-3 mb-4" id="slippage-sim-card">
-                    <!-- Collapsed by default (Camron 2026-08-02: tools shouldn't interrupt the
+                    <!-- Collapsed by default (DeFi_Patriot 2026-08-02: tools shouldn't interrupt the
                          summary→table read). Header toggles the body; the full-sim link stays live. -->
                     <div class="flex items-center justify-between flex-wrap gap-2 cursor-pointer select-none" onclick="toggleSlipCard()">
                         <div class="text-sm font-semibold flex items-center gap-2"><i class="fas fa-arrows-turn-to-dots text-cyan-400"></i> Trade Impact Simulator <span id="slip-member-chip" class="hidden text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300"></span>
@@ -2503,7 +2503,7 @@
             </div>
         </div>
         
-        <!-- Disclaimers — one line + expander (Camron 2026-08-02: bottom-of-page fresh look;
+        <!-- Disclaimers — one line + expander (DeFi_Patriot 2026-08-02: bottom-of-page fresh look;
              the four-paragraph block was 2023-era weight for a footer) -->
         <div class="mb-6 p-3 bg-gray-800/30 border border-gray-700/50 rounded-lg text-[11px] text-gray-500">
             <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -2813,16 +2813,17 @@
     // Worst-of-all status across all known crons (for footer indicator).
     // 'no-signal' does NOT escalate the overall — it's an informational state.
     function getOverallCronHealth() {
-        const keys = Object.keys(CRON_REGISTRY);
+        // 2026-08-12: the footer dot answers "is the data flowing?" — it must
+        // NOT go red because a product reported a finding (system-health
+        // flagging an invariant is that job succeeding). Only genuine
+        // staleness or a stuck producer turns it red.
         let worst = 'fresh';
-        const rank = { fresh: 0, 'no-signal': 0, warning: 1, stale: 2, stuck: 3, unknown: 1 };
-        let anyKnown = false;
-        for (const k of keys) {
-            const s = computeCronStatus(k);
-            if (s !== 'unknown') anyKnown = true;
-            if ((rank[s] ?? 0) > (rank[worst] ?? 0)) worst = s;
+        const rank = { fresh: 0, 'no-signal': 0, unknown: 1, warning: 2, stale: 3 };
+        for (const key of Object.keys(CRON_REGISTRY)) {
+            const st = computeCronStatus(key);
+            if (cronFinding(key) && (st === 'fresh' || st === 'no-signal')) continue;
+            if ((rank[st] ?? 1) > (rank[worst] ?? 0)) worst = st;
         }
-        if (!anyKnown) return 'unknown';
         return worst;
     }
 
@@ -2882,6 +2883,15 @@
     }
 
     // Populate the cron-health modal table.
+    // A product reporting status "violation"/"partial" is REPORTING A FINDING,
+    // not failing. Freshness and findings are separate questions (see
+    // lib/cron-registry.js). Kept here so the modal agrees with the hub.
+    function cronFinding(key) {
+        const rec = store.cronHealth[key];
+        const d = rec && rec.declared;
+        return (d && d !== 'ok' && d !== 'pass' && d !== 'stuck' && d !== 'error') ? d : null;
+    }
+
     function renderCronHealthModal() {
         const body = document.getElementById('cronHealthModalBody');
         if (!body) return;
@@ -2999,7 +3009,15 @@
                 const r = await fetch(url);
                 if (!r.ok) { lastErr = `HTTP ${r.status}`; continue; }
                 const j = await r.json();
-                const ts = j.capturedAt || j.generatedAt || j.fetched_at || null;
+                // 2026-08-12: some org products carry the timestamp NESTED
+                // (dao-dashboard + system-health use meta.generated_at), which
+                // this flat lookup missed — they rendered "never" despite being
+                // fresh. Honour the shared registry's tsPath, then fall back.
+                const dig = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+                const paths = (typeof CronRegistry !== 'undefined' && (CronRegistry.CRONS.find(c => c.key === key) || {}).tsPath) || [];
+                let ts = null;
+                for (const p of paths) { if (ts == null) ts = dig(j, p); }
+                ts = ts || j.capturedAt || j.generatedAt || j.fetched_at || (j.meta && j.meta.generated_at) || null;
                 if (ts) {
                     // Pull freshness fields from the heartbeat (may be undefined on
                     // pre-2026-05-18 heartbeats or on non-heartbeat fallback URLs).
@@ -3008,6 +3026,7 @@
                         consecutiveStuckRuns: j.consecutiveStuckRuns,
                         dataFingerprint:      j.dataFingerprint,
                         heartbeatStatus:      j.status,
+                        declared:             j.status || (j.meta && j.meta.status) || null,
                         stats:                j.stats,
                     });
                     return;
@@ -5530,7 +5549,7 @@
         }, 2000);
     });
 
-    // ---- Simulator card collapse (Camron 2026-08-02: tools shouldn't interrupt
+    // ---- Simulator card collapse (DeFi_Patriot 2026-08-02: tools shouldn't interrupt
     // the summary→table read). Collapsed by default; state lives for the session.
     function toggleSlipCard() {
         store._slipUserToggled = true;   // T2.7d: manual choice wins over auto-open
@@ -5547,7 +5566,7 @@
     }
 
     // ============================================================
-    // ZAP PLANNER (Camron 2026-08-02): per-position zap-OUT costs to a target
+    // ZAP PLANNER (DeFi_Patriot 2026-08-02): per-position zap-OUT costs to a target
     // asset (LUNA / USDC / SOLID + any other), and zap-IN entry costs. All from
     // live per-side reserves — the same constant-product planning math as the
     // simulator, extended with routing: direct pool or two-hop via LUNA,
@@ -5652,7 +5671,7 @@
         if (!panel) return;
         const member = getSelectedMember();
         if (!member) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
-        // T2.7d (Camron 2026-08-03): member mode auto-opens the simulator card —
+        // T2.7d (DeFi_Patriot 2026-08-03): member mode auto-opens the simulator card —
         // when a wallet is selected the planner IS the workflow. TLA-wide
         // browsing keeps the 2026-08-02 collapsed default; a manual toggle
         // (either direction) always wins for the session.
@@ -6787,7 +6806,7 @@
             .catch(() => null);
         return store._votingRollupsPromise;
     }
-    // Rev T2.3 label scheme (Camron): DAODAO-registered handles = bold sky
+    // Rev T2.3 label scheme (owner): DAODAO-registered handles = bold sky
     // blue; protocol/project labels = bold orange; bare addresses = unchanged
     // gray mono. Same function feeds the board rows AND the drill modal header.
     function briberNameHtml(addr, label) {
@@ -6862,7 +6881,7 @@
             }
             banner.textContent = `${order.length} bribers · ${totalEvents} attributed bribes since ${firstEver}${cov}`;
             banner.title = 'All-time bribe providers, valued in USD at the moment each bribe was placed. Attribution is measured, never assumed: bribe flow the ledger counts but no on-chain event names a payer for stays out of every row — most of it sits in the Feb 2025 – Jun 2026 capture window, queued for the registry backfill.';
-            // Loud incompleteness banner (Camron 2026-07-30: the small % note wasn't
+            // Loud incompleteness banner (DeFi_Patriot 2026-07-30: the small % note wasn't
             // landing — the board reads as "wrong" when payers like Solid's current
             // wallet, PD, and hole-era individual bribes are absent). Say it plainly:
             // the ledger MEASURES the full flow; only the slice with an on-chain
@@ -7975,7 +7994,7 @@
         return null;
     }
 
-    // ---- ampCAPA Gov DAO position (Camron 2026-08-02) --------------------------
+    // ---- ampCAPA Gov DAO position (DeFi_Patriot 2026-08-02) --------------------------
     // When a member stakes their ampCAPA position's RECEIPT token (ampLP) into the
     // ampCAPA governance DAO, the receipt leaves the wallet, the positions cron
     // loses it, and the exit logic reads it as "withdrawn −100%". The liquidity
@@ -8272,18 +8291,18 @@
             }).catch(() => (store.runway = null));
         return store._runwayP;
     }
-    // Funder-class chips (Camron 2026-07-30): WHO funds a pool comes only from
+    // Funder-class chips (DeFi_Patriot 2026-07-30): WHO funds a pool comes only from
     // attributed on-chain placement events (runway.funders, cron v1.1) — the
     // old "auto-bribed" pattern-guess is retired. Multiple classes can apply to
     // one pool; "+unattributed" appears whenever the pots hold money no captured
-    // event explains (hole-era). Runway colors per Camron: ≤1 red · 2–4 yellow · 5+ green.
+    // event explains (hole-era). Runway colors per the owner: ≤1 red · 2–4 yellow · 5+ green.
     const FUNDER_CLASS_UI = {
         pd:      { txt: 'PD bribed', cls: 'bg-purple-500/15 text-purple-300' },
         project: { txt: 'Project bribed', cls: 'bg-blue-500/15 text-blue-300' },
         dex:     { txt: 'DEX support', cls: 'bg-cyan-500/12 text-cyan-300/90' },
         user:    { txt: 'User bribed', cls: 'bg-emerald-500/12 text-emerald-300/90' },
     };
-    // "What happens to votes NEXT epoch" (Camron 2026-07-30): the distributions
+    // "What happens to votes NEXT epoch" (DeFi_Patriot 2026-07-30): the distributions
     // harvest records the VP that governed each PAST payout; live vote-state is
     // where votes sit NOW. now \u2212 last-payout = the reward shift already locked
     // in for next week (Votion\u2019s reallocation is the dominant mover in it).
@@ -8361,7 +8380,7 @@
         const left = p.epochs_left;
         const cls = left <= 1 ? 'bg-red-500/15 text-red-300 font-semibold' : left <= 4 ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300';
         const txt = left === 0 ? 'bribes end after this epoch' : `bribed thru e${p.last_funded_period} · ${left} epoch${left === 1 ? '' : 's'}`;
-        // Chip diet (Camron 2026-08-02: rows were a wall of badges): the ROW carries
+        // Chip diet (DeFi_Patriot 2026-08-02: rows were a wall of badges): the ROW carries
         // only the runway chip; funder-class tags and the +unattributed marker stay in
         // the drill's WHO'S-PAYING panel, one tap away. The tip names the funders so
         // the provenance is still hover-visible without the visual weight.
@@ -8373,12 +8392,12 @@
         return `<span class="text-[9px] px-1.5 py-0.5 rounded ${cls}" title="${tip}${funderNote}">${txt}</span>`;
     }
 
-    // ---- Pool drill-down (Pool Health v2, Camron 2026-07-30: "expand for real
+    // ---- Pool drill-down (Pool Health v2, DeFi_Patriot 2026-07-30: "expand for real
     // detail") — everything below renders from feeds ALREADY loaded: 13-epoch
     // pool-status history (staked/depth/VP/token detail), this-epoch bribes,
     // snapshot reward APR, and the bribe runway. Lazy: built on first expand.
     const _drillRecs = new Map();
-    // Pool Health v3 helpers (Camron: "present it so nobody has to decipher").
+    // Pool Health v3 helpers (owner: "present it so nobody has to decipher").
     // Window: how many epochs the row charts + trend labels cover. Global so
     // every row stays comparable; trend text always names its window.
     function phWin() { return store._phWin || 4; }
@@ -8542,7 +8561,7 @@
                   ${rows}${unatt}</div>`;
           })()}
           ${(() => {
-              // 3-layer vote-shift breakdown (Camron 2026-07-31):
+              // 3-layer vote-shift breakdown (DeFi_Patriot 2026-07-31):
               //   committed = on-chain votes now \u2212 the VP that governed the last
               //   payout \u00b7 planned = Votion optimizer target \u2212 votes now \u00b7
               //   total = committed + planned = projected next-payout shift.
@@ -8600,7 +8619,7 @@
 
     // Shared DEX tag — same color convention as the waterfall (Astro blue,
     // Skeleton orange, Single gray) so the two LUNA-USDC rows are never
-    // ambiguous again (Camron 2026-08-02: "we don't call out what dex the LP
+    // ambiguous again (DeFi_Patriot 2026-08-02: "we don't call out what dex the LP
     // belongs to"). Used by Pool Health rows (TLA-wide + member) and the zap planner.
     function dexTagOf(dex) {
         if (!dex) return '';
@@ -9015,7 +9034,7 @@ ${(() => {
             </div>`;
         };
 
-        // Pool Health v2.1 (Camron): ALL pools shown per bucket, user-sortable.
+        // Pool Health v2.1 (owner): ALL pools shown per bucket, user-sortable.
         // The sort answers "what do I want to scan for": biggest money, biggest
         // moves, best-paid, longest-funded, or highest risk.
         store._phSort = store._phSort || 'staked';
@@ -9098,7 +9117,7 @@ ${(() => {
         if (!panel) return;
         const hist = store.poolStatusHistory;
         const allHeps = (hist?.epochs || []).slice().sort((a, b) => a - b);
-        // Window toggle (Camron 2026-08-02 rebuild): all-tracked / 8 / 4 epochs.
+        // Window toggle (DeFi_Patriot 2026-08-02 rebuild): all-tracked / 8 / 4 epochs.
         // History currently reaches back to E184 and grows weekly — the "all"
         // option is honest about that in its label rather than faking depth.
         const lgWin = store._lgWin || 'all';
@@ -9847,7 +9866,7 @@ ${(() => {
             // Astro = dark blue, Skeleton = orange, Single = gray.
             const dexCls = (pool.dex === 'Single' || pool.is_single) ? 'text-gray-400' : (pool.dex?.includes('Astro') ? 'text-blue-400' : 'text-orange-400');
 
-            // ---- Shift visualization (Planned view, Camron 2026-08-02) ----
+            // ---- Shift visualization (Planned view, DeFi_Patriot 2026-08-02) ----
             // The bar shows the PROJECTED epoch-end size; the ghost outline shows the
             // locked-in size it's moving from; the hatched region is the change itself
             // (green = gaining VP, red = losing). Decomposition — measured, two parts:

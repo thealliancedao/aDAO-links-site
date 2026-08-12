@@ -2967,5 +2967,13 @@
         })();
     </script>
 
+
+<!-- Shared site footer (2026-08-12): one implementation for every page —
+     rev, changelog link, and a live health dot from lib/cron-registry.js.
+     Before this, these pages had NO rev at all. -->
+<div id="site-footer"></div>
+<script src="/lib/cron-registry.js"></script>
+<script src="/lib/site-footer.js"></script>
+<script>SiteFooter.mount({ rev: '1.0', revDate: '2026-08-12', page: 'dao_treasury' });</script>
 </body>
 </html>

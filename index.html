@@ -1218,7 +1218,7 @@
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
 
-        <!-- ═══ ECOSYSTEM PULSE (Rev 3.61 — SPEC-landing-pulse v1.1, Camron 2026-08-04) ═══
+        <!-- ═══ ECOSYSTEM PULSE (Rev 3.61 — SPEC-landing-pulse v1.1, DeFi_Patriot 2026-08-04) ═══
              Community redesign after 3.60 review: hero stat band (state of the
              alliance) leads; windowed deltas support. Honesty rules BINDING:
              native-granularity labels, no interpolation, gaps stay gaps; missing
@@ -13065,7 +13065,7 @@
                     fillTiers('bbl',    marketplaceCache.bbl?.alliance_dao?.listings);
                     fillTiers('boost',  marketplaceCache.boost?.alliance_dao?.listings);
                     fillTiers('atrium', atriumListings);
-                    // 2026-08-03 (Camron floor audit): the headline "Unbroken Floor"
+                    // 2026-08-03 (DeFi_Patriot floor audit): the headline "Unbroken Floor"
                     // tile was BBL-only (bLUNA reserve of the first non-broken BBL
                     // listing) — blind to Atrium/Boost asks sitting lower. Once the
                     // cross-marketplace context exists, override it with the TRUE
@@ -15533,7 +15533,7 @@
             c.risk = riskOf(c);
             return c;
         };
-        // ---- governance safety heuristics (Camron 2026-08-04) ------------------
+        // ---- governance safety heuristics (DeFi_Patriot 2026-08-04) ------------------
         // Motivated by a real attack pattern: buy tokens → push a fund-transfer
         // prop → pass it on tiny turnout before anyone looks. These are HEURISTIC
         // AUTO-FLAGS to make casual visitors look twice — never accusations.
@@ -15556,7 +15556,7 @@
             if (st.indexOf('vote ended') === 0) return ['VOTE ENDED', 'bg-orange-500/15 text-orange-300'];
             return [st.toUpperCase() || '—', 'bg-white/5 text-gray-500'];
         };
-        // News default-tab law (Camron 2026-08-04): any LIVE proposal anywhere →
+        // News default-tab law (DeFi_Patriot 2026-08-04): any LIVE proposal anywhere →
         // News tab opens by default; otherwise Pulse. Live cards sort first.
         const defaultTab = (cards) => cards.some(c => c && c.live) ? 'news' : 'pulse';
         const solidPegOf = (phDay) => (phDay && phDay.SOLID && phDay.SOLID.usd) || null;
@@ -15600,9 +15600,9 @@
         // Fill in dao-core addresses (from the daodao.zone/dao/<ADDRESS>/… URL).
         // Empty address = slot skipped. Dismissals persist in localStorage.
         // kind 'daodao' = live via LCD; kind 'har-pending' = non-DAODAO governance
-        // (Astroport Assembly, CAPA native gov) — adapters land once Camron
+        // (Astroport Assembly, CAPA native gov) — adapters land once DeFi_Patriot
         // supplies HAR captures of those gov pages. Empty addr = slot skipped.
-        // All seven DAODAO addresses HAR-verified (Camron captures, 2026-08-04).
+        // All seven DAODAO addresses HAR-verified (DeFi_Patriot captures, 2026-08-04).
         const WATCHED_DAOS = [
             { name: 'aDAO', kind: 'daodao', addr: 'terra1sffd4efk2jpdt894r04qwmtjqrrjfc52tmj6vkzjxqhd8qqu2drs3m5vzm' },
             { name: 'aDAO Council', kind: 'daodao', addr: 'terra1yqv0af22675wlcmgflxk4ve07vt8qlm999gk0cuw5l64r5xxgadsyg8ywv' },

@@ -383,7 +383,7 @@
         for (const ally of (allies?.allies || [])) (ally.members || []).forEach(put);
 
         // aDAO treasury + council are full position records in the feed — make
-        // them VIEWABLE like any wallet (Camron 2026-08-03: "are we tracking
+        // them VIEWABLE like any wallet (DeFi_Patriot 2026-08-03: "are we tracking
         // the treasury's profile? I couldn't find it").
         // unconditional: the adao treasury/council records are richer than the
         // unnamed participants entries that land first in the merge order.
@@ -523,7 +523,7 @@
             });
         }
 
-        // aDAO NFTs by tier at the CONSERVATIVE floor (Camron 2026-08-03):
+        // aDAO NFTs by tier at the CONSERVATIVE floor (DeFi_Patriot 2026-08-03):
         // min(live listing floor, recent sales floor). Sales-floor-only pricing
         // overstated value whenever live asks sat below recent sales (base tier:
         // sales $97.90 vs Atrium listings from ~$50) — the lower signal is the
@@ -759,7 +759,7 @@
                         const sp = (store.feeds?.snap?.pools || []).find(p => p.gauge_pool_id && p.gauge_pool_id === lp.pool_gauge_id);
                         const rw = sp?.rewards;
                         if (rw && rw.approx_apr_pct != null) {
-                            // Non-Amp / Amp, current + next-epoch (Camron 2026-07-31).
+                            // Non-Amp / Amp, current + next-epoch (DeFi_Patriot 2026-07-31).
                             // Amp APY = weekly auto-compounding of the base reward APR
                             // ((1+r/52.14)^52.14\u22121) \u2014 reconciles to Eris\u2019s boosted
                             // figure within the \u00b15% fixture tolerance (71.23%\u2192\u2248103%
@@ -896,7 +896,7 @@
     }
 
     // ============================================================
-    // TEST P1 — portfolio rebuild engine (Camron 2026-08-03):
+    // TEST P1 — portfolio rebuild engine (DeFi_Patriot 2026-08-03):
     // modal/drill system · daily-archive trend engine · net-worth banner
     // (full splice) · SVG chart renderer · live pending-bribes math (replaces
     // the broken cron field) · income center. Honesty doctrine throughout:
@@ -1370,7 +1370,7 @@
     }
 
     // ============================================================
-    // TEST P1.1 — feedback round (Camron 2026-08-03): TLA-wide VP rank +
+    // TEST P1.1 — feedback round (DeFi_Patriot 2026-08-03): TLA-wide VP rank +
     // peer drill · ampCAPA gov position (live chain read) · native-staking
     // row · wallet balances v2 (live bank scan) · adjusted-VP bribe
     // projection · trend chart paging.
@@ -1487,7 +1487,7 @@
             const pool = (store.feeds?.snap?.pools || []).find(p => p.gauge_pool_id === 'native:' + AMPCAPA_GOV.denom);
             const base = pool?.rewards?.approx_apr_pct;
             const amp = base != null ? (Math.pow(1 + base / 100 / 52.14, 52.14) - 1) * 100 : null;
-            // Camron 2026-08-03: pool share = your ampCAPA over ALL TLA-staked
+            // DeFi_Patriot 2026-08-03: pool share = your ampCAPA over ALL TLA-staked
             // ampCAPA (non-amp + amplified — gov-staked receipts are still inside
             // the ve3 amplified total, so the pool's staked figure IS the whole).
             const share = (usd != null && pool?.staked_in_tla_usd > 0) ? usd / pool.staked_in_tla_usd * 100 : null;
@@ -1505,7 +1505,7 @@
                 <td class="text-right mono ${base != null ? 'text-emerald-400' : 'text-gray-500'}">${base != null ? `<span title="TLA amplified ampCAPA reward APR — the same chain-distributions figure the other rows use (${base.toFixed(2)}% base; ≈${amp.toFixed(1)}% amplified auto-compound estimate). Your gov-staked receipt is an amplified position, so the amplified figure applies."><span class="text-gray-500">${base.toFixed(0)}%</span><span class="text-gray-600">/</span><span class="text-purple-300">≈${amp.toFixed(0)}%</span></span>` : '—'}</td>
                 <td class="text-right mono ${thr != null && thr < 0.5 ? 'text-amber-300' : 'text-gray-500'}" title="Pool-level distance above the 1% bucket-vote threshold (this is the whole pool's vote position, not just yours).">${thr != null ? (thr >= 0 ? '+' : '') + thr.toFixed(1) + 'pp' : '—'}</td>`;
             tbody.appendChild(tr);
-            // fold into totals (Camron 2026-08-03): LP tile + banner carry it,
+            // fold into totals (DeFi_Patriot 2026-08-03): LP tile + banner carry it,
             // marked as live-read. Only when priced — never a guessed dollar.
             if (usd != null) {
                 store._ampcapaGovUsd = usd;
@@ -1990,5 +1990,13 @@
         if (sv) sv.addEventListener('click', function () { track('portfolio_save'); });
     })();
     </script>
+
+<!-- Shared site footer (2026-08-12): one implementation for every page —
+     rev, changelog link, and a live health dot from lib/cron-registry.js.
+     Before this, these pages had NO rev at all. -->
+<div id="site-footer"></div>
+<script src="/lib/cron-registry.js"></script>
+<script src="/lib/site-footer.js"></script>
+<script>SiteFooter.mount({ rev: '1.0', revDate: '2026-08-12', page: 'test' });</script>
 </body>
 </html>
