@@ -2483,8 +2483,11 @@ const createNftCard = (nft, toggleSelector) => {
     const isDaoOwned = nft.owned_by_alliance_dao; // Use the combined property
     // Registry-driven so a new marketplace can never be missed here again
     // (Atrium-only listings previously produced no badge stack at all).
+    // The eye must exist whenever there is ANYTHING overlaying the art — which
+    // now includes the listing price pill and the showcase picker, not just
+    // badges. A listed NFT with no other badge still needs a way to see clean art.
     const hasBadges = nft.broken || nft.staked_daodao || nft.staked_enterprise_legacy || isDaoOwned
-        || MARKETPLACES.some(m => nft[m.field]);
+        || MARKETPLACES.some(m => nft[m.field]) || !!nft.listing;
 
     if (hasBadges) {
         // --- Add Badge Visibility Toggle ---
@@ -2570,7 +2573,9 @@ const createNftCard = (nft, toggleSelector) => {
     if (showcaseEligible(nft)) {
         const pick = document.createElement('button');
         pick.type = 'button';
-        pick.className = 'showcase-pick' + (showcasePicks.has(String(nft.id)) ? ' picked' : '');
+        // bottom-right, and tagged `overlay-icon` so the eye (which hides
+        // overlays for a clean look at the art) hides this too.
+        pick.className = 'showcase-pick overlay-icon' + (showcasePicks.has(String(nft.id)) ? ' picked' : '');
         pick.dataset.showcaseId = String(nft.id);
         pick.title = 'Add to social post';
         pick.textContent = '+';
@@ -3388,8 +3393,70 @@ const findRarestTrait = (nft) => {
 // be picked — an unlisted NFT has no price to advertise.
 // =============================================================================
 
+// The site's own header logo (index.html uses this exact asset), so a social
+// post looks like the site people land on. Shared by BOTH post types.
+const POST_LOGO_URL = '/assets/images/Alliance%20DAO%20Logo.png';
+
 const SHOWCASE_MAX = 10;
 let showcasePicks = new Set();
+
+// What goes ON the post. Defaults are the things a buyer asks first: what is
+// it, what does it cost, where do I get it.
+const showcaseOpts = {
+    rank: true,          // "Rank 24 / Rarity 40"
+    days: true,          // days the listing has stood
+    vsFloor: true,       // + / – against that marketplace's floor
+    marketplace: true,   // marketplace name
+    link: false,         // full marketplace URL (long; off by default)
+};
+
+// Days-listed comes from listing-first-seen.json (the cron records when a
+// listing was FIRST observed). Fetched once, lazily — the showcase is the only
+// consumer outside the analytics view.
+let _showcaseFirstSeen = null;
+const loadFirstSeen = async () => {
+    if (_showcaseFirstSeen) return _showcaseFirstSeen;
+    try {
+        const r = await fetch(LISTING_HISTORY_URL + '?t=' + Date.now());
+        const j = r.ok ? await r.json() : null;
+        const rows = (j && (j.records || j.entries)) || [];
+        _showcaseFirstSeen = {};
+        for (const row of (Array.isArray(rows) ? rows : Object.values(rows))) {
+            if (row && row.token_id) _showcaseFirstSeen[String(row.token_id)] = row.first_seen_at;
+        }
+    } catch (e) { _showcaseFirstSeen = {}; }
+    return _showcaseFirstSeen;
+};
+const daysListed = (id) => {
+    const t = _showcaseFirstSeen && _showcaseFirstSeen[String(id)];
+    if (!t) return null;
+    const d = Math.floor((Date.now() - Date.parse(t)) / 86400000);
+    return isFinite(d) && d >= 0 ? d : null;
+};
+
+// Floor per marketplace, computed from the live listings themselves (USD, so
+// bLUNA / SOLID / LUNA asks are comparable). Only listings WITH a usd price
+// count — a listing with no ask can't set a floor.
+const marketplaceFloors = () => {
+    const out = {};
+    for (const n of allNfts) {
+        if (!n.listing) continue;
+        const mk = marketplaceOf(n); if (!mk) continue;
+        const v = Number(n.listing.price_usd);
+        if (!isFinite(v) || v <= 0) continue;
+        out[mk] = out[mk] == null ? v : Math.min(out[mk], v);
+    }
+    return out;
+};
+
+// Public marketplace URLs. Boost holds listed NFTs in its own contract and has
+// no per-token public page we can link, so it is deliberately absent rather
+// than guessed.
+const ADAO_NFT_CONTRACT_ADDR = 'terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9';
+const MARKETPLACE_URL = {
+    BBL: (id) => `https://app.backbonelabs.io/nfts/marketplace/collections/${ADAO_NFT_CONTRACT_ADDR}/${id}`,
+    Atrium: (id) => `https://atrium.market/collection/${ADAO_NFT_CONTRACT_ADDR}/${id}`,
+};
 
 const showcaseEligible = (nft) => !!(nft && nft.listing && MARKETPLACES.some(m => nft[m.field]));
 
@@ -3419,11 +3486,24 @@ const updateShowcaseBar = () => {
     if (!bar) {
         bar = document.createElement('div');
         bar.id = 'showcase-bar';
+        const optDefs = [
+            ['rank', 'Rank'],
+            ['days', 'Days listed'],
+            ['vsFloor', 'vs floor'],
+            ['marketplace', 'Marketplace'],
+            ['link', 'Full link'],
+        ];
         bar.innerHTML =
             `<span id="showcase-count"></span>` +
+            `<div class="sc-opts">` + optDefs.map(([k, lbl]) =>
+                `<label class="sc-opt" title="Include ${lbl} on each tile">` +
+                `<input type="checkbox" data-opt="${k}" ${showcaseOpts[k] ? 'checked' : ''}>` +
+                `<span>${lbl}</span></label>`).join('') + `</div>` +
             `<button id="showcase-build" class="sc-btn sc-primary">Build post</button>` +
             `<button id="showcase-clear" class="sc-btn">Clear</button>`;
         document.body.appendChild(bar);
+        bar.querySelectorAll('[data-opt]').forEach(cb =>
+            cb.addEventListener('change', () => { showcaseOpts[cb.dataset.opt] = cb.checked; }));
         bar.querySelector('#showcase-clear').addEventListener('click', clearShowcase);
         bar.querySelector('#showcase-build').addEventListener('click', (e) =>
             generateShowcaseImage(e.currentTarget));
@@ -3459,9 +3539,13 @@ const generateShowcaseImage = async (button) => {
             l.crossOrigin = 'anonymous';
             l.onload = () => res(l);
             l.onerror = () => res(null);          // post still works without it
-            l.src = '/assets/images/aDAO%20Logo%20txt%20no%20background%20.png';
+            // The same mark the website header uses, so a social post is visually
+        // continuous with the site.
+        l.src = POST_LOGO_URL;
         });
         const images = await Promise.all(picks.map(loadNftImage));
+        if (showcaseOpts.days) await loadFirstSeen();
+        const floors = showcaseOpts.vsFloor ? marketplaceFloors() : {};
 
         // Grid sized to the selection so 3 picks don't render as a mostly-empty
         // sheet: 1→1x1, 2→2x1, 3-4→2x2, 5-6→3x2, 7-9→3x3, 10→5x2.
@@ -3471,7 +3555,11 @@ const generateShowcaseImage = async (button) => {
 
         const canvas = document.getElementById('share-canvas');
         const ctx = canvas.getContext('2d');
-        const PAD = 28, HEADER = 150, FOOT = 74, TILE = 320, GAP = 18, CAP = 62;
+        // Caption grows with the number of optional lines so text never collides.
+        const extraLines = (showcaseOpts.rank ? 1 : 0) + (showcaseOpts.days || showcaseOpts.vsFloor ? 1 : 0)
+            + (showcaseOpts.link ? 1 : 0);
+        const PAD = 28, HEADER = 150, FOOT = 74, TILE = 320, GAP = 18;
+        const CAP = 62 + extraLines * 22;
         canvas.width = PAD * 2 + cols * TILE + (cols - 1) * GAP;
         canvas.height = HEADER + PAD + rows * (TILE + CAP) + (rows - 1) * GAP + FOOT;
 
@@ -3529,7 +3617,7 @@ const generateShowcaseImage = async (button) => {
             ctx.fillStyle = '#e5e7eb';
             ctx.font = 'bold 22px ui-monospace, SFMono-Regular, Menlo, monospace';
             ctx.fillText(`#${nft.id}`, x + 12, y + TILE + 28);
-            if (mk) {
+            if (mk && showcaseOpts.marketplace) {
                 ctx.fillStyle = '#64748b';
                 ctx.font = '14px system-ui, sans-serif';
                 ctx.fillText(mk, x + 12, y + TILE + 50);
@@ -3544,6 +3632,53 @@ const generateShowcaseImage = async (button) => {
                     ctx.font = '15px ui-monospace, SFMono-Regular, Menlo, monospace';
                     ctx.fillText(px.usd, x + TILE - 12, y + TILE + 50);
                 }
+            }
+
+            // Optional lines. Every one is omitted rather than guessed when the
+            // underlying value is missing — a post that invents a rank or a
+            // days-listed figure is worse than one that simply doesn't show it.
+            let ly = y + TILE + 72;
+            if (showcaseOpts.rank) {
+                // rankDisplay() already honours the Intended/BBL toggle and says
+                // "Unranked" where BBL leaves broken NFTs unranked — reuse it so
+                // the post can never disagree with the page.
+                const txt = rankDisplay(nft);
+                if (txt) {
+                    ctx.textAlign = 'left'; ctx.fillStyle = '#cbd5e1';
+                    ctx.font = '15px system-ui, sans-serif';
+                    ctx.fillText(txt, x + 12, ly);
+                    ly += 22;
+                }
+            }
+            if (showcaseOpts.days || showcaseOpts.vsFloor) {
+                const bits = [];
+                if (showcaseOpts.days) {
+                    const d = daysListed(nft.id);
+                    if (d != null) bits.push(d === 0 ? 'listed today' : `${d}d listed`);
+                }
+                if (showcaseOpts.vsFloor && px && px.usd) {
+                    const fl = floors[mk];
+                    const v = Number(nft.listing.price_usd);
+                    if (fl && isFinite(v)) {
+                        const diff = v - fl;
+                        bits.push(Math.abs(diff) < 0.005
+                            ? 'AT FLOOR'
+                            : `${diff > 0 ? '+' : '-'}$${Math.abs(diff).toLocaleString(undefined, { maximumFractionDigits: 0 })} vs floor`);
+                    }
+                }
+                if (bits.length) {
+                    ctx.textAlign = 'left';
+                    ctx.fillStyle = bits.includes('AT FLOOR') ? '#4ade80' : '#94a3b8';
+                    ctx.font = '15px system-ui, sans-serif';
+                    ctx.fillText(bits.join('  ·  '), x + 12, ly);
+                    ly += 22;
+                }
+            }
+            if (showcaseOpts.link && mk && MARKETPLACE_URL[mk]) {
+                ctx.textAlign = 'left'; ctx.fillStyle = '#475569';
+                ctx.font = '12px ui-monospace, SFMono-Regular, Menlo, monospace';
+                const u = MARKETPLACE_URL[mk](nft.id).replace(/^https:\/\//, '');
+                ctx.fillText(u.length > 46 ? u.slice(0, 44) + '…' : u, x + 12, ly);
             }
         });
 
@@ -3607,7 +3742,7 @@ const generateShareImage = (nft, button) => {
     }
     
     // Load both NFT image and logo (text logo with "THE ALLIANCE DAO")
-    const logoUrl = '/assets/images/aDAO%20Logo%20txt%20no%20background%20.png';
+    const logoUrl = POST_LOGO_URL;   // shared with the listings showcase
     const logo = new Image();
     logo.crossOrigin = "anonymous";
     

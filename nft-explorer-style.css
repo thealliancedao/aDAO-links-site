@@ -179,7 +179,11 @@ input[type="range"].direction-slider:disabled::-webkit-slider-thumb { background
     background-color: rgba(0,0,0,0.8);
 }
 .badges-hidden .top-right-stack,
-.badges-hidden .broken-banner {
+.badges-hidden .broken-banner,
+/* 2026-08-12: the eye exists to show the ART with nothing on top of it, so the
+   listing-price pill and the showcase picker hide with the badges. */
+.badges-hidden .listing-price-pill,
+.badges-hidden .showcase-pick {
     opacity: 0;
     pointer-events: none;
 }

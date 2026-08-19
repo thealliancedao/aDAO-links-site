@@ -174,7 +174,9 @@
         .mk-chip { cursor: pointer; line-height: 1.4; user-select: none; }
         /* --- Listings showcase picker (2026-08-12) --- */
         .showcase-pick {
-            position: absolute; left: 6px; top: 6px; z-index: 6;
+            /* bottom-right (2026-08-12): top-left collided with the eye control,
+               which exists to reveal the art with overlays hidden. */
+            position: absolute; right: 6px; bottom: 6px; z-index: 6;
             width: 24px; height: 24px; border-radius: 50%;
             display: inline-flex; align-items: center; justify-content: center;
             background: rgba(3, 7, 18, .78); border: 1px solid rgba(148, 163, 184, .5);
@@ -195,6 +197,14 @@
             background: rgba(8, 12, 24, .95); border: 1px solid rgba(34, 211, 238, .4);
             box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
             color: #e5e7eb; font: 13px/1 system-ui, sans-serif;
+        }
+        #showcase-bar .sc-opts { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+        #showcase-bar .sc-opt { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; color: #94a3b8; }
+        #showcase-bar .sc-opt:hover { color: #e5e7eb; }
+        #showcase-bar .sc-opt input { accent-color: #22d3ee; width: 13px; height: 13px; cursor: pointer; }
+        @media (max-width: 640px) {
+            #showcase-bar { flex-wrap: wrap; max-width: 94vw; justify-content: center; }
+            #showcase-bar .sc-opts { order: 3; width: 100%; justify-content: center; }
         }
         #showcase-bar .sc-btn {
             padding: 6px 12px; border-radius: 999px; cursor: pointer;
