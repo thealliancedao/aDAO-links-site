@@ -3422,37 +3422,64 @@ const showcaseOpts = {
 // Fix: find the series start; anything first seen at that boundary is a LOWER
 // BOUND and is drawn as "2d+ listed". Only listings we actually watched appear
 // (first seen AFTER the boundary) get an exact age.
-let _showcaseSeriesStart = null;
-let _showcaseFirstSeen = null;
-const loadFirstSeen = async () => {
-    if (_showcaseFirstSeen) return _showcaseFirstSeen;
-    try {
-        const r = await fetch(LISTING_HISTORY_URL + '?t=' + Date.now());
-        const j = r.ok ? await r.json() : null;
-        const rows = (j && (j.records || j.entries)) || [];
-        _showcaseFirstSeen = {};
-        let earliest = null;
-        for (const row of (Array.isArray(rows) ? rows : Object.values(rows))) {
-            if (row && row.token_id) {
-                _showcaseFirstSeen[String(row.token_id)] = row.first_seen_at;
-                if (row.first_seen_at && (!earliest || row.first_seen_at < earliest)) earliest = row.first_seen_at;
-            }
-        }
-        // Series start = the earliest observation in the file. Everything at
-        // this boundary was ALREADY listed when tracking began, so its true age
-        // is unknown and can only be reported as "N+".
-        _showcaseSeriesStart = earliest;
-    } catch (e) { _showcaseFirstSeen = {}; }
-    return _showcaseFirstSeen;
+// DAYS LISTED — CHAIN TRUTH (corrected 2026-08-12).
+// First attempt used listing-first-seen, which records when the CRON first
+// OBSERVED a listing. That series began 2026-08-17, so every listing showed an
+// identical "2d+" — technically honest but nearly useless.
+//
+// listing-history.json is the right source: it is a chain-derived lifecycle
+// ledger where each listing carries `create_tx`, `from_height` and a real
+// `from_ts`. The OPEN segment (to_ts === null) is the live listing, and its
+// from_ts is when the seller actually listed it. 64 of 65 current listings
+// match, with real ages up to ~705 days.
+//
+// The file is a frozen backfill (builtAt 2026-08-04), so anything listed after
+// that date is absent — those fall back to first-seen and are marked "+" as a
+// lower bound. Chain truth when we have it, an honest floor when we don't.
+let _listingStarts = null;      // "<tokenId>|<marketplace>" -> ISO listing start
+let _firstSeenFallback = null;  // tokenId -> first observed (lower bound)
+let _firstSeenBoundary = null;  // series start; anything at it predates tracking
+
+const loadListingAges = async () => {
+    if (_listingStarts) return;
+    _listingStarts = {}; _firstSeenFallback = {};
+    const grab = async (url) => {
+        try { const r = await fetch(url + '?t=' + Date.now()); return r.ok ? await r.json() : null; }
+        catch { return null; }
+    };
+    const [hist, seen] = await Promise.all([
+        grab('https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/listing-history.json'),
+        grab('https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/listing-first-seen.json'),
+    ]);
+    for (const rec of ((hist && hist.records) || [])) {
+        if (rec.outcome !== 'active') continue;
+        const open = (rec.segments || []).find(sg => !sg.to_ts);
+        if (open && open.from_ts) _listingStarts[`${rec.token_id}|${rec.marketplace}`] = open.from_ts;
+    }
+    let earliest = null;
+    const rows = (seen && (seen.entries || seen.records)) || {};
+    for (const row of (Array.isArray(rows) ? rows : Object.values(rows))) {
+        if (!row || !row.token_id || !row.first_seen_at) continue;
+        _firstSeenFallback[String(row.token_id)] = row.first_seen_at;
+        if (!earliest || row.first_seen_at < earliest) earliest = row.first_seen_at;
+    }
+    _firstSeenBoundary = earliest;
 };
-const daysListed = (id) => {
-    const t = _showcaseFirstSeen && _showcaseFirstSeen[String(id)];
-    if (!t) return null;
-    const d = Math.floor((Date.now() - Date.parse(t)) / 86400000);
+
+// Returns { days, atLeast } — atLeast true only when we are falling back to
+// "first observed" for a listing that predates the tracking series.
+const daysListed = (nft) => {
+    const l = nft && nft.listing; if (!l) return null;
+    const exact = _listingStarts && _listingStarts[`${nft.id}|${l.marketplace}`];
+    if (exact) {
+        const d = Math.floor((Date.now() - Date.parse(exact)) / 86400000);
+        if (d >= 0) return { days: d, atLeast: false };
+    }
+    const seen = _firstSeenFallback && _firstSeenFallback[String(nft.id)];
+    if (!seen) return null;
+    const d = Math.floor((Date.now() - Date.parse(seen)) / 86400000);
     if (d < 0) return null;
-    // Same day as the series start ⇒ the listing predates our tracking, so this
-    // is a floor on its age, not its age. Rendered "2d+ listed".
-    const atLeast = !!(_showcaseSeriesStart && t.slice(0, 10) === _showcaseSeriesStart.slice(0, 10));
+    const atLeast = !!(_firstSeenBoundary && seen.slice(0, 10) === _firstSeenBoundary.slice(0, 10));
     return { days: d, atLeast };
 };
 
@@ -3502,7 +3529,7 @@ const ADAO_NFT_CONTRACT_ADDR = 'terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4
 const MARKETPLACE_URL = {
     BBL: (id) => `https://app.backbonelabs.io/nfts/marketplace/collections/${ADAO_NFT_CONTRACT_ADDR}/${id}`,
     // Corrected 2026-08-12 from the real Atrium URLs (the previous
-    // atrium.market/collection/... form was a guess and 404s):
+    // previous atrium.market/... form was a guess and 404s):
     //   collection → https://atrium.markets/atrium/collection/<contract>?tab=listings
     //   token      → https://atrium.markets/atrium/<contract>/<id>
     Atrium: (id) => `https://atrium.markets/atrium/${ADAO_NFT_CONTRACT_ADDR}/${id}`,
@@ -3598,7 +3625,7 @@ const generateShowcaseImage = async (button) => {
         l.src = POST_LOGO_URL;
         });
         const images = await Promise.all(picks.map(loadNftImage));
-        if (showcaseOpts.days) await loadFirstSeen();
+        if (showcaseOpts.days) await loadListingAges();
         // Tier floors, not marketplace floors — see tierFloors().
         const tierFloorMap = showcaseOpts.vsFloor ? tierFloors() : {};
 
@@ -3714,13 +3741,17 @@ const generateShowcaseImage = async (button) => {
             if (showcaseOpts.days || showcaseOpts.vsFloor) {
                 const bits = [];
                 if (showcaseOpts.days) {
-                    const dl = daysListed(nft.id);
+                    const dl = daysListed(nft);
                     if (dl != null) {
                         // "2d+" when the listing predates our tracking — an honest
                         // lower bound instead of a confidently wrong exact age.
+                        // Months/years read better than "705d listed".
+                        const human = dl.days >= 365
+                            ? `${(dl.days / 365).toFixed(1)}yr`
+                            : (dl.days >= 60 ? `${Math.round(dl.days / 30)}mo` : `${dl.days}d`);
                         bits.push(dl.days === 0 && !dl.atLeast
                             ? 'listed today'
-                            : `${dl.days}d${dl.atLeast ? '+' : ''} listed`);
+                            : `${human}${dl.atLeast ? '+' : ''} listed`);
                     }
                 }
                 if (showcaseOpts.vsFloor && px && px.usd) {
@@ -3852,13 +3883,17 @@ const drawPostImage = (canvas, ctx, img, logo, nft, button) => {
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, titleHeight);
     
-    // Draw logo image centered - fill 90% of width
+    // Draw logo centered, FIT BY BOTH AXES (fixed 2026-08-12).
+    // This forced the logo to 90% of the canvas WIDTH and derived its height,
+    // so a tall logo computed a height taller than the header band and got
+    // clipped — the arrow rendered as a cut-off wedge bleeding into the art.
+    // Scale to whichever axis binds first and keep margin inside the band.
     if (logo && logo.width && logo.height) {
-        // Fit logo to 90% of canvas width
-        const maxLogoWidth = canvas.width * 0.9; // 90% of width
-        const aspectRatio = logo.width / logo.height;
-        const logoWidth = maxLogoWidth;
-        const logoHeight = logoWidth / aspectRatio;
+        const maxLogoWidth = canvas.width * 0.72;
+        const maxLogoHeight = titleHeight * 0.78;      // breathing room top and bottom
+        const scale = Math.min(maxLogoWidth / logo.width, maxLogoHeight / logo.height);
+        const logoWidth = logo.width * scale;
+        const logoHeight = logo.height * scale;
         const logoX = (canvas.width - logoWidth) / 2;
         const logoY = (titleHeight - logoHeight) / 2;
         ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);

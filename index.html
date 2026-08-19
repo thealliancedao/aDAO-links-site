@@ -1826,10 +1826,15 @@
                 <!-- Atrium Marketplace (chain-of-truth v2 pipeline) -->
                 <div id="atrium-marketplace-card" class="marketplace-section">
                     <div class="marketplace-header">
-                        <span class="w-5 h-5 rounded bg-pink-500/20 text-pink-400 inline-flex items-center justify-center text-[10px] font-bold flex-shrink-0">A</span>
+                        <!-- 2026-08-12: Atrium now uses its real logo like BBL/Boost.
+                             Loaded from Atrium's own favicon (no local asset exists);
+                             onerror restores the lettered fallback so the header never
+                             renders a broken-image icon. -->
+                        <img src="https://atrium.markets/img/atrium-favicon.svg" alt="Atrium"
+                             onerror="this.outerHTML='&lt;span class=\'w-5 h-5 rounded bg-pink-500/20 text-pink-400 inline-flex items-center justify-center text-[10px] font-bold flex-shrink-0\'&gt;A&lt;/span&gt;'">
                         <h3>Atrium Marketplace</h3>
                         <span id="atrium-live-indicator" class="text-[9px] text-green-400 ml-2 hidden"><i class="fas fa-circle text-[6px] animate-pulse mr-1"></i>LIVE</span>
-                        <a href="https://atrium.markets/collection/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9?tab=listings" target="_blank" class="text-xs text-gray-500 hover:text-cyan-400 ml-auto">
+                        <a href="https://atrium.markets/atrium/collection/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9?tab=listings" target="_blank" class="text-xs text-gray-500 hover:text-cyan-400 ml-auto">
                             <i class="fas fa-external-link-alt mr-1"></i>View
                         </a>
                     </div>
