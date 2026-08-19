@@ -172,6 +172,39 @@
     
         /* --- Marketplace chips + listing price (2026-08-12) --- */
         .mk-chip { cursor: pointer; line-height: 1.4; user-select: none; }
+        /* --- Listings showcase picker (2026-08-12) --- */
+        .showcase-pick {
+            position: absolute; left: 6px; top: 6px; z-index: 6;
+            width: 24px; height: 24px; border-radius: 50%;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: rgba(3, 7, 18, .78); border: 1px solid rgba(148, 163, 184, .5);
+            color: #cbd5e1; font: 700 14px/1 system-ui, sans-serif; cursor: pointer;
+            transition: all .12s;
+        }
+        .showcase-pick:hover { border-color: #67e8f9; color: #67e8f9; }
+        .showcase-pick.picked {
+            background: #0891b2; border-color: #22d3ee; color: #fff;
+        }
+        .showcase-pick.picked::after { content: '✓'; }
+        .showcase-pick.picked { font-size: 0; }
+        .showcase-pick.picked::after { font-size: 14px; }
+        #showcase-bar {
+            position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 60;
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 16px; border-radius: 999px;
+            background: rgba(8, 12, 24, .95); border: 1px solid rgba(34, 211, 238, .4);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, .5);
+            color: #e5e7eb; font: 13px/1 system-ui, sans-serif;
+        }
+        #showcase-bar .sc-btn {
+            padding: 6px 12px; border-radius: 999px; cursor: pointer;
+            border: 1px solid rgba(148, 163, 184, .4); background: transparent; color: #cbd5e1;
+        }
+        #showcase-bar .sc-btn:hover { color: #fff; border-color: #94a3b8; }
+        #showcase-bar .sc-primary {
+            background: #0891b2; border-color: #22d3ee; color: #fff; font-weight: 600;
+        }
+        #showcase-bar .sc-primary:hover { background: #06b6d4; }
         /* Fallback badge for a marketplace with no logo asset (currently Atrium). */
         .overlay-letter {
             display: inline-flex; align-items: center; justify-content: center;
@@ -363,9 +396,10 @@
                  <div class="pt-4 border-t border-gray-700">
                     <div id="toggle-status-filters" class="flex justify-between items-center cursor-pointer">
                         <h3 class="filter-section-title !mb-0">Status Filters</h3>
-                        <svg id="status-arrow" class="w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        <svg id="status-arrow" class="w-5 h-5 text-gray-400 transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
-                    <div id="status-filters-grid" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-6 mt-4"></div>
+                    <!-- Open by default (2026-08-12): these are the filters people reach for first. -->
+                    <div id="status-filters-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-4 gap-x-6 mt-4"></div>
                 </div>
                 
                 <div class="mt-6 pt-4 border-t border-gray-700">

@@ -920,6 +920,12 @@ const populateStatusFilters = () => {
             sliderClass: 'status-slider', 
             left: filter.left, 
             right: filter.right,
+            // BUG FIX 2026-08-12: this forEach rebuilds a fresh config object and
+            // only copied a fixed set of keys, so `chips` never reached
+            // createFilterItem — the Listed row fell through to the slider branch
+            // and rendered "undefined … undefined" (its left/right were removed
+            // when it became chip-based). Pass the flag through.
+            chips: filter.chips,
             tooltip: filter.tooltip
         });
         statusFiltersGrid.appendChild(container);
@@ -2559,6 +2565,26 @@ const createNftCard = (nft, toggleSelector) => {
     // Denominations differ per marketplace (bLUNA / SOLID / LUNA), so we show
     // the token amount as the headline and USD beside it for comparability.
     // A marketplace-owned listing with no ask says so rather than showing $0.
+    // SHOWCASE PICKER (2026-08-12): only listed NFTs get one — an unlisted NFT
+    // has no ask to advertise. Click to add/remove from the social post.
+    if (showcaseEligible(nft)) {
+        const pick = document.createElement('button');
+        pick.type = 'button';
+        pick.className = 'showcase-pick' + (showcasePicks.has(String(nft.id)) ? ' picked' : '');
+        pick.dataset.showcaseId = String(nft.id);
+        pick.title = 'Add to social post';
+        pick.textContent = '+';
+        pick.addEventListener('click', (ev) => {
+            ev.stopPropagation();          // don't open the detail modal
+            const r = toggleShowcasePick(nft.id);
+            if (r && r.full) {
+                pick.textContent = 'max';
+                setTimeout(() => { pick.textContent = '+'; }, 1200);
+            }
+        });
+        imageContainer.appendChild(pick);
+    }
+
     const priced = fmtListingPrice(nft.listing);
     if (priced) {
         const pill = document.createElement('div');
@@ -3345,6 +3371,215 @@ const findRarestTrait = (nft) => {
         }
     });
     return rarestTrait || { value: 'N/A', trait_type: 'Unknown' };
+};
+
+// =============================================================================
+// LISTINGS SHOWCASE (2026-08-12) — build a social post from your live listings.
+// -----------------------------------------------------------------------------
+// Pick up to 10 NFTs that are CURRENTLY LISTED and export a single image sized
+// for X / Telegram. Each tile carries the art, the token id, and the real ask
+// (token amount + USD) straight from the cron's listing data — so the graphic
+// can never quote a price the marketplace isn't showing.
+//
+// Built on the same proven pattern as generateShareImage(): same canvas, same
+// logo header, same blob-download path that already works on mobile.
+//
+// Selection lives in `showcasePicks` (a Set of token ids). Only listed NFTs can
+// be picked — an unlisted NFT has no price to advertise.
+// =============================================================================
+
+const SHOWCASE_MAX = 10;
+let showcasePicks = new Set();
+
+const showcaseEligible = (nft) => !!(nft && nft.listing && MARKETPLACES.some(m => nft[m.field]));
+
+const toggleShowcasePick = (id) => {
+    const key = String(id);
+    if (showcasePicks.has(key)) showcasePicks.delete(key);
+    else {
+        if (showcasePicks.size >= SHOWCASE_MAX) return { full: true };
+        showcasePicks.add(key);
+    }
+    updateShowcaseBar();
+    document.querySelectorAll(`[data-showcase-id="${key}"]`).forEach(el =>
+        el.classList.toggle('picked', showcasePicks.has(key)));
+    return { full: false };
+};
+
+const clearShowcase = () => {
+    showcasePicks.clear();
+    document.querySelectorAll('[data-showcase-id].picked').forEach(el => el.classList.remove('picked'));
+    updateShowcaseBar();
+};
+
+// A floating bar appears only once something is picked — no UI noise otherwise.
+const updateShowcaseBar = () => {
+    let bar = document.getElementById('showcase-bar');
+    if (!showcasePicks.size) { if (bar) bar.remove(); return; }
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'showcase-bar';
+        bar.innerHTML =
+            `<span id="showcase-count"></span>` +
+            `<button id="showcase-build" class="sc-btn sc-primary">Build post</button>` +
+            `<button id="showcase-clear" class="sc-btn">Clear</button>`;
+        document.body.appendChild(bar);
+        bar.querySelector('#showcase-clear').addEventListener('click', clearShowcase);
+        bar.querySelector('#showcase-build').addEventListener('click', (e) =>
+            generateShowcaseImage(e.currentTarget));
+    }
+    bar.querySelector('#showcase-count').textContent =
+        `${showcasePicks.size} selected${showcasePicks.size >= SHOWCASE_MAX ? ' (max)' : ''}`;
+};
+
+// Load an image with the same primary→IPFS fallback the single-NFT post uses.
+const loadNftImage = (nft) => new Promise((resolve) => {
+    const primary = getImageUrl(nft.id);
+    const fallback = convertIpfsUrl(nft.image) || convertIpfsUrl(nft.thumbnail_image);
+    if (!primary && !fallback) return resolve(null);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = function () {
+        if (fallback && this.src !== fallback) { this.src = fallback; }
+        else resolve(null);           // resolve, never reject: one bad image
+    };                                // must not sink the whole post
+    img.src = primary || fallback;
+});
+
+const generateShowcaseImage = async (button) => {
+    const picks = allNfts.filter(n => showcasePicks.has(String(n.id)) && showcaseEligible(n));
+    if (!picks.length) return;
+    const original = button ? button.textContent : '';
+    if (button) { button.textContent = 'Building…'; button.disabled = true; }
+
+    try {
+        const logo = await new Promise((res) => {
+            const l = new Image();
+            l.crossOrigin = 'anonymous';
+            l.onload = () => res(l);
+            l.onerror = () => res(null);          // post still works without it
+            l.src = '/assets/images/aDAO%20Logo%20txt%20no%20background%20.png';
+        });
+        const images = await Promise.all(picks.map(loadNftImage));
+
+        // Grid sized to the selection so 3 picks don't render as a mostly-empty
+        // sheet: 1→1x1, 2→2x1, 3-4→2x2, 5-6→3x2, 7-9→3x3, 10→5x2.
+        const n = picks.length;
+        const cols = n === 1 ? 1 : n === 2 ? 2 : n <= 4 ? 2 : n <= 6 ? 3 : n <= 9 ? 3 : 5;
+        const rows = Math.ceil(n / cols);
+
+        const canvas = document.getElementById('share-canvas');
+        const ctx = canvas.getContext('2d');
+        const PAD = 28, HEADER = 150, FOOT = 74, TILE = 320, GAP = 18, CAP = 62;
+        canvas.width = PAD * 2 + cols * TILE + (cols - 1) * GAP;
+        canvas.height = HEADER + PAD + rows * (TILE + CAP) + (rows - 1) * GAP + FOOT;
+
+        // Background
+        ctx.fillStyle = '#070b14';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Header band + logo
+        const g = ctx.createLinearGradient(0, 0, canvas.width, 0);
+        g.addColorStop(0, '#0c1220'); g.addColorStop(0.5, '#1a2744'); g.addColorStop(1, '#0c1220');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, canvas.width, HEADER);
+        if (logo) {
+            const lw = Math.min(canvas.width * 0.52, 520);
+            const lh = lw * (logo.height / logo.width);
+            ctx.drawImage(logo, (canvas.width - lw) / 2, (HEADER - lh) / 2, lw, lh);
+        } else {
+            ctx.fillStyle = '#e5e7eb';
+            ctx.font = 'bold 44px system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('THE ALLIANCE DAO', canvas.width / 2, HEADER / 2 + 14);
+        }
+
+        // Tiles
+        picks.forEach((nft, i) => {
+            const c = i % cols, r = Math.floor(i / cols);
+            const x = PAD + c * (TILE + GAP);
+            const y = HEADER + PAD + r * (TILE + CAP + GAP);
+
+            ctx.fillStyle = '#0d1526';
+            ctx.fillRect(x, y, TILE, TILE + CAP);
+
+            const im = images[i];
+            if (im) {
+                // cover-crop so mixed aspect ratios don't distort
+                const s = Math.max(TILE / im.width, TILE / im.height);
+                const w = im.width * s, h = im.height * s;
+                ctx.save();
+                ctx.beginPath(); ctx.rect(x, y, TILE, TILE); ctx.clip();
+                ctx.drawImage(im, x + (TILE - w) / 2, y + (TILE - h) / 2, w, h);
+                ctx.restore();
+            } else {
+                ctx.fillStyle = '#1f2937';
+                ctx.fillRect(x, y, TILE, TILE);
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '16px system-ui, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('image unavailable', x + TILE / 2, y + TILE / 2);
+            }
+
+            // Caption: id on the left, ask on the right — real numbers only.
+            const px = fmtListingPrice(nft.listing);
+            const mk = marketplaceOf(nft);
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#e5e7eb';
+            ctx.font = 'bold 22px ui-monospace, SFMono-Regular, Menlo, monospace';
+            ctx.fillText(`#${nft.id}`, x + 12, y + TILE + 28);
+            if (mk) {
+                ctx.fillStyle = '#64748b';
+                ctx.font = '14px system-ui, sans-serif';
+                ctx.fillText(mk, x + 12, y + TILE + 50);
+            }
+            if (px && px.token) {
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#67e8f9';
+                ctx.font = 'bold 20px ui-monospace, SFMono-Regular, Menlo, monospace';
+                ctx.fillText(px.token, x + TILE - 12, y + TILE + 28);
+                if (px.usd) {
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.font = '15px ui-monospace, SFMono-Regular, Menlo, monospace';
+                    ctx.fillText(px.usd, x + TILE - 12, y + TILE + 50);
+                }
+            }
+        });
+
+        // Footer: totals + where to look. Only sums listings that HAVE a USD
+        // value, and says how many — never implies a total it can't back.
+        const usdVals = picks.map(p => Number(p.listing && p.listing.price_usd)).filter(v => isFinite(v) && v > 0);
+        const totalUsd = usdVals.reduce((a, b) => a + b, 0);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '19px system-ui, sans-serif';
+        const totalTxt = usdVals.length
+            ? `${picks.length} listed · ${usdVals.length === picks.length ? '' : `${usdVals.length} priced · `}$${totalUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} total`
+            : `${picks.length} listed`;
+        ctx.fillText(totalTxt, canvas.width / 2, canvas.height - FOOT / 2 - 8);
+        ctx.fillStyle = '#475569';
+        ctx.font = '15px system-ui, sans-serif';
+        ctx.fillText('thealliancedao.com', canvas.width / 2, canvas.height - FOOT / 2 + 16);
+
+        // Download via blob — the same path the single-NFT post already uses,
+        // because it behaves on mobile where dataURL downloads do not.
+        canvas.toBlob((blob) => {
+            if (!blob) { if (button) { button.textContent = 'Error'; button.disabled = false; } return; }
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.download = `AllianceDAO_Listings_${picks.length}.png`;
+            link.href = url;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+            if (button) { button.textContent = 'Downloaded'; setTimeout(() => { button.textContent = original; button.disabled = false; }, 1800); }
+        }, 'image/png');
+    } catch (e) {
+        console.error('showcase build failed', e);
+        if (button) { button.textContent = 'Error'; setTimeout(() => { button.textContent = original; button.disabled = false; }, 2000); }
+    }
 };
 
 const generateShareImage = (nft, button) => {
