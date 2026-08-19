@@ -169,7 +169,29 @@
         #changelogModal .modal-content {
             transition: opacity 0.2s, transform 0.2s;
         }
-    </style>
+    
+        /* --- Marketplace chips + listing price (2026-08-12) --- */
+        .mk-chip { cursor: pointer; line-height: 1.4; user-select: none; }
+        /* Fallback badge for a marketplace with no logo asset (currently Atrium). */
+        .overlay-letter {
+            display: inline-flex; align-items: center; justify-content: center;
+            background: rgba(3, 7, 18, .85); border: 1px solid rgba(34, 211, 238, .5);
+            color: #67e8f9; border-radius: 50%;
+            font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .mk-chip:hover { filter: brightness(1.25); }
+        .listing-price-pill {
+            position: absolute; left: 6px; bottom: 6px; z-index: 5;
+            display: flex; align-items: baseline; gap: 5px;
+            padding: 2px 7px; border-radius: 6px;
+            background: rgba(3, 7, 18, .82); border: 1px solid rgba(34, 211, 238, .35);
+            backdrop-filter: blur(2px); pointer-events: none;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .listing-price-pill .lp-amt { color: #67e8f9; font-size: 11px; font-weight: 600; }
+        .listing-price-pill .lp-usd { color: #9ca3af; font-size: 10px; }
+        .listing-price-pill .lp-none { color: #9ca3af; font-weight: 400; }
+</style>
 </head>
 <body class="bg-gray-900 p-4 sm:p-8">
     <!-- ============================================================
@@ -317,6 +339,12 @@
                             <option value="rarity-asc">Rarity: Low to High</option>
                             <option value="id-asc">ID: Low to High</option>
                             <option value="id-desc">ID: High to Low</option>
+                            <!-- Price sorts (2026-08-12): sort on USD, not the raw
+                                 amount — listings are denominated in bLUNA / SOLID /
+                                 LUNA, so raw amounts are not comparable. Unlisted
+                                 NFTs always sort last, never as $0. -->
+                            <option value="price-asc">Price: Low to High</option>
+                            <option value="price-desc">Price: High to Low</option>
                         </select>
                     </div>
                     <div>

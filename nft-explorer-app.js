@@ -520,6 +520,7 @@ const initializeExplorer = async () => {
         populateInhabitantFilters();
         populatePlanetFilters();
         populateStatusFilters();
+        renderMarketplaceChips();   // built from live data — hides empty marketplaces
         populateTraitToggles();
         populateWalletTraitToggles();
         updateAddressDropdown(allNfts);
@@ -693,6 +694,52 @@ const updateMatchingTraitsCount = () => {
 };
 
 // --- UI Population ---
+// =============================================================================
+// MARKETPLACES (2026-08-12) — one registry, used by the filter chips, the card
+// badges and the detail view. Adding a fourth marketplace = one entry here.
+// Previously BBL/Boost were hardcoded in three places and Atrium — 18 live
+// listings — was captured by the cron but invisible everywhere in the UI.
+// =============================================================================
+const MARKETPLACES = [
+    { key: 'bbl',    label: 'BBL',    field: 'bbl_market',    icon: '/assets/images/BBL%20No%20Background.png' },
+    // No Atrium logo in /assets/images yet (verified 404 on 2026-08-12), so this
+    // falls back to a text badge. Drop an "Atrium Logo.png" in that folder and
+    // the image badge starts working automatically — no code change needed.
+    { key: 'atrium', label: 'Atrium', field: 'atrium_market', icon: '/assets/images/Atrium%20Logo.png', letter: 'A' },
+    { key: 'boost',  label: 'Boost',  field: 'boost_market',  icon: '/assets/images/Boost%20Logo.png' },
+];
+// Which marketplaces are currently switched on in the Listed filter. Rebuilt
+// from live data each render — a marketplace with zero listings never appears.
+let activeMarketplaces = new Set(MARKETPLACES.map(m => m.key));
+
+const marketplaceOf = (nft) => {
+    const m = MARKETPLACES.find(x => nft[x.field]);
+    return m ? m.label : (nft.listing && nft.listing.marketplace) || null;
+};
+
+// Listing price, formatted honestly:
+//   "2,500 bLUNA" with "~$187" beside it. Denominations genuinely differ per
+//   marketplace (bLUNA / SOLID / LUNA), so the USD figure is what makes two
+//   listings comparable — and it is what we sort on.
+const fmtListingPrice = (listing) => {
+    if (!listing) return null;
+    // NB: price_display ALREADY carries the symbol ("2,500 bLUNA"). Appending
+    // price_token_symbol on top of it duplicated it ("2,500 bLUNA bLUNA") —
+    // caught by the live-data gate. Only add the symbol when we fall back to
+    // the raw numeric amount.
+    const sym = listing.price_token_symbol || '';
+    let amt = listing.price_display || null;
+    if (!amt && listing.price_amount != null) {
+        amt = Number(listing.price_amount).toLocaleString(undefined, { maximumFractionDigits: 4 })
+            + (sym ? ' ' + sym : '');
+    }
+    if (!amt) return { token: null, usd: null, text: 'No price set' };
+    const usd = (listing.price_usd != null && isFinite(listing.price_usd))
+        ? '$' + Number(listing.price_usd).toLocaleString(undefined, { maximumFractionDigits: 2 })
+        : null;
+    return { token: amt, usd, text: amt };
+};
+
  const createFilterItem = (config) => {
     const container = document.createElement('div');
     container.className = 'flex items-center justify-between';
@@ -713,8 +760,63 @@ const updateMatchingTraitsCount = () => {
     sliderContainer.innerHTML = `<span class="text-xs text-gray-400 h-4 ${config.countClass || ''}" data-count-key="${config.key}">${config.initialCount || ''}</span><div class="direction-slider-container"><span class="text-xs text-gray-400">${config.left}</span><input type="range" min="${sliderMin}" max="${sliderMax}" value="${sliderDefault}" class="direction-slider ${config.sliderClass}" data-slider-key="${config.key}" disabled><span class="text-xs text-gray-400">${config.right}</span></div>`;
     
     container.appendChild(toggleLabel);
+    // MARKETPLACE CHIPS (2026-08-12): a 3-position slider can express
+    // "Boost | Both | BBL" but cannot express three marketplaces, and cannot
+    // express "BBL + Boost but not Atrium". Independent chips can, and they
+    // scale if a fourth marketplace ever appears. Built dynamically in
+    // renderMarketplaceChips() from live data.
+    if (config.chips) {
+        const chipWrap = document.createElement('div');
+        chipWrap.className = 'flex flex-col items-end';
+        chipWrap.innerHTML = `<span class="text-xs text-gray-400 h-4 ${config.countClass || ''}" data-count-key="${config.key}">${config.initialCount || ''}</span>`
+            + `<div class="marketplace-chips flex flex-wrap gap-1 justify-end" id="marketplace-chips"></div>`;
+        container.appendChild(chipWrap);
+        return container;
+    }
     container.appendChild(sliderContainer);
     return container;
+};
+
+// Rebuilt whenever data loads: a marketplace with zero live listings is not
+// shown at all, so the row honestly reflects where listings actually are.
+const renderMarketplaceChips = () => {
+    const host = document.getElementById('marketplace-chips');
+    if (!host) return;
+    const counts = {};
+    for (const m of MARKETPLACES) counts[m.key] = allNfts.filter(n => n[m.field]).length;
+    const present = MARKETPLACES.filter(m => counts[m.key] > 0);
+
+    // Drop any marketplace that no longer has listings from the active set,
+    // and make sure a newly-appearing one starts switched on.
+    for (const m of MARKETPLACES) {
+        if (counts[m.key] === 0) activeMarketplaces.delete(m.key);
+        else if (!activeMarketplaces.has(m.key) && !host.dataset.userTouched) activeMarketplaces.add(m.key);
+    }
+    if (!present.length) {
+        host.innerHTML = '<span class="text-xs text-gray-500">no live listings</span>';
+        return;
+    }
+    host.innerHTML = present.map(m => {
+        const on = activeMarketplaces.has(m.key);
+        return `<button type="button" class="mk-chip text-xs px-2 py-0.5 rounded border transition-colors ${on
+            ? 'bg-cyan-500/20 border-cyan-400/60 text-cyan-200'
+            : 'bg-transparent border-gray-600 text-gray-500'}" data-mk="${m.key}"
+            title="${on ? 'Showing' : 'Hidden'} — ${m.label}: ${counts[m.key]} listed">${m.label} ${counts[m.key]}</button>`;
+    }).join('');
+
+    host.querySelectorAll('.mk-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const k = btn.dataset.mk;
+            host.dataset.userTouched = '1';
+            if (activeMarketplaces.has(k)) {
+                // Never let the user switch every marketplace off — that would
+                // silently show zero results with the Listed filter on.
+                if (activeMarketplaces.size > 1) activeMarketplaces.delete(k);
+            } else activeMarketplaces.add(k);
+            renderMarketplaceChips();
+            applyFiltersAndSort();
+        });
+    });
 };
 
 const populateInhabitantFilters = () => {
@@ -802,7 +904,7 @@ const populateStatusFilters = () => {
     // All 6 status filters in the same structure
     const statusFilterConfig = [
         { key: 'staked', label: 'Staked', left: 'Ent', right: 'DAO' },
-        { key: 'listed', label: 'Listed', left: 'Boost', right: 'BBL' },
+        { key: 'listed', label: 'Listed', chips: true, tooltip: 'Filter by marketplace. Only marketplaces with live listings appear; each toggles independently, so any combination works.' },
         { key: 'rewards', label: 'Rewards', left: 'Broken', right: 'Unbroken' },
         { key: 'mint_status', label: 'Mint Status', left: 'Un-Minted', right: 'Minted' },
         { key: 'matching_traits', label: 'Matching', left: 'P+I', right: 'P+I+O', tooltip: 'Home-system trait match \u2014 P+I: the Inhabitant is standing on its home planet (e.g. a Lusan on Lusa). P+I+O: planet + inhabitant + a native object of that world (e.g. Lusan Water Staff). Slide to choose which match the count shows.' },
@@ -2057,10 +2159,9 @@ const applyFiltersAndSort = () => {
         else if (sliderValue === '2') tempNfts = tempNfts.filter(nft => nft.staked_daodao);
     }
     if (document.querySelector('.status-toggle-cb[data-key="listed"]')?.checked) {
-        const sliderValue = document.querySelector('.direction-slider[data-slider-key="listed"]').value;
-        if (sliderValue === '0') tempNfts = tempNfts.filter(nft => nft.boost_market);
-        else if (sliderValue === '1') tempNfts = tempNfts.filter(nft => nft.boost_market || nft.bbl_market);
-        else if (sliderValue === '2') tempNfts = tempNfts.filter(nft => nft.bbl_market);
+        // Listed on ANY marketplace the user has left switched on.
+        const fields = MARKETPLACES.filter(m => activeMarketplaces.has(m.key)).map(m => m.field);
+        tempNfts = tempNfts.filter(nft => fields.some(f => nft[f]));
     }
     if (document.querySelector('.status-toggle-cb[data-key="rewards"]')?.checked) {
         const sliderValue = document.querySelector('.direction-slider[data-slider-key="rewards"]').value;
@@ -2180,6 +2281,24 @@ const applyFiltersAndSort = () => {
     } else if (sortValue === 'id-desc') {
         // ID High to Low
         tempNfts.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+    } else if (sortValue === 'price-asc' || sortValue === 'price-desc') {
+        // PRICE (2026-08-12). Sort on price_usd, NOT the raw amount: listings
+        // are denominated in bLUNA / SOLID / LUNA, so 125 SOLID vs 2,500 bLUNA
+        // is meaningless numerically. Anything without a live USD price
+        // (unlisted, or a marketplace-owned listing with no ask) sorts LAST in
+        // both directions rather than pretending to be $0.
+        const px = (n) => {
+            const v = n.listing && n.listing.price_usd;
+            return (v != null && isFinite(v)) ? Number(v) : null;
+        };
+        const dir = sortValue === 'price-asc' ? 1 : -1;
+        tempNfts.sort((a, b) => {
+            const pa = px(a), pb = px(b);
+            if (pa == null && pb == null) return (a.id ?? 0) - (b.id ?? 0);
+            if (pa == null) return 1;
+            if (pb == null) return -1;
+            return (pa - pb) * dir;
+        });
     }
 
     filteredNfts = tempNfts;
@@ -2356,7 +2475,10 @@ const createNftCard = (nft, toggleSelector) => {
     if (!imageContainer) return card; // Safety check
     
     const isDaoOwned = nft.owned_by_alliance_dao; // Use the combined property
-    const hasBadges = nft.broken || nft.staked_daodao || nft.boost_market || nft.bbl_market || nft.staked_enterprise_legacy || isDaoOwned;
+    // Registry-driven so a new marketplace can never be missed here again
+    // (Atrium-only listings previously produced no badge stack at all).
+    const hasBadges = nft.broken || nft.staked_daodao || nft.staked_enterprise_legacy || isDaoOwned
+        || MARKETPLACES.some(m => nft[m.field]);
 
     if (hasBadges) {
         // --- Add Badge Visibility Toggle ---
@@ -2399,12 +2521,53 @@ const createNftCard = (nft, toggleSelector) => {
 
     if (isDaoOwned) addBadge('/assets/images/Alliance%20DAO%20Logo.png', 'Owned by DAO');
     if (nft.staked_daodao) addBadge('/assets/images/DAODAO.png', 'Staked on DAODAO');
-    if (nft.boost_market) addBadge('/assets/images/Boost%20Logo.png', 'Listed on Boost');
-    if (nft.bbl_market) addBadge('/assets/images/BBL%20No%20Background.png', 'Listed on BBL');
+    // Marketplace badges from the shared registry — Atrium was missing entirely
+    // before 2026-08-12 despite having ~17 live listings.
+    // A marketplace whose logo asset is absent degrades to a lettered chip
+    // rather than a broken-image icon; if the asset appears later the <img>
+    // simply loads and the fallback never fires.
+    const addLetterBadge = (letter, alt) => {
+        const el = document.createElement('span');
+        el.className = 'overlay-icon overlay-letter';
+        el.textContent = letter;
+        el.title = alt;
+        topRightStack.appendChild(el);
+    };
+    for (const m of MARKETPLACES) {
+        if (!nft[m.field]) continue;
+        const alt = `Listed on ${m.label}`;
+        if (!m.icon) { addLetterBadge(m.letter || m.label[0], alt); continue; }
+        const img = document.createElement('img');
+        img.src = m.icon; img.alt = alt; img.title = alt; img.className = 'overlay-icon';
+        img.addEventListener('error', () => {
+            img.replaceWith(Object.assign(document.createElement('span'), {
+                className: 'overlay-icon overlay-letter',
+                textContent: m.letter || m.label[0],
+                title: alt,
+            }));
+        }, { once: true });
+        topRightStack.appendChild(img);
+    }
     if (nft.staked_enterprise_legacy) addBadge('/assets/images/Enterprise.jpg', 'Staked on Enterprise');
 
     if (topRightStack.children.length > 0) {
         imageContainer.appendChild(topRightStack);
+    }
+
+    // LISTING PRICE (2026-08-12). The cron has captured full price data all
+    // along — price_display / token symbol / price_usd — and nothing showed it.
+    // Denominations differ per marketplace (bLUNA / SOLID / LUNA), so we show
+    // the token amount as the headline and USD beside it for comparability.
+    // A marketplace-owned listing with no ask says so rather than showing $0.
+    const priced = fmtListingPrice(nft.listing);
+    if (priced) {
+        const pill = document.createElement('div');
+        pill.className = 'listing-price-pill';
+        pill.title = `${marketplaceOf(nft) || 'Listed'}${priced.usd ? ` · ${priced.usd}` : ''}`;
+        pill.innerHTML = priced.token
+            ? `<span class="lp-amt">${priced.token}</span>${priced.usd ? `<span class="lp-usd">${priced.usd}</span>` : ''}`
+            : `<span class="lp-amt lp-none">No price set</span>`;
+        imageContainer.appendChild(pill);
     }
 
     return card;
@@ -2566,11 +2729,9 @@ const updateFilterCounts = (currentNfts) => { // Pass in the list to count
              else if (slider.value === '1') count = list.filter(n => n.staked_enterprise_legacy || n.staked_daodao).length;
              else if (slider.value === '2') count = daodaoCount;
         } else if (key === 'listed') {
-            const boostCount = list.filter(n => n.boost_market).length;
-            const bblCount = list.filter(n => n.bbl_market).length;
-            if(slider.value === '0') count = boostCount;
-            else if (slider.value === '1') count = list.filter(n => n.boost_market || n.bbl_market).length;
-            else if (slider.value === '2') count = bblCount;
+            // Chips, not a slider: count everything listed on an ACTIVE marketplace.
+            const fields = MARKETPLACES.filter(m => activeMarketplaces.has(m.key)).map(m => m.field);
+            count = list.filter(n => fields.some(f => n[f])).length;
         } else if (key === 'rewards') {
              const brokenCount = list.filter(n => n.broken === true).length;
              const unbrokenCount = list.filter(n => n.broken === false).length;
@@ -3109,10 +3270,12 @@ const showNftDetails = (nft) => {
         statusTxt = 'Staked (DAODAO)';
     } else if (nft.staked_enterprise_legacy) {
         statusTxt = 'Staked (Enterprise)';
-    } else if (nft.bbl_market) {
-        statusTxt = 'Listed (BackBone Labs)';
-    } else if (nft.boost_market) {
-        statusTxt = 'Listed (Boost)';
+    } else if (MARKETPLACES.some(m => nft[m.field])) {
+        // Registry-driven: an Atrium listing used to fall through to "In Wallet".
+        const mk = MARKETPLACES.find(m => nft[m.field]);
+        const full = { bbl: 'BackBone Labs', atrium: 'Atrium', boost: 'Boost' }[mk.key] || mk.label;
+        const px = fmtListingPrice(nft.listing);
+        statusTxt = `Listed (${full})` + (px && px.token ? ` — ${px.token}${px.usd ? ` · ${px.usd}` : ''}` : '');
     } else if (nft.liquid === false) {
         statusTxt = 'In Wallet (Not Liquid)';
     }
@@ -4292,11 +4455,20 @@ const initializeStarfield = () => {
         // Calculate counts for scaling
         const bblCount = allNfts.filter(n=>n.bbl_market).length;
         const boostCount = allNfts.filter(n=>n.boost_market).length;
+        const atriumCount = allNfts.filter(n=>n.atrium_market).length;
         const enterpriseCount = allNfts.filter(n=>n.staked_enterprise_legacy).length;
 
         addSystemCenter('daodao', 'daodao', 'planet', 0.5, true);
         addSystemCenter('bbl', 'bbl', 'planet', bblCount > 0 ? (bblCount / 59) * 0.5 : 0.1, true); // Use count, default 0.1
         addSystemCenter('boost', 'boost', 'ship_main', 0.5, true); // Fixed size to match other planets
+        // ATRIUM NOT ON THE MAP (2026-08-12, deliberate): addSystemCenter needs
+        // BOTH a systemCenters['atrium'] coordinate AND a preloaded 'atrium'
+        // image; neither exists, and calling it without them throws and takes
+        // the whole map view down. Atrium IS counted everywhere else (chips,
+        // badges, filters, wallet stats, holder stats, analytics). Adding it
+        // here is a design task: pick coordinates that don't collide with the
+        // existing systems, and supply the art.
+        //   atriumCount is computed above and ready for that work.
         addSystemCenter('enterprise', 'enterprise', 'blackhole', enterpriseCount > 0 ? (enterpriseCount / 515) * 0.5 : 0.1, true);
 
 
@@ -4304,13 +4476,14 @@ const initializeStarfield = () => {
         allNfts.forEach(nft => {
             if (nft.owner) {
                 if (!holderStats[nft.owner]) {
-                    holderStats[nft.owner] = { total: 0, daodaoStaked: 0, bblListed: 0, boostListed: 0, enterpriseStaked: 0 };
+                    holderStats[nft.owner] = { total: 0, daodaoStaked: 0, bblListed: 0, boostListed: 0, atriumListed: 0, enterpriseStaked: 0 };
                 }
                 const stats = holderStats[nft.owner];
                 stats.total++;
                 if (nft.staked_daodao) stats.daodaoStaked++;
                 if (nft.bbl_market) stats.bblListed++;
                 if (nft.boost_market) stats.boostListed++;
+                if (nft.atrium_market) stats.atriumListed++;
                 if (nft.staked_enterprise_legacy) stats.enterpriseStaked++;
             }
         });
@@ -4608,6 +4781,7 @@ const showWalletExplorerModal = (address) => {
     const enterpriseStaked = walletNfts.filter(n => n.staked_enterprise_legacy).length;
     const boostListed = walletNfts.filter(n => n.boost_market).length;
     const bblListed = walletNfts.filter(n => n.bbl_market).length;
+    const atriumListed = walletNfts.filter(n => n.atrium_market).length;
     const broken = walletNfts.filter(n => n.broken).length;
     const total = walletNfts.length;
     const unbroken = total - broken;
@@ -4620,6 +4794,7 @@ const showWalletExplorerModal = (address) => {
         { label: 'Enterprise Staked', value: enterpriseStaked, color: 'text-gray-400' },
         { label: 'Boost Listed', value: boostListed, color: 'text-purple-400' },
         { label: 'BBL Listed', value: bblListed, color: 'text-green-400' },
+        { label: 'Atrium Listed', value: atriumListed, color: 'text-pink-400' },
         { label: 'Unbroken', value: unbroken, color: 'text-green-400' },
         { label: 'Broken', value: broken, color: 'text-red-400' },
     ];
@@ -4650,12 +4825,14 @@ const showSystemLeaderboardModal = (systemId) => {
         daodao: 'daodaoStaked',
         bbl: 'bblListed',
         boost: 'boostListed',
+        atrium: 'atriumListed',
         enterprise: 'enterpriseStaked'
     };
     const systemNameMap = {
         daodao: 'DAODAO Staking',
         bbl: 'BackBone Labs Listings',
         boost: 'Boost Marketplace Listings',
+        atrium: 'Atrium Marketplace Listings',
         enterprise: 'Enterprise Staking'
     };
     const statKey = systemKeyMap[systemId];
@@ -4831,12 +5008,10 @@ const searchWallet = () => {
                     else if (val === '1') matchesAny = true; // Both
                 }
                 
-                // Listed: 0=BBL, 1=Both, 2=Boost
+                // Listed on ANY marketplace (registry-driven — Atrium listings
+                // were previously invisible to this filter).
                 if (listedFilter?.checked) {
-                    const val = listedSlider?.value || '1';
-                    if (val === '0' && nft.bbl_market) matchesAny = true;
-                    else if (val === '2' && nft.boost_market) matchesAny = true;
-                    else if (val === '1' && (nft.bbl_market || nft.boost_market)) matchesAny = true;
+                    if (MARKETPLACES.some(m => nft[m.field])) matchesAny = true;
                 }
                 
                 // Liquid: 0=Show liquid, 1=Both, 2=Hide liquid
@@ -5044,6 +5219,7 @@ const showSnapshotTool = async () => {
             staked_enterprise: allNfts.filter(n => n.staked_enterprise_legacy).length,
             listed_bbl: allNfts.filter(n => n.bbl_market).length,
             listed_boost: allNfts.filter(n => n.boost_market).length,
+            listed_atrium: allNfts.filter(n => n.atrium_market).length,
             broken: allNfts.filter(n => n.broken === true).length,
             liquid: allNfts.filter(n => n.liquid === true).length,
             unique_owners: new Set(allNfts.filter(n => !n.owned_by_alliance_dao).map(n => n.owner)).size
@@ -5072,6 +5248,7 @@ const showSnapshotTool = async () => {
                         <div>Staked Enterprise:</div><div class="text-white">${stats.staked_enterprise.toLocaleString()}</div>
                         <div>Listed BBL:</div><div class="text-white">${stats.listed_bbl.toLocaleString()}</div>
                         <div>Listed Boost:</div><div class="text-white">${stats.listed_boost.toLocaleString()}</div>
+                        <div>Listed Atrium:</div><div class="text-white">${stats.listed_atrium.toLocaleString()}</div>
                         <div>Broken:</div><div class="text-white">${stats.broken.toLocaleString()}</div>
                         <div>Unique Owners:</div><div class="text-white">${stats.unique_owners.toLocaleString()}</div>
                     </div>
