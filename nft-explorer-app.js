@@ -705,7 +705,9 @@ const MARKETPLACES = [
     // No Atrium logo in /assets/images yet (verified 404 on 2026-08-12), so this
     // falls back to a text badge. Drop an "Atrium Logo.png" in that folder and
     // the image badge starts working automatically — no code change needed.
-    { key: 'atrium', label: 'Atrium', field: 'atrium_market', icon: '/assets/images/Atrium%20Logo.png', letter: 'A' },
+    // Atrium's own favicon (SVG). Kept remote deliberately: no local asset
+    // exists, and the letter-badge fallback still fires if it ever fails.
+    { key: 'atrium', label: 'Atrium', field: 'atrium_market', icon: 'https://atrium.markets/img/atrium-favicon.svg', letter: 'A' },
     { key: 'boost',  label: 'Boost',  field: 'boost_market',  icon: '/assets/images/Boost%20Logo.png' },
 ];
 // Which marketplaces are currently switched on in the Listed filter. Rebuilt
@@ -3499,7 +3501,15 @@ const marketplaceFloors = () => {
 const ADAO_NFT_CONTRACT_ADDR = 'terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9';
 const MARKETPLACE_URL = {
     BBL: (id) => `https://app.backbonelabs.io/nfts/marketplace/collections/${ADAO_NFT_CONTRACT_ADDR}/${id}`,
-    Atrium: (id) => `https://atrium.market/collection/${ADAO_NFT_CONTRACT_ADDR}/${id}`,
+    // Corrected 2026-08-12 from the real Atrium URLs (the previous
+    // atrium.market/collection/... form was a guess and 404s):
+    //   collection → https://atrium.markets/atrium/collection/<contract>?tab=listings
+    //   token      → https://atrium.markets/atrium/<contract>/<id>
+    Atrium: (id) => `https://atrium.markets/atrium/${ADAO_NFT_CONTRACT_ADDR}/${id}`,
+};
+const MARKETPLACE_COLLECTION_URL = {
+    BBL: `https://app.backbonelabs.io/nfts/marketplace/collections/${ADAO_NFT_CONTRACT_ADDR}`,
+    Atrium: `https://atrium.markets/atrium/collection/${ADAO_NFT_CONTRACT_ADDR}?tab=listings`,
 };
 
 const showcaseEligible = (nft) => !!(nft && nft.listing && MARKETPLACES.some(m => nft[m.field]));

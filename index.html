@@ -12166,15 +12166,21 @@
                     // Sync unbroken floor to the Backing / Floor (USD) tile (alliance_dao only).
                     // Listings come back price-asc so the first non-BROKEN entry is the unbroken floor.
                     if (collectionKey === 'alliance_dao') {
+                        // 2026-08-12: this BBL-ONLY value used to write the headline
+                        // tile, then the cross-marketplace override rewrote it moments
+                        // later — the visible "$77 → $50" flash. Two writers, one
+                        // element. It now only fills the tile if nothing has yet, and
+                        // marks it provisional so the true cross-venue floor wins
+                        // cleanly. The override is the single source of truth.
                         const floorEl = document.getElementById('unbroken-floor-usd');
                         const floorSubEl = document.getElementById('unbroken-floor-bluna-subtext');
                         const firstUnbroken = listings.find(n => n.special_trait !== 'BROKEN');
-                        if (floorEl) {
+                        if (floorEl && !floorEl.dataset.crossMpFloor) {
                             if (firstUnbroken && firstUnbroken.auction?.reserve_price && blunaPrice > 0) {
                                 const ubFloorBluna = parseInt(firstUnbroken.auction.reserve_price) / 1000000;
                                 const ubFloorUsd = ubFloorBluna * blunaPrice;
                                 floorEl.innerHTML = `$${ubFloorUsd.toFixed(2)}`;
-                                if (floorSubEl) floorSubEl.textContent = `${ubFloorBluna.toFixed(0)} bLUNA`;
+                                if (floorSubEl) floorSubEl.textContent = `BBL only · checking other venues…`;
                             } else {
                                 floorEl.textContent = '--';
                                 if (floorSubEl) floorSubEl.textContent = 'No unbroken listings';
@@ -13071,6 +13077,16 @@
                     // cross-marketplace context exists, override it with the TRUE
                     // floor: the lowest non-broken listing across all three venues.
                     // Idempotent, runs at the same race points as the tier rows.
+                    // THE FLOOR TILE'S ONE JOB (restated 2026-08-12): show the TRUE
+                    // floor in USD across every marketplace, so it can be read against
+                    // backing. Where that floor lives is the marketplace tiles' job,
+                    // below — this tile just names the venue in its subtext.
+                    //
+                    // BROKEN LISTINGS ARE EXCLUDED, deliberately: broken NFTs forfeited
+                    // their backing claim, so pricing backing against a broken ask
+                    // compares two different assets. Today that matters — the broken
+                    // floor is $9.80 while the unbroken floor is $73.52; including it
+                    // would make backing look ~fully covered when it is not.
                     try {
                         const allMp = [];
                         (marketplaceCache.bbl?.alliance_dao?.listings || []).forEach(l => allMp.push({ l, mp: 'BBL' }));
@@ -13079,10 +13095,21 @@
                         const unbroken = allMp.filter(x => x.l.priceUsd > 0 && tierOfListing(x.l) !== 'broken');
                         if (unbroken.length) {
                             const best = unbroken.reduce((a, b) => (b.l.priceUsd < a.l.priceUsd ? b : a));
+                            // Which venues actually contributed — so the subtext never
+                            // claims to have checked a marketplace whose data never landed.
+                            const venues = [...new Set(unbroken.map(x => x.mp))];
                             const floorEl2 = document.getElementById('unbroken-floor-usd');
                             const floorSubEl2 = document.getElementById('unbroken-floor-bluna-subtext');
-                            if (floorEl2) floorEl2.innerHTML = `$${best.l.priceUsd.toFixed(2)}`;
-                            if (floorSubEl2) floorSubEl2.textContent = `lowest of ${unbroken.length} listings · BBL + Boost + Atrium (${best.mp})`;
+                            if (floorEl2) {
+                                floorEl2.innerHTML = `$${best.l.priceUsd.toFixed(2)}`;
+                                floorEl2.dataset.crossMpFloor = '1';   // authoritative — BBL-only must not overwrite
+                                floorEl2.title = `Lowest UNBROKEN ask across ${venues.join(' + ')} — broken listings excluded because they carry no backing claim.`;
+                            }
+                            if (floorSubEl2) {
+                                floorSubEl2.textContent = venues.length === 3
+                                    ? `lowest unbroken of ${unbroken.length} · all venues (${best.mp})`
+                                    : `lowest unbroken of ${unbroken.length} · ${venues.join(' + ')} (${best.mp})`;
+                            }
                         }
                     } catch (e) { console.warn('cross-marketplace floor override skipped:', e.message); }
                 }
@@ -13090,15 +13117,23 @@
                     if (_v2Promise) return _v2Promise;
                     _v2Promise = (async () => {
                         const get = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); };
-                        const [lh, ba, se, asal, bsal, rar] = await Promise.all([
+                        const [lh, ba, se, asal, bsal, rar, inv] = await Promise.all([
                             // HARDENED 2026-08-11: these two were unguarded, so a single
                             // 404 threw and killed the ENTIRE v2 pipeline — Atrium stuck on
                             // "Loading pipeline data…" and every marketplace total blank.
                             // Each optional input now fails to null independently.
                             get(V2_BASE + 'listing-history.json').catch(() => null), get(V2_BASE + 'broken-at.json').catch(() => null),
                             get(V2_BASE + 'sales-enriched.json'), get(V2_BASE + 'atrium-sales.json').catch(() => null),
-                            get(V2_BASE + 'boost-sales.json').catch(() => null), get(V2_RARITY).catch(() => null)
+                            get(V2_BASE + 'boost-sales.json').catch(() => null), get(V2_RARITY).catch(() => null),
+                            // ADDED 2026-08-12: the LIVE inventory. CURRENT listings must
+                            // come from here — listing-history is a frozen backfill whose
+                            // "active" flags went stale (see the Atrium block below).
+                            get(V2_BASE + 'nfts.json').catch(() => null)
                         ]);
+                        const invRecords = (() => {
+                            const r = inv && inv.records;
+                            return Array.isArray(r) ? r : (r ? Object.values(r) : []);
+                        })();
                         const brokenAt = ba.entries || {};
                         const isBrokenNow = (id) => !!brokenAt[String(id)];
                         const px = () => ({ LUNA: window.tokenPrices?.LUNA || 0, bLUNA: window.tokenPrices?.bLUNA || 0, SOLID: 1 });
@@ -13106,21 +13141,40 @@
 
                         // --- Atrium current listings (open segments, liveness implied by outcome:active) ---
                         const p = px();
-                        const atriumListings = (lh.records || [])
-                            .filter(r => r.marketplace === 'Atrium' && r.outcome === 'active')
-                            .map(r => {
-                                const seg = (r.segments || []).find(s => !s.to_ts) || (r.segments || [])[r.segments.length - 1];
-                                if (!seg || seg.price == null) return null;
-                                const sym = DEN[seg.denom] || '?';
-                                const amt = Number(seg.price) / 1e6;
-                                const usd = (p[sym] || 0) * amt;
+                        // ATRIUM LISTINGS — SOURCE CORRECTED 2026-08-12.
+                        // These were read from listing-history.json filtered to
+                        // outcome:'active'. That file is a FROZEN one-time backfill
+                        // (builtAt 2026-08-04) — its "active" flags are five days
+                        // stale, so delisted/sold NFTs still counted. Concretely it
+                        // kept #2852 at 50 SOLID alive, which dragged the headline
+                        // Unbroken Floor down to $50 when the true floor was $73.52,
+                        // and made the Atrium tile disagree with the cron.
+                        //
+                        // nfts.json is the LIVE inventory (every ~15 min) and carries
+                        // a complete `listing` object per token, so it is the correct
+                        // source for CURRENT listings. listing-history stays useful
+                        // for HISTORY (first-seen, lifecycles) — just not for "what is
+                        // listed right now".
+                        const atriumListings = (invRecords || [])
+                            .filter(n => n.listing && n.listing.marketplace === 'Atrium')
+                            .map(n => {
+                                const l = n.listing;
+                                const sym = l.price_token_symbol || DEN[l.denom] || '?';
+                                const amt = Number(l.price_amount);
+                                if (!isFinite(amt)) return null;
+                                // Prefer the cron's own USD (priced at capture with the
+                                // same feed everything else uses); fall back to the
+                                // page's price map only if it is missing.
+                                const usd = (Number.isFinite(Number(l.price_usd)) && Number(l.price_usd) > 0)
+                                    ? Number(l.price_usd)
+                                    : (p[sym] || 0) * amt;
                                 return {
-                                    marketplace: 'atrium', collection: 'alliance_dao', tokenId: r.token_id,
-                                    name: `AllianceDAO NFT #${r.token_id}`,
+                                    marketplace: 'atrium', collection: 'alliance_dao', tokenId: String(n.id),
+                                    name: `AllianceDAO NFT #${n.id}`,
                                     price: amt, priceToken: sym, priceUsd: usd,
-                                    imageUrl: getNftImageUrl(r.token_id),
-                                    isBroken: isBrokenNow(r.token_id), rank: null,
-                                    url: `https://atrium.markets/atrium/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9/${r.token_id}`
+                                    imageUrl: getNftImageUrl(n.id),
+                                    isBroken: isBrokenNow(n.id), rank: null,
+                                    url: `https://atrium.markets/atrium/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9/${n.id}`
                                 };
                             }).filter(Boolean);
                         marketplaceCache.atrium = { alliance_dao: { listings: atriumListings, count: atriumListings.length } };
@@ -15355,7 +15409,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.79', REV_DATE = '2026-08-12';   // rev-footer law: bump BOTH every change
+        const REV = '3.80', REV_DATE = '2026-08-19';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
