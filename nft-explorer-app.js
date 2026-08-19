@@ -3413,6 +3413,14 @@ const showcaseOpts = {
 // Days-listed comes from listing-first-seen.json (the cron records when a
 // listing was FIRST observed). Fetched once, lazily — the showcase is the only
 // consumer outside the analytics view.
+// HONEST DAYS-LISTED (2026-08-12). listing-first-seen records when the CRON
+// FIRST OBSERVED a listing — not when the seller created it. The series began
+// 2026-08-17, so every listing that predates tracking shares that same date and
+// would otherwise render an identical, wrong "2d listed" on every tile.
+// Fix: find the series start; anything first seen at that boundary is a LOWER
+// BOUND and is drawn as "2d+ listed". Only listings we actually watched appear
+// (first seen AFTER the boundary) get an exact age.
+let _showcaseSeriesStart = null;
 let _showcaseFirstSeen = null;
 const loadFirstSeen = async () => {
     if (_showcaseFirstSeen) return _showcaseFirstSeen;
@@ -3421,9 +3429,17 @@ const loadFirstSeen = async () => {
         const j = r.ok ? await r.json() : null;
         const rows = (j && (j.records || j.entries)) || [];
         _showcaseFirstSeen = {};
+        let earliest = null;
         for (const row of (Array.isArray(rows) ? rows : Object.values(rows))) {
-            if (row && row.token_id) _showcaseFirstSeen[String(row.token_id)] = row.first_seen_at;
+            if (row && row.token_id) {
+                _showcaseFirstSeen[String(row.token_id)] = row.first_seen_at;
+                if (row.first_seen_at && (!earliest || row.first_seen_at < earliest)) earliest = row.first_seen_at;
+            }
         }
+        // Series start = the earliest observation in the file. Everything at
+        // this boundary was ALREADY listed when tracking began, so its true age
+        // is unknown and can only be reported as "N+".
+        _showcaseSeriesStart = earliest;
     } catch (e) { _showcaseFirstSeen = {}; }
     return _showcaseFirstSeen;
 };
@@ -3431,12 +3447,40 @@ const daysListed = (id) => {
     const t = _showcaseFirstSeen && _showcaseFirstSeen[String(id)];
     if (!t) return null;
     const d = Math.floor((Date.now() - Date.parse(t)) / 86400000);
-    return isFinite(d) && d >= 0 ? d : null;
+    if (d < 0) return null;
+    // Same day as the series start ⇒ the listing predates our tracking, so this
+    // is a floor on its age, not its age. Rendered "2d+ listed".
+    const atLeast = !!(_showcaseSeriesStart && t.slice(0, 10) === _showcaseSeriesStart.slice(0, 10));
+    return { days: d, atLeast };
 };
 
 // Floor per marketplace, computed from the live listings themselves (USD, so
 // bLUNA / SOLID / LUNA asks are comparable). Only listings WITH a usd price
 // count — a listing with no ask can't set a floor.
+// TIER-AWARE FLOOR (2026-08-12). Comparing a Phoenix to a Broken floor is
+// meaningless — they are three different assets sharing one supply, which is
+// exactly the point the site's own market-cap explainer makes. So the floor a
+// listing is measured against is the cheapest live ask IN ITS OWN TIER:
+//   broken  — no backing claim
+//   base    — unbroken, no apex trait
+//   phoenix — the grade-40 apex trait
+// Falls back to null (option simply not drawn) when a tier has no other ask,
+// rather than borrowing another tier's number.
+const showcaseTierOf = (n) => n.broken ? 'broken' : (n.rarityClass === 40 ? 'phoenix' : 'base');
+const TIER_LABEL = { broken: 'broken', base: 'unbroken', phoenix: 'Phoenix' };
+
+const tierFloors = () => {
+    const out = { broken: null, base: null, phoenix: null };
+    for (const n of allNfts) {
+        if (!n.listing) continue;
+        const v = Number(n.listing.price_usd);
+        if (!isFinite(v) || v <= 0) continue;
+        const t = showcaseTierOf(n);
+        out[t] = out[t] == null ? v : Math.min(out[t], v);
+    }
+    return out;
+};
+
 const marketplaceFloors = () => {
     const out = {};
     for (const n of allNfts) {
@@ -3545,7 +3589,8 @@ const generateShowcaseImage = async (button) => {
         });
         const images = await Promise.all(picks.map(loadNftImage));
         if (showcaseOpts.days) await loadFirstSeen();
-        const floors = showcaseOpts.vsFloor ? marketplaceFloors() : {};
+        // Tier floors, not marketplace floors — see tierFloors().
+        const tierFloorMap = showcaseOpts.vsFloor ? tierFloors() : {};
 
         // Grid sized to the selection so 3 picks don't render as a mostly-empty
         // sheet: 1→1x1, 2→2x1, 3-4→2x2, 5-6→3x2, 7-9→3x3, 10→5x2.
@@ -3573,8 +3618,14 @@ const generateShowcaseImage = async (button) => {
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, canvas.width, HEADER);
         if (logo) {
-            const lw = Math.min(canvas.width * 0.52, 520);
-            const lh = lw * (logo.height / logo.width);
+            // FIT BY BOTH AXES (2026-08-12). The previous version constrained
+            // WIDTH only, so a tall logo computed a height larger than the
+            // header band and bled down over the first row of tiles. Scale to
+            // whichever axis binds first, and keep a margin inside the band.
+            const maxW = Math.min(canvas.width * 0.52, 460);
+            const maxH = HEADER - 34;                       // 17px breathing room top and bottom
+            const scale = Math.min(maxW / logo.width, maxH / logo.height);
+            const lw = logo.width * scale, lh = logo.height * scale;
             ctx.drawImage(logo, (canvas.width - lw) / 2, (HEADER - lh) / 2, lw, lh);
         } else {
             ctx.fillStyle = '#e5e7eb';
@@ -3653,22 +3704,32 @@ const generateShowcaseImage = async (button) => {
             if (showcaseOpts.days || showcaseOpts.vsFloor) {
                 const bits = [];
                 if (showcaseOpts.days) {
-                    const d = daysListed(nft.id);
-                    if (d != null) bits.push(d === 0 ? 'listed today' : `${d}d listed`);
+                    const dl = daysListed(nft.id);
+                    if (dl != null) {
+                        // "2d+" when the listing predates our tracking — an honest
+                        // lower bound instead of a confidently wrong exact age.
+                        bits.push(dl.days === 0 && !dl.atLeast
+                            ? 'listed today'
+                            : `${dl.days}d${dl.atLeast ? '+' : ''} listed`);
+                    }
                 }
                 if (showcaseOpts.vsFloor && px && px.usd) {
-                    const fl = floors[mk];
+                    // LIKE-FOR-LIKE: measured against this NFT's OWN tier floor
+                    // (broken / unbroken / Phoenix), never a blended one.
+                    const tier = showcaseTierOf(nft);
+                    const fl = tierFloorMap[tier];
                     const v = Number(nft.listing.price_usd);
                     if (fl && isFinite(v)) {
                         const diff = v - fl;
+                        const label = TIER_LABEL[tier] || tier;
                         bits.push(Math.abs(diff) < 0.005
-                            ? 'AT FLOOR'
-                            : `${diff > 0 ? '+' : '-'}$${Math.abs(diff).toLocaleString(undefined, { maximumFractionDigits: 0 })} vs floor`);
+                            ? `AT ${label.toUpperCase()} FLOOR`
+                            : `${diff > 0 ? '+' : '-'}$${Math.abs(diff).toLocaleString(undefined, { maximumFractionDigits: 0 })} vs ${label} floor`);
                     }
                 }
                 if (bits.length) {
                     ctx.textAlign = 'left';
-                    ctx.fillStyle = bits.includes('AT FLOOR') ? '#4ade80' : '#94a3b8';
+                    ctx.fillStyle = bits.some(b => b.startsWith('AT ')) ? '#4ade80' : '#94a3b8';
                     ctx.font = '15px system-ui, sans-serif';
                     ctx.fillText(bits.join('  ·  '), x + 12, ly);
                     ly += 22;
