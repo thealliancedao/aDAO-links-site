@@ -5661,6 +5661,16 @@
                 // metric is missing renders as a GAP, never a fabricated zero —
                 // "we weren't measuring" and "we measured zero" are different facts.
                 const valid = (daily || []).filter(s => !s.missing);
+                // Rev I-A4.1: SELF-CONTAINED epoch math. The page-level epoch
+                // helpers live in a different script scope — referencing them
+                // here threw at runtime in Epoch/Monthly modes (empty charts,
+                // stale tables) while Daily survived because it only needed
+                // them for gap slots. The unit gate had injected the helpers
+                // and so missed it; this function now depends on nothing.
+                const _epochRefMs = Date.parse('2025-12-01T00:00:00Z');
+                const _epochRefNum = 162;
+                const _wk = 7 * 24 * 3600 * 1000;
+                const _epochOf = (d) => _epochRefNum + Math.floor((Date.parse(d + 'T12:00:00Z') - _epochRefMs) / _wk);
                 const today = new Date();
                 const slotKeys = [];
                 if (mode === 'daily') {
@@ -5669,19 +5679,24 @@
                     const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
                     for (let i = 13; i >= 0; i--) { const m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - i, 1)); slotKeys.push(m.toISOString().slice(0, 7)); }
                 } else {
-                    const curE = epochOfDate(today.toISOString().slice(0, 10));
+                    const curE = _epochOf(today.toISOString().slice(0, 10));
                     for (let i = 13; i >= 0; i--) slotKeys.push(curE - i);
                 }
                 const keyOf = (s) => mode === 'daily' ? s.date : (mode === 'monthly' ? String(s.date || '').slice(0, 7) : s.epoch);
                 const buckets = new Map();
                 for (const s of valid) buckets.set(keyOf(s), s); // date-ascending → last wins = end-of-period (current partial: latest reading)
+                const todayStr = today.toISOString().slice(0, 10);
                 let out = slotKeys.map(k => {
                     const hit = buckets.get(k);
                     if (hit) return { ...hit };
-                    // gap placeholder: labeled slot, null metrics
-                    if (mode === 'daily') return { date: k, epoch: epochOfDate(k), _gap: true };
-                    if (mode === 'monthly') { const end = new Date(Date.UTC(+k.slice(0, 4), +k.slice(5, 7), 0)).toISOString().slice(0, 10); return { date: end, epoch: epochOfDate(end), _gap: true }; }
-                    const end = new Date(epochReferenceDate.getTime() + (k - epochReferenceNumber + 1) * msPerWeek - 86400000).toISOString().slice(0, 10);
+                    // gap placeholder: labeled slot, null metrics. The CURRENT
+                    // period's placeholder caps at today — an epoch that ends
+                    // Sunday must not label itself with a date that hasn't
+                    // happened yet.
+                    if (mode === 'daily') return { date: k, epoch: _epochOf(k), _gap: true };
+                    if (mode === 'monthly') { let end = new Date(Date.UTC(+k.slice(0, 4), +k.slice(5, 7), 0)).toISOString().slice(0, 10); if (end > todayStr) end = todayStr; return { date: end, epoch: _epochOf(end), _gap: true }; }
+                    let end = new Date(_epochRefMs + (k - _epochRefNum + 1) * _wk - 86400000).toISOString().slice(0, 10);
+                    if (end > todayStr) end = todayStr;
                     return { date: end, epoch: k, _gap: true };
                 });
                 // trim slots older than the first real reading (young sources show
