@@ -230,6 +230,39 @@ function discClose(accepted){
     if(window.__pendingQ){ const q=window.__pendingQ; window.__pendingQ=null; document.getElementById('chat-input').value=q; askAgent(); } }
   else window.__pendingQ=null;
 }
+// Rich answer renderer (2026-08-20): the model emits markdown + full
+// addresses/hashes per its trust-link protocol. Escape FIRST, then format:
+// **bold**, `code`, [links](https), bullets, and auto-detected terra1
+// addresses / 64-hex tx hashes become copyable mono chips with a chain link.
+function fmtAnswer(el, raw) {
+    var t = String(raw)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    t = t.replace(/\[([^\]]{1,80})\]\((https:\/\/[^\s)]+)\)/g,
+      '<a href="$2" target="_blank" rel="noopener" style="color:#67e8f9;text-decoration:underline">$1</a>');
+    t = t.replace(/\*\*([^*]{1,200})\*\*/g, '<b style="color:#e5e7eb">$1</b>');
+    t = t.replace(/`([^`]{1,120})`/g, '<code style="background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px;font-size:.92em">$1</code>');
+    t = t.replace(/\b(terra1[a-z0-9]{38,58})\b(?![^<]*<\/a>)/g, function (m) {
+      return '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:1px 6px;font-family:monospace;font-size:.85em;word-break:break-all">' + m +
+        ' <i class="fas fa-copy" data-copy="' + m + '" title="Copy address" style="cursor:pointer;color:#6b7280"></i>' +
+        ' <a href="https://chainsco.pe/terra2/address/' + m + '" target="_blank" rel="noopener" title="View on chain" style="color:#67e8f9"><i class="fas fa-arrow-up-right-from-square"></i></a></span>';
+    });
+    t = t.replace(/\b([A-F0-9]{64})\b(?![^<]*<\/a>)/g, function (m) {
+      return '<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:1px 6px;font-family:monospace;font-size:.85em;word-break:break-all">' + m.slice(0, 10) + '…' + m.slice(-6) +
+        ' <i class="fas fa-copy" data-copy="' + m + '" title="Copy tx hash" style="cursor:pointer;color:#6b7280"></i>' +
+        ' <a href="https://chainsco.pe/terra2/tx/' + m + '" target="_blank" rel="noopener" title="View tx" style="color:#67e8f9"><i class="fas fa-arrow-up-right-from-square"></i></a></span>';
+    });
+    t = t.replace(/(^|\n)\s*[-*]\s+/g, '$1&bull; ');
+    t = t.replace(/\n/g, '<br>');
+    el.innerHTML = t;
+    var copies = el.querySelectorAll('[data-copy]');
+    for (var i = 0; i < copies.length; i++) (function (ic) {
+      ic.onclick = function () {
+        try { navigator.clipboard.writeText(ic.getAttribute('data-copy')); ic.style.color = '#34d399';
+          setTimeout(function () { ic.style.color = '#6b7280'; }, 900); } catch (e) {}
+      };
+    })(copies[i]);
+  }
+
 async function askAgent(){
   const inp=document.getElementById('chat-input');
   const q=inp.value.trim(); if(!q) return;
@@ -248,7 +281,7 @@ async function askAgent(){
   try{
     const r=await fetch(HELP_AGENT_URL+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q, accepted_disclaimer:true})});
     const d=await r.json();
-    hold.textContent = d.answer || d.error || 'No answer returned.';
+    if(d.answer) fmtAnswer(hold, d.answer); else hold.textContent = d.error || 'No answer returned.';
     // respectful-use nudge: the assistant is a shared, budget-capped resource.
     // At question 5 of the visitor's hourly 10, say so once — BEFORE the wall.
     if(d.rate_used===5 && d.rate_limit){
@@ -260,7 +293,15 @@ async function askAgent(){
     if(d.rate_used && d.rate_limit) document.getElementById('agent-status').textContent = 'questions this hour: '+d.rate_used+' / '+d.rate_limit+' · shared community budget, monthly-capped';
     if(d.issue_url){ const a=document.createElement('a'); a.href=d.issue_url; a.target='_blank'; a.className='text-cyan-400 underline text-xs block mt-1'; a.textContent='→ filed as a GitHub issue with the analysis attached'; hold.appendChild(a); }
   }catch(e){
-    hold.textContent='The assistant is unreachable right now (it may be waking from idle — free-tier hosting sleeps). Try again in ~30s, or use the report form below; nothing is lost.';
+    hold.innerHTML='<span class="typing"><span></span><span></span><span></span></span> Waking the assistant (free hosting sleeps when idle) — retrying automatically in ~30s…';
+    await new Promise(r=>setTimeout(r,30000));
+    try{
+      const r2=await fetch(HELP_AGENT_URL+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q, accepted_disclaimer:true})});
+      const d2=await r2.json();
+      if(d2.answer) fmtAnswer(hold, d2.answer); else hold.textContent=d2.error||'No answer returned.';
+    }catch(e2){
+      hold.textContent='Still unreachable — the service may be down rather than sleeping. The report form below always works.';
+    }
   }
 }
 if(!HELP_AGENT_URL) document.getElementById('agent-status').textContent='assistant: not deployed yet (v0 mode — forms and FAQ are live)';

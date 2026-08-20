@@ -5079,6 +5079,38 @@
                     if (ds < EARLIEST) break;
                     dates.push(ds);
                 }
+                // Rev I-A3 (2026-08-20): the Monthly/Epoch chart views sample
+                // month-end / epoch-end dates — but only dates inside the 45-day
+                // probe existed, so Monthly showed ONE point (the single month-end
+                // inside the window) while backing-history holds 120 daily rows
+                // back to April. Fix: ADDITIONALLY probe just the month-end and
+                // epoch-end dates back to EARLIEST — a handful of cheap extra
+                // fetches (per-day sources) or free map lookups (single-file
+                // sources) — so every mini-chart's long views fill from the full
+                // archive while Daily stays a 45-day window.
+                {
+                    const have = new Set(dates);
+                    const today = new Date().toISOString().slice(0, 10);
+                    // month-ends back to EARLIEST
+                    let d = new Date();
+                    d.setUTCDate(1);                       // first of this month
+                    for (let k = 0; k < 18; k++) {
+                        const end = new Date(d.getTime() - 86400000).toISOString().slice(0, 10); // last day of previous month
+                        if (end < EARLIEST) break;
+                        if (!have.has(end)) { dates.push(end); have.add(end); }
+                        d.setUTCMonth(d.getUTCMonth() - 1);
+                    }
+                    // epoch-ends (Sundays per the epoch grid) back to EARLIEST
+                    let e = new Date(today + 'T00:00:00Z');
+                    for (let k = 0; k < 30; k++) {
+                        const dow = e.getUTCDay();
+                        e = new Date(e.getTime() - ((dow === 0 ? 7 : dow) * 86400000)); // previous Sunday
+                        const ds = e.toISOString().slice(0, 10);
+                        if (ds < EARLIEST) break;
+                        if (!have.has(ds)) { dates.push(ds); have.add(ds); }
+                    }
+                    dates.sort().reverse();
+                }
 
                 // Ratio history is one date-indexed file — fetch once, look up per day.
                 const ratioHist = await jget(RATIO_URL);
