@@ -1879,9 +1879,10 @@
                         <i class="fas fa-stream text-purple-400"></i>
                         <span>Live Activity</span>
                         <span class="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full whitespace-nowrap">7 days</span>
-                        <img src="https://pbs.twimg.com/profile_images/1572588537997434881/XhUfT1Hx_400x400.jpg" class="w-4 h-4 rounded flex-shrink-0" title="BBL Marketplace only">
+                        <span class="text-[9px] text-gray-600 whitespace-nowrap" title="Events come from the nightly org capture rollup — today's actions appear after tonight's rollup (~00:00 UTC).">updates nightly</span>
                     </h3>
-                    <div class="flex items-center gap-3 flex-shrink-0">
+                    <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                        <div id="activity-tabs" class="flex items-center gap-1"></div>
                         <span id="activity-count" class="text-xs text-gray-500"></span>
                         <button id="refresh-activity" class="text-xs text-gray-500 hover:text-cyan-400 transition-colors" title="Refresh">
                             <i class="fas fa-sync-alt"></i>
@@ -4325,7 +4326,7 @@
             // ─── Rev 3.39 — TLA VP history from cron archives ─────────────────
             // Pulls the DAO's TLA voting power per epoch from the `adao-positions`
             // weekly archives (data/weekly/epoch-{N}.json). Each archive's
-            // `treasury.summary.voting_power_human` is the canonical DAO VP
+            // `treasury.summary.display_voting_power_human` is the canonical DAO VP
             // at that epoch's snapshot moment. Plus the live current.json for the
             // running epoch.
             //
@@ -4348,7 +4349,7 @@
             // The cron's potential_vp_human is on the voting_power basis, so we scale the
             // display VP by the same gain ratio: display × (potential / current).
             function vpPotentialDisplay(s) {
-                const disp = s.voting_power_human || s.voting_power_human || 0;
+                const disp = s.display_voting_power_human || s.voting_power_human || 0;
                 const curB = s.current_vp_human || s.voting_power_human || 0;
                 const gap  = s.vp_gap_human;
                 const potB = s.potential_vp_human;
@@ -4401,7 +4402,7 @@
                     byEpoch[epoch] = {
                         epoch,
                         source: 'cron',
-                        vp:                s.voting_power_human  || s.voting_power_human || 0,
+                        vp:                s.display_voting_power_human  || s.voting_power_human || 0,
                         underlyingLuna:    s.total_locked_luna_equivalent || 0,
                         usd:               s.total_locked_usd              || 0,
                         lockCount:         s.lock_count                    || 0,
@@ -4419,7 +4420,7 @@
                         byEpoch[ep] = {
                             epoch: ep,
                             source: 'cron-current',
-                            vp:                s.voting_power_human  || s.voting_power_human || 0,
+                            vp:                s.display_voting_power_human  || s.voting_power_human || 0,
                             underlyingLuna:    s.total_locked_luna_equivalent || 0,
                             usd:               s.total_locked_usd              || 0,
                             lockCount:         s.lock_count                    || 0,
@@ -13294,218 +13295,125 @@
                 
                 // Render activity feed
                 async function renderActivityFeed() {
+                    // ============================================================
+                    // LIVE ACTIVITY v2 (Rev I-A1, 2026-08-20) — org streams, not APIs.
+                    // The old feed read the BBL warlock API through a CORS proxy and
+                    // showed only BBL auctions — the venue with the LEAST aDAO
+                    // traffic — so it sat empty while Atrium/Boost sales, listings,
+                    // cancels, transfers and 400+/wk lock events went unseen.
+                    // Now: nfts/adao/flows + nfts/adao/transfers + tla-voting/events/
+                    // locks from tla-core (nightly rollup). Full taxonomy + Pixel
+                    // Lions stream land with SPEC-activity-feed's build.
+                    // ============================================================
                     const container = document.getElementById('activity-list');
                     const countEl = document.getElementById('activity-count');
-                    
+                    const tabsEl = document.getElementById('activity-tabs');
                     if (!container) return;
-                    
-                    container.innerHTML = `
-                        <div class="text-gray-500 text-sm py-4 px-3 text-center">
-                            <i class="fas fa-spinner fa-spin mr-1"></i> Loading activity...
-                        </div>
-                    `;
-                    
-                    const data = await fetchBblActivity();
-                    
-                    if (!data || !data.auctionHistory) {
-                        container.innerHTML = `
-                            <div class="text-gray-500 text-sm py-4 px-3 text-center">
-                                <i class="fas fa-exclamation-triangle mr-1"></i> Failed to load activity
-                            </div>
-                        `;
-                        return;
-                    }
-                    
-                    // Filter for aDAO and pixeLions only, last 7 days
-                    const sevenDaysAgo = new Date();
-                    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-                    
-                    const relevantActivity = data.auctionHistory.filter(item => {
-                        // Check if it's aDAO or pixeLions
-                        const isRelevant = item.nft_contract === BBL_CONTRACT || 
-                                          item.nft_contract === PIXELIONS_CONTRACT;
-                        // Check if within last 7 days
-                        const itemDate = new Date(item.timestamp);
-                        const isRecent = itemDate >= sevenDaysAgo;
-                        
-                        return isRelevant && isRecent;
-                    });
-                    
-                    if (relevantActivity.length === 0) {
-                        container.innerHTML = `
-                            <div class="text-gray-500 text-sm py-4 px-3 text-center">
-                                <i class="fas fa-info-circle mr-1"></i> No activity in the last 7 days
-                            </div>
-                        `;
-                        if (countEl) countEl.textContent = '';
-                        return;
-                    }
-                    
-                    // Sort by timestamp (newest first)
-                    // Merge in v2 pipeline events: Atrium/Boost list+delist+sales, on-chain breaks.
-                    // (BBL list/cancel/sale stays on the live BBL API feed above — no duplicates.)
-                    try {
-                        await loadV2MarketData();
-                        if (Array.isArray(window.v2Events)) relevantActivity.push(...window.v2Events);
-                    } catch (e) { /* v2 feed optional — BBL feed still renders */ }
+                    container.innerHTML = `<div class="text-gray-500 text-sm py-4 px-3 text-center"><i class="fas fa-spinner fa-spin mr-1"></i> Loading activity...</div>`;
 
-                    relevantActivity.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                    
-                    // Update count
-                    if (countEl) {
-                        const sales = relevantActivity.filter(a => a.event_type === 'settle').length;
-                        const listings = relevantActivity.filter(a => a.event_type === 'listed').length;
-                        const cancels = relevantActivity.filter(a => a.event_type === 'cancel').length;
-                        const breaks = relevantActivity.filter(a => a.event_type === 'break').length;
-                        let countText = [];
-                        if (sales > 0) countText.push(`${sales} sale${sales > 1 ? 's' : ''}`);
-                        if (listings > 0) countText.push(`${listings} listed`);
-                        if (cancels > 0) countText.push(`${cancels} delist`);
-                        if (breaks > 0) countText.push(`${breaks} break${breaks > 1 ? 's' : ''}`);
-                        countEl.textContent = countText.join(', ');
-                    }
-                    
-                    // Render rows (all of them, container scrolls)
-                    container.innerHTML = '';
-                    
-                    relevantActivity.forEach(item => {
-                        const row = createActivityCard(item);
-                        container.appendChild(row);
-                    });
-                }
-                
-                // Create activity card
-                function createActivityCard(item) {
-                    const row = document.createElement('div');
-                    row.className = 'activity-row';
+                    const CORE_RAW = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
+                    const now = new Date();
+                    const months = [now, new Date(now.getFullYear(), now.getMonth() - 1, 15)]
+                        .map(d => `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`);
+                    const grab = (p) => fetch(`${CORE_RAW}/${p}?t=${Date.now()}`, { cache: 'no-store' })
+                        .then(r => r.ok ? r.json() : null).catch(() => null);
+                    const [fl0, fl1, tr0, tr1, lk0, lk1] = await Promise.all([
+                        grab(`nfts/adao/flows/${months[0]}.json`), grab(`nfts/adao/flows/${months[1]}.json`),
+                        grab(`nfts/adao/transfers/${months[0]}.json`), grab(`nfts/adao/transfers/${months[1]}.json`),
+                        grab(`tla-voting/events/locks/${months[0]}.json`), grab(`tla-voting/events/locks/${months[1]}.json`),
+                    ]);
 
-                    // --- v2 synthetic events (Atrium/Boost list/delist/sale, on-chain breaks) ---
-                    if (item.synthetic) {
-                        const nftId = item.token_id;
-                        const eventLabel = ({ settle: 'SOLD', listed: 'LIST', cancel: 'DELIST', break: 'BREAK' })[item.event_type] || String(item.event_type).toUpperCase();
-                        const mpTag = item.mp && item.mp !== 'chain' ? `<span class="text-pink-400 text-[10px] font-medium bg-pink-500/10 px-1.5 py-0.5 rounded">${item.mp}</span>` : '';
-                        const usdStr = item.usd != null ? `<span class="text-green-400 text-xs">$${item.usd.toFixed(2)}</span>` : '';
-                        const priceStr = item.priceTxt ? `<span class="text-yellow-400 text-sm font-semibold whitespace-nowrap">${item.priceTxt}</span>` : '';
-                        const timeAgo = getTimeAgo(new Date(item.timestamp));
-                        row.innerHTML = `
-                            <img src="${getNftImageUrl(nftId)}" alt="#${nftId}"
-                                 class="activity-img w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                                 onerror="this.src='https://placehold.co/40x40/1f2937/666?text=${nftId}'">
-                            <div class="activity-info flex-1 min-w-0">
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <span class="text-white text-base font-semibold whitespace-nowrap">#${nftId}</span>
-                                    <span class="text-cyan-400 text-[10px] font-medium">aDAO</span>
-                                    ${mpTag}
-                                    <span class="activity-event ${item.event_type}">${eventLabel}</span>
-                                </div>
-                                <div class="flex items-center gap-2 mt-0.5 sm:hidden">${priceStr}${usdStr}</div>
-                            </div>
-                            <div class="hidden sm:flex flex-col items-end flex-shrink-0 mr-3">${priceStr}${usdStr}</div>
-                            <span class="activity-time text-gray-500 text-xs whitespace-nowrap flex-shrink-0">${timeAgo}</span>`;
-                        return row;
-                    }
-                    
-                    // Determine collection
-                    const isAdao = item.nft_contract === BBL_CONTRACT;
-                    const collectionName = isAdao ? 'aDAO' : 'pL';
-                    const collectionColor = isAdao ? 'cyan' : 'orange';
-                    
-                    // Get NFT ID
-                    const nftId = item.token_id;
-                    
-                    // Check if broken (aDAO only - from deving.zone data)
-                    let isBroken = false;
-                    if (isAdao && nftStatusData?.nfts) {
-                        const nftStatus = nftStatusData.nfts.find(n => n.id == nftId);
-                        isBroken = nftStatus?.broken || false;
-                    }
-                    
-                    // Image URL
-                    let imageUrl;
-                    if (isAdao) {
-                        imageUrl = getNftImageUrl(nftId);
-                    } else {
-                        // pixeLions - convert IPFS URL from API to realityflux gateway
-                        if (item.nft_image_url && item.nft_image_url.startsWith('ipfs://')) {
-                            const ipfsPath = item.nft_image_url.replace('ipfs://', '');
-                            imageUrl = `https://ipfs.realityflux.io/ipfs/${ipfsPath}?pinataGatewayToken=B9zzwsO_1qJRcH8Ki5NU0senaMF1a_De5Ib-PVeu9KUcY6Z0QhLgLkHq018_lF7e`;
-                        } else {
-                            imageUrl = `https://www.deving.zone/pixelions/images/${nftId}.png`;
+                    // Known contracts (docs/curated/known_contracts.json is the canonical
+                    // home; this inline map mirrors the feed-relevant subset)
+                    const MARKETS = {
+                        'terra1ej4cv98e9g2zjefr5auf2nwtq4xl3dm7x0qml58yna2ml2hk595s7gccs9': 'BBL',
+                        'terra15du229lqcxkn939pmjgklqunftf604q4wz87kt5awj6reghec5jqs0w0kj': 'Atrium',
+                        'terra1kj7pasyahtugajx9qud02r5jqaf60mtm7g5v9utr94rmdfftx0vqspf4at': 'Boost',
+                    };
+                    const STAKING = {
+                        'terra1c57ur376szdv8rtes6sa9nst4k536dynunksu8tx5zu4z5u3am6qmvqx47': 'aDAO (DAODAO)',
+                        'terra1e54tcdyulrtslvf79htx4zntqntd4r550cg22sj24r6gfm0anrvq0y8tdv': 'Enterprise',
+                    };
+                    const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
+                    const items = [];
+
+                    for (const fl of [fl0, fl1]) {
+                        for (const [day, dd] of Object.entries(fl?.days || {})) {
+                            for (const e of (dd.events || [])) {
+                                const ts = Date.parse(e.time); if (!(ts >= cutoff)) continue;
+                                const price = e.price_luna != null ? `${e.price_luna} LUNA`
+                                    : e.price_raw != null ? `${(parseFloat(e.price_raw) / 1e6).toLocaleString()} ${e.denom_symbol || (String(e.denom || '').includes('10aa3zd') ? 'SOLID' : '')}`.trim() : '';
+                                items.push({ ts, col: 'adao', kind: e.type, token: e.token_id, tx: e.tx_hash || null,
+                                    label: e.type === 'sale' ? `Sold${price ? ' for ' + price : ''}`
+                                        : e.type === 'listing' ? `Listed${price ? ' at ' + price : ''}`
+                                        : `Delisted`,
+                                    sub: (e.marketplace ? e.marketplace : '') });
+                            }
                         }
                     }
-                    
-                    // Format timestamp
-                    const date = new Date(item.timestamp);
-                    const timeAgo = getTimeAgo(date);
-                    
-                    // Format price (convert from micro units)
-                    const priceNum = item.event_type === 'settle' && item.final_price 
-                        ? parseInt(item.final_price) / 1000000
-                        : parseInt(item.reserve_price) / 1000000;
-                    const price = priceNum.toFixed(0);
-                    
-                    // Calculate USD price
-                    const bLunaPrice = window.tokenPrices?.bLUNA || 0;
-                    const usdPrice = bLunaPrice > 0 ? (priceNum * bLunaPrice).toFixed(2) : null;
-                    const usdStr = usdPrice ? `<span class="text-green-400 text-[10px]">$${usdPrice}</span>` : '';
-                    
-                    // Event label
-                    let eventLabel;
-                    switch (item.event_type) {
-                        case 'settle': eventLabel = 'SOLD'; break;
-                        case 'listed': eventLabel = 'LIST'; break;
-                        case 'cancel': eventLabel = 'CANCEL'; break;
-                        default: eventLabel = item.event_type.toUpperCase();
+                    for (const tr of [tr0, tr1]) {
+                        for (const e of (tr || [])) {
+                            const ts = Date.parse(e.timestamp); if (!(ts >= cutoff)) continue;
+                            const to = e.to || '', from = e.from || '';
+                            if (MARKETS[to] || MARKETS[from]) continue;   // escrow legs — the flows stream already tells that story
+                            let label = 'Transferred', sub = `to ${to.slice(0, 12)}…`;
+                            if (STAKING[to]) { label = 'Staked'; sub = STAKING[to]; }
+                            else if (STAKING[from]) { label = 'Unstaked'; sub = STAKING[from]; }
+                            items.push({ ts, col: 'adao', kind: label.toLowerCase(), token: e.token_id, tx: e.txhash || null, label, sub });
+                        }
                     }
-                    
-                    // Broken indicator
-                    const brokenBadge = isBroken ? '<span class="text-red-400 text-[9px] ml-1" title="Currently broken">💔</span>' : '';
-                    
-                    row.innerHTML = `
-                        <img src="${imageUrl}" alt="#${nftId}" 
-                             class="activity-img w-10 h-10 rounded-lg object-cover flex-shrink-0 ${isBroken ? 'opacity-60' : ''}"
-                             onerror="this.src='https://placehold.co/40x40/1f2937/666?text=${nftId}'">
-                        <div class="activity-info flex-1 min-w-0">
-                            <div class="flex items-center gap-2 flex-wrap">
-                                <span class="text-white text-base font-semibold whitespace-nowrap">#${nftId}${brokenBadge}</span>
-                                <span class="text-${collectionColor}-400 text-[10px] font-medium">${collectionName}</span>
-                                <span class="activity-event ${item.event_type}">${eventLabel}</span>
-                            </div>
-                            <div class="flex items-center gap-2 mt-0.5 sm:hidden">
-                                <span class="text-yellow-400 text-xs font-medium whitespace-nowrap">${price} bLUNA</span>
-                                ${usdStr}
-                            </div>
-                        </div>
-                        <div class="hidden sm:flex flex-col items-end flex-shrink-0 mr-3">
-                            <span class="text-yellow-400 text-sm font-semibold whitespace-nowrap">${price} bLUNA</span>
-                            ${usdStr}
-                        </div>
-                        <span class="activity-time text-gray-500 text-xs whitespace-nowrap flex-shrink-0">${timeAgo}</span>
-                    `;
-                    
-                    // Click to open transaction
-                    row.addEventListener('click', () => {
-                        window.open(item.tx_explorer_url, '_blank');
-                    });
-                    
-                    return row;
+                    const LOCK_LABELS = { lock_create: 'New lock', lock_permanent: 'Set auto-max', merge: 'Merged locks',
+                        split: 'Split lock', lock_extend_amount: 'Added to lock', lock_extend_time: 'Extended lock',
+                        unlock_permanent: 'Auto-max off', withdraw: 'Withdrew lock', lock_transfer: 'Lock transferred',
+                        migrate: 'Migrated lock' };
+                    for (const lk of [lk0, lk1]) {
+                        for (const e of (lk || [])) {
+                            const ts = Date.parse(e.timestamp); if (!(ts >= cutoff)) continue;
+                            const t = e.type || '';
+                            const label = LOCK_LABELS[t] || (t.startsWith('event:') ? null : t);
+                            if (!label) continue;   // internal sub-events stay out of the human feed
+                            const amt = e.amount != null && e.asset ? `${(parseFloat(e.amount) / 1e6).toLocaleString()} ${String(e.asset).includes('ampluna') || String(e.asset).includes('ecgazyd') ? 'ampLUNA' : String(e.asset).includes('uluna') ? 'LUNA' : ''}`.trim() : '';
+                            items.push({ ts, col: 'locks', kind: t, token: e.token_id, tx: e.tx_hash || null,
+                                label, sub: [amt, e.wallet ? e.wallet.slice(0, 12) + '…' : ''].filter(Boolean).join(' · ') });
+                        }
+                    }
+
+                    items.sort((a, b) => b.ts - a.ts);
+                    window.__activityItems = items;
+                    const view = window.__activityView || 'all';
+                    const TABS = [
+                        { id: 'all', label: 'All' },
+                        { id: 'adao', label: 'aDAO' },
+                        { id: 'locks', label: 'TLA Locks' },
+                        { id: 'pixel', label: 'Pixel Lions', disabled: true, tip: 'Stream lands with the activity-feed build (SPEC-activity-feed) — collection confirmed, capture pending.' },
+                    ];
+                    if (tabsEl) tabsEl.innerHTML = TABS.map(t => t.disabled
+                        ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-gray-600 cursor-help" title="${t.tip}">${t.label}</span>`
+                        : `<button type="button" onclick="window.__activityView='${t.id}'; renderActivityRows();" class="text-[10px] px-2 py-0.5 rounded-full ${view === t.id ? 'bg-purple-500/25 text-purple-300' : 'bg-white/5 text-gray-500 hover:text-gray-300'}">${t.label}</button>`).join('');
+
+                    window.renderActivityRows = function () {
+                        const v = window.__activityView || 'all';
+                        const its = (window.__activityItems || []).filter(x => v === 'all' || x.col === v).slice(0, 60);
+                        if (tabsEl) [...tabsEl.querySelectorAll('button')].forEach(b => {
+                            const active = b.textContent.trim() === (TABS.find(t2 => t2.id === v)?.label);
+                            b.className = `text-[10px] px-2 py-0.5 rounded-full ${active ? 'bg-purple-500/25 text-purple-300' : 'bg-white/5 text-gray-500 hover:text-gray-300'}`;
+                        });
+                        if (countEl) countEl.textContent = `${its.length} shown · ${(window.__activityItems || []).length} in 7d`;
+                        if (!its.length) { container.innerHTML = `<div class="text-gray-500 text-sm py-4 px-3 text-center"><i class="fas fa-info-circle mr-1"></i> No activity in the last 7 days for this view.</div>`; return; }
+                        const ago = (ts) => { const h = (Date.now() - ts) / 3.6e6; return h < 1 ? `${Math.max(1, Math.round(h * 60))}m ago` : h < 24 ? `${Math.round(h)}h ago` : `${Math.round(h / 24)}d ago`; };
+                        container.innerHTML = its.map(x => `
+                            <div class="activity-row">
+                                ${x.col === 'adao' && x.token ? `<img src="${typeof getNftImageUrl === 'function' ? getNftImageUrl(x.token) : ''}" alt="#${x.token}" class="activity-img w-10 h-10 rounded-lg object-cover flex-shrink-0" onerror="this.style.display='none'">` : `<div class="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-300 flex items-center justify-center flex-shrink-0"><i class="fas fa-${x.col === 'locks' ? 'lock' : 'image'}"></i></div>`}
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-sm text-white truncate">${x.label} <span class="text-gray-500">${x.col === 'locks' ? 'lock' : ''} #${x.token || '?'}</span>${x.sub ? ` <span class="text-[11px] text-gray-500">· ${x.sub}</span>` : ''}</div>
+                                    <div class="text-[11px] text-gray-600">${ago(x.ts)}${x.tx ? ` · <a href="https://chainsco.pe/terra2/tx/${x.tx}" target="_blank" rel="noopener" class="text-cyan-500/80 hover:text-cyan-300">tx ↗</a>` : ''}</div>
+                                </div>
+                            </div>`).join('');
+                    };
+                    renderActivityRows();
                 }
                 
-                // Helper: Get time ago string
-                function getTimeAgo(date) {
-                    const now = new Date();
-                    const diffMs = now - date;
-                    const diffMins = Math.floor(diffMs / 60000);
-                    const diffHours = Math.floor(diffMs / 3600000);
-                    const diffDays = Math.floor(diffMs / 86400000);
-                    
-                    if (diffMins < 60) return `${diffMins}m ago`;
-                    if (diffHours < 24) return `${diffHours}h ago`;
-                    if (diffDays === 1) return 'Yesterday';
-                    return `${diffDays}d ago`;
-                }
-                
-                // Setup activity feed refresh button
+                // Restored wrapper — setupNftMarketplace() calls this (Rev I-A1 seam fix)
                 function setupActivityFeed() {
                     const refreshBtn = document.getElementById('refresh-activity');
                     if (refreshBtn) {
@@ -13515,8 +13423,6 @@
                             setTimeout(() => refreshBtn.classList.remove('animate-spin'), 500);
                         });
                     }
-                    
-                    // Initial load
                     renderActivityFeed();
                 }
                 

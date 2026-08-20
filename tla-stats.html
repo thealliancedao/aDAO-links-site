@@ -1138,13 +1138,6 @@
                         <div class="loading-pulse text-gray-500 text-sm">Loading...</div>
                     </div>
                 </div>
-                <div class="glass-card p-6" id="bribe-runway-card" data-cron-source="pd-bribes">
-                    <h3 class="font-semibold text-lg flex items-center gap-2 mb-1"><i class="fas fa-gas-pump text-orange-400"></i> Bribe Runway <span id="runway-chip" class="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-300 font-medium"></span></h3>
-                    <p class="text-xs text-gray-500 mb-1">How long each pool's bribe pot lasts, and who funds it. <span class="text-orange-300/80">When a pot empties, Votion re-optimizes away and vote weight follows — depositors in that pool should be ready to adjust.</span> Linear bribes taper, so per-epoch amounts can shrink before the end date.</p>
-                    <div id="bribe-runway-rows" class="space-y-1.5 mt-3">
-                        <div class="loading-pulse text-gray-500 text-sm">Loading...</div>
-                    </div>
-                </div>
             </div>
 
             <!-- ==================== COMMUNITY WATCH (Stage C1) ==================== -->
@@ -1269,14 +1262,26 @@
                  telemetry: someone letting a lock run out is often pulling LUNA. -->
             <div class="mt-6 glass-card p-6">
                 <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-                    <h3 class="font-semibold flex items-center gap-2"><i class="fas fa-hourglass-half text-amber-300"></i> Unlock Runway</h3>
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <h3 class="font-semibold flex items-center gap-2"><i class="fas fa-hourglass-half text-amber-300"></i> <span id="unlock-tile-title">Runway</span></h3>
+                        <div class="flex items-center gap-1">
+                            <button type="button" onclick="setUnlockTab('unlock')" id="unlock-pill-unlock" class="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">Unlocks</button>
+                            <button type="button" onclick="setUnlockTab('bribes')" id="unlock-pill-bribes" class="text-[10px] px-2.5 py-0.5 rounded-full bg-white/5 text-gray-400 hover:text-gray-300 font-medium">Bribes</button>
+                        </div>
+                    </div>
                     <span id="runway-headline" class="text-[11px] mono text-gray-400"></span>
                 </div>
+                <div id="unlock-tab-unlock">
                 <p class="text-[11px] text-gray-500 mb-3">Voting power scheduled to unlock over the next 8 weeks — locks NOT set to auto-max, from the tracked electorate. VP that unlocks leaves the gauge unless re-locked; a cluster here is early exit-pressure signal.</p>
                 <div id="unlock-runway" class="grid grid-cols-1 lg:grid-cols-2 gap-5"><div class="loading-pulse text-gray-500 text-sm">Loading...</div></div>
                 <div class="mt-4 pt-3 border-t border-white/[0.06]">
                     <div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5"><i class="fas fa-box-open text-orange-300/80 mr-1"></i>Pending withdrawal — unlocked, never redeemed</div>
                     <div id="unlock-pending"><div class="loading-pulse text-gray-500 text-sm">Loading...</div></div>
+                </div>
+                </div>
+                <div id="unlock-tab-bribes" class="hidden" data-cron-source="pd-bribes">
+                    <p class="text-[11px] text-gray-500 mb-3">How long each pool's bribe pot lasts, and who funds it. <span class="text-orange-300/80">When a pot empties, Votion re-optimizes away and vote weight follows — depositors in that pool should be ready to adjust.</span> Linear bribes taper, so per-epoch amounts can shrink before the end date.</p>
+                    <div id="bribe-runway-rows" class="grid grid-cols-1 lg:grid-cols-2 gap-5"><div class="loading-pulse text-gray-500 text-sm">Loading...</div></div>
                 </div>
             </div>
 
@@ -6426,7 +6431,22 @@
     // Rev T3.1 — Unlock Runway: aggregate per-lock weeks_to_unlock across the
     // tracked electorate (participants feed). Auto-max locks never unlock and
     // are excluded by definition; coverage honesty stated in the footer.
-    // ---------------- Bribe Runway (Rev T5, 2026-08-20) ----------------
+    function setUnlockTab(v) {
+        const u = document.getElementById('unlock-tab-unlock'), b = document.getElementById('unlock-tab-bribes');
+        const pu = document.getElementById('unlock-pill-unlock'), pb = document.getElementById('unlock-pill-bribes');
+        const on = 'text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium';
+        const off = 'text-[10px] px-2.5 py-0.5 rounded-full bg-white/5 text-gray-400 hover:text-gray-300 font-medium';
+        if (!u || !b) return;
+        u.classList.toggle('hidden', v !== 'unlock'); b.classList.toggle('hidden', v !== 'bribes');
+        if (pu) pu.className = v === 'unlock' ? on : off;
+        if (pb) pb.className = v === 'bribes' ? on : off;
+        const hl = document.getElementById('runway-headline');
+        if (hl) hl.innerHTML = (v === 'bribes' ? window.__bribeHeadline : window.__unlockHeadline) || '';
+        const tt = document.getElementById('unlock-tile-title');
+        if (tt) tt.textContent = v === 'bribes' ? 'Bribe Runway' : 'Unlock Runway';
+    }
+
+    // ---------------- Bribe Runway (Rev T5.1 — second tab of the Runway tile) ----------------
     // Surfaces tla-voting/bribe-state/runway.json — the manager's per-period pot
     // state probed forward until pots empty (state truth: hole-era bribes are
     // included; funders listed from matched events where known). The depositor's
@@ -6435,20 +6455,14 @@
         const el = document.getElementById('bribe-runway-rows');
         if (!el) return;
         const rw = store.bribeRunway;
-        if (!rw || !Array.isArray(rw.pools)) {
-            el.innerHTML = '<div class="text-gray-600 text-sm">Bribe runway product unavailable.</div>';
-            return;
-        }
-        const chip = document.getElementById('runway-chip');
-        if (chip) chip.textContent = `${rw.pool_count} pools funded · period ${rw.current_period}`;
+        if (!rw || !Array.isArray(rw.pools)) { el.innerHTML = '<div class="text-gray-600 text-sm lg:col-span-2">Bribe runway product unavailable.</div>'; return; }
+        window.__bribeHeadline = `<span class="text-orange-300 font-semibold">${rw.pool_count} pools funded</span> · period ${rw.current_period}`;
         const nameFor = (gaugeId) => {
             const p = (store.pools || []).find(x => x.gauge_pool_id === gaugeId)
                 || (store.lpGrades?.pools || []).find(x => x.gauge_pool_id === gaugeId);
             return p ? p.name : gaugeId.slice(0, 14) + '…';
         };
         const denomSym = (d) => {
-            // runway keys carry the 'cw20:' prefix; lp-grades token denoms don't —
-            // match on the bare address (gate-caught 2026-08-20)
             const bare = d.startsWith('cw20:') ? d.slice(5) : d;
             const t = (store.lpGrades?.pools || []).flatMap(p => p.scores?.B?.tokens || []).find(t2 => t2.denom === bare || t2.denom === d);
             if (t && t.symbol) return t.symbol;
@@ -6456,31 +6470,46 @@
             return bare.slice(0, 10) + '…';
         };
         const funderLabel = (addr) => {
-            // attribute known DAO cores via the pd-bribes product (attribution law:
-            // names only where the event streams matched them; otherwise short addr)
             const pls = store.pdBribesProduct?.placements || [];
             const hit = pls.find(pl => pl.briber === addr || pl.dao_attr?.address === addr);
-            if (hit && hit.dao_attr?.name) return hit.dao_attr.name;
-            return addr.slice(0, 10) + '…';
+            return (hit && hit.dao_attr?.name) || addr.slice(0, 10) + '…';
         };
         const rows = [...rw.pools].sort((a, b) => (a.epochs_left ?? 99) - (b.epochs_left ?? 99));
-        el.innerHTML = rows.slice(0, 8).map(p => {
+        // LEFT: epochs-left distribution bars — same visual language as the unlock weeks
+        const buckets = Array.from({ length: 6 }, () => ({ pools: 0, names: [] }));
+        for (const p of rows) {
+            const idx = Math.min(5, Math.max(0, (p.epochs_left ?? 6) - 1));
+            buckets[idx].pools += 1; buckets[idx].names.push(nameFor(p.pool));
+        }
+        const maxB = Math.max(...buckets.map(b => b.pools), 1);
+        const bars = buckets.map((b, i) => `
+            <div class="flex items-center gap-2" title="${b.names.join(', ') || '—'}">
+                <span class="mono text-[10px] text-gray-500 w-7">${i === 5 ? '6+e' : (i + 1) + 'e'}</span>
+                <div class="flex-1 h-4 rounded bg-white/[0.03]"><div class="h-full rounded ${i === 0 ? 'bg-red-500/60' : i === 1 ? 'bg-amber-500/55' : 'bg-orange-500/30'}" style="width:${Math.max(b.pools > 0 ? 2 : 0, b.pools / maxB * 100).toFixed(1)}%"></div></div>
+                <span class="mono text-[10px] ${b.pools > 0 ? 'text-orange-300' : 'text-gray-700'} w-14">${b.pools > 0 ? b.pools + ' pool' + (b.pools > 1 ? 's' : '') : '—'}</span>
+            </div>`).join('');
+        const ending = rows.filter(p => (p.epochs_left ?? 99) <= 1);
+        // RIGHT: soonest-expiring list — same row style as "largest upcoming unlocks"
+        const list = rows.slice(0, 8).map(p => {
             const left = p.epochs_left ?? null;
-            const cls = left != null && left <= 1 ? 'bg-red-500/15 text-red-400' : left <= 2 ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/10 text-emerald-400/90';
             const amounts = Object.entries(p.by_denom || {}).map(([d, info]) =>
                 `${(parseFloat(info.total_remaining_raw || '0') / 1e6).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${denomSym(d)}`).join(' + ');
-            const funders = (p.funders || []).slice(0, 3).map(f => funderLabel(f.briber || f)).join(', ');
-            return `<div class="flex items-center justify-between text-xs py-1.5 border-b border-white/[0.04] last:border-0">
-                <div class="min-w-0">
-                    <span class="font-medium">${nameFor(p.pool)}</span> <span class="text-[9px] text-gray-600 uppercase">${p.gauge || ''}</span>
-                    <div class="text-[10px] text-gray-500 truncate">${amounts || '—'}${funders ? ` · <span class="text-gray-400">by ${funders}</span>` : ''}</div>
-                </div>
-                <span class="shrink-0 ml-2 text-[10px] px-2 py-0.5 rounded-full mono ${cls}" title="Approximate: pots probed forward per period; linear bribes taper. ~${p.expires_approx || '?'}">${left != null ? (left <= 1 ? 'last epoch' : left + ' epochs') : '—'}</span>
+            const funders = (p.funders || []).slice(0, 2).map(f => funderLabel(f.briber || f)).join(', ');
+            return `<div class="flex items-center justify-between text-[11px] py-1 border-b border-white/[0.04] last:border-0">
+                <span class="truncate">${nameFor(p.pool)} <span class="text-[9px] text-gray-600 uppercase">${p.gauge || ''}</span>${funders ? ` <span class="text-[10px] text-gray-500">· by ${funders}</span>` : ''}</span>
+                <span class="mono text-gray-400 shrink-0 ml-2">${amounts || '—'} · <span class="${left != null && left <= 1 ? 'text-red-400' : left <= 2 ? 'text-amber-300' : 'text-orange-300/80'}" title="Approximate — pots probed per period; linear bribes taper. ~${p.expires_approx || '?'}">${left != null ? (left <= 1 ? 'last epoch' : left + 'e') : '—'}</span></span>
             </div>`;
-        }).join('') || '<div class="text-gray-600 text-sm">No funded pots right now.</div>';
-        const ending = rows.filter(p => (p.epochs_left ?? 99) <= 1);
-        if (ending.length) {
-            el.innerHTML = `<div class="rounded bg-red-500/[0.07] border border-red-500/20 px-2.5 py-1.5 text-[11px] text-red-300 mb-1"><i class="fas fa-triangle-exclamation mr-1"></i>${ending.length} pot${ending.length > 1 ? 's' : ''} on the last funded epoch — ${ending.map(p => nameFor(p.pool)).join(', ')}. Votion re-optimizes when these empty.</div>` + el.innerHTML;
+        }).join('');
+        el.innerHTML = `
+            <div>${bars}<div class="text-[10px] text-gray-600 mt-2">Epochs of funding left per pot — the red bar is this epoch's cliff.</div></div>
+            <div>
+                ${ending.length ? `<div class="rounded bg-red-500/[0.07] border border-red-500/20 px-2.5 py-1.5 text-[11px] text-red-300 mb-1.5"><i class="fas fa-triangle-exclamation mr-1"></i>${ending.length} pot${ending.length > 1 ? 's' : ''} on the last funded epoch — ${ending.map(p => nameFor(p.pool)).join(', ')}.</div>` : ''}
+                <div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5">Soonest to empty</div>${list}
+                <div class="text-[10px] text-gray-600 mt-2">State truth from the bribe manager (hole-era pots included); funders named only where event streams matched them.</div>
+            </div>`;
+        if (!document.getElementById('unlock-tab-bribes')?.classList.contains('hidden')) {
+            const hl = document.getElementById('runway-headline');
+            if (hl) hl.innerHTML = window.__bribeHeadline;
         }
     }
 
@@ -6525,9 +6554,9 @@
         const vp8 = weeks.reduce((x, b) => x + b.vp, 0);
         const locks8 = weeks.reduce((x, b) => x + b.locks, 0);
         const hl = document.getElementById('runway-headline');
-        if (hl) hl.innerHTML = vp8 > 0
+        if (hl) { hl.innerHTML = vp8 > 0
             ? `<span class="text-amber-300 font-semibold">${fmtNum(vp4)} VP</span> unlocking ≤4 epochs · ${fmtNum(vp8)} VP ≤8 <span class="text-gray-600" title="Share of the tracked electorate's total display VP (${fmtNum(totalTrackedVp)}). Auto-max locks never unlock and are excluded by definition.">(${totalTrackedVp > 0 ? (vp8 / totalTrackedVp * 100).toFixed(2) : '?'}% of tracked VP)</span>`
-            : 'no non-auto-max locks inside 8 weeks';
+            : 'no non-auto-max locks inside 8 weeks'; window.__unlockHeadline = hl.innerHTML; }
         if (!vp8) { el.innerHTML = '<div class="text-gray-600 text-sm lg:col-span-2">Nothing scheduled to unlock in the next 8 weeks — every tracked lock in that window is auto-max. Exactly what a healthy runway looks like.</div>'; return; }
         const maxVp = Math.max(...weeks.map(b => b.vp), 1);
         const bars = weeks.map((b, i) => `
