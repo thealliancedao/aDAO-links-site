@@ -41,7 +41,7 @@
             <a href="index.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">Home</a>
             <a href="nft-explorer-index.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial"><span class="md:hidden">Explorer</span><span class="hidden md:inline">NFT Explorer</span></a>
             <a href="tla-stats.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial"><span class="md:hidden">TLA</span><span class="hidden md:inline">TLA Stats</span></a>
-            <a href="member-portfolio.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial !bg-cyan-500/20 !border-cyan-500/40 !text-cyan-200"><span class="md:hidden">Portfolio</span><span class="hidden md:inline">Member Portfolio</span></a>
+            <a href="adao-lore.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial"><span class="md:hidden">Lore</span><span class="hidden md:inline">aDAO Lore</span></a>
             <a href="dao.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">DAO</a>
         </nav>
         <div class="w-1/2 md:w-32 flex-shrink-0 flex justify-end order-2 md:order-3">
@@ -49,14 +49,30 @@
         </div>
     </div>
 </header>
+<style>
+    /* Shared sub-tab strip — same look as tla-stats.html so the two pages read
+       as one surface (Rev P1.9 nav-continuity fix, 2026-08-20). */
+    .xtab { position: relative; padding: 12px 24px; color: #9ca3af; font-weight: 500;
+        transition: all .3s ease; cursor: pointer; border-radius: 8px 8px 0 0;
+        text-decoration: none; display: inline-flex; align-items: center; white-space: nowrap; }
+    .xtab::after { content: ''; position: absolute; bottom: 0; left: 50%; width: 0; height: 2px;
+        background: linear-gradient(90deg, #22d3ee, #a855f7); transition: all .3s ease; transform: translateX(-50%); }
+    .xtab:hover { color: #e5e7eb; }
+    .xtab.active { color: #fff; }
+    .xtab.active::after { width: 100%; }
+</style>
 <div class="border-b border-white/5 bg-black/20 backdrop-blur-md sticky top-0 z-40">
-    <div class="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <span class="text-base font-bold"><i class="fas fa-user-astronaut text-cyan-400 mr-2"></i>Member Portfolio</span>
+    <div class="max-w-7xl mx-auto px-4 flex items-center justify-between">
+        <div class="flex gap-1 overflow-x-auto">
+            <a href="tla-stats.html#overview" class="xtab"><i class="fas fa-chart-pie mr-2"></i>Overview</a>
+            <span class="xtab active"><i class="fas fa-user-astronaut mr-2"></i>Member Portfolio</span>
+            <a href="tla-stats.html#grades" class="xtab"><i class="fas fa-graduation-cap mr-2"></i>LP Grades</a>
+            <a href="tla-stats.html#pools" class="xtab"><i class="fas fa-water mr-2"></i>LP Stats</a>
+            <a href="tla-stats.html#tla" class="xtab"><i class="fas fa-coins mr-2"></i>TLA Stats</a>
+            <a href="tla-stats.html#docs" class="xtab"><i class="fas fa-book mr-2"></i>Docs</a>
         </div>
         <div class="flex items-center gap-4 text-sm">
             <span id="nav-epoch" class="text-[11px] text-gray-500 mono hidden sm:inline"></span>
-            <a href="tla-stats.html" class="text-gray-400 hover:text-cyan-300 transition-colors md:hidden"><i class="fas fa-chart-pie mr-1"></i>TLA Stats</a>
         </div>
     </div>
 </div>
