@@ -22,7 +22,25 @@
   .btn { display:inline-flex; align-items:center; gap:.5rem; padding:.55rem 1rem; border-radius:8px; font-size:.85rem; font-weight:600; transition:all .15s; cursor:pointer; border:1px solid transparent; }
   .btn-cyan { background:rgba(34,211,238,.15); color:#67e8f9; border-color:rgba(34,211,238,.3); }
   .btn-cyan:hover { background:rgba(34,211,238,.25); }
-  .chat-msg { border-radius:10px; padding:.6rem .8rem; font-size:.84rem; line-height:1.5; max-width:85%; }
+  .chat-msg { border-radius:12px; padding:.65rem .9rem; font-size:.85rem; line-height:1.55; max-width:85%; }
+  .msg-row { display:flex; gap:.55rem; align-items:flex-start; }
+  .msg-row.you { flex-direction:row-reverse; }
+  .avatar { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.8rem; flex-shrink:0; margin-top:2px; }
+  .avatar.bot { background:linear-gradient(135deg, rgba(168,85,247,.25), rgba(34,211,238,.25)); color:#c4b5fd; border:1px solid rgba(168,85,247,.3); }
+  .avatar.you { background:rgba(34,211,238,.12); color:#67e8f9; border:1px solid rgba(34,211,238,.25); }
+  .chip { display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .7rem; border-radius:9999px; font-size:.75rem;
+    background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); color:#9ca3af; cursor:pointer; transition:all .15s; }
+  .chip:hover { border-color:rgba(34,211,238,.4); color:#67e8f9; background:rgba(34,211,238,.06); }
+  .accent-top { position:relative; overflow:hidden; }
+  .accent-top::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; opacity:.7; }
+  .accent-cyan::before { background:linear-gradient(90deg, transparent, #22d3ee, #a855f7, transparent); }
+  .accent-red::before { background:linear-gradient(90deg, transparent, #ef4444, transparent); }
+  .accent-amber::before { background:linear-gradient(90deg, transparent, #f59e0b, transparent); }
+  .typing span { display:inline-block; width:5px; height:5px; margin:0 1.5px; border-radius:50%; background:#a78bfa; animation:ty 1.2s infinite; }
+  .typing span:nth-child(2){ animation-delay:.15s } .typing span:nth-child(3){ animation-delay:.3s }
+  @keyframes ty { 0%,60%,100%{ transform:translateY(0); opacity:.4 } 30%{ transform:translateY(-4px); opacity:1 } }
+  .hero-glow { background: radial-gradient(ellipse 70% 120% at 50% -20%, rgba(34,211,238,.10), transparent 60%),
+               radial-gradient(ellipse 50% 100% at 80% -10%, rgba(168,85,247,.08), transparent 60%); }
 </style>
 </head>
 <body class="min-h-screen">
@@ -41,13 +59,25 @@
   </div>
 </header>
 
+<div class="hero-glow border-b border-white/5">
+  <div class="max-w-5xl mx-auto px-4 pt-10 pb-8 text-center">
+    <h2 class="text-2xl md:text-3xl font-bold tracking-tight">How can we help?</h2>
+    <p class="text-sm text-gray-500 mt-2 max-w-xl mx-auto">Ask the assistant, browse the answers people actually need, or put a real report in front of the maintainer — every path here goes somewhere.</p>
+  </div>
+</div>
 <main class="max-w-5xl mx-auto px-4 py-8 space-y-6">
 
   <!-- ASK (agent chat — graceful when the service isn't deployed) -->
-  <section class="glass p-6" id="ask-section">
+  <section class="glass accent-top accent-cyan p-6" id="ask-section">
     <h2 class="font-bold text-lg mb-1"><i class="fas fa-robot text-purple-400 mr-2"></i>Ask about the site &amp; data</h2>
     <p class="text-xs text-gray-500 mb-3">An assistant grounded on this site's own documentation and live data products. It checks claims against the same sources the pages render — including your own wallet's live record if you paste a terra1… address with your question — it doesn't guess, it doesn't give financial advice, and when it can't verify something it says so and routes you to the report form below.</p>
-    <div id="chat-log" class="space-y-2 mb-3 max-h-[320px] overflow-y-auto"></div>
+    <div class="flex flex-wrap gap-2 mb-3" id="chips">
+      <span class="chip" onclick="chipAsk(this)"><i class="fas fa-question"></i>Why are some columns blank?</span>
+      <span class="chip" onclick="chipAsk(this)"><i class="fas fa-graduation-cap"></i>What do the LP grades mean?</span>
+      <span class="chip" onclick="chipAsk(this)"><i class="fas fa-gas-pump"></i>Why does bribe runway matter?</span>
+      <span class="chip" onclick="chipAsk(this)"><i class="fas fa-wallet"></i>Check my wallet (paste your terra1… address)</span>
+    </div>
+    <div id="chat-log" class="space-y-2 mb-3 max-h-[360px] overflow-y-auto pr-1"></div>
     <div class="flex gap-2">
       <input id="chat-input" class="field" placeholder="e.g. Why is the Efficiency column blank? — or paste your terra1… address to have your portfolio numbers checked" onkeydown="if(event.key==='Enter')askAgent()">
       <button class="btn btn-cyan" onclick="askAgent()"><i class="fas fa-paper-plane"></i>Ask</button>
@@ -57,7 +87,7 @@
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
     <!-- REPORT AN ISSUE (v0 — structured GitHub issue, zero backend) -->
-    <section class="glass p-6">
+    <section class="glass accent-top accent-red p-6">
       <h2 class="font-bold text-lg mb-1"><i class="fas fa-bug text-red-400 mr-2"></i>Report an issue</h2>
       <p class="text-xs text-gray-500 mb-1">A number looks wrong, a tile is empty, something broke. This drafts a structured report you submit on GitHub — it lands directly in the maintainer's queue with everything needed to reproduce it.</p>
       <label>Which page?</label>
@@ -74,7 +104,7 @@
     </section>
 
     <!-- FEATURE REQUEST -->
-    <section class="glass p-6">
+    <section class="glass accent-top accent-amber p-6">
       <h2 class="font-bold text-lg mb-1"><i class="fas fa-lightbulb text-amber-300 mr-2"></i>Request a feature</h2>
       <p class="text-xs text-gray-500 mb-1">Want a stat, chart, or view that doesn't exist? Describe it. Requests get triaged into: data exists (small build) · needs new capture · out of scope.</p>
       <label>What would you like to see?</label>
@@ -164,14 +194,27 @@ function fileIssue(kind){
 
 // ---- v1: agent chat (graceful when the service isn't deployed) ----
 // Set to the Render service URL once deployed (see platform-crons/help-agent/).
-const HELP_AGENT_URL = '';   // e.g. 'https://tla-help-agent.onrender.com'
+const HELP_AGENT_URL = (window.SiteFooter && SiteFooter.AGENT_URL) || 'https://tla-help-agent.onrender.com';   // one home: lib/site-footer.js
 const chatLog=document.getElementById('chat-log');
 function addMsg(txt, who){
+  const row=document.createElement('div');
+  row.className='msg-row '+(who==='you'?'you':'');
+  const av=document.createElement('div');
+  av.className='avatar '+(who==='you'?'you':'bot');
+  av.innerHTML=who==='you'?'<i class="fas fa-user"></i>':'<i class="fas fa-robot"></i>';
   const d=document.createElement('div');
-  d.className='chat-msg '+(who==='you'?'bg-cyan-500/10 border border-cyan-500/20 ml-auto':'bg-white/[0.04] border border-white/10');
-  d.textContent=txt;
-  chatLog.appendChild(d); chatLog.scrollTop=chatLog.scrollHeight;
+  d.className='chat-msg '+(who==='you'?'bg-cyan-500/10 border border-cyan-500/20':'bg-white/[0.04] border border-white/10');
+  if(txt==='…'){ d.innerHTML='<span class="typing"><span></span><span></span><span></span></span>'; }
+  else d.textContent=txt;
+  row.appendChild(av); row.appendChild(d);
+  chatLog.appendChild(row); chatLog.scrollTop=chatLog.scrollHeight;
   return d;
+}
+function chipAsk(el){
+  const t=el.textContent.trim();
+  const inp=document.getElementById('chat-input');
+  if(/wallet/i.test(t)){ inp.value='My wallet is terra1… — replace this with your address and I\'ll check your live record: '; inp.focus(); return; }
+  inp.value=t; askAgent();
 }
 let discAccepted = false;
 try { discAccepted = localStorage.getItem('tla_help_disclaimer_v1') === 'accepted'; } catch(e) {}

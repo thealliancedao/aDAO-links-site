@@ -8120,6 +8120,13 @@
             }
 
             function refreshHealthIndicator() {
+                // Rev I-A2 (2026-08-20): index's LOCAL health verdict was
+                // overwriting the shared wireHealth's data-overall — the two
+                // setters fought and the local (stricter, legacy-cadenced)
+                // verdict won, so the dot ran red while the hub read 100%.
+                // Same fix as tla-stats T5.2: the shared registry is the ONE
+                // implementation; local logic is fallback only.
+                if (typeof SiteFooter !== 'undefined' && SiteFooter.wireHealth) { SiteFooter.wireHealth(); return; }
                 const btn = document.getElementById('cronHealthTrigger');
                 if (!btn) return;
                 const overall = getOverallCronHealth();
