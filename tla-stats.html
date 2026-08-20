@@ -1539,7 +1539,7 @@
                 <div class="flex items-start gap-2 text-xs text-gray-400">
                     <i class="fas fa-circle-info text-cyan-400/70 mt-0.5"></i>
                     <div>
-                        <span class="text-gray-300">New to TLA?</span> APRs are forward-looking estimates at current prices and emissions — both change, so treat them as a guide, not a promise. Watch for these flags on a pool:
+                        <span class="text-gray-300">New to TLA?</span> <span class="text-gray-500">(Votion per-pool vote columns retired 2026-08-20 — no trustworthy org source exists yet; they return the day a per-pool Votion vote capture ships, per the fail-honest rule.)</span> APRs are forward-looking estimates at current prices and emissions — both change, so treat them as a guide, not a promise. Watch for these flags on a pool:
                         <span class="inline-flex flex-wrap gap-1.5 mt-1.5">
                             <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400">Near threshold</span><span class="text-gray-500">may stop earning rewards soon ·</span>
                             <span class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400">Thin liquidity</span><span class="text-gray-500">large trades move the price ·</span>
@@ -1622,237 +1622,7 @@
         </div>
         
         <!-- RANKINGS TAB -->
-        <div id="tab-rankings" class="tab-content" data-cron-source="tla-snapshot">
-            <!-- Mission Statement -->
-            <div class="glass-card p-6 mb-6 border-l-4 border-cyan-500">
-                <div class="flex items-start gap-4">
-                    <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                        <i class="fas fa-balance-scale text-2xl"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-semibold text-xl mb-2">aDAO Value-Driven Voting</h3>
-                        <p class="text-sm text-gray-400 leading-relaxed">
-                            Alliance DAO votes for <span class="text-cyan-400 font-semibold">Terra's success</span>, not personal gain. 
-                            Our scoring system identifies pools that deliver real value to the chain but lack adequate support. 
-                            We don't chase bribes or APR — we invest in <span class="text-green-400 font-semibold">performance</span> and 
-                            <span class="text-purple-400 font-semibold">ecosystem growth</span>.
-                        </p>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Three Score Cards - Clickable -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <!-- Performance Card -->
-                <div class="glass-card p-5 cursor-pointer hover:border-emerald-500/50 transition-all group" onclick="showPerformanceModal()">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 rounded-lg bg-emerald-500/20 flex items-center justify-center group-hover:bg-emerald-500/30 transition-colors">
-                                <i class="fas fa-chart-line text-emerald-400 text-xl"></i>
-                            </div>
-                            <div>
-                                <div class="font-semibold text-lg">Performance</div>
-                                <div class="text-[10px] text-gray-500">How valuable is this pool?</div>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-right text-gray-600 group-hover:text-emerald-400 transition-colors"></i>
-                    </div>
-                    <div class="text-xs text-gray-500 border-t border-gray-800 pt-3 mt-2">
-                        <div class="grid grid-cols-2 gap-2">
-                            <div><span class="text-emerald-400">35%</span> Efficiency</div>
-                            <div><span class="text-emerald-400">25%</span> Volume</div>
-                            <div><span class="text-emerald-400">20%</span> Liquidity</div>
-                            <div><span class="text-emerald-400">15%</span> Access</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Support Card -->
-                <div class="glass-card p-5 cursor-pointer hover:border-amber-500/50 transition-all group" onclick="showSupportModal()">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 rounded-lg bg-amber-500/20 flex items-center justify-center group-hover:bg-amber-500/30 transition-colors">
-                                <i class="fas fa-hands-helping text-amber-400 text-xl"></i>
-                            </div>
-                            <div>
-                                <div class="font-semibold text-lg">Support</div>
-                                <div class="text-[10px] text-gray-500">How much backing does it have?</div>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-right text-gray-600 group-hover:text-amber-400 transition-colors"></i>
-                    </div>
-                    <div class="text-xs text-gray-500 border-t border-gray-800 pt-3 mt-2">
-                        <div class="grid grid-cols-2 gap-2">
-                            <div><span class="text-amber-400">40%</span> Bribes</div>
-                            <div><span class="text-amber-400">30%</span> TLA Votes</div>
-                            <div class="col-span-2"><span class="text-amber-400">30%</span> Votion Dominance</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Opportunity Card -->
-                <div class="glass-card p-5 cursor-pointer hover:border-cyan-500/50 transition-all group" onclick="showOpportunityModal()">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 rounded-lg bg-cyan-500/20 flex items-center justify-center group-hover:bg-cyan-500/30 transition-colors">
-                                <i class="fas fa-bullseye text-cyan-400 text-xl"></i>
-                            </div>
-                            <div>
-                                <div class="font-semibold text-lg">Opportunity</div>
-                                <div class="text-[10px] text-gray-500">Where can aDAO make an impact?</div>
-                            </div>
-                        </div>
-                        <i class="fas fa-chevron-right text-gray-600 group-hover:text-cyan-400 transition-colors"></i>
-                    </div>
-                    <div class="text-xs text-gray-500 border-t border-gray-800 pt-3 mt-2">
-                        <div class="text-center">
-                            <span class="text-emerald-400">Performance</span> 
-                            <span class="text-white mx-2">−</span> 
-                            <span class="text-amber-400">Support</span>
-                            <span class="text-white mx-2">=</span>
-                            <span class="text-cyan-400">Opportunity</span>
-                        </div>
-                        <div class="text-[10px] text-gray-600 mt-2 text-center">
-                            Positive = undervalued • Negative = well-supported
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Asset Access Scores Section -->
-            <div class="glass-card p-5 mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                            <i class="fas fa-coins text-purple-400"></i>
-                        </div>
-                        <div>
-                            <div class="font-semibold">Asset Access Scores</div>
-                            <div class="text-[10px] text-gray-500">How easy is it for users to acquire each asset?</div>
-                        </div>
-                    </div>
-                    <button onclick="showAccessScoreModal()" class="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1">
-                        <span>View Methodology</span>
-                        <i class="fas fa-external-link-alt"></i>
-                    </button>
-                </div>
-                <div id="asset-scores-grid" class="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                    <!-- Populated by JS -->
-                </div>
-            </div>
-            
-            <!-- Rankings Filters -->
-            <div class="glass-card p-4 mb-6">
-                <div class="flex items-center justify-between flex-wrap gap-4">
-                    <div class="flex items-center gap-4">
-                        <span class="text-xs text-gray-500 font-semibold">FILTERS:</span>
-                        <label class="flex items-center gap-2 text-xs text-gray-400">
-                            <input type="checkbox" id="rankings-hide-inactive" class="rounded">
-                            Hide Inactive
-                        </label>
-                        <label class="flex items-center gap-2 text-xs text-gray-400">
-                            <input type="checkbox" id="rankings-hide-astro" class="rounded">
-                            Hide Astroport
-                        </label>
-                        <label class="flex items-center gap-2 text-xs text-gray-400">
-                            <input type="checkbox" id="rankings-hide-ww" class="rounded">
-                            Hide Skeleton Swap
-                        </label>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <label class="flex items-center gap-2 text-xs text-gray-400">
-                            <input type="checkbox" id="rankings-hide-negative" class="rounded">
-                            Hide negative scores
-                        </label>
-                    </div>
-                </div>
-                <div class="mt-3 pt-3 border-t border-gray-800 text-[10px] text-gray-500">
-                    <i class="fas fa-info-circle text-cyan-400 mr-1"></i> 
-                    Scores are recalculated dynamically based on filters. Rankings reflect relative performance within visible pools only.
-                </div>
-            </div>
-            
-            <!-- Rankings by Bucket -->
-            <div id="rankings-buckets-container" class="space-y-6">
-                <!-- Populated by JS - each bucket gets its own section -->
-            </div>
-            
-            <!-- Legend -->
-            <div class="glass-card p-3 mt-6 text-[10px] text-gray-500">
-                <div class="flex items-center gap-6 flex-wrap">
-                    <span><i class="fas fa-info-circle text-cyan-400 mr-1"></i> <strong>DAODAO:</strong> Votes in 10% increments</span>
-                    <span><i class="fas fa-info-circle text-purple-400 mr-1"></i> <strong>Custom:</strong> Votes in 1% increments</span>
-                    <span><i class="fas fa-fire text-orange-400 mr-1"></i> <strong>PD Rank:</strong> Phoenix Directive allocation %</span>
-                </div>
-            </div>
-        </div>
-        
-        <!-- DAO TAB -->
-        <div id="tab-dao" class="tab-content" data-cron-source="adao-positions">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div class="glass-card p-5 text-center">
-                    <div id="dao-locked-vp" class="text-3xl font-bold text-cyan-400 mono">-</div>
-                    <div class="text-xs text-gray-500 mt-1">Locked VP</div>
-                </div>
-                <div class="glass-card p-5 text-center">
-                    <div id="dao-underlying" class="text-3xl font-bold text-purple-400 mono">-</div>
-                    <div class="text-xs text-gray-500 mt-1">Underlying Assets</div>
-                </div>
-                <div class="glass-card p-5 text-center">
-                    <div id="dao-deposit-usd" class="text-3xl font-bold text-green-400 mono">-</div>
-                    <div class="text-xs text-gray-500 mt-1">Deposit Value</div>
-                </div>
-                <div class="glass-card p-5 text-center">
-                    <div id="dao-rewards-usd" class="text-3xl font-bold text-orange-400 mono">-</div>
-                    <div class="text-xs text-gray-500 mt-1">Pending Rewards</div>
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Locks -->
-                <div class="glass-card p-6">
-                    <h3 class="font-semibold text-lg mb-4">
-                        <i class="fas fa-lock text-cyan-400 mr-2"></i>Active Locks
-                    </h3>
-                    <div id="dao-locks" class="space-y-3">
-                        <div class="loading-pulse text-gray-500 text-sm">Loading locks...</div>
-                    </div>
-                </div>
-                
-                <!-- Allocations -->
-                <div class="glass-card p-6">
-                    <h3 class="font-semibold text-lg mb-4">
-                        <i class="fas fa-vote-yea text-purple-400 mr-2"></i>Vote Allocations
-                    </h3>
-                    <div id="dao-allocations" class="space-y-2 max-h-80 overflow-y-auto">
-                        <div class="loading-pulse text-gray-500 text-sm">Loading allocations...</div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Vote Rewards -->
-            <div class="mt-6 glass-card p-6">
-                <h3 class="font-semibold text-lg mb-4">
-                    <i class="fas fa-gift text-green-400 mr-2"></i>Accumulated Vote Rewards
-                    <span class="text-xs text-gray-500 font-normal ml-2">(Epochs <span id="reward-epochs">-</span>)</span>
-                </h3>
-                <div id="dao-vote-rewards" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    <div class="loading-pulse text-gray-500 text-sm">Loading rewards...</div>
-                </div>
-            </div>
-            
-            <!-- Treasury Tokens -->
-            <div class="mt-6 glass-card p-6">
-                <h3 class="font-semibold text-lg mb-4">
-                    <i class="fas fa-wallet text-amber-400 mr-2"></i>Treasury Tokens
-                </h3>
-                <div id="dao-tokens" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    <div class="loading-pulse text-gray-500 text-sm">Loading tokens...</div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- DOCS TAB -->
+        <!-- rankings + dao tabs retired 2026-07 (rankings merged into LP Grades; aDAO has dedicated pages); their dead HTML removed Rev T4 2026-08-20 -->
         <div id="tab-grades" class="tab-content" data-cron-source="lp-grades">
             <div class="glass-card p-6 mb-6">
                 <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
@@ -3360,15 +3130,9 @@
                 vol_4ep_count: p.historical?.vol_4ep_count || 0,
                 historical: p.historical, // Keep original too
                 
-                // Scores - flatten nested object
-                calc_score: p.scores?.adao_opportunity || 0,
-                calc_access: p.scores?.access || 0,
-                calc_perf: p.scores?.performance || 0,
-                calc_support: p.scores?.support || 0,
-                scores: p.scores, // Keep original too
-                
-                // Grade inclusion
-                included_in_grade: p.included_in_grade
+                // (four-score flatten removed Rev T4 — no producer emits `scores`
+                // anymore; the shape lives on only as spec history in
+                // SPEC-lp-grading §10b.)
             }));
         }
         
@@ -3937,6 +3701,15 @@
         const lastCompleteEpoch = currentEpoch - 1;
         const historicalByPool = buildEpochAvgIndex(astroEpoch, ssWeeklyAvgCsv, lastCompleteEpoch);
 
+        // Rev T4: efficiency fallback from the lp-grades product (canonical windowed
+        // utilization — util_weekly_ratio). The epoch-avg join only covers charted
+        // Astroport pools; lp-grades computes the same semantic for every windowed
+        // pool. No-third-copy: read the product, don't recompute.
+        const lpgUtilByGauge = {};
+        for (const gp of (store.lpGrades?.pools || [])) {
+            if (gp.scores?.A?.util_weekly_ratio != null) lpgUtilByGauge[gp.gauge_pool_id] = gp.scores.A.util_weekly_ratio;
+        }
+
         // Build aDAO vote allocations lookup: pool_gauge_id → { adao_vp, adao_pct }
         const adaoVotesByPool = buildAdaoVotesIndex(adaoPositions);
 
@@ -3975,7 +3748,6 @@
             const adaoPct = vp > 0 ? (adaoEntry.adao_vp / vp) * 100 : 0;
 
             // Scores
-            const scores = computePoolScores(p, siteConfig?.scoring);
 
             return {
                 name: p.name,
@@ -4025,7 +3797,7 @@
 
                 // Historical
                 historical: {
-                    efficiency: historicalEntry.efficiency || 0,
+                    efficiency: historicalEntry.efficiency || lpgUtilByGauge[p.gauge_pool_id] || 0,
                     liq_4ep_avg: historicalEntry.liq_4ep_avg || 0,
                     liq_4ep_count: historicalEntry.liq_4ep_count || 0,
                     vol_4ep_avg: historicalEntry.vol_4ep_avg || 0,
@@ -4033,10 +3805,9 @@
                     epochs_used: historicalEntry.epochs_used || [],
                 },
 
-                // Scores
-                scores: scores,
-
-                included_in_grade: !!historicalEntry.liq_4ep_avg && p.dex !== 'Skeleton Swap',
+                // (scores + included_in_grade removed Rev T4 — the placeholder
+                // computePoolScores and the old four-score shape are superseded by
+                // the lp-grades product; the LP Grades tab reads that directly.)
             };
         });
 
@@ -4786,7 +4557,10 @@
         if (!adaoPositions?.treasury) return idx;
 
         const treasury = adaoPositions.treasury;
-        const treasuryVp = treasury.summary?.display_voting_power_human || 0;
+        // FIX (Rev T4, 2026-08-20): summary.display_voting_power_human is null on the
+        // treasury record — the live field is voting.total_voting_power_human (the
+        // same one the Vote Advisor reads). The old read zeroed every aDAO column.
+        const treasuryVp = treasury.voting?.total_voting_power_human || treasury.summary?.display_voting_power_human || 0;
         const votesPerBucket = treasury.voting?.votes_per_bucket || {};
 
         for (const bucket of Object.keys(votesPerBucket)) {
@@ -5217,9 +4991,11 @@
         renderOverviewTab();
         renderPoolsTab();
         renderTlaTab();
-        renderRankingsTab();
-        renderDaoTab();
-        
+        // renderRankingsTab() / renderDaoTab() calls removed Rev T4 2026-08-20:
+        // both tabs retired 2026-07 (unreachable), yet still computed at every
+        // load — the "PD Rankings: 0 pools" console line was this. Bodies stay
+        // inert pending the dedicated dead-code strip pass (same rule as the
+        // star-map block: interleaved live helpers, needs browser verification).
         // Render trend rows under stat tiles
         renderTrendRows();
     }
@@ -10375,9 +10151,6 @@ ${(() => {
                                         <th class="text-right" title="Average DEX liquidity over the last completed epoch (~7 days)">Epoch Avg Liq</th>
                                         <th class="text-right" title="Average daily trading volume over the last completed epoch">Epoch Avg Vol</th>
                                         <th class="text-right" title="Annual Percentage Rate. Top: Amplified (with boost), Bottom: Non-amplified (base)">APR</th>
-                                        <th class="text-right" title="Current Votion protocol votes. Top: Vote power, Bottom: % of bucket total">Votion Now</th>
-                                        <th class="text-right" title="Change in Votion votes from current to next epoch">Δ Vote</th>
-                                        <th class="text-right" title="Projected Votion votes for next epoch. Top: Vote power, Bottom: % of bucket total">Votion Next</th>
                                         <th class="text-right" title="Total bribes this epoch. Top: Total USD, Bottom: Phoenix Directive contribution">Bribes</th>
                                         <th class="text-right" title="TLA (Terra Liquidity Alliance) votes. Top: Vote power, Bottom: % of bucket total">TLA Vote</th>
                                         <th class="text-right" title="Alliance DAO votes. Top: Vote power, Bottom: % of bucket total">aDAO Vote</th>
@@ -10389,14 +10162,6 @@ ${(() => {
                                 <tfoot>
                                     <tr class="border-t border-white/10 ${colors.bg}">
                                         <td colspan="5" class="font-bold uppercase ${colors.text}">${bucket} Totals</td>
-                                        <td class="text-right mono">
-                                            <div class="text-purple-400">${fmtNum(activePools.reduce((s, p) => s + (p.votion_now_vp || 0), 0))}</div>
-                                            <div class="text-[10px] text-gray-500" title="Votion's share of all votes in this bucket">${fmtPct(totalVP > 0 ? (activePools.reduce((s, p) => s + (p.votion_now_vp || 0), 0) / totalVP) * 100 : 0)} of bucket</div>
-                                        </td>
-                                        <td class="text-right">-</td>
-                                        <td class="text-right mono">
-                                            <div class="text-purple-400">${fmtNum(activePools.reduce((s, p) => s + (p.votion_next_vp || 0), 0))}</div>
-                                        </td>
                                         <td class="text-right mono text-amber-400">
                                             ${fmt$(calculateBucketBribes(bucket))}
                                         </td>
@@ -10797,10 +10562,6 @@ ${(() => {
 
     function renderPoolRow(p) {
         const isActive = p.is_active !== false;
-        const changeVP = (p.votion_next_vp || 0) - (p.votion_now_vp || 0);
-        const changeClass = changeVP > 0 ? 'text-green-400' : changeVP < 0 ? 'text-red-400' : 'text-gray-500';
-        const changeIcon = changeVP > 0 ? '↑' : changeVP < 0 ? '↓' : '';
-        
         // Get pool type (pcl, stable, xyk, etc)
         const poolType = p.pool_type || p.type || '';
         
@@ -10808,8 +10569,6 @@ ${(() => {
         const totalBucketVP = store.pools.filter(x => x.bucket === p.bucket && x.is_active !== false).reduce((s, x) => s + (x.vp || 0), 0);
         const tlaPct = totalBucketVP > 0 ? ((p.vp || 0) / totalBucketVP) * 100 : 0;
         const adaoPct = totalBucketVP > 0 ? ((p.adao_vp || 0) / totalBucketVP) * 100 : 0;
-        const votionNowPct = totalBucketVP > 0 ? ((p.votion_now_vp || 0) / totalBucketVP) * 100 : 0;
-        const votionNextPct = totalBucketVP > 0 ? ((p.votion_next_vp || 0) / totalBucketVP) * 100 : 0;
         
         // Use bribes data directly from pool object (original field names)
         const poolPdBribes = p.bribes_pd || 0;
@@ -10874,17 +10633,6 @@ ${(() => {
                         <i class="fas fa-chart-line text-[8px] ${iconColor(aprChange)}"></i>
                     </div>
                     <div class="mono text-[10px] text-gray-500">${p.apr_non ? fmtPct(p.apr_non) : '-'}</div>
-                </td>
-                <td class="text-right mono">
-                    <div class="text-purple-400">${p.votion_now_vp ? fmtNum(p.votion_now_vp) : '-'}</div>
-                    <div class="text-[10px] text-gray-500">${votionNowPct > 0 ? fmtPct(votionNowPct) : '-'}</div>
-                </td>
-                <td class="text-right mono ${changeClass}">
-                    ${changeVP !== 0 ? changeIcon + ' ' + fmtNum(Math.abs(changeVP)) : '-'}
-                </td>
-                <td class="text-right mono">
-                    <div class="text-purple-400">${p.votion_next_vp ? fmtNum(p.votion_next_vp) : '-'}</div>
-                    <div class="text-[10px] text-gray-500">${votionNextPct > 0 ? fmtPct(votionNextPct) : '-'}</div>
                 </td>
                 <td class="text-right pool-metric-cell cursor-pointer hover:bg-white/5 rounded transition-colors" data-pool="${safePoolName}" data-metric="bribes" title="Click for trend">
                     <div class="mono flex items-center justify-end gap-1 ${poolTotalBribes > 0 ? 'text-amber-400' : 'text-gray-500'}">
