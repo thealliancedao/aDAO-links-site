@@ -5653,16 +5653,41 @@
             // last 14 points. State metrics (backing, VP, supply) take each period's final
             // reading; per-day gain is recomputed across the displayed points.
             function aggregateSnapshots(daily, mode) {
+                // Rev I-A4 (2026-08-20, owner spec): every view renders the LAST 14
+                // CALENDAR period slots — 14 days / 14 epochs / 14 months — newest on
+                // the right, with the CURRENT partial period always the newest slot
+                // (its latest captured reading). Slots whose source hadn't started
+                // yet are trimmed from the left; a slot inside the archive whose
+                // metric is missing renders as a GAP, never a fabricated zero —
+                // "we weren't measuring" and "we measured zero" are different facts.
                 const valid = (daily || []).filter(s => !s.missing);
-                let out;
+                const today = new Date();
+                const slotKeys = [];
                 if (mode === 'daily') {
-                    out = valid.slice(-14).map(s => ({ ...s }));
+                    for (let i = 13; i >= 0; i--) slotKeys.push(new Date(today.getTime() - i * 86400000).toISOString().slice(0, 10));
+                } else if (mode === 'monthly') {
+                    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+                    for (let i = 13; i >= 0; i--) { const m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - i, 1)); slotKeys.push(m.toISOString().slice(0, 7)); }
                 } else {
-                    const keyOf = (s) => mode === 'monthly' ? String(s.date || '').slice(0, 7) : s.epoch;
-                    const buckets = new Map();
-                    for (const s of valid) buckets.set(keyOf(s), s); // valid is date-ascending → last wins = end-of-period
-                    out = Array.from(buckets.values()).slice(-14).map(s => ({ ...s }));
+                    const curE = epochOfDate(today.toISOString().slice(0, 10));
+                    for (let i = 13; i >= 0; i--) slotKeys.push(curE - i);
                 }
+                const keyOf = (s) => mode === 'daily' ? s.date : (mode === 'monthly' ? String(s.date || '').slice(0, 7) : s.epoch);
+                const buckets = new Map();
+                for (const s of valid) buckets.set(keyOf(s), s); // date-ascending → last wins = end-of-period (current partial: latest reading)
+                let out = slotKeys.map(k => {
+                    const hit = buckets.get(k);
+                    if (hit) return { ...hit };
+                    // gap placeholder: labeled slot, null metrics
+                    if (mode === 'daily') return { date: k, epoch: epochOfDate(k), _gap: true };
+                    if (mode === 'monthly') { const end = new Date(Date.UTC(+k.slice(0, 4), +k.slice(5, 7), 0)).toISOString().slice(0, 10); return { date: end, epoch: epochOfDate(end), _gap: true }; }
+                    const end = new Date(epochReferenceDate.getTime() + (k - epochReferenceNumber + 1) * msPerWeek - 86400000).toISOString().slice(0, 10);
+                    return { date: end, epoch: k, _gap: true };
+                });
+                // trim slots older than the first real reading (young sources show
+                // their true archive, not 13 empty slots)
+                const firstReal = out.findIndex(o => !o._gap);
+                if (firstReal > 0) out = out.slice(firstReal);
                 for (let i = 1; i < out.length; i++) {
                     const c = out[i], p = out[i - 1];
                     if (c.backingPerNft_LUNA != null && p.backingPerNft_LUNA != null) {
