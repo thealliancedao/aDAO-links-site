@@ -8328,6 +8328,11 @@
     // Chain truth, no prediction: votes already cast, payout not yet run.
     function ensureDistributions() {
         if (store._distP) return store._distP;
+        // Rev T5.3: epoch-band backfill — 16 epochs of band metrics derived from
+        // the snapshot matrices (.github/scripts/epoch-band-backfill). The history
+        // modal seeds from this before the live prev/current pair.
+        store._bandP = fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/epoch-band-history.json?t=' + Date.now())
+            .then(r => r.ok ? r.json() : null).then(d => { store.bandHistory = (d && d.epochs) || []; }).catch(() => { store.bandHistory = []; });
         store._distP = fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/distributions/history.json?t=' + Date.now())
             .then(r => r.ok ? r.json() : null)
             .then(h => {
@@ -12984,6 +12989,25 @@ ${(() => {
         // Build history array from current + previous, including missed epochs
         const historyPoints = [];
         const prevEpochNum = store.previousEpochNumber || (store.epoch - 1);
+
+        // Rev T5.3: seed deep history from the backfilled epoch-band product for
+        // the metrics it carries (band-identical semantics, gated vs the live
+        // tile at E199: 28 pools / A20+S8 / $1.83M). Rows at/after the live
+        // prev/current pair are skipped — the live pair remains authoritative.
+        const bandGetters = {
+            'active-pools': r => r.active_pools,
+            'astro-pools':  r => r.active_pools_astro,
+            'ww-pools':     r => r.active_pools_ss,
+            'tla-tvl':      r => r.tla_tvl_usd,
+        };
+        if (store.bandHistory && bandGetters[metricKey]) {
+            for (const r of store.bandHistory) {
+                if (r.epoch >= prevEpochNum) continue;
+                const v = bandGetters[metricKey](r);
+                if (v == null) continue;
+                historyPoints.push({ epoch: r.epoch, value: v, lunaPrice: r.luna_price_usd || null, date: r.date, missed: false });
+            }
+        }
         
         // Add previous epoch data point
         if (store.previousEpochData) {

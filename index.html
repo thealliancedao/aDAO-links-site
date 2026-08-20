@@ -2463,8 +2463,12 @@
                         <label class="block text-sm text-gray-400 mb-2">Floor Price</label>
                         <div class="flex gap-2">
                             <input type="number" id="unminted-floor-price" class="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:border-green-400 focus:outline-none" placeholder="Enter floor price" step="0.01" oninput="calculateUnmintedMarketValue()">
+                            <!-- Rev I-A7: one-tap current floors (reads the live marketplace cards) -->
+                            <button type="button" onclick="useLiveFloor('bbl')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="Use the live BBL unbroken floor">BBL floor</button>
+                            <button type="button" onclick="useLiveFloor('atrium')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="Use the live Atrium floor (SOLID)">Atrium floor</button>
                             <select id="unminted-price-token" class="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:border-green-400 focus:outline-none" onchange="calculateUnmintedMarketValue()">
-                                <option value="bLUNA">bLUNA</option>
+                                <option value="SOLID">SOLID</option>
+                                <option value="bLUNA" selected>bLUNA</option>
                                 <option value="LUNA">LUNA</option>
                                 <option value="ampLUNA">ampLUNA</option>
                                 <option value="arbLUNA">arbLUNA</option>
@@ -2585,6 +2589,9 @@
                         <a href="https://www.boostdao.io/ignite/permissionless-terra" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors">
                             <img src="https://www.boostdao.io/favicon.ico" alt="Boost" class="w-5 h-5 rounded" onerror="this.style.display='none'">
                             <span>Boost DAO</span>
+                        </a>
+                        <a href="https://atriumdao.zone/collections" target="_blank" rel="noopener" class="flex items-center gap-2 text-purple-300 hover:text-purple-200 text-sm">
+                            <span>Atrium</span>
                             <i class="fas fa-external-link-alt text-xs text-gray-400"></i>
                         </a>
                     </div>
@@ -9181,6 +9188,18 @@
             
             
             // --- Unminted NFT Market Value Calculator ---
+            window.useLiveFloor = function(venue) {
+                // Pulls the floor the marketplace cards are ALREADY showing —
+                // same number, zero re-fetch; honest '--' means no fill.
+                var amtEl = document.getElementById(venue === 'bbl' ? 'bbl-floor-bluna' : 'atrium-floor-amt');
+                var v = amtEl && parseFloat(String(amtEl.textContent).replace(/[^0-9.]/g, ''));
+                if (!v) return;
+                var inp = document.getElementById('unminted-floor-price');
+                var sel = document.getElementById('unminted-price-token');
+                if (inp) inp.value = v;
+                if (sel) sel.value = venue === 'bbl' ? 'bLUNA' : 'SOLID';
+                calculateUnmintedMarketValue();
+            };
             window.calculateUnmintedMarketValue = function() {
                 const priceInput = document.getElementById('unminted-floor-price');
                 const tokenSelect = document.getElementById('unminted-price-token');
@@ -9218,7 +9237,12 @@
                 let priceInUsd = 0;
                 let tokenPrice = 0;
                 
+                const solidUsd = (window.cachedTokenPrices && window.cachedTokenPrices.SOLID) || (prices['solid'] && prices['solid'].usd) || (window.solidPriceUsd || 0);
                 switch(token) {
+                    case 'SOLID':
+                        tokenPrice = solidUsd;
+                        priceInUsd = floorPrice * solidUsd;
+                        break;
                     case 'USD':
                         priceInUsd = floorPrice;
                         tokenPrice = 1;
