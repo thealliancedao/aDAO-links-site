@@ -1138,6 +1138,13 @@
                         <div class="loading-pulse text-gray-500 text-sm">Loading...</div>
                     </div>
                 </div>
+                <div class="glass-card p-6" id="bribe-runway-card" data-cron-source="pd-bribes">
+                    <h3 class="font-semibold text-lg flex items-center gap-2 mb-1"><i class="fas fa-gas-pump text-orange-400"></i> Bribe Runway <span id="runway-chip" class="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-300 font-medium"></span></h3>
+                    <p class="text-xs text-gray-500 mb-1">How long each pool's bribe pot lasts, and who funds it. <span class="text-orange-300/80">When a pot empties, Votion re-optimizes away and vote weight follows — depositors in that pool should be ready to adjust.</span> Linear bribes taper, so per-epoch amounts can shrink before the end date.</p>
+                    <div id="bribe-runway-rows" class="space-y-1.5 mt-3">
+                        <div class="loading-pulse text-gray-500 text-sm">Loading...</div>
+                    </div>
+                </div>
             </div>
 
             <!-- ==================== COMMUNITY WATCH (Stage C1) ==================== -->
@@ -1267,6 +1274,10 @@
                 </div>
                 <p class="text-[11px] text-gray-500 mb-3">Voting power scheduled to unlock over the next 8 weeks — locks NOT set to auto-max, from the tracked electorate. VP that unlocks leaves the gauge unless re-locked; a cluster here is early exit-pressure signal.</p>
                 <div id="unlock-runway" class="grid grid-cols-1 lg:grid-cols-2 gap-5"><div class="loading-pulse text-gray-500 text-sm">Loading...</div></div>
+                <div class="mt-4 pt-3 border-t border-white/[0.06]">
+                    <div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5"><i class="fas fa-box-open text-orange-300/80 mr-1"></i>Pending withdrawal — unlocked, never redeemed</div>
+                    <div id="unlock-pending"><div class="loading-pulse text-gray-500 text-sm">Loading...</div></div>
+                </div>
             </div>
 
             <!-- Vote Breakdown Waterfall -->
@@ -2355,6 +2366,7 @@
     const CONFIG = {
         // New continuous data sources (post-2026 cron rebuild)
         tlaSnapshotUrl:    'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/current.json',
+        bribeRunwayUrl:    'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/bribe-state/runway.json',  // per-pool pot runway (state truth, funders included)
         lpGradesUrl:       'https://raw.githubusercontent.com/thealliancedao/tla-core/main/lp-grades/snapshots/current.json',  // org lp-grades cron (Rev G1, 2026-08-19)  // org fold (member-data VP absorber), 2026-08-10
         aprHistoryUrl:     'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/apr-history.json',
         poolStatusHistoryUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/pool-status-history.json',
@@ -3229,6 +3241,7 @@
             // Rev G1: LP grades product (org lp-grades cron) — the tab renders this;
             // page-side grade computation is retired.
             const lpGradesP = fetch(CONFIG.lpGradesUrl + '?t=' + Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
+            const bribeRunwayP = fetch(CONFIG.bribeRunwayUrl + '?t=' + Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
             const [
                 tlaSnapshotResp,
                 networkPricesResp,
@@ -3398,6 +3411,7 @@
             store.pdBribesData = pdBribesResp;
             store.pdBribesProduct = await pdBribesProductP;
             store.lpGrades = await lpGradesP;
+            store.bribeRunway = await bribeRunwayP;
             if (store.pdBribesProduct) console.log(`pd-bribes product: ${store.pdBribesProduct.meta?.verified_placements} verified placements (${store.pdBribesProduct.meta?.version})`);
             // FUEL latest USD price from its own data repo (not in network-and-prices).
             store.fuelPriceUsd = (() => {
@@ -3855,19 +3869,19 @@
         // Member-level breakdowns belong in the separate Member Stats page; at the
         // TLA-wide level, "aDAO" = the treasury wallet that votes with the DAO's
         // collective stake. Each member's personal VP is conceptually "Other" here.
-        // FIX (Rev T4.1, 2026-08-20): summary.display_voting_power_human went null
+        // FIX (Rev T4.1, 2026-08-20): summary.voting_power_human went null
         // on the treasury record (same root cause as the aDAO Vote column) — the
         // live field is voting.total_voting_power_human. Both donut slices died
         // together when the positions product dropped the summary field.
         const treasuryDisplayVp = adaoPositions?.treasury?.voting?.total_voting_power_human
-            || adaoPositions?.treasury?.summary?.display_voting_power_human || 0;
+            || adaoPositions?.treasury?.summary?.voting_power_human || 0;
         const totalAdaoVp = treasuryDisplayVp;
 
         // For analytical context (not displayed here, but kept for Member Stats page)
-        // Use display_voting_power_human (= locks VP + fixed amount) to match Eris UI
+        // voting_power_human = TOTAL VP (boost + fixed), the canonical definition per SPEC-vp-definition-fix; display (fixed×10) is retired
         let memberVpSum = 0;
         for (const m of (adaoPositions?.members || [])) {
-            memberVpSum += m.summary?.display_voting_power_human || 0;
+            memberVpSum += m.summary?.voting_power_human || 0;
         }
 
         // Pool-summed aDAO VP — TREASURY ONLY, used by waterfall chart per-pool
@@ -4560,10 +4574,10 @@
         if (!adaoPositions?.treasury) return idx;
 
         const treasury = adaoPositions.treasury;
-        // FIX (Rev T4, 2026-08-20): summary.display_voting_power_human is null on the
+        // FIX (Rev T4, 2026-08-20): summary.voting_power_human is null on the
         // treasury record — the live field is voting.total_voting_power_human (the
         // same one the Vote Advisor reads). The old read zeroed every aDAO column.
-        const treasuryVp = treasury.voting?.total_voting_power_human || treasury.summary?.display_voting_power_human || 0;
+        const treasuryVp = treasury.voting?.total_voting_power_human || treasury.summary?.voting_power_human || 0;
         const votesPerBucket = treasury.voting?.votes_per_bucket || {};
 
         for (const bucket of Object.keys(votesPerBucket)) {
@@ -4616,7 +4630,7 @@
         }));
 
         // Vote allocations — flatten across all buckets
-        // Use display_voting_power_human so per-vote VP matches what Eris attributes to each pool
+        // voting_power_human (total, canonical per SPEC-vp-definition-fix) so per-vote VP attributes to each pool
         const allocations = [];
         const votesPerBucket = t.voting?.votes_per_bucket || {};
         for (const [bucket, info] of Object.entries(votesPerBucket)) {
@@ -4624,7 +4638,7 @@
                 allocations.push({
                     pool: v.pool_name || '?',
                     dex: bucket,
-                    vp: ((v.weight_bps || 0) / 10000) * (s.display_voting_power_human || 0),
+                    vp: ((v.weight_bps || 0) / 10000) * (s.voting_power_human || 0),
                     pct: (v.weight_bps || 0) / 100,
                 });
             }
@@ -4656,7 +4670,7 @@
             deposit_usd: s.total_lp_position_usd || 0,
             tokens: tokens,
             avg_apr: 0,  // computed separately by renderer if needed
-            locked_vp: s.display_voting_power_human || 0,
+            locked_vp: s.voting_power_human || 0,
             underlying_assets: s.fixed_amount_human || 0,
             locks: locks,
             allocations: allocations,
@@ -4721,7 +4735,7 @@
         const s = treasury.summary || {};
         return {
             summary: {
-                total_vp: s.display_voting_power_human || 0,
+                total_vp: s.voting_power_human || 0,
                 underlying_assets: s.fixed_amount_human || 0,
             },
             individual_locks: (treasury.locks || []).map(l => ({
@@ -5016,7 +5030,7 @@
         if (!m) return false;
         if ((m.lp_positions || []).length > 0) return true;
         if ((m.locks || []).length > 0) return true;
-        const vp = Number(m.voting?.total_voting_power_human || m.summary?.display_voting_power_human || 0);
+        const vp = Number(m.voting?.total_voting_power_human || m.summary?.voting_power_human || 0);
         if (vp > 0) return true;
         const usdOf = (d) => {
             if (!d || typeof d !== 'object') return 0;
@@ -6126,7 +6140,7 @@
     // feed first; org member-data as fallback for wallets it alone carries.
     function getWalletVpHeld(wallet) {
         const m = getAllSelectableMembers().find(x => x.wallet === wallet);
-        const v = m?.summary?.display_voting_power_human;
+        const v = m?.summary?.voting_power_human;
         if (v > 0) return v;
         if (!store._orgVpByWallet) {
             const map = new Map();
@@ -6412,6 +6426,64 @@
     // Rev T3.1 — Unlock Runway: aggregate per-lock weeks_to_unlock across the
     // tracked electorate (participants feed). Auto-max locks never unlock and
     // are excluded by definition; coverage honesty stated in the footer.
+    // ---------------- Bribe Runway (Rev T5, 2026-08-20) ----------------
+    // Surfaces tla-voting/bribe-state/runway.json — the manager's per-period pot
+    // state probed forward until pots empty (state truth: hole-era bribes are
+    // included; funders listed from matched events where known). The depositor's
+    // early-warning board: an emptying pot means Votion re-optimizes away.
+    function renderBribeRunway() {
+        const el = document.getElementById('bribe-runway-rows');
+        if (!el) return;
+        const rw = store.bribeRunway;
+        if (!rw || !Array.isArray(rw.pools)) {
+            el.innerHTML = '<div class="text-gray-600 text-sm">Bribe runway product unavailable.</div>';
+            return;
+        }
+        const chip = document.getElementById('runway-chip');
+        if (chip) chip.textContent = `${rw.pool_count} pools funded · period ${rw.current_period}`;
+        const nameFor = (gaugeId) => {
+            const p = (store.pools || []).find(x => x.gauge_pool_id === gaugeId)
+                || (store.lpGrades?.pools || []).find(x => x.gauge_pool_id === gaugeId);
+            return p ? p.name : gaugeId.slice(0, 14) + '…';
+        };
+        const denomSym = (d) => {
+            // runway keys carry the 'cw20:' prefix; lp-grades token denoms don't —
+            // match on the bare address (gate-caught 2026-08-20)
+            const bare = d.startsWith('cw20:') ? d.slice(5) : d;
+            const t = (store.lpGrades?.pools || []).flatMap(p => p.scores?.B?.tokens || []).find(t2 => t2.denom === bare || t2.denom === d);
+            if (t && t.symbol) return t.symbol;
+            if (bare === 'uluna') return 'LUNA';
+            return bare.slice(0, 10) + '…';
+        };
+        const funderLabel = (addr) => {
+            // attribute known DAO cores via the pd-bribes product (attribution law:
+            // names only where the event streams matched them; otherwise short addr)
+            const pls = store.pdBribesProduct?.placements || [];
+            const hit = pls.find(pl => pl.briber === addr || pl.dao_attr?.address === addr);
+            if (hit && hit.dao_attr?.name) return hit.dao_attr.name;
+            return addr.slice(0, 10) + '…';
+        };
+        const rows = [...rw.pools].sort((a, b) => (a.epochs_left ?? 99) - (b.epochs_left ?? 99));
+        el.innerHTML = rows.slice(0, 8).map(p => {
+            const left = p.epochs_left ?? null;
+            const cls = left != null && left <= 1 ? 'bg-red-500/15 text-red-400' : left <= 2 ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/10 text-emerald-400/90';
+            const amounts = Object.entries(p.by_denom || {}).map(([d, info]) =>
+                `${(parseFloat(info.total_remaining_raw || '0') / 1e6).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${denomSym(d)}`).join(' + ');
+            const funders = (p.funders || []).slice(0, 3).map(f => funderLabel(f.briber || f)).join(', ');
+            return `<div class="flex items-center justify-between text-xs py-1.5 border-b border-white/[0.04] last:border-0">
+                <div class="min-w-0">
+                    <span class="font-medium">${nameFor(p.pool)}</span> <span class="text-[9px] text-gray-600 uppercase">${p.gauge || ''}</span>
+                    <div class="text-[10px] text-gray-500 truncate">${amounts || '—'}${funders ? ` · <span class="text-gray-400">by ${funders}</span>` : ''}</div>
+                </div>
+                <span class="shrink-0 ml-2 text-[10px] px-2 py-0.5 rounded-full mono ${cls}" title="Approximate: pots probed forward per period; linear bribes taper. ~${p.expires_approx || '?'}">${left != null ? (left <= 1 ? 'last epoch' : left + ' epochs') : '—'}</span>
+            </div>`;
+        }).join('') || '<div class="text-gray-600 text-sm">No funded pots right now.</div>';
+        const ending = rows.filter(p => (p.epochs_left ?? 99) <= 1);
+        if (ending.length) {
+            el.innerHTML = `<div class="rounded bg-red-500/[0.07] border border-red-500/20 px-2.5 py-1.5 text-[11px] text-red-300 mb-1"><i class="fas fa-triangle-exclamation mr-1"></i>${ending.length} pot${ending.length > 1 ? 's' : ''} on the last funded epoch — ${ending.map(p => nameFor(p.pool)).join(', ')}. Votion re-optimizes when these empty.</div>` + el.innerHTML;
+        }
+    }
+
     function renderUnlockRunway() {
         const el = document.getElementById('unlock-runway');
         if (!el) return;
@@ -6420,11 +6492,25 @@
         if (!members.length) { el.innerHTML = '<div class="text-gray-600 text-sm">Participants feed unavailable.</div>'; return; }
         const weeks = Array.from({ length: 8 }, () => ({ vp: 0, locks: 0, assets: {} }));
         const upcoming = [];
+        // Rev T5: pending-withdrawal set — locks whose end_period has passed but
+        // the token still exists (never redeemed). These already left the VP
+        // race; the capital just hasn't come home. Withdrawn locks drop off at
+        // the next hourly participants capture (chain-verified 2026-08-20:
+        // test locks #1317/#1318 withdrew and aged out on schedule).
+        const curPeriod = (store.lpGrades?.epoch) || Math.max(0, ...members.flatMap(m => (m.locks || []).map(l => l.from_period || 0)));
+        const pending = [];
         let totalTrackedVp = 0;
         for (const m of members) {
-            totalTrackedVp += m.summary?.display_voting_power_human || 0;
+            totalTrackedVp += m.summary?.voting_power_human || 0;
             for (const l of (m.locks || [])) {
-                if (l.is_auto_max_locked || l.weeks_to_unlock == null) continue;
+                if (l.is_auto_max_locked) continue;
+                if (typeof l.end_period === 'number' && l.end_period <= curPeriod) {
+                    pending.push({ wallet: m.wallet, name: m.name || null, id: l.token_id,
+                        sym: l.asset_symbol || '?', amt: l.amount_human || 0,
+                        overdue: curPeriod - l.end_period });
+                    continue;
+                }
+                if (l.weeks_to_unlock == null) continue;
                 const w = Math.max(1, Math.ceil(l.weeks_to_unlock));
                 if (w > 8) continue;
                 const b = weeks[w - 1];
@@ -6460,6 +6546,26 @@
             <div>${bars}<div class="text-[10px] text-gray-600 mt-2">Weeks 1–4 highlighted — the epoch horizon the exit-pressure question lives on.</div></div>
             <div><div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1.5">Largest upcoming unlocks</div>${list}
                 <div class="text-[10px] text-gray-600 mt-2">Tracked electorate only (${members.length} wallets in the participants feed) — unregistered lockers outside the feed aren't counted. Watch for the same wallets also unwinding LP.</div></div>`;
+
+        // Rev T5: pending-withdrawal board
+        const pel = document.getElementById('unlock-pending');
+        if (pel) {
+            if (!pending.length) { pel.innerHTML = '<div class="text-gray-600 text-sm">No unlocked-but-unredeemed locks in the tracked electorate.</div>'; }
+            else {
+                pending.sort((a, b) => b.amt - a.amt);
+                const bySym = {};
+                for (const p of pending) bySym[p.sym] = (bySym[p.sym] || 0) + p.amt;
+                const totline = Object.entries(bySym).sort((a, b) => b[1] - a[1]).map(([sy, a]) => `${fmtNum(a)} ${esc(sy)}`).join(' · ');
+                pel.innerHTML = `
+                    <div class="text-[11px] text-gray-400 mb-1.5"><span class="text-orange-300 font-semibold">${pending.length} locks</span> fully unlocked but never withdrawn — ${totline}. This capital already left the VP race; it just hasn't come home. A withdrawal here is old news for the gauge, not new exit pressure.</div>
+                    ${pending.slice(0, 10).map(p => `
+                    <div class="flex items-center justify-between text-[11px] py-1 border-b border-white/[0.04] last:border-0">
+                        <span class="truncate">${p.name ? esc(p.name) : `<span class="mono text-gray-500">${esc(p.wallet.slice(0, 12))}…</span>`} <span class="text-gray-600 mono text-[9px]">#${esc(String(p.id))}</span></span>
+                        <span class="mono text-gray-400 shrink-0 ml-2">${fmtNum(p.amt)} ${esc(p.sym)} · <span class="${p.overdue >= 26 ? 'text-red-400/80' : 'text-orange-300/80'}">${p.overdue}w overdue</span></span>
+                    </div>`).join('')}
+                    ${pending.length > 10 ? `<div class="text-[10px] text-gray-600 mt-1">+ ${pending.length - 10} more</div>` : ''}`;
+            }
+        }
     }
 
     function renderVoterBoards() {
@@ -6475,7 +6581,7 @@
         }
         // Voting Leaders — VP held desc
         const byVp = [...members]
-            .map(m => ({ m, vp: m.summary?.display_voting_power_human || 0 }))
+            .map(m => ({ m, vp: m.summary?.voting_power_human || 0 }))
             .filter(x => x.vp > 0)
             .sort((a, b) => b.vp - a.vp);
         boardExpander(vpEl, byVp.map((x, i) => personRow(
@@ -6527,7 +6633,7 @@
                     return { m, last, touched };
                 })
                 .filter(x => x.last > 0)
-                .sort((a, b) => b.last - a.last || ((b.m.summary?.display_voting_power_human || 0) - (a.m.summary?.display_voting_power_human || 0)));
+                .sort((a, b) => b.last - a.last || ((b.m.summary?.voting_power_human || 0) - (a.m.summary?.voting_power_human || 0)));
             // Rev T2: show what the touch left behind — the measured stale gap NOW
             // (potential − current, participants feed). A true "+VP recovered by
             // this touch" needs the before-snapshot from daily member history
@@ -6574,7 +6680,7 @@
             ogEl.innerHTML = msg; if (newEl) newEl.innerHTML = msg; if (bribeEl) bribeEl.innerHTML = msg;
             return;
         }
-        const vpOf = (m) => m.summary?.display_voting_power_human || 0;
+        const vpOf = (m) => m.summary?.voting_power_human || 0;
         // Same-period tiebreak: lock token ids mint sequentially, so the smallest
         // lock # a wallet holds is its earliest surviving lock — a real join-order
         // ordinal within the launch window (first_participation is period-granular,
@@ -6668,7 +6774,7 @@
             boardExpander(el, rows.map((x, i) => personRow(
                 i,
                 `${displayName(x.m.wallet)} ${walletBadges(x.m.wallet)}`,
-                `${fmtNum(x.m.summary?.display_voting_power_human || 0)} VP`,
+                `${fmtNum(x.m.summary?.voting_power_human || 0)} VP`,
                 `<span class="mono text-sm text-amber-300 font-semibold">${fmt$(x.usd)}</span>`,
                 x.m.wallet
             )), 'earn', '<div class="text-gray-600 text-sm">No pending bribe rewards right now.</div>');
@@ -6933,8 +7039,8 @@
         // Sort by VP descending — biggest holders first, easier to find significant members.
         // Tiebreak by name for stable ordering when VP equals 0 or matches exactly.
         const sorted = [...visible].sort((a, b) => {
-            const aVp = a.summary?.display_voting_power_human || 0;
-            const bVp = b.summary?.display_voting_power_human || 0;
+            const aVp = a.summary?.voting_power_human || 0;
+            const bVp = b.summary?.voting_power_human || 0;
             if (bVp !== aVp) return bVp - aVp;
             const aName = (a.name || a.wallet || '').toLowerCase();
             const bName = (b.name || b.wallet || '').toLowerCase();
@@ -6948,8 +7054,8 @@
             if (!m.wallet) continue;
             const opt = document.createElement('option');
             opt.value = m.wallet;
-            const vpStr = m.summary?.display_voting_power_human
-                ? ` (${fmtNum(m.summary.display_voting_power_human)} VP)`
+            const vpStr = m.summary?.voting_power_human
+                ? ` (${fmtNum(m.summary.voting_power_human)} VP)`
                 : '';
             opt.textContent = `${m.name || m.wallet.slice(0, 12) + '…'}${vpStr}`;
             opt.style.backgroundColor = '#1a1c23';
@@ -7010,7 +7116,7 @@
         }
         const positions = [...agg.values()];
         const totalLpUsd = positions.reduce((s, p) => s + p.usd, 0);
-        const vp = Number(m.voting?.total_voting_power_human || m.summary?.display_voting_power_human || 0);
+        const vp = Number(m.voting?.total_voting_power_human || m.summary?.voting_power_human || 0);
 
         const anyInactive = positions.some(p => p.status && p.status !== 'active');
         const anyNearThreshold = positions.some(p => p.status === 'active' && p.pct != null && p.pct >= 1.0 && p.pct <= 1.5);
@@ -7077,7 +7183,7 @@
     // longer consumed anywhere on this page.
     function allocationsFor(m) {
         if (!m) return null;
-        const totalVp = m.summary?.display_voting_power_human || 0;
+        const totalVp = m.summary?.voting_power_human || 0;
         const byPool = new Map();
         const votesPerBucket = m.voting?.votes_per_bucket || {};
         for (const info of Object.values(votesPerBucket)) {
@@ -7328,6 +7434,7 @@
         try { renderEpochMovers(); } catch (err) { console.warn('renderEpochMovers:', err); }
         try { renderVoterBoards(); } catch (err) { console.warn('renderVoterBoards:', err); }
         try { renderUnlockRunway(); } catch (err) { console.warn('renderUnlockRunway:', err); }
+        try { renderBribeRunway(); } catch (err) { console.warn('renderBribeRunway:', err); }
         try { renderCommunityBoards(); } catch (err) { console.warn('renderCommunityBoards:', err); }
         try { wireTopsTabs(); } catch (err) { console.warn('wireTopsTabs:', err); }
         try { wirePieModeToggle(); } catch (err) { console.warn('wirePieModeToggle:', err); }

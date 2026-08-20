@@ -4325,7 +4325,7 @@
             // ─── Rev 3.39 — TLA VP history from cron archives ─────────────────
             // Pulls the DAO's TLA voting power per epoch from the `adao-positions`
             // weekly archives (data/weekly/epoch-{N}.json). Each archive's
-            // `treasury.summary.display_voting_power_human` is the canonical DAO VP
+            // `treasury.summary.voting_power_human` is the canonical DAO VP
             // at that epoch's snapshot moment. Plus the live current.json for the
             // running epoch.
             //
@@ -4348,7 +4348,7 @@
             // The cron's potential_vp_human is on the voting_power basis, so we scale the
             // display VP by the same gain ratio: display × (potential / current).
             function vpPotentialDisplay(s) {
-                const disp = s.display_voting_power_human || s.voting_power_human || 0;
+                const disp = s.voting_power_human || s.voting_power_human || 0;
                 const curB = s.current_vp_human || s.voting_power_human || 0;
                 const gap  = s.vp_gap_human;
                 const potB = s.potential_vp_human;
@@ -4401,7 +4401,7 @@
                     byEpoch[epoch] = {
                         epoch,
                         source: 'cron',
-                        vp:                s.display_voting_power_human  || s.voting_power_human || 0,
+                        vp:                s.voting_power_human  || s.voting_power_human || 0,
                         underlyingLuna:    s.total_locked_luna_equivalent || 0,
                         usd:               s.total_locked_usd              || 0,
                         lockCount:         s.lock_count                    || 0,
@@ -4419,7 +4419,7 @@
                         byEpoch[ep] = {
                             epoch: ep,
                             source: 'cron-current',
-                            vp:                s.display_voting_power_human  || s.voting_power_human || 0,
+                            vp:                s.voting_power_human  || s.voting_power_human || 0,
                             underlyingLuna:    s.total_locked_luna_equivalent || 0,
                             usd:               s.total_locked_usd              || 0,
                             lockCount:         s.lock_count                    || 0,

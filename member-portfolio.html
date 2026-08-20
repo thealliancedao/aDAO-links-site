@@ -430,13 +430,13 @@
         const dl = $('known-wallets');
         if (dl) {
             const named = [...store.members.values()].filter(m => m.name)
-                .sort((a, b) => (b.summary?.display_voting_power_human || 0) - (a.summary?.display_voting_power_human || 0));
+                .sort((a, b) => (b.summary?.voting_power_human || 0) - (a.summary?.voting_power_human || 0));
             dl.innerHTML = named.map(m => `<option value="${esc(m.wallet)}">${esc(m.name)}</option>`).join('');
         }
         // demo chips + live community stats on the landing
         const chips = $('demo-chips');
         if (chips) {
-            const byVp = [...store.members.values()].sort((a, b) => (b.summary?.display_voting_power_human || 0) - (a.summary?.display_voting_power_human || 0));
+            const byVp = [...store.members.values()].sort((a, b) => (b.summary?.voting_power_human || 0) - (a.summary?.voting_power_human || 0));
             const whale = byVp[0];
             const picks = [];
             const dp = [...store.members.values()].find(x => x.name === 'DeFi_Patriot');
@@ -456,7 +456,7 @@
             let vp = 0, claim = 0, gap = 0;
             for (const mm of store.members.values()) {
                 const ss = mm.summary || {};
-                vp += ss.display_voting_power_human || 0;
+                vp += ss.voting_power_human || 0;
                 claim += (ss.total_pending_rewards_usd || 0) + (ss.total_pending_bribes_usd || 0);
                 gap += ss.vp_gap_human || 0;
             }
@@ -732,7 +732,7 @@
                 <div class="text-[9px] mono mt-0.5" id="tile-${id}-delta"></div>
             </div>`;
         $('tiles').innerHTML =
-            dtile('vp', 'Voting power', fmtNum(s.display_voting_power_human || 0), (s.vp_gap_human || 0) > 500 ? `+${fmtNum(s.vp_gap_human)} reclaimable` : 'fully fresh', 'text-purple-300', 'v', 'Tap for this wallet&#39;s VP history') +
+            dtile('vp', 'Voting power', fmtNum(s.voting_power_human || 0), (s.vp_gap_human || 0) > 500 ? `+${fmtNum(s.vp_gap_human)} reclaimable` : 'fully fresh', 'text-purple-300', 'v', 'Tap for this wallet&#39;s VP history') +
             dtile('lk', 'Locked value', fmt$(rpT.live ? rpT.lk : s.total_locked_usd), `${fmtNum(s.fixed_amount_human || s.total_locked_luna_equivalent || 0)} LUNA underlying · ${s.lock_count || 0} locks${rpT.live ? ' · <span class="text-emerald-400/70">live px</span>' : ''}`, '', 'lk', 'Chain-stamped underlying LUNA across your locks — the number Eris shows (VP = 10\u00d7 this at max lock). USD is the lock amounts valued at LIVE catalog prices. Tap for locked-value history') +
             dtile('lp', 'LP positions', fmt$(rpT.live ? rpT.lp : s.total_lp_position_usd), `${s.active_lp_position_count || 0} active${(s.inactive_lp_position_count || 0) ? ` · <span class="text-red-400">${s.inactive_lp_position_count} inactive</span>` : ''}${rpT.live ? ' · <span class="text-emerald-400/70">live px</span>' : ''}`, '', 'lp', 'LP token amounts from the daily 03:00 snapshot, valued at LIVE catalog prices. Tap for LP-value history') +
             dtile('vot', 'Votion', '<span class="loading-pulse text-gray-500 text-sm">…</span>', 'vault positions', 'text-purple-300', null, 'Per-vault vault-share value from the ORG Votion feed (hub-rate LST pricing, corrected VP definition). Tap for history — the org daily archive runs since 2026-07-16.') +
@@ -742,7 +742,7 @@
         (async () => {
             const rec = await fetchDayFor(wallet, dstr(new Date(Date.now() - 7 * _dayMs)));
             if (store.wallet !== wallet) return;
-            const dset = [['vp', s.display_voting_power_human, rec && rec.v, fmtNum], ['lk', s.total_locked_usd, rec && rec.lk, fmt$], ['lp', s.total_lp_position_usd, rec && rec.lp, fmt$]];
+            const dset = [['vp', s.voting_power_human, rec && rec.v, fmtNum], ['lk', s.total_locked_usd, rec && rec.lk, fmt$], ['lp', s.total_lp_position_usd, rec && rec.lp, fmt$]];
             for (const [id, now, then, f] of dset) {
                 const el = $(`tile-${id}-delta`); if (!el) continue;
                 if (then == null || now == null) { el.innerHTML = '<span class="text-gray-700">no 7d history</span>'; continue; }
@@ -884,7 +884,7 @@
         // P1: what each vote is earning — your VP share of the pool's live
         // bribe pot (same live math as the Claimable tile). Pool lookup by gauge id.
         const snapByGid = new Map((store.feeds?.snap?.pools || []).map(p => [p.gauge_pool_id, p]));
-        const userVpForVotes = s.display_voting_power_human || m.voting?.total_voting_power_human || 0;
+        const userVpForVotes = s.voting_power_human || m.voting?.total_voting_power_human || 0;
         $('votes-grid').innerHTML = bucketOrder.map(b => {
             const bv = vpb[b];
             const votes = bv?.votes || [];
@@ -977,7 +977,7 @@
         }
         return {
             p: s.total_portfolio_value_usd ?? null,
-            v: s.display_voting_power_human ?? null,
+            v: s.voting_power_human ?? null,
             lp: s.total_lp_position_usd ?? null,
             lk: s.total_locked_usd ?? null,
             rw: s.total_pending_rewards_usd ?? null,
@@ -1066,8 +1066,8 @@
     function computeLiveBribes(m, vpOverride) {
         const pools = store.feeds?.snap?.pools || [];
         const vpb = m.voting?.votes_per_bucket || {};
-        const userVp = vpOverride != null ? vpOverride : (m.summary?.display_voting_power_human || m.voting?.total_voting_power_human || 0);
-        const addedVp = vpOverride != null ? Math.max(0, vpOverride - (m.summary?.display_voting_power_human || 0)) : 0;
+        const userVp = vpOverride != null ? vpOverride : (m.summary?.voting_power_human || m.voting?.total_voting_power_human || 0);
+        const addedVp = vpOverride != null ? Math.max(0, vpOverride - (m.summary?.voting_power_human || 0)) : 0;
         if (!pools.length || !userVp) return null;
         const byGid = new Map(pools.map(p => [p.gauge_pool_id, p]));
         let total = 0, unpriced = 0; const rows = [];
@@ -1519,7 +1519,7 @@
           ${(() => {
             const gain = m.summary?.vp_gap_human || 0;
             if (!(cl.live && gain > 500)) return '';
-            const adjVp = (m.summary?.display_voting_power_human || 0) + gain;   // display basis: boost+fixed, plus the reclaimable gap
+            const adjVp = (m.summary?.voting_power_human || 0) + gain;   // display basis: boost+fixed, plus the reclaimable gap
             const adj = computeLiveBribes(m, adjVp);
             if (!adj || !(adj.total > cl.bribes)) return '';
             return `<div class="text-[11px] text-amber-300/90 mb-2" title="The same live pot math run with your fully-adjusted VP (${fmtNum(adjVp)}), with your added VP counted in each pool’s total too — the projected share never pretends the pool stays the same size. One re-touch of your locks captures this every epoch."><i class="fas fa-battery-full mr-1"></i>If you reclaimed your +${fmtNum(gain)} VP: bribes ≈ <span class="mono font-semibold">${fmt$(adj.total)}</span>/ep (<span class="mono">+${fmt$(adj.total - cl.bribes)}</span> over today).</div>`;
