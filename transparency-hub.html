@@ -159,7 +159,18 @@ const ENDPOINT_SRC=`${ORG}/system-health/current.json`;
 // Updates tab = what we're actively building. CHANGES_PENDING is the live
 // queue (org), so this tab now reflects real current work instead of a
 // changelog frozen in a retired repo.
-const CHANGELOG_SRC=`${ORG}/docs/pending-changes/CHANGES_PENDING.md`;
+// Rev H2 (2026-08-20): the queue doc was rewritten into a lean cleanup list on
+// 08-19, freezing this tab at its last dated header while the REAL running
+// record moved into docs/changelogs/*. Updates now merges the changelogs
+// (they already use the "## Rev X — date — title" shape this parser reads)
+// plus the queue for milestone items — newest first, source-chipped.
+const UPDATE_SOURCES=[
+  ['queue',     `${ORG}/docs/pending-changes/CHANGES_PENDING.md`],
+  ['tla-stats', `${ORG}/docs/changelogs/tla-log.md`],
+  ['index',     `${ORG}/docs/changelogs/index-log.md`],
+  ['portfolio', `${ORG}/docs/changelogs/portfolio-log.md`],
+  ['lp-grades', `${ORG}/docs/changelogs/cron-lp-grades-log.md`],
+];
 
 // doc library — chapters (editable titles). file = path under tla-core/docs/.
 // Docs surface the org knowledge base. `file` is a path under tla-core/docs/.
@@ -195,11 +206,18 @@ document.getElementById('tabs').addEventListener('click',e=>{
 // ---- UPDATES (parse CHANGELOG.md) ----
 async function loadUpdates(){
   try{
-    const md=await (await fetch(CHANGELOG_SRC+'?t='+Date.now())).text();
-    document.getElementById('updates').innerHTML='<div class="upd">'+parseChangelog(md)+'</div>';
+    const texts=await Promise.all(UPDATE_SOURCES.map(([src,url])=>
+      fetch(url+'?t='+Date.now()).then(r=>r.ok?r.text():'').then(t=>[src,t]).catch(()=>[src,''])));
+    let entries=[];
+    for(const [src,md] of texts) entries=entries.concat(parseEntries(md).map(e=>(e.src=src,e)));
+    // newest first; entries without a parseable date sink to the bottom in
+    // original order (honest: undated queue notes still show, just not on top)
+    entries.sort((a,b)=>(b.sortDate||'').localeCompare(a.sortDate||''));
+    document.getElementById('updates').innerHTML='<div class="upd">'+
+      (entries.slice(0,40).map(renderEntry).join('')||'<div class="loading">No updates yet.</div>')+'</div>';
   }catch(e){ document.getElementById('updates').innerHTML='<div class="loading">No updates yet — the changelog will appear here.</div>'; }
 }
-function parseChangelog(md){
+function parseEntries(md){
   // ORG FORMAT (2026-08-12): CHANGES_PENDING.md is the live build queue, written
   // as "## YYYY-MM-DD — Title" or "## Rev X.Y — YYYY-MM-DD — Title", with bold
   // status markers in the body. The old parser expected the retired repo's
@@ -210,8 +228,8 @@ function parseChangelog(md){
   // be maintained twice: EXECUTED/DONE -> SHIPPED, BUILT+GATED -> READY,
   // everything else -> BUILDING. That makes this tab an honest picture of what
   // is actually in flight.
-  const lines = md.split('\n');
-  let out = '', cur = null;
+  const lines = (md||'').split('\n');
+  let out = [], cur = null;
   const tagFor = (txt) => {
     const t = txt.toUpperCase();
     if (/EXECUTED|✅✅|— DONE|COMPLETE/.test(t)) return 'SHIPPED';
@@ -220,16 +238,7 @@ function parseChangelog(md){
     return 'BUILDING';
   };
   const flush = () => {
-    if (!cur) return;
-    if (cur.title) {
-      const tag = tagFor(cur.title + ' ' + cur.body);
-      out += `<div class="upd-item ${tag === 'MILESTONE' ? 'milestone' : ''}">
-        <div class="upd-date">${esc(cur.date || '')}</div>
-        <div class="upd-title">${esc(cur.title)} <span class="tag ${tag}">${tag}</span></div>
-        ${cur.body ? `<div class="upd-body">${esc(cur.body.slice(0, 420))}${cur.body.length > 420 ? '…' : ''}</div>` : ''}
-        ${cur.steps.length ? `<div class="upd-steps">${cur.steps.slice(0, 6).map(x => `<div class="upd-step">${fmtStep(x)}</div>`).join('')}</div>` : ''}
-      </div>`;
-    }
+    if (cur && cur.title) out.push(cur);
     cur = null;
   };
   for (const line of lines) {
@@ -243,7 +252,7 @@ function parseChangelog(md){
       if (dm) { date = dm[1]; rest = rest.replace(dm[1], '').replace(/^[\s—–-]+|[\s—–-]+$/g, ''); }
       const rm = rest.match(/^Rev\s+([\d.]+)\s*[—–-]*\s*/i);
       if (rm) { date = (date ? date + ' · ' : '') + 'Rev ' + rm[1]; rest = rest.slice(rm[0].length); }
-      cur = { title: rest.replace(/^[\s—–-]+/, ''), date, body: '', steps: [] };
+      cur = { title: rest.replace(/^[\s—–-]+/, ''), date, sortDate: dm ? dm[1] : '', body: '', steps: [] };
       continue;
     }
     if (!cur) continue;
@@ -254,7 +263,24 @@ function parseChangelog(md){
     }
   }
   flush();
-  return out || '<div class="loading">The build queue is empty right now.</div>';
+  return out;
+}
+function renderEntry(cur){
+  const tag = (function(txt){
+    const t = txt.toUpperCase();
+    if (/EXECUTED|✅✅|— DONE|COMPLETE/.test(t)) return 'SHIPPED';
+    if (/BUILT \+ GATED|BUILT AND GATED|COMMIT PENDING|DEPLOY PENDING/.test(t)) return 'READY';
+    if (/PRIORITY LOCK|DEFINITION OF DONE/.test(t)) return 'MILESTONE';
+    // changelog entries describe landed work — default SHIPPED for changelog
+    // sources, BUILDING for the queue
+    return cur.src === 'queue' ? 'BUILDING' : 'SHIPPED';
+  })(cur.title + ' ' + cur.body);
+  return `<div class="upd-item ${tag === 'MILESTONE' ? 'milestone' : ''}">
+        <div class="upd-date">${esc(cur.date || '')}${cur.src ? ' <span class="tag" style="font-size:8px;opacity:.7">'+esc(cur.src)+'</span>' : ''}</div>
+        <div class="upd-title">${esc(cur.title)} <span class="tag ${tag}">${tag}</span></div>
+        ${cur.body ? `<div class="upd-body">${esc(cur.body.slice(0, 420))}${cur.body.length > 420 ? '…' : ''}</div>` : ''}
+        ${cur.steps.length ? `<div class="upd-steps">${cur.steps.slice(0, 6).map(x => `<div class="upd-step">${fmtStep(x)}</div>`).join('')}</div>` : ''}
+      </div>`;
 }
 function fmtStep(s){ // bold the **x.y** step marker + render [TAG]s
   s=esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\[([A-Z]+)\]/g,'<span class="tag $1" style="font-size:8px">$1</span>'); return s; }

@@ -971,7 +971,7 @@ async function loadProposals() {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         proposals = data.proposals || {};
-        document.getElementById('last-update').textContent = new Date(data.exported_at).toLocaleDateString();
+        document.getElementById('last-update').textContent = new Date(data.exportedAt || data.exported_at).toLocaleDateString();
     } catch(e) {
         console.error(e);
         document.getElementById('load-status').innerHTML = '<i class="fas fa-exclamation-triangle text-red-400 mr-1"></i>Error';
@@ -3131,5 +3131,12 @@ function renderAllianceMembers() {
         })();
     </script>
 
+<!-- Shared footer (Rev 1.7, 2026-08-20): same rev/health/changelog line as
+     every other page — this page previously had no health dot and its own
+     footer, part of the drift the owner flagged. -->
+<div id="site-footer"></div>
+<script src="/lib/cron-registry.js"></script>
+<script src="/lib/site-footer.js"></script>
+<script>SiteFooter.mount({ rev: '1.7', revDate: '2026-08-20', page: 'dao' });</script>
 </body>
 </html>

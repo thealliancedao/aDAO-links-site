@@ -2364,6 +2364,10 @@
 
     
     <script src="/lib/cron-registry.js"></script>
+    <!-- Rev T5.2 (2026-08-20): this include was MISSING — tla-stats fell through
+         to its local fallback health logic, whose divergent "Cron stale" label
+         could disagree with the hub. One implementation everywhere, per T3.12. -->
+    <script src="/lib/site-footer.js"></script>
 <script>
     // ============================================================
     // CONFIGURATION
