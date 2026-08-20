@@ -2932,6 +2932,8 @@
             <!-- Secondary Axis Toggle (for TLA Deposits) -->
             <div id="chart-secondary-toggle" class="mb-3 hidden">
                 <span class="text-gray-400 text-sm mr-2">Secondary Axis:</span>
+                <a href="https://github.com/thealliancedao/tla-core/blob/main/docs/Staking%20APR.csv" target="_blank" rel="noopener" class="text-[10px] text-cyan-500 hover:text-cyan-300 mr-3" title="The Staking APR overlay reads this CSV. Data from analytics.smartstake.io/terra — download there and upload here as-is (same filename).">APR source ↗</a>
+                <a href="https://analytics.smartstake.io/terra/" target="_blank" rel="noopener" class="text-[10px] text-gray-500 hover:text-cyan-300 mr-3" title="Where the APR data comes from">SmartStake ↗</a>
                 <div class="inline-flex bg-gray-800 rounded-lg p-1">
                     <button id="toggle-apr" onclick="toggleChartSecondary('apr')" class="px-3 py-1 text-xs rounded-md bg-cyan-600 text-white transition-colors">Est APR</button>
                     <button id="toggle-luna" onclick="toggleChartSecondary('luna')" class="px-3 py-1 text-xs rounded-md text-gray-400 hover:text-white transition-colors">LUNA Price</button>
@@ -2942,8 +2944,9 @@
             <div id="chart-granularity-toggle" class="mb-3">
                 <span class="text-gray-400 text-sm mr-2">View:</span>
                 <div class="inline-flex bg-gray-800 rounded-lg p-1">
-                    <button id="gran-epoch" onclick="setChartGranularity('epoch')" class="px-3 py-1 text-xs rounded-md bg-cyan-600 text-white transition-colors">Epoch</button>
-                    <button id="gran-daily" onclick="setChartGranularity('daily')" class="px-3 py-1 text-xs rounded-md text-gray-400 hover:text-white transition-colors">Daily</button>
+                    <!-- Rev I-A5: order Daily · Epoch · Monthly, Daily default (owner spec) -->
+                    <button id="gran-daily" onclick="setChartGranularity('daily')" class="px-3 py-1 text-xs rounded-md bg-cyan-600 text-white transition-colors">Daily</button>
+                    <button id="gran-epoch" onclick="setChartGranularity('epoch')" class="px-3 py-1 text-xs rounded-md text-gray-400 hover:text-white transition-colors">Epoch</button>
                     <button id="gran-monthly" onclick="setChartGranularity('monthly')" class="px-3 py-1 text-xs rounded-md text-gray-400 hover:text-white transition-colors">Monthly</button>
                 </div>
                 <span class="text-gray-500 text-xs ml-2">last 14 points</span>
@@ -3689,10 +3692,14 @@
                 }
             }
             
-            // LUNA staking APR history. Source: tla-ext_json_storage/Staking APR.csv
+            // LUNA staking APR history. Source: tla-core/docs/staking-apr.csv (org —
+            // rescued from the retiring tla-ext_json_storage repo; 1,485 rows,
+            // 2022-05-29 onward). To extend: pencil-edit the CSV on GitHub (link in
+            // the modal's Secondary Axis row). Live LCD computation
+            // (annual_provisions / bonded) is queued to replace manual imports.
             // Format: "title","apr"\n"YYYY-MM-DD","XX.XXXX"\n... where APR is a percentage (e.g. 24.2235).
             // Returns a Map<dateString, aprNumber> for O(1) lookup. Cached after first fetch.
-            const STAKING_APR_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/staking-apr.csv';
+            const STAKING_APR_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/Staking%20APR.csv';   // Rev I-A6: SmartStake's native download name — upload as-is, never rename
             let stakingAprMap = null;
             
             async function fetchStakingAprHistory() {
@@ -5101,7 +5108,7 @@
                         // global per-day-source EARLIEST — April's backing row
                         // was being cut by a floor that only applies to the
                         // per-day fetch sources (which keep their own guards).
-                        if (end < '2026-04-13') break;
+                        if (end < '2025-01-01') break;   // Rev I-A6: month-ends reach the derived state-history era
                         if (!have.has(end)) { dates.push(end); have.add(end); }
                         d.setUTCMonth(d.getUTCMonth() - 1);
                     }
@@ -5130,7 +5137,7 @@
                     // Rev 3.51 — per-source start floors (documented above; now enforced).
                     // Probing dates before a source exists guaranteed 404s on every load.
                     const DD_EARLIEST = '2026-06-12'; // dao-dashboard daily begins
-                    const V2_EARLIEST = '2026-06-07'; // nft-inventory v2 daily begins
+                    const V2_EARLIEST = '2025-01-01'; // Rev I-A6: derived transfers-replay era begins (org capture from 2026-07-01; derived rows before, source-labeled)
                     const [dd, bk, vd, td, np] = await Promise.all([
                         date >= DD_EARLIEST ? jget(DD_DAILY_BASE + '/' + date + '.json') : Promise.resolve(null),
                         // ORG: one canonical backing series — look the date up in the
@@ -5140,7 +5147,7 @@
                         // (days keyed by date), not one file per day.
                         date >= V2_EARLIEST ? stateRowFor(date) : Promise.resolve(null),
                         jget(SNAP_BASE + '/' + date + '.json'),
-                        jget(NP_BASE + '/' + date + '.json'),
+                        date >= '2026-05-13' ? jget(NP_BASE + '/' + date + '.json') : Promise.resolve(null),   // np daily floor (Rev I-A6)
                     ]);
                     if (!dd && !bk && !vd && !td) return null; // no data this day -> drop
 
@@ -5647,7 +5654,7 @@
             }
             
             // ── Time granularity: 14-point epoch / daily / monthly aggregation ──
-            window.chartGranularity = window.chartGranularity || 'epoch';
+            window.chartGranularity = window.chartGranularity || 'daily';   // Rev I-A5: Daily default
 
             // Collapse the daily raw series into the selected bucket (end-of-period value),
             // last 14 points. State metrics (backing, VP, supply) take each period's final
