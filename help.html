@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Help — The Alliance DAO</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  :root { color-scheme: dark; }
+  body { background:#050507; color:#e5e7eb; font-family:ui-sans-serif,system-ui,sans-serif; }
+  .glass { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:14px; }
+  .mono { font-family:ui-monospace,monospace; }
+  details.faq { border-bottom:1px solid rgba(255,255,255,.06); }
+  details.faq summary { cursor:pointer; padding:.7rem 0; font-weight:600; font-size:.9rem; list-style:none; display:flex; justify-content:space-between; align-items:center; }
+  details.faq summary::after { content:'+'; color:#67e8f9; font-weight:400; }
+  details.faq[open] summary::after { content:'–'; }
+  details.faq .a { padding:0 0 .8rem 0; font-size:.83rem; color:#9ca3af; line-height:1.55; }
+  .field { width:100%; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:8px; padding:.55rem .7rem; font-size:.85rem; color:#e5e7eb; }
+  .field:focus { outline:none; border-color:#22d3ee66; }
+  label { font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:#6b7280; font-weight:600; display:block; margin:.7rem 0 .25rem; }
+  .btn { display:inline-flex; align-items:center; gap:.5rem; padding:.55rem 1rem; border-radius:8px; font-size:.85rem; font-weight:600; transition:all .15s; cursor:pointer; border:1px solid transparent; }
+  .btn-cyan { background:rgba(34,211,238,.15); color:#67e8f9; border-color:rgba(34,211,238,.3); }
+  .btn-cyan:hover { background:rgba(34,211,238,.25); }
+  .chat-msg { border-radius:10px; padding:.6rem .8rem; font-size:.84rem; line-height:1.5; max-width:85%; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<header class="border-b border-white/5 bg-black/40">
+  <div class="max-w-5xl mx-auto px-4 py-5 flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <h1 class="text-xl font-bold"><i class="fas fa-circle-question text-cyan-400 mr-2"></i>Help &amp; Support</h1>
+      <p class="text-xs text-gray-500 mt-1">Understand the systems, get answers, report what looks wrong, ask for what's missing.</p>
+    </div>
+    <nav class="flex items-center gap-3 text-sm">
+      <a href="index.html" class="text-gray-400 hover:text-cyan-300">Home</a>
+      <a href="transparency-hub.html" class="text-gray-400 hover:text-cyan-300">Transparency Hub</a>
+      <a href="tla-stats.html" class="text-gray-400 hover:text-cyan-300">TLA Stats</a>
+    </nav>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 py-8 space-y-6">
+
+  <!-- ASK (agent chat — graceful when the service isn't deployed) -->
+  <section class="glass p-6" id="ask-section">
+    <h2 class="font-bold text-lg mb-1"><i class="fas fa-robot text-purple-400 mr-2"></i>Ask about the site &amp; data</h2>
+    <p class="text-xs text-gray-500 mb-3">An assistant grounded on this site's own documentation and live data products. It checks claims against the same sources the pages render — including your own wallet's live record if you paste a terra1… address with your question — it doesn't guess, it doesn't give financial advice, and when it can't verify something it says so and routes you to the report form below.</p>
+    <div id="chat-log" class="space-y-2 mb-3 max-h-[320px] overflow-y-auto"></div>
+    <div class="flex gap-2">
+      <input id="chat-input" class="field" placeholder="e.g. Why is the Efficiency column blank? — or paste your terra1… address to have your portfolio numbers checked" onkeydown="if(event.key==='Enter')askAgent()">
+      <button class="btn btn-cyan" onclick="askAgent()"><i class="fas fa-paper-plane"></i>Ask</button>
+    </div>
+    <div id="agent-status" class="text-[10px] text-gray-600 mt-2"></div>
+  </section>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- REPORT AN ISSUE (v0 — structured GitHub issue, zero backend) -->
+    <section class="glass p-6">
+      <h2 class="font-bold text-lg mb-1"><i class="fas fa-bug text-red-400 mr-2"></i>Report an issue</h2>
+      <p class="text-xs text-gray-500 mb-1">A number looks wrong, a tile is empty, something broke. This drafts a structured report you submit on GitHub — it lands directly in the maintainer's queue with everything needed to reproduce it.</p>
+      <label>Which page?</label>
+      <select id="r-page" class="field">
+        <option>index (landing)</option><option>tla-stats</option><option>member-portfolio</option>
+        <option>nft-explorer</option><option>dao</option><option>transparency-hub</option><option>other</option>
+      </select>
+      <label>What looks wrong?</label>
+      <textarea id="r-what" rows="3" class="field" placeholder="e.g. The aDAO slice of the VP donut shows 0 but the treasury votes 50/50 in stable"></textarea>
+      <label>The number/value you saw (optional)</label>
+      <input id="r-value" class="field" placeholder="e.g. 0 VP — expected ~841K">
+      <button class="btn btn-cyan mt-4" onclick="fileIssue('report')"><i class="fab fa-github"></i>Draft GitHub report</button>
+      <div class="text-[10px] text-gray-600 mt-2">Opens github.com prefilled — you press submit there. A free GitHub account is required (that's what keeps reports spam-free and traceable).</div>
+    </section>
+
+    <!-- FEATURE REQUEST -->
+    <section class="glass p-6">
+      <h2 class="font-bold text-lg mb-1"><i class="fas fa-lightbulb text-amber-300 mr-2"></i>Request a feature</h2>
+      <p class="text-xs text-gray-500 mb-1">Want a stat, chart, or view that doesn't exist? Describe it. Requests get triaged into: data exists (small build) · needs new capture · out of scope.</p>
+      <label>What would you like to see?</label>
+      <textarea id="f-what" rows="3" class="field" placeholder="e.g. A chart of DAO total value over time"></textarea>
+      <label>Where should it live?</label>
+      <select id="f-page" class="field">
+        <option>wherever it fits best</option><option>index (landing)</option><option>tla-stats</option>
+        <option>member-portfolio</option><option>nft-explorer</option><option>dao</option>
+      </select>
+      <label>Why is it useful? (optional)</label>
+      <input id="f-why" class="field" placeholder="e.g. helps depositors time pool entries">
+      <button class="btn btn-cyan mt-4" onclick="fileIssue('feature')"><i class="fab fa-github"></i>Draft GitHub request</button>
+    </section>
+  </div>
+
+  <!-- FAQ -->
+  <section class="glass p-6">
+    <h2 class="font-bold text-lg mb-2"><i class="fas fa-book-open text-cyan-400 mr-2"></i>Frequently asked</h2>
+    <details class="faq"><summary>Why is a column or tile blank instead of showing a number?</summary>
+      <div class="a">Deliberate policy, not a bug: the site never invents a number it can't back. If a pool shows a blank Efficiency, there is no trustworthy volume source for it (SkeletonSwap publishes none). If a stat says "no data", the capture that would feed it doesn't exist yet or its source went dark. Everywhere possible the blank carries a tooltip saying which. A blank is the honest answer; a made-up number would just be a lie with confidence.</div></details>
+    <details class="faq"><summary>The Live Activity feed doesn't show something I did today.</summary>
+      <div class="a">Activity comes from the nightly capture rollup (~00:00 UTC). Actions land in the feed the day after they happen. This is stated on the card ("updates nightly") — it's a data-pipeline cadence, not a missed event.</div></details>
+    <details class="faq"><summary>What do the LP grades actually mean?</summary>
+      <div class="a">A grade scores how much a vote for that pool strengthens the TLA system — trading quality (depth, utilization, trend, exit slippage) times asset durability (token verification, acquisition risk, take-rate flow). It is NOT deposit advice and NOT a payout ranking (that's the Bounty Board). "Provisional" means fewer than four complete epochs of agreeing data — the grade exists but hasn't earned full confidence yet. New pools get a "new" state, not an F: absence of history isn't evidence of weakness. The full rubric, weights included, is public in the grading config — the tooltips on the Grades tab echo the exact weights used.</div></details>
+    <details class="faq"><summary>The footer dot is amber/red — is the site broken?</summary>
+      <div class="a">The dot answers one question: is the data flowing on schedule? Amber = a scheduled job is running late; red = something is genuinely stale. Click the dot — it opens the System Health page listing every job, its age, and which producer to look at. One important rule: a product <i>reporting a finding</i> (e.g. system-health flagging an invariant) is that job <b>working</b> — findings never turn the dot red.</div></details>
+    <details class="faq"><summary>Two pages show slightly different VP totals — which is right?</summary>
+      <div class="a">Both, usually — they answer different questions. "Total TLA VP" uses the max-bucket convention (matches Eris UI); pool-summed VP counts each voter once per bucket (up to 4×) and is only used where per-pool context needs it, always labeled. A lock's own VP = boosted underlying + fixed amount (the canonical definition since the 2026-07 VP spec). If you find a genuinely inconsistent pair, that's exactly what the report form is for.</div></details>
+    <details class="faq"><summary>Where does the data come from? Can I verify it?</summary>
+      <div class="a">Every number traces to public chain data captured by open cron jobs into a public GitHub repo (thealliancedao/tla-core) — the same files this site fetches are the files you can read. The Transparency Hub lists every producer, its schedule, and its heartbeat. Nothing is hand-entered; where attribution isn't certain, wallets stay unnamed by rule.</div></details>
+    <details class="faq"><summary>Why does the Bribe Runway matter to me as a depositor?</summary>
+      <div class="a">When a pool's bribe pot empties, Votion re-optimizes its votes away and vote weight follows — the pool's rewards drop. The runway shows how many epochs of funding each pot has left, so you can adjust LP positions before the cliff instead of after. Linear-distribution bribes taper, so per-epoch amounts can shrink before the stated end date.</div></details>
+    <details class="faq"><summary>Is any of this financial advice?</summary>
+      <div class="a">No. The site reports measured facts about the TLA system — depths, votes, grades, runways — so you can make your own decisions. Grades score system benefit, not your returns. Nothing here recommends buying, selling, or holding anything.</div></details>
+    <div class="text-[11px] text-gray-600 mt-3">Deeper reading: the <a href="transparency-hub.html" class="text-cyan-400 hover:underline">Transparency Hub</a> carries the full documentation library — what each data product is, the TLA mechanics primer, and the honesty rules this site is built on.</div>
+  </section>
+</main>
+
+<!-- Assistant disclaimer — scroll-through + explicit accept, required before
+     the first question. Persisted per-browser; the SERVICE also refuses
+     questions without the accepted flag, so no client can skip assent.
+     ⚠ OWNER NOTE: have this text reviewed by a lawyer before public launch —
+     the mechanism is built; the wording is a draft, not legal counsel. -->
+<div id="disc-overlay" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+  <div class="glass max-w-lg w-full p-6 border border-white/15" style="background:#0b0b10">
+    <h3 class="font-bold text-base mb-2"><i class="fas fa-scale-balanced text-amber-300 mr-2"></i>Before you use the assistant</h3>
+    <div id="disc-scroll" class="text-[12px] text-gray-400 leading-relaxed space-y-2 max-h-[240px] overflow-y-auto border border-white/10 rounded-lg p-3 mb-3">
+      <p><b class="text-gray-200">Information, not advice.</b> This assistant explains how the Terra Liquidity Alliance systems and this site's data work. Nothing it says is investment, financial, legal, or tax advice, and it will not tell you what to buy, sell, deposit, withdraw, or vote. It describes mechanics and measured values; every decision — and all risk — is yours alone.</p>
+      <p><b class="text-gray-200">Data can be wrong.</b> Answers draw on community-run captures of public chain data and on public node queries. Captures can lag, miss events, or contain errors; nodes can return stale or partial results. Verify anything important directly on chain before acting on it.</p>
+      <p><b class="text-gray-200">No relationship is created.</b> Using this assistant creates no advisory, fiduciary, or professional relationship with the site's maintainer, Alliance DAO, or any contributor. The assistant is an automated system; its outputs are generated text, not the statement of any person or DAO.</p>
+      <p><b class="text-gray-200">DeFi risk.</b> Liquidity provision, token locking, and governance participation involve substantial risk including total loss. Smart contracts can fail. Past mechanics do not guarantee future behavior; protocol rules can change.</p>
+      <p><b class="text-gray-200">Privacy.</b> Wallet addresses you paste are used only to read public chain and public repository data for your answer; nothing you type is stored by this site beyond what you explicitly submit as a GitHub report.</p>
+      <p><b class="text-gray-200">No liability.</b> To the maximum extent permitted by law, the maintainer and contributors accept no liability for any loss, damage, or decision arising from use of this assistant or this site. If you do not agree, do not use the assistant — the documentation and report forms remain available regardless.</p>
+      <p class="text-gray-500">Scroll to the end to enable Accept.</p>
+    </div>
+    <div class="flex items-center justify-between gap-3">
+      <button class="btn" style="background:rgba(255,255,255,.05);color:#9ca3af" onclick="discClose(false)">Not now</button>
+      <button id="disc-accept" class="btn btn-cyan opacity-40 cursor-not-allowed" disabled onclick="discClose(true)"><i class="fas fa-check"></i>I understand and accept</button>
+    </div>
+  </div>
+</div>
+<div id="site-footer"></div>
+<script src="/lib/cron-registry.js"></script>
+<script src="/lib/site-footer.js"></script>
+<script>
+const REV='1.0', REV_DATE='2026-08-20';
+SiteFooter.mount({ rev: REV, revDate: REV_DATE, page: 'help' });
+
+// ---- v0: structured GitHub issues (zero backend) ----
+const ISSUES_REPO='https://github.com/thealliancedao/tla-core/issues/new';
+function fileIssue(kind){
+  const enc=encodeURIComponent;
+  let title, body;
+  if(kind==='report'){
+    const page=document.getElementById('r-page').value, what=document.getElementById('r-what').value.trim(), val=document.getElementById('r-value').value.trim();
+    if(!what){ alert('Describe what looks wrong first.'); return; }
+    title=`[Site report] ${page}: ${what.slice(0,60)}`;
+    body=`**Page:** ${page}\n**What looks wrong:**\n${what}\n\n**Value seen:** ${val||'—'}\n\n**When:** ${new Date().toISOString()}\n\n_Filed via the site Help page (v0 form)._`;
+  }else{
+    const what=document.getElementById('f-what').value.trim(), page=document.getElementById('f-page').value, why=document.getElementById('f-why').value.trim();
+    if(!what){ alert('Describe the feature first.'); return; }
+    title=`[Feature request] ${what.slice(0,60)}`;
+    body=`**Request:**\n${what}\n\n**Suggested home:** ${page}\n**Why useful:** ${why||'—'}\n\n_Filed via the site Help page (v0 form)._`;
+  }
+  window.open(`${ISSUES_REPO}?title=${enc(title)}&body=${enc(body)}`,'_blank','noopener');
+}
+
+// ---- v1: agent chat (graceful when the service isn't deployed) ----
+// Set to the Render service URL once deployed (see platform-crons/help-agent/).
+const HELP_AGENT_URL = '';   // e.g. 'https://tla-help-agent.onrender.com'
+const chatLog=document.getElementById('chat-log');
+function addMsg(txt, who){
+  const d=document.createElement('div');
+  d.className='chat-msg '+(who==='you'?'bg-cyan-500/10 border border-cyan-500/20 ml-auto':'bg-white/[0.04] border border-white/10');
+  d.textContent=txt;
+  chatLog.appendChild(d); chatLog.scrollTop=chatLog.scrollHeight;
+  return d;
+}
+let discAccepted = false;
+try { discAccepted = localStorage.getItem('tla_help_disclaimer_v1') === 'accepted'; } catch(e) {}
+const discScroll=document.getElementById('disc-scroll'), discBtn=document.getElementById('disc-accept');
+if(discScroll) discScroll.addEventListener('scroll',()=>{
+  if(discScroll.scrollTop + discScroll.clientHeight >= discScroll.scrollHeight - 8){
+    discBtn.disabled=false; discBtn.classList.remove('opacity-40','cursor-not-allowed');
+  }
+});
+function discClose(accepted){
+  document.getElementById('disc-overlay').classList.add('hidden');
+  if(accepted){ discAccepted=true; try{ localStorage.setItem('tla_help_disclaimer_v1','accepted'); }catch(e){}
+    if(window.__pendingQ){ const q=window.__pendingQ; window.__pendingQ=null; document.getElementById('chat-input').value=q; askAgent(); } }
+  else window.__pendingQ=null;
+}
+async function askAgent(){
+  const inp=document.getElementById('chat-input');
+  const q=inp.value.trim(); if(!q) return;
+  if(!discAccepted){
+    window.__pendingQ=q;
+    document.getElementById('disc-overlay').classList.remove('hidden');
+    return;
+  }
+  inp.value=''; addMsg(q,'you');
+  if(!HELP_AGENT_URL){
+    addMsg('The assistant isn\'t online yet — it\'s the next stage of this Help system. Until then: the FAQ above answers the common questions, the Transparency Hub carries the full docs, and the report form gets a real issue in front of the maintainer. Nothing you ask here is lost by using those instead.','bot');
+    document.getElementById('agent-status').textContent='assistant: not deployed (v0 mode — forms and FAQ are live)';
+    return;
+  }
+  const hold=addMsg('…','bot');
+  try{
+    const r=await fetch(HELP_AGENT_URL+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q, accepted_disclaimer:true})});
+    const d=await r.json();
+    hold.textContent = d.answer || d.error || 'No answer returned.';
+    // respectful-use nudge: the assistant is a shared, budget-capped resource.
+    // At question 5 of the visitor's hourly 10, say so once — BEFORE the wall.
+    if(d.rate_used===5 && d.rate_limit){
+      const w=document.createElement('div');
+      w.className='chat-msg bg-amber-500/10 border border-amber-500/25 text-amber-200/90';
+      w.innerHTML='<i class="fas fa-hand-holding-heart mr-1"></i>Heads up — that\'s question '+d.rate_used+' of your '+d.rate_limit+' this hour. The assistant runs on a shared community budget with a hard monthly cap, so please use it respectfully: the FAQ and docs above answer most questions instantly, and heavy use can cap it for everyone. Thanks for keeping it available. 🤝';
+      chatLog.appendChild(w); chatLog.scrollTop=chatLog.scrollHeight;
+    }
+    if(d.rate_used && d.rate_limit) document.getElementById('agent-status').textContent = 'questions this hour: '+d.rate_used+' / '+d.rate_limit+' · shared community budget, monthly-capped';
+    if(d.issue_url){ const a=document.createElement('a'); a.href=d.issue_url; a.target='_blank'; a.className='text-cyan-400 underline text-xs block mt-1'; a.textContent='→ filed as a GitHub issue with the analysis attached'; hold.appendChild(a); }
+  }catch(e){
+    hold.textContent='The assistant is unreachable right now (it may be waking from idle — free-tier hosting sleeps). Try again in ~30s, or use the report form below; nothing is lost.';
+  }
+}
+if(!HELP_AGENT_URL) document.getElementById('agent-status').textContent='assistant: not deployed yet (v0 mode — forms and FAQ are live)';
+</script>
+</body>
+</html>
