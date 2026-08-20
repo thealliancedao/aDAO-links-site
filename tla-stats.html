@@ -1853,7 +1853,7 @@
         </div>
         
         <!-- DOCS TAB -->
-        <div id="tab-grades" class="tab-content" data-cron-source="tla-snapshot">
+        <div id="tab-grades" class="tab-content" data-cron-source="lp-grades">
             <div class="glass-card p-6 mb-6">
                 <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
                     <h3 class="font-semibold text-lg flex items-center gap-2"><i class="fas fa-graduation-cap text-cyan-400"></i> LP Grades — where votes keep the system healthy</h3>
@@ -1861,7 +1861,7 @@
                     <span id="grades-count-chip" class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 font-medium"></span>
                 </div>
                 <p class="text-xs text-gray-500 mb-1">Every vote is a resource. This grades each active pool on how much a vote there strengthens TLA — not how much it pays you (that's the Bounty Board) and not deposit opportunity (that's Rankings). <span class="desc-toggle" onclick="toggleDesc('grades-method', this)">methodology</span></p>
-                <div id="grades-method" class="desc-full"><span class="ex-lead">The doctrine (SPEC-grading-and-dex-data):</span> a pool's grade answers three questions — <b>A. Is the pair intrinsically good?</b> (depth, real volume, utilization) · <b>B. Are the assets valuable to Terra?</b> (fact-based asset rubric with a DAO-governed override layer — <span class="text-amber-300">in build, not yet part of this grade</span>) · <b>C. Is it under-served?</b> (support vs what it deserves — the "vote here" signal). What you see today is the interim grade from components A + C, computed page-side from live data with published weights; the full facts-only system replaces these inputs as its un-gameable sample accrues. Trust rule honored now: <b>SkeletonSwap volume has no trustworthy source</b>, so SS pools skip Utilization entirely (reweighted) rather than grade on suspect numbers.
+                <div id="grades-method" class="desc-full"><span class="ex-lead">The doctrine (SPEC-grading-and-dex-data):</span> a pool's grade answers three questions — <b>A. Is the pair intrinsically good?</b> (depth, real volume, utilization) · <b>B. Are the assets valuable to Terra?</b> (price-oracle durability, acquisition friction, asset-class rubric, take-rate contribution to chain-owned liquidity) · <b>C. Is it under-served?</b> (the bucket-aware support-gap overlay — the "vote here" signal, kept separate from quality so an ignored mediocre pool never looks "better" for being ignored). Grades are computed by the org lp-grades cron on epoch-aligned trailing windows of completed epochs — never the in-progress epoch — with confidence tiers shown per row; the entire rubric (every weight, curve, and boundary) is the public config file <span class="mono text-cyan-300/80">tla-core/docs/curated/grading_config.json</span>, and each snapshot records which rubric version produced it. Trust rule honored now: <b>SkeletonSwap volume has no trustworthy source</b>, so SS pools skip Utilization entirely (reweighted) rather than grade on suspect numbers.
                     <br><br><span class="ex-lead">Current interim weights (all live data):</span>
                     <b>Depth 25%</b> — DEX pool size, log-scaled ($500K+ = full marks). Deep pools make trading cheap, which is the whole point of directing liquidity.
                     <b>Utilization 25%</b> — weekly volume ÷ liquidity over the last 4 completed epochs. A pool that turns its liquidity over is doing real work; an idle pool is decoration.
@@ -2583,7 +2583,8 @@
     // ============================================================
     const CONFIG = {
         // New continuous data sources (post-2026 cron rebuild)
-        tlaSnapshotUrl:    'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/current.json',  // org fold (member-data VP absorber), 2026-08-10
+        tlaSnapshotUrl:    'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/current.json',
+        lpGradesUrl:       'https://raw.githubusercontent.com/thealliancedao/tla-core/main/lp-grades/snapshots/current.json',  // org lp-grades cron (Rev G1, 2026-08-19)  // org fold (member-data VP absorber), 2026-08-10
         aprHistoryUrl:     'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/apr-history.json',
         poolStatusHistoryUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/pool-status-history.json',
         networkPricesUrl:  'https://raw.githubusercontent.com/thealliancedao/tla-core/main/network-and-prices/current.json',
@@ -3460,6 +3461,9 @@
             // parallel, consumed product-first by buildBribesIndex; graceful
             // null until the derive's first publish.
             const pdBribesProductP = fetch(CONFIG.pdBribesProductUrl + '?t=' + Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
+            // Rev G1: LP grades product (org lp-grades cron) — the tab renders this;
+            // page-side grade computation is retired.
+            const lpGradesP = fetch(CONFIG.lpGradesUrl + '?t=' + Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
             const [
                 tlaSnapshotResp,
                 networkPricesResp,
@@ -3628,6 +3632,7 @@
             store.bribesCurrent = bribesCurrentResp;
             store.pdBribesData = pdBribesResp;
             store.pdBribesProduct = await pdBribesProductP;
+            store.lpGrades = await lpGradesP;
             if (store.pdBribesProduct) console.log(`pd-bribes product: ${store.pdBribesProduct.meta?.verified_placements} verified placements (${store.pdBribesProduct.meta?.version})`);
             // FUEL latest USD price from its own data repo (not in network-and-prices).
             store.fuelPriceUsd = (() => {
@@ -5884,247 +5889,171 @@
     // ============================================================
     // LP GRADES (Stage B2, 2026-07) — vote-worthiness for system health
     // ============================================================
+    // ============================================================
+    // LP GRADES — renderer for the org lp-grades product.
+    // (Rev G1, 2026-08-19) The interim page-side grade computation is
+    // RETIRED: grades now come from lp-grades/snapshots/current.json —
+    // cron-computed on epoch-aligned trailing windows per the public rubric
+    // in tla-core/docs/curated/grading_config.json (SPEC-lp-grading.md).
+    // This function only RENDERS: lenses come from the product, weights
+    // shown come from the rubric echo, confidence tiers from the cron.
+    // ============================================================
     function renderLpGrades() {
         const tableEl = document.getElementById('grades-table');
         if (!tableEl) return;
-        const pools = (store.data?.vote?.pools || []).filter(p => p.is_active);
-        if (!pools.length) {
-            tableEl.innerHTML = '<div class="text-gray-600 text-sm">Pool data unavailable.</div>';
+        const prod = store.lpGrades;
+        if (!prod || !Array.isArray(prod.pools)) {
+            tableEl.innerHTML = '<div class="text-gray-600 text-sm py-3">LP grades product unavailable right now (lp-grades/snapshots/current.json). The grading cron publishes daily at 23:15 UTC — check System Health if this persists.</div>';
             return;
         }
-
-        // ---- per-pool real trend from pool-status-history (deduped, same rule as
-        // the liquidity-growth panel: one row per pool_address)
-        const trendByGauge = new Map();
-        (() => {
-            const hist = store.poolStatusHistory;
-            const heps = (hist?.epochs || []).slice().sort((a, b) => a - b);
-            if (heps.length < 2) return;
-            const first = String(heps[0]), latest = String(heps[heps.length - 1]);
-            const seen = new Set(); const dp = [];
-            for (const p of (hist.pools || [])) {
-                const k = p.pool_address || `${p.name}|${p.dex || ''}|${p.gauge_pool_id || ''}`;
-                if (seen.has(k)) continue; seen.add(k); dp.push(p);
-            }
-            const px = {};
-            for (const p of dp) {
-                const ed = p.epochs?.[latest]; if (!ed) continue;
-                if (ed.a0_sym && ed.a0_px) px[ed.a0_sym] = ed.a0_px;
-                if (ed.a1_sym && ed.a1_px) px[ed.a1_sym] = ed.a1_px;
-            }
-            const realOf = (ed) => !ed ? 0 : ['a0', 'a1'].reduce((s, k) => s + ((ed[k + '_amt'] || 0) * (px[ed[k + '_sym']] || 0)), 0);
-            for (const p of dp) {
-                const f = realOf(p.epochs?.[first]), l = realOf(p.epochs?.[latest]);
-                if (p.gauge_pool_id && f > 1000) trendByGauge.set(p.gauge_pool_id, (l - f) / f * 100);
-            }
-        })();
-
-        // ---- support-balance baseline: median $ staked per 1M VP across scored pools
-        const ratios = pools.filter(p => (p.vp || 0) > 1000 && (p.tla_staked || 0) > 0)
-            .map(p => p.tla_staked / (p.vp / 1e6)).sort((a, b) => a - b);
-        const medianRatio = ratios.length ? ratios[Math.floor(ratios.length / 2)] : 0;
-
         const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-        const logScore = (v, lo, hi) => v <= lo ? 0 : v >= hi ? 100 : (Math.log10(v / lo) / Math.log10(hi / lo)) * 100;
+        const rubric = prod.rubric || {};
+        const aWeights = rubric.A_weights || {};
+        const pools = prod.pools;
 
         const dispName = (n) => {
-            if (!n) return '—';
+            if (!n) return '\u2014';
             if (n.startsWith('cw20:') || n.startsWith('native:')) {
                 const addr = n.split(':')[1] || n;
-                return `<span title="Unresolved pool name — raw gauge id ${n}">${addr.slice(0, 10)}…${addr.slice(-4)}</span>`;
+                return `<span title="Unresolved pool name \u2014 raw gauge id ${n}">${addr.slice(0, 10)}\u2026${addr.slice(-4)}</span>`;
             }
             return n;
         };
-        // Duplicate-gauge detection: two gauges, same name+dex, same staked value =
-        // one pool counted twice at the gauge level (a known snapshot-side issue).
-        // Keep the higher-VP row as the real one; tag the rest.
-        const dupSeen = new Map();
-        const graded = pools.map(p => {
-            const isSingle = !p.dex || p.dex === 'Single' || (p.bucket === 'SINGLE');
-            const depthScore = isSingle ? null : logScore(p.depth || 0, 5000, 500000);
-            const util = p.historical?.efficiency || 0;      // weekly turnover ratio
-            // Trust rule (SPEC-grading-and-dex-data §6): SkeletonSwap has NO trustworthy
-            // volume source — SS pools must not be graded on a fabricated utilization.
-            // They skip the component entirely (weights renormalize), same as singles.
-            const isSS = (p.dex || '').includes('Skeleton');
-            const utilScore = (isSingle || isSS) ? null : clamp((util / 0.5) * 100, 0, 100);  // 50%/wk turnover = full marks
-            // support balance
-            let balScore = 50, balTag = 'balanced', ratio = null;
-            if ((p.vp || 0) > 1000 && medianRatio > 0) {
-                ratio = (p.tla_staked || 0) / (p.vp / 1e6);
-                const x = ratio / medianRatio;               // >1 = underpaid, <1 = overweighted
-                if (x >= 1) { const over = Math.min(x, 6); balScore = 100 - clamp((over - 1) * 12, 0, 45); balTag = x > 1.8 ? 'underpaid' : 'balanced'; }
-                else { balScore = 100 - clamp((1 / Math.max(x, 0.05) - 1) * 22, 0, 80); balTag = x < 0.55 ? 'overweighted' : 'balanced'; }
-            } else if ((p.vp || 0) <= 1000) { balScore = 30; balTag = 'no support'; }
-            const votePct = p.vote_pct || 0;
-            const thrScore = votePct >= 3 ? 100 : votePct >= 1 ? ((votePct - 1) / 2) * 100 : 0;
-            const trend = trendByGauge.has(p.gauge_pool_id) ? trendByGauge.get(p.gauge_pool_id) : null;
-            const trendScore = trend === null ? null : clamp(60 + trend * 2, 0, 100);   // flat=60, +20%→100, −30%→0
-
-            // reweight around missing components
-            const parts = [
-                ['Depth', depthScore, 0.25], ['Utilization', utilScore, 0.25],
-                ['Support balance', balScore, 0.25], ['Threshold safety', thrScore, 0.15],
-                ['Trend', trendScore, 0.10],
-            ].filter(([, v]) => v !== null);
-            const wSum = parts.reduce((s, [, , w]) => s + w, 0);
-            let score = parts.reduce((s, [, v, w]) => s + v * (w / wSum), 0);
-            // Single-asset pools can't demonstrate depth or utilization, so their
-            // composite is capped below A+ — an unproven component shouldn't outrank
-            // pools that earn full marks on all five.
-            if (isSingle) score = Math.min(score, 88);
-            const grade = score >= 90 ? 'A+' : score >= 80 ? 'A' : score >= 70 ? 'B' : score >= 55 ? 'C' : score >= 40 ? 'D' : 'F';
-            let verdict = balTag;
-            if (votePct < 1.4 && votePct > 0) verdict = 'at risk';
-            else if (!isSingle && (p.depth || 0) < 20000) verdict = 'thin';
-            return { p, parts, score, grade, verdict, ratio, trend, isSingle };
-        }).sort((a, b) => b.score - a.score);
-        // second pass: flag lower-VP duplicates (same name|dex|staked)
-        for (const g of graded) {
-            const k = `${g.p.name}|${g.p.dex}|${Math.round(g.p.tla_staked || 0)}`;
-            if (dupSeen.has(k)) { g.verdict = 'duplicate gauge'; }
-            else dupSeen.set(k, g);
-        }
 
         const chip = document.getElementById('grades-count-chip');
-        if (chip) chip.textContent = `${graded.length} active pools · Epoch ${store.epoch || '—'}`;
+        if (chip) chip.textContent = `${prod.counts?.graded ?? 0} graded \u00b7 ${prod.counts?.inactive ?? 0} inactive \u00b7 Epoch ${prod.epoch} \u00b7 rubric ${rubric.config_version || '?'}`;
 
-        // member-lens markers
-        const alloc = getSelectedMemberAllocations();
-        const myVotes = alloc?.votesByPool || new Map();
-
-        // ---- decision metrics per row (from components already computed)
-        const medVp = (() => { const v = graded.map(g => g.p.vp || 0).filter(x => x > 1000).sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : 0; })();
-        for (const g of graded) {
-            const part = (l) => { const p = g.parts.find(x => x[0] === l); return p ? p[1] : null; };
-            const dep = part('Depth'), utl = part('Utilization'), tr = part('Trend');
-            const qParts = [dep, utl, tr].filter(v => v !== null);
-            g.quality = qParts.length ? qParts.reduce((a, b) => a + b, 0) / qParts.length : 50;   // intrinsic pool quality
-            g.ratioX = (g.ratio && medianRatio > 0) ? g.ratio / medianRatio : null;               // liquidity per vote vs median (>1 = underpaid)
-            g.bribeUsd = g.p.bribes?.total || 0;
-            g.votePct = g.p.vote_pct || 0;
-            g.needScore = (g.ratioX && g.ratioX > 1) ? g.quality * Math.min(g.ratioX, 4) : 0;     // deserving × underpaid
-            g.isUnderdog = (utl !== null && utl >= 50 || (g.trend !== null && g.trend > 10)) && (g.p.vp || 0) < medVp && (g.p.tla_staked || 0) >= 5000 && g.verdict !== 'duplicate gauge';
-            g.isBribeTarget = g.bribeUsd < 5 && g.verdict !== 'duplicate gauge' && ((g.votePct > 0 && g.votePct < 2 && (g.p.tla_staked || 0) >= 10000) || (g.ratioX && g.ratioX > 1.6));
-        }
-
-        // plain-language "why" line — the sentence a voter/briber actually needs
-        const whyLine = (g) => {
-            const bits = [];
-            if (g.ratioX && g.ratioX > 1.4) bits.push(`carrying ${g.ratioX.toFixed(1)}\u00d7 the median liquidity per vote \u2014 votes here are underpaid`);
-            if (g.ratioX && g.ratioX < 0.6) bits.push(`only ${g.ratioX.toFixed(1)}\u00d7 median liquidity per vote \u2014 support outruns the pool`);
-            if (g.votePct > 0 && g.votePct < 1.6) bits.push(`${(g.votePct - 1).toFixed(1)}pp above the 1% threshold \u2014 ${fmt$(g.p.tla_staked || 0)} of stake stops earning if it slips`);
-            if (g.isUnderdog) bits.push('small pool doing real work \u2014 an underdog');
-            if (g.bribeUsd < 5 && g.isBribeTarget) bits.push('no bribe pot \u2014 first pot here has zero competition');
-            else if (g.bribeUsd >= 5) bits.push(`${fmt$(g.bribeUsd)} pot live${(g.p.vp || 0) > 1 ? ` at ${fmt$(g.bribeUsd / ((g.p.vp) / 1e6))}/1M VP` : ''}`);
-            if (g.trend !== null && Math.abs(g.trend) >= 15) bits.push(`real liquidity ${g.trend > 0 ? 'up' : 'down'} ${Math.abs(g.trend).toFixed(0)}% over the window`);
-            return bits.slice(0, 2).join(' \u00b7 ');
+        // ---- lens machinery: labels/descriptions/order come from the product;
+        // this map implements each lens id's row logic. Unknown ids fall back
+        // to a quality sort so a new config lens degrades gracefully.
+        const q = (p) => p.scores?.quality ?? -1;
+        const aPart = (p, k) => p.scores?.A?.parts?.[k] ?? null;
+        const gradedRows = pools.filter(p => p.state === 'graded');
+        const LENS_IMPL = {
+            best_for_chain:   { rows: () => gradedRows.slice().sort((a, b) => q(b) - q(a)) },
+            needs_votes:      { rows: () => gradedRows.filter(p => (p.overlay?.need_score || 0) > 0).sort((a, b) => (b.overlay.need_score) - (a.overlay.need_score)) },
+            underdogs:        { rows: () => gradedRows.filter(p => p.overlay?.underdog).sort((a, b) => q(b) - q(a)) },
+            chain_builders:   { rows: () => gradedRows.filter(p => (p.take_flow_epoch_usd || 0) > 0).sort((a, b) => (b.take_flow_epoch_usd || 0) - (a.take_flow_epoch_usd || 0)) },
+            traders_choice:   { rows: () => gradedRows.filter(p => !p.is_single).sort((a, b) => {
+                const t = (p2) => ['depth', 'exit_slippage', 'utilization'].map(k => aPart(p2, k)).filter(v => v != null);
+                const avg = (xs) => xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : -1;
+                return avg(t(b)) - avg(t(a)); }) },
+            active_projects:  { rows: () => gradedRows.filter(p => (p.bucket || '').toLowerCase() === 'project').sort((a, b) => (aPart(b, 'utilization') || 0) - (aPart(a, 'utilization') || 0)) },
+            new_pools:        { rows: () => pools.filter(p => p.state === 'new').sort((a, b) => (b.first_seen_epoch || 0) - (a.first_seen_epoch || 0)) },
+            bribe_targets:    { rows: () => gradedRows.filter(p => p.overlay?.bribe_target).sort((a, b) => (b.staked_usd || 0) - (a.staked_usd || 0)) },
+            at_risk:          { rows: () => gradedRows.filter(p => p.overlay?.threshold_risk).sort((a, b) => (a.pct_of_bucket || 99) - (b.pct_of_bucket || 99)) },
+            healthy_to_enter: { rows: () => gradedRows.slice().sort((a, b) => q(b) - q(a)) },
         };
+        const lenses = (prod.lenses || []).map(l => ({ ...l, impl: LENS_IMPL[l.id] || { rows: () => gradedRows.slice().sort((a, b) => q(b) - q(a)) } }));
+        // derived local view: the inactive board (mission: grade every LP —
+        // inactive pools carry last-known grades as a safety signal)
+        lenses.push({ id: '_inactive', label: 'Inactive', description: 'Pools no longer gauged \u2014 last-known grades where their own window data existed; asset context otherwise.', impl: { rows: () => pools.filter(p => p.state === 'inactive').sort((a, b) => q(b) - q(a)) } });
 
-        // ---- callouts (unchanged logic, driven from the same rows)
+        const view = store.gradesView && lenses.some(l => l.id === store.gradesView) ? store.gradesView : (lenses.find(l => l.default) || lenses[0]).id;
+        const active = lenses.find(l => l.id === view);
+        const rows = active.impl.rows();
+
+        const filtersEl = document.getElementById('grades-filters');
+        if (filtersEl) filtersEl.innerHTML = lenses.map(l =>
+            `<button type="button" onclick="setGradesView('${l.id}')" class="text-[11px] px-3 py-1 rounded-full font-medium ${view === l.id ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/5 text-gray-400 hover:text-gray-300'}">${l.label} <span class="text-[9px] opacity-60">${l.impl.rows().length}</span></button>`).join('');
+        const descEl = document.getElementById('grades-view-desc');
+        if (descEl) descEl.textContent = active.description || '';
+
+        // ---- callouts (from overlay facts, bucket-aware medians upstream)
         const callEl = document.getElementById('grades-callouts');
         if (callEl) {
-            const underpaid = graded.filter(g => g.verdict === 'underpaid' && g.score >= 55).slice(0, 3);
-            const over = graded.filter(g => g.verdict === 'overweighted').sort((a, b) => (b.p.vp || 0) - (a.p.vp || 0)).slice(0, 3);
-            const li = (g, cls) => `<div class="flex items-center justify-between text-xs py-1"><span class="font-medium">${g.p.name} <span class="text-[9px] text-gray-600">${g.p.dex || ''}</span></span><span class="mono ${cls}">${g.ratio ? fmt$(g.ratio) + '/1M VP' : '\u2014'}</span></div>`;
+            const underpaid = gradedRows.filter(p => p.overlay?.balance === 'underpaid' && q(p) >= 55).sort((a, b) => (b.overlay.need_score || 0) - (a.overlay.need_score || 0)).slice(0, 3);
+            const over = gradedRows.filter(p => p.overlay?.balance === 'overweighted').sort((a, b) => (b.vp || 0) - (a.vp || 0)).slice(0, 3);
+            const li = (p, cls) => `<div class="flex items-center justify-between text-xs py-1"><span class="font-medium">${dispName(p.name)} <span class="text-[9px] text-gray-600">${p.dex || ''}</span></span><span class="mono ${cls}">${p.overlay?.ratio_vs_bucket_median != null ? p.overlay.ratio_vs_bucket_median.toFixed(1) + '\u00d7 bucket median' : '\u2014'}</span></div>`;
             callEl.innerHTML = `
                 <div class="rounded-lg bg-emerald-500/[0.06] border border-emerald-500/20 p-3">
-                    <div class="text-xs font-semibold text-emerald-400 mb-1"><i class="fas fa-hand-point-right mr-1"></i>Votes help most here — underpaid workhorses</div>
-                    <div class="text-[10px] text-gray-500 mb-1">Deep, well-used pools carrying more liquidity per vote than the system median. Support keeps their LPs from leaving.</div>
-                    ${underpaid.length ? underpaid.map(g => li(g, 'text-emerald-400')).join('') : '<div class="text-[11px] text-gray-600">None right now — support looks balanced.</div>'}
+                    <div class="text-xs font-semibold text-emerald-400 mb-1"><i class="fas fa-hand-point-right mr-1"></i>Votes help most here \u2014 underpaid workhorses</div>
+                    <div class="text-[10px] text-gray-500 mb-1">Quality pools carrying more liquidity per vote than their bucket's median. Support keeps their LPs from leaving.</div>
+                    ${underpaid.length ? underpaid.map(p => li(p, 'text-emerald-400')).join('') : '<div class="text-[11px] text-gray-600">None right now \u2014 support looks balanced.</div>'}
                 </div>
                 <div class="rounded-lg bg-amber-500/[0.06] border border-amber-500/20 p-3">
-                    <div class="text-xs font-semibold text-amber-300 mb-1"><i class="fas fa-scale-unbalanced mr-1"></i>Overweighted — votes outrunning liquidity</div>
-                    <div class="text-[10px] text-gray-500 mb-1">Heavy vote support with comparatively little staked liquidity behind it — emissions working below capacity.</div>
-                    ${over.length ? over.map(g => li(g, 'text-amber-300')).join('') : '<div class="text-[11px] text-gray-600">None right now.</div>'}
+                    <div class="text-xs font-semibold text-amber-300 mb-1"><i class="fas fa-scale-unbalanced mr-1"></i>Overweighted \u2014 votes outrunning liquidity</div>
+                    <div class="text-[10px] text-gray-500 mb-1">Heavy vote support with comparatively little staked liquidity behind it \u2014 emissions working below capacity.</div>
+                    ${over.length ? over.map(p => li(p, 'text-amber-300')).join('') : '<div class="text-[11px] text-gray-600">None right now.</div>'}
                 </div>`;
         }
 
-        // ---- decision views
-        const view = store.gradesView || 'all';
-        const views = {
-            all: {
-                label: 'All pools', icon: 'fa-list',
-                desc: 'Every active pool, best overall grade first.',
-                rows: graded,
-            },
-            needs: {
-                label: 'Needs votes', icon: 'fa-hand-point-right',
-                desc: 'Pools that DESERVE support and aren\u2019t getting it: high intrinsic quality carrying more liquidity per vote than the median. Sorted by how hard your vote works here.',
-                rows: graded.filter(g => g.needScore > 0 && g.verdict !== 'duplicate gauge').sort((a, b) => b.needScore - a.needScore),
-            },
-            underdogs: {
-                label: 'Underdogs', icon: 'fa-seedling',
-                desc: 'Small pools punching above their weight \u2014 real utilization or growth with below-median votes. The discovery list.',
-                rows: graded.filter(g => g.isUnderdog).sort((a, b) => b.quality - a.quality),
-            },
-            bribes: {
-                label: 'Bribe targets', icon: 'fa-sack-dollar',
-                desc: 'For projects and bribers: pools where a pot buys the most \u2014 no current bribe AND either defending real stake near the threshold, or underpaid so votes come cheap. Sorted by the stake a pot protects.',
-                rows: graded.filter(g => g.isBribeTarget).sort((a, b) => (b.p.tla_staked || 0) - (a.p.tla_staked || 0)),
-            },
-            risk: {
-                label: 'At risk', icon: 'fa-triangle-exclamation',
-                desc: 'Near or below the 1% threshold \u2014 the staked money shown stops earning if these slip. Defensive votes belong here.',
-                rows: graded.filter(g => g.votePct > 0 && g.votePct < 2 && g.verdict !== 'duplicate gauge').sort((a, b) => (b.p.tla_staked || 0) - (a.p.tla_staked || 0)),
-            },
+        // ---- plain-language "why" line from the overlay facts
+        const whyLine = (p) => {
+            const bits = []; const o = p.overlay || {};
+            if (o.ratio_vs_bucket_median != null && o.ratio_vs_bucket_median > 1.4) bits.push(`carrying ${o.ratio_vs_bucket_median.toFixed(1)}\u00d7 its bucket's median liquidity per vote \u2014 votes here are underpaid`);
+            if (o.ratio_vs_bucket_median != null && o.ratio_vs_bucket_median < 0.6) bits.push(`only ${o.ratio_vs_bucket_median.toFixed(1)}\u00d7 bucket median liquidity per vote \u2014 support outruns the pool`);
+            if (o.threshold_risk && p.pct_of_bucket != null) bits.push(`${(p.pct_of_bucket - 1).toFixed(1)}pp above the 1% threshold \u2014 ${fmt$(p.staked_usd || 0)} of stake stops earning if it slips`);
+            if (o.underdog) bits.push('small pool doing real work \u2014 an underdog');
+            if (o.bribe_target && (o.support?.active_pot_usd || 0) < 5) bits.push('no bribe pot \u2014 first pot here has zero competition');
+            else if ((o.support?.active_pot_usd || 0) >= 5) bits.push(`${fmt$(o.support.active_pot_usd)} pot live`);
+            if ((p.take_flow_epoch_usd || 0) > 50) bits.push(`builds ${fmt$(p.take_flow_epoch_usd)}/epoch of chain-owned liquidity via the take rate`);
+            const tr = p.scores?.A?.trend_pct;
+            if (tr != null && Math.abs(tr) >= 15) bits.push(`real liquidity ${tr > 0 ? 'up' : 'down'} ${Math.abs(tr).toFixed(0)}% over the window`);
+            return bits.slice(0, 2).join(' \u00b7 ');
         };
-        const filtersEl = document.getElementById('grades-filters');
-        if (filtersEl) filtersEl.innerHTML = Object.entries(views).map(([k, v]) =>
-            `<button type="button" onclick="setGradesView('${k}')" class="text-[11px] px-3 py-1 rounded-full font-medium ${view === k ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/5 text-gray-400 hover:text-gray-300'}"><i class="fas ${v.icon} text-[9px] mr-1"></i>${v.label} <span class="text-[9px] opacity-60">${v.rows.length}</span></button>`).join('');
-        const descEl = document.getElementById('grades-view-desc');
-        if (descEl) descEl.textContent = views[view].desc;
 
         // ---- table
-        const gradeCls = (g) => g.startsWith('A') ? 'bg-emerald-500/20 text-emerald-300' : g === 'B' ? 'bg-cyan-500/20 text-cyan-300' : g === 'C' ? 'bg-yellow-500/20 text-yellow-300' : g === 'D' ? 'bg-orange-500/20 text-orange-300' : 'bg-red-500/20 text-red-300';
-        const verdictChip = (v) => ({
-            'underpaid': '<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">underpaid — votes help</span>',
-            'overweighted': '<span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">overweighted</span>',
-            'at risk': '<span class="text-[9px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400">near threshold</span>',
-            'thin': '<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-500/15 text-gray-400">thin depth</span>',
-            'no support': '<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-500/15 text-gray-400">no votes</span>',
-            'balanced': '<span class="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-gray-500">balanced</span>',
-            'duplicate gauge': '<span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-300" title="A second gauge pointing at the same pool — the pool is already graded above; this row is the gauge-level shadow (known data issue).">duplicate gauge</span>',
-        }[v] || '');
-        const barLabel = { 'Depth': 'D', 'Utilization': 'U', 'Support balance': 'B', 'Threshold safety': 'T', 'Trend': 'Tr' };
-        const weights = { 'Depth': 0.25, 'Utilization': 0.25, 'Support balance': 0.25, 'Threshold safety': 0.15, 'Trend': 0.10 };
-        const bar = (label, v) => v === null ? '' : `<div class="flex items-center gap-1" title="${label}: ${Math.round(v)}/100 (weight ${Math.round(weights[label] * 100)}%)"><span class="text-[8px] text-gray-600 w-3.5">${barLabel[label]}</span><div class="w-10 h-1 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full ${v >= 70 ? 'bg-emerald-400/70' : v >= 40 ? 'bg-yellow-400/70' : 'bg-red-400/70'}" style="width:${clamp(v, 2, 100)}%"></div></div></div>`;
-        const dexTag = (dex) => dex?.includes('Astro')
-            ? '<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400">Astro</span>'
-            : dex?.includes('Skeleton')
-                ? '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Skeleton</span>'
-                : '<span class="text-[9px] px-1 py-0.5 rounded bg-purple-500/20 text-purple-300">Single</span>';
+        const alloc = getSelectedMemberAllocations();
+        const myVotes = alloc?.votesByPool || new Map();
+        const gradeCls = (g) => !g ? 'bg-white/5 text-gray-500' : g.startsWith('A') ? 'bg-emerald-500/20 text-emerald-300' : g === 'B' ? 'bg-cyan-500/20 text-cyan-300' : g === 'C' ? 'bg-yellow-500/20 text-yellow-300' : g === 'D' ? 'bg-orange-500/20 text-orange-300' : 'bg-red-500/20 text-red-300';
+        const tierChip = (t) => t === 'firm' ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400/90" title="Full trailing-window sample \u2014 the grade is firm.">firm</span>'
+            : t === 'provisional' ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-300/90" title="The trailing window has capture gaps or a thin sample \u2014 treat the grade as provisional, not firm.">provisional</span>'
+            : '<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-500/15 text-gray-400" title="Not enough sample to grade honestly.">low sample</span>';
+        const stateChip = (s) => s === 'new' ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300" title="Too young for an honest windowed grade \u2014 a jump-start candidate.">new</span>'
+            : s === 'inactive' ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-500/15 text-gray-400">inactive</span>' : '';
+        const balanceChip = (p) => {
+            const o = p.overlay || {}; const b = o.balance;
+            if (o.threshold_risk) return '<span class="text-[9px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400">near threshold</span>';
+            return {
+                underpaid: '<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">underpaid \u2014 votes help</span>',
+                overweighted: '<span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">overweighted</span>',
+                no_support: '<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-500/15 text-gray-400">no votes</span>',
+                balanced: '<span class="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-gray-500">balanced</span>',
+            }[b] || '';
+        };
+        const barLabel = { depth: 'D', utilization: 'U', trend: 'Tr', exit_slippage: 'S', pool_balance: 'B' };
+        const barTitle = { depth: 'Depth', utilization: 'Utilization', trend: 'Trend', exit_slippage: 'Exit slippage', pool_balance: 'Pool balance' };
+        const bar = (k, v) => v == null ? '' : `<div class="flex items-center gap-1" title="${barTitle[k]}: ${Math.round(v)}/100 (rubric weight ${Math.round((aWeights[k] || 0) * 100)}%)"><span class="text-[8px] text-gray-600 w-3.5">${barLabel[k]}</span><div class="w-10 h-1 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full ${v >= 70 ? 'bg-emerald-400/70' : v >= 40 ? 'bg-yellow-400/70' : 'bg-red-400/70'}" style="width:${clamp(v, 2, 100)}%"></div></div></div>`;
+        const dexTag = (dex, single) => single ? '<span class="text-[9px] px-1 py-0.5 rounded bg-purple-500/20 text-purple-300">Single</span>'
+            : dex?.includes('Astro') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400">Astro</span>'
+            : dex?.includes('Skeleton') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Skeleton</span>'
+            : '<span class="text-[9px] px-1 py-0.5 rounded bg-white/5 text-gray-500">\u2014</span>';
 
-        tableEl.innerHTML = views[view].rows.map((g, i) => {
-            const mine = g.p.gauge_pool_id && myVotes.has(g.p.gauge_pool_id);
-            const why = view === 'all' ? '' : whyLine(g);
+        tableEl.innerHTML = rows.map((p, i) => {
+            const mine = p.gauge_pool_id && myVotes.has(p.gauge_pool_id);
+            const why = view === 'best_for_chain' ? '' : whyLine(p);
             const detailId = `grade-detail-${i}`;
+            const parts = p.scores?.A?.parts || {};
+            const bTok = (p.scores?.B?.tokens || []);
             return `
-            <div class="rounded-lg ${mine ? 'bg-amber-500/[0.05] border border-amber-500/15' : 'bg-white/[0.02] hover:bg-white/[0.04]'} cursor-pointer" data-gpool="${(g.p.name + '|' + (g.p.dex || '')).replace(/"/g, '&quot;')}" onclick="document.getElementById('${detailId}')?.classList.toggle('hidden')">
+            <div class="rounded-lg ${mine ? 'bg-amber-500/[0.05] border border-amber-500/15' : 'bg-white/[0.02] hover:bg-white/[0.04]'} cursor-pointer" data-gpool="${(p.name + '|' + (p.dex || '')).replace(/"/g, '&quot;')}" onclick="document.getElementById('${detailId}')?.classList.toggle('hidden')">
                 <div class="flex items-center gap-3 p-2">
-                    <span class="w-9 h-7 rounded flex items-center justify-center text-sm font-bold shrink-0 ${gradeCls(g.grade)}">${g.grade}</span>
+                    <span class="w-9 h-7 rounded flex items-center justify-center text-sm font-bold shrink-0 ${gradeCls(p.grade)}">${p.grade || '\u2014'}</span>
                     <div class="flex flex-col min-w-0 shrink-0" style="width:170px">
-                        <span class="text-sm font-medium truncate">${mine ? '<i class="fas fa-star text-amber-400 text-[10px] mr-1" title="Your selected wallet votes here"></i>' : ''}${dispName(g.p.name)}</span>
-                        <div class="flex items-center gap-1">${dexTag(g.p.dex)}<span class="text-[9px] text-gray-600 uppercase">${g.p.bucket || ''}</span></div>
+                        <span class="text-sm font-medium truncate">${mine ? '<i class="fas fa-star text-amber-400 text-[10px] mr-1" title="Your selected wallet votes here"></i>' : ''}${dispName(p.name)}</span>
+                        <div class="flex items-center gap-1">${dexTag(p.dex, p.is_single)}<span class="text-[9px] text-gray-600 uppercase">${p.bucket || ''}</span>${stateChip(p.state)}</div>
                     </div>
-                    <div class="hidden md:flex items-center gap-2 shrink-0">${g.parts.map(([l, v]) => bar(l, v)).join('')}</div>
-                    <div class="flex-1 hidden sm:block text-right">${verdictChip(g.verdict)}</div>
+                    <div class="hidden md:flex items-center gap-2 shrink-0">${Object.keys(barLabel).map(k => bar(k, parts[k])).join('')}</div>
+                    <div class="flex-1 hidden sm:flex items-center justify-end gap-1.5">${balanceChip(p)}${tierChip(p.confidence?.tier)}</div>
                     <div class="text-right shrink-0" style="min-width:118px">
-                        <div class="mono text-xs text-gray-300">${fmt$(g.p.tla_staked || 0)} staked</div>
-                        <div class="text-[9px] text-gray-600">${fmtNum(g.p.vp || 0)} VP${g.trend !== null ? ` \u00b7 <span class="${g.trend >= 0 ? 'text-emerald-500/80' : 'text-red-500/80'}">${g.trend >= 0 ? '+' : ''}${g.trend.toFixed(0)}% real</span>` : ''}</div>
+                        <div class="mono text-xs text-gray-300">${fmt$(p.staked_usd || 0)} staked</div>
+                        <div class="text-[9px] text-gray-600">${fmtNum(p.vp || 0)} VP${p.scores?.A?.trend_pct != null ? ` \u00b7 <span class="${p.scores.A.trend_pct >= 0 ? 'text-emerald-500/80' : 'text-red-500/80'}">${p.scores.A.trend_pct >= 0 ? '+' : ''}${p.scores.A.trend_pct.toFixed(0)}% real</span>` : ''}</div>
                     </div>
                 </div>
                 ${why ? `<div class="px-3 pb-2 -mt-1 text-[10px] text-cyan-300/80"><i class="fas fa-angles-right text-[8px] mr-1"></i>${why}</div>` : ''}
                 <div id="${detailId}" class="hidden px-3 pb-2 pt-1 border-t border-white/5 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-[10px]">
-                    <div><span class="text-gray-600">Composite:</span> <span class="mono text-gray-300">${Math.round(g.score)}/100</span></div>
-                    <div><span class="text-gray-600">Liquidity per vote:</span> <span class="mono text-gray-300">${g.ratio ? fmt$(g.ratio) + '/1M VP' : '\u2014'}</span>${g.ratioX ? ` <span class="${g.ratioX > 1 ? 'text-emerald-400/80' : 'text-amber-300/80'}">(${g.ratioX.toFixed(1)}\u00d7 median)</span>` : ''}</div>
-                    <div><span class="text-gray-600">Bucket share:</span> <span class="mono text-gray-300">${g.votePct ? g.votePct.toFixed(2) + '%' : '\u2014'}</span> <span class="text-gray-600">(1% = threshold)</span></div>
-                    <div><span class="text-gray-600">Bribe pot:</span> <span class="mono ${g.bribeUsd >= 5 ? 'text-amber-300' : 'text-gray-500'}">${g.bribeUsd >= 5 ? fmt$(g.bribeUsd) : 'none'}</span></div>
-                    ${g.parts.map(([l, v]) => `<div><span class="text-gray-600">${l}:</span> <span class="mono ${v >= 70 ? 'text-emerald-400/90' : v >= 40 ? 'text-yellow-300/90' : 'text-red-400/90'}">${Math.round(v)}</span><span class="text-gray-700">/100 \u00b7 w${Math.round(weights[l] * 100)}%</span></div>`).join('')}
-                    <div class="col-span-2"><span class="text-gray-600">DEX depth:</span> <span class="mono text-gray-300">${fmt$(g.p.depth || 0)}</span></div>
+                    <div><span class="text-gray-600">Quality:</span> <span class="mono text-gray-300">${p.scores?.quality != null ? Math.round(p.scores.quality) + '/100' : '\u2014'}</span> <span class="text-gray-700">(A ${p.scores?.A?.score != null ? Math.round(p.scores.A.score) : '\u2014'} \u00b7 B ${p.scores?.B?.score != null ? Math.round(p.scores.B.score) : '\u2014'})</span></div>
+                    <div><span class="text-gray-600">Confidence:</span> ${tierChip(p.confidence?.tier)} <span class="mono text-gray-500">${p.confidence ? Math.round((p.confidence.ratio || 0) * 100) + '% sample' : ''}</span></div>
+                    <div><span class="text-gray-600">Liquidity per vote:</span> <span class="mono ${p.overlay?.ratio_vs_bucket_median > 1 ? 'text-emerald-400/80' : 'text-gray-300'}">${p.overlay?.ratio_vs_bucket_median != null ? p.overlay.ratio_vs_bucket_median.toFixed(1) + '\u00d7 bucket median' : '\u2014'}</span></div>
+                    <div><span class="text-gray-600">Bucket share:</span> <span class="mono text-gray-300">${p.pct_of_bucket != null ? p.pct_of_bucket.toFixed(2) + '%' : '\u2014'}</span> <span class="text-gray-600">(1% = threshold)</span></div>
+                    ${Object.keys(barLabel).map(k => parts[k] == null ? '' : `<div><span class="text-gray-600">${barTitle[k]}:</span> <span class="mono ${parts[k] >= 70 ? 'text-emerald-400/90' : parts[k] >= 40 ? 'text-yellow-300/90' : 'text-red-400/90'}">${Math.round(parts[k])}</span><span class="text-gray-700">/100 \u00b7 w${Math.round((aWeights[k] || 0) * 100)}%</span></div>`).join('')}
+                    <div><span class="text-gray-600">Chain take-flow:</span> <span class="mono text-gray-300">${p.take_flow_epoch_usd != null ? fmt$(p.take_flow_epoch_usd) + '/epoch' : '\u2014'}</span></div>
+                    <div><span class="text-gray-600">Bribe pot:</span> <span class="mono ${(p.overlay?.support?.active_pot_usd || 0) >= 5 ? 'text-amber-300' : 'text-gray-500'}">${(p.overlay?.support?.active_pot_usd || 0) >= 5 ? fmt$(p.overlay.support.active_pot_usd) : 'none'}</span></div>
+                    <div class="col-span-2"><span class="text-gray-600">Assets:</span> ${bTok.map(t => `<span class="mono text-gray-400" title="oracle ${t.match} \u00b7 ${t.acquisition_class}${t.guide ? ' \u00b7 guide' : ''}">${t.symbol || '?'} ${t.score != null ? Math.round(t.score) : '\u2014'}</span>`).join(' \u00b7 ')}</div>
                 </div>
             </div>`;
-        }).join('') || '<div class="text-gray-600 text-sm py-3">No pools match this view right now \u2014 that itself is a healthy sign.</div>';
+        }).join('') || '<div class="text-gray-600 text-sm py-3">No pools match this lens right now \u2014 that itself is a healthy sign.</div>';
     }
 
     // Click-through: any pool name opens that pool's grade card (expanded, scrolled,
