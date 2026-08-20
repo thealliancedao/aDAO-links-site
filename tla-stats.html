@@ -1870,6 +1870,7 @@
                     <b>Trend 10%</b> — the pool's real (price-neutral) liquidity direction across tracked epochs, duplicates removed.
                     Grades: A+ ≥90 · A ≥80 · B ≥70 · C ≥55 · D ≥40 · F below. Single-asset pools skip Depth/Utilization (reweighted). This is an opinionated v1 — the weights are shown so you can argue with them.</div>
                 <div id="grades-callouts" class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3"></div>
+                <div id="grades-advisor"></div>
             </div>
             <div class="glass-card p-6">
                 <div id="grades-filters" class="flex items-center gap-2 flex-wrap mb-2"></div>
@@ -5889,6 +5890,200 @@
     // ============================================================
     // LP GRADES (Stage B2, 2026-07) — vote-worthiness for system health
     // ============================================================
+
+    // ============================================================
+    // aDAO VOTE ADVISOR + BRIBE PLANNER (Rev G2, 2026-08-19)
+    // Deterministic algorithms over the PUBLISHED lp-grades product, with
+    // every parameter in the public rubric (grading_config.json → advisor
+    // block, echoed in the product). This is the rubric's answer, never
+    // hidden opinion — council judgment always decides.
+    //
+    // TLA mechanics honored: each bucket receives the wallet's FULL VP,
+    // split across that bucket's pools in 10% chunks (weight_bps multiples
+    // of advisor.vote.chunk_bps). The allocator assigns chunk-by-chunk to
+    // the pool with the highest MARGINAL need (quality × underpaid-ratio),
+    // recomputing after every chunk as our own assigned VP raises that
+    // pool's support — so it never piles votes past diminishing need.
+    // ============================================================
+    function computeVoteAdvice() {
+        const prod = store.lpGrades;
+        const adv = prod?.rubric?.advisor?.vote;
+        const treasury = store.adaoPositions?.treasury;
+        if (!prod || !adv || !treasury) return null;
+        const totalVp = treasury.voting?.total_voting_power_human || 0;
+        if (!totalVp) return null;
+        const chunkPct = (adv.chunk_bps || 1000) / 100;               // 10
+        const chunks = Math.round(100 / chunkPct);                    // 10
+        const medians = prod.medians?.liquidity_per_1m_vp_by_bucket || {};
+        const byBucket = {};
+        const candidatesFor = (bucket) => prod.pools.filter(p =>
+            p.state === 'graded' && p.gaugeActive && p.bucket === bucket
+            && (p.scores?.quality ?? 0) >= (adv.min_quality || 0));
+
+        // current allocation from the positions product (weight_bps per pool)
+        const current = {};
+        for (const [bucket, info] of Object.entries(treasury.voting?.votes_per_bucket || {})) {
+            current[bucket] = new Map((info.votes || []).map(v => [v.pool_gauge_id, v.weight_bps || 0]));
+        }
+
+        for (const bucket of Object.keys(medians)) {
+            const cands = candidatesFor(bucket);
+            if (!cands.length) continue;
+            const med = medians[bucket] || 0;
+            const chunkVp = totalVp * chunkPct / 100;
+            // marginal need of pool p given VP we've already assigned it
+            const assigned = new Map();
+            const marginal = (p) => {
+                const addVp = (assigned.get(p.gauge_pool_id) || 0) + chunkVp;
+                const ratio = med > 0 && (p.staked_usd || 0) > 0
+                    ? ((p.staked_usd) / (((p.vp || 0) + addVp) / 1e6)) / med : 0;
+                return (p.scores.quality) * Math.min(ratio, 4);
+            };
+            const capVp = totalVp * ((adv.max_per_pool_bps || 10000) / 10000);
+            for (let i = 0; i < chunks; i++) {
+                let best = null, bestV = -1;
+                for (const p of cands) {
+                    if ((assigned.get(p.gauge_pool_id) || 0) + chunkVp > capVp + 1e-9) continue;  // diversification cap (public config)
+                    const v = marginal(p); if (v > bestV) { bestV = v; best = p; }
+                }
+                if (!best || bestV <= 0) break;
+                assigned.set(best.gauge_pool_id, (assigned.get(best.gauge_pool_id) || 0) + chunkVp);
+            }
+            // to bps
+            const rec = new Map();
+            for (const [gid, vp] of assigned) rec.set(gid, Math.round(vp / totalVp * 10000));
+            // shift list = diff current → recommended
+            const cur = current[bucket] || new Map();
+            const gids = new Set([...cur.keys(), ...rec.keys()]);
+            const shifts = [];
+            for (const gid of gids) {
+                const d = (rec.get(gid) || 0) - (cur.get(gid) || 0);
+                if (d !== 0) shifts.push({ gid, delta_bps: d });
+            }
+            byBucket[bucket] = {
+                current: cur, recommended: rec, shifts,
+                nameOf: (gid) => {
+                    const p = prod.pools.find(x => x.gauge_pool_id === gid);
+                    if (!p) return gid;
+                    // two real pools can share a name across DEXes (e.g. LUNA-USDC
+                    // on Astroport AND SkeletonSwap) — disambiguate with the venue
+                    const dup = prod.pools.some(x => x.name === p.name && x.gauge_pool_id !== gid);
+                    return dup && p.dex ? `${p.name} (${p.dex.includes('Skeleton') ? 'SS' : p.dex.slice(0, 5)})` : p.name;
+                },
+            };
+        }
+        return { totalVp, chunkPct, byBucket, minQuality: adv.min_quality || 0 };
+    }
+
+    function computeBribePlan(budgetUsd) {
+        const prod = store.lpGrades;
+        const adv = prod?.rubric?.advisor?.bribe;
+        if (!prod || !adv || !(budgetUsd > 0)) return null;
+        const unit = adv.unit_usd || 25;
+        const minPot = adv.min_effective_pot_usd || unit;
+        const maxSplits = adv.max_splits || 4;
+        const cands = prod.pools.filter(p => p.state === 'graded' && p.gaugeActive
+            && (p.overlay?.bribe_target || p.overlay?.balance === 'underpaid'));
+        if (!cands.length) return { placements: [], leftover: budgetUsd };
+        const planned = new Map();
+        let remaining = Math.floor(budgetUsd / unit) * unit;
+        const leftover = budgetUsd - remaining;
+        // greedy: each unit goes where need_score, DIMINISHED by what we've
+        // already planned there (each planned min-pot halves the next unit's
+        // pull), is highest — so a big budget naturally splits, a small one
+        // concentrates.
+        const pull = (p) => {
+            const existing = (p.overlay?.support?.active_pot_usd || 0) + (planned.get(p.gauge_pool_id) || 0);
+            return (p.overlay?.need_score || 0) / (1 + existing / minPot);
+        };
+        while (remaining >= unit) {
+            const open = cands.filter(p => planned.has(p.gauge_pool_id) || planned.size < maxSplits);
+            let best = null, bestV = -1;
+            for (const p of open) { const v = pull(p); if (v > bestV) { bestV = v; best = p; } }
+            if (!best || bestV <= 0) break;
+            planned.set(best.gauge_pool_id, (planned.get(best.gauge_pool_id) || 0) + unit);
+            remaining -= unit;
+        }
+        // merge dust: any placement below minPot folds into the largest one
+        const entries = [...planned.entries()].sort((a, b) => b[1] - a[1]);
+        const keep = entries.filter(([, usd]) => usd >= minPot);
+        const dust = entries.filter(([, usd]) => usd < minPot).reduce((s, [, u]) => s + u, 0);
+        if (keep.length && dust) keep[0][1] += dust;
+        const placements = keep.map(([gid, usd]) => {
+            const p = prod.pools.find(x => x.gauge_pool_id === gid);
+            const why = [];
+            if ((p.overlay?.support?.active_pot_usd || 0) < 5) why.push('no existing pot — zero competition');
+            if (p.overlay?.ratio_vs_bucket_median > 1.4) why.push(`${p.overlay.ratio_vs_bucket_median.toFixed(1)}× bucket-median liquidity per vote`);
+            if (p.overlay?.threshold_risk) why.push(`defends ${fmt$(p.staked_usd || 0)} near the 1% threshold`);
+            return { gid, usd, name: p.name, bucket: p.bucket, grade: p.grade, need: p.overlay?.need_score || 0, why: why.join(' · ') };
+        });
+        return { placements, leftover: leftover + remaining, unit };
+    }
+
+    function renderVoteAdvisor() {
+        const el = document.getElementById('grades-advisor');
+        if (!el) return;
+        const prod = store.lpGrades;
+        if (!prod?.rubric?.advisor) { el.innerHTML = ''; return; }
+        const advice = computeVoteAdvice();
+        const rv = prod.rubric.config_version;
+        const bpsPct = (bps) => (bps / 100).toFixed(0) + '%';
+        let voteHtml;
+        if (!advice) {
+            voteHtml = '<div class="text-[11px] text-gray-600">Treasury vote data unavailable — the advisor needs the aDAO positions product.</div>';
+        } else {
+            voteHtml = Object.entries(advice.byBucket).map(([bucket, b]) => {
+                const curStr = b.current.size ? [...b.current.entries()].map(([g, w]) => `${b.nameOf(g)} ${bpsPct(w)}`).join(' · ') : '<span class="text-gray-600">no votes</span>';
+                const recStr = b.recommended.size ? [...b.recommended.entries()].sort((x, y) => y[1] - x[1]).map(([g, w]) => `${b.nameOf(g)} ${bpsPct(w)}`).join(' · ') : '<span class="text-gray-600">—</span>';
+                const shifts = b.shifts.filter(s => s.delta_bps !== 0);
+                const shiftStr = shifts.length
+                    ? shifts.sort((x, y) => y.delta_bps - x.delta_bps).map(s => `<span class="${s.delta_bps > 0 ? 'text-emerald-400' : 'text-amber-300'}">${s.delta_bps > 0 ? '+' : ''}${bpsPct(s.delta_bps)} ${b.nameOf(s.gid)}</span>`).join(' · ')
+                    : '<span class="text-emerald-500/80">already aligned with the rubric</span>';
+                return `<div class="py-1.5 border-b border-white/5 last:border-0">
+                    <div class="text-[10px] uppercase text-gray-500 mb-0.5">${bucket}</div>
+                    <div class="text-[11px]"><span class="text-gray-600 inline-block w-20">Now:</span>${curStr}</div>
+                    <div class="text-[11px]"><span class="text-gray-600 inline-block w-20">Rubric says:</span>${recStr}</div>
+                    <div class="text-[11px]"><span class="text-gray-600 inline-block w-20">Shift:</span>${shiftStr}</div>
+                </div>`;
+            }).join('');
+        }
+        const budget = store.bribeBudget || 0;
+        const presets = prod.rubric.advisor.bribe?.presets_usd || [25, 50, 75, 100];
+        let planHtml = '';
+        if (budget > 0) {
+            const plan = computeBribePlan(budget);
+            planHtml = plan && plan.placements.length
+                ? plan.placements.map(pl => `<div class="flex items-start justify-between text-[11px] py-1 border-b border-white/5 last:border-0">
+                        <div><span class="mono text-amber-300">${fmt$(pl.usd)}</span> → <span class="font-medium">${pl.name}</span> <span class="text-[9px] text-gray-600 uppercase">${pl.bucket}</span> <span class="text-[9px] px-1 rounded bg-white/5 text-gray-400">${pl.grade || '—'}</span>
+                        ${pl.why ? `<div class="text-[10px] text-cyan-300/70">${pl.why}</div>` : ''}</div>
+                    </div>`).join('') + (plan.leftover > 0 ? `<div class="text-[10px] text-gray-600 pt-1">${fmt$(plan.leftover)} left unplaced (below the ${fmt$(plan.unit)} unit).</div>` : '')
+                : '<div class="text-[11px] text-gray-600 py-1">No qualifying targets right now — every underpaid pool already has a pot.</div>';
+        }
+        el.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                <div class="rounded-lg bg-cyan-500/[0.04] border border-cyan-500/15 p-3">
+                    <div class="text-xs font-semibold text-cyan-300 mb-1"><i class="fas fa-compass mr-1"></i>aDAO Vote Advisor
+                        <i class="fas fa-circle-info text-gray-600 ml-1 cursor-help" title="Deterministic output of the public rubric (${rv}): the treasury's full VP allocates per bucket in ${advice ? advice.chunkPct : 10}% chunks; each chunk goes to the bucket pool with the highest marginal quality × underpaid score, recomputed after every chunk as our own votes raise that pool's support. Pools below quality ${advice ? advice.minQuality : ''} are excluded, and no single pool may take more than ${(prod.rubric.advisor.vote.max_per_pool_bps || 10000) / 100}% of a bucket (diversification cap). This is the rubric's answer, not an instruction — council judgment decides."></i>
+                    </div>
+                    <div class="text-[10px] text-gray-500 mb-1">How the treasury votes now vs. what the rubric recommends, in TLA's 10% chunks — with the exact shifts to get there.</div>
+                    ${voteHtml}
+                </div>
+                <div class="rounded-lg bg-amber-500/[0.04] border border-amber-500/15 p-3">
+                    <div class="text-xs font-semibold text-amber-300 mb-1"><i class="fas fa-sack-dollar mr-1"></i>Bribe Planner
+                        <i class="fas fa-circle-info text-gray-600 ml-1 cursor-help" title="Places a budget where it works hardest per the rubric: greedy by need score (quality × underpaid) with diminishing pull as a pool's planned pot grows — a big budget naturally splits (up to ${prod.rubric.advisor.bribe?.max_splits || 4} pools), a small one concentrates. Placements under ${fmt$(prod.rubric.advisor.bribe?.min_effective_pot_usd || 25)} merge upward rather than dust-split."></i>
+                    </div>
+                    <div class="text-[10px] text-gray-500 mb-1">If aDAO used some of its rewards as voting incentives — where would a budget do the most for the system?</div>
+                    <div class="flex items-center gap-1.5 flex-wrap mb-1.5">
+                        ${presets.map(v => `<button type="button" onclick="setBribeBudget(${v})" class="text-[11px] px-2.5 py-0.5 rounded-full font-medium ${budget === v ? 'bg-amber-500/20 text-amber-300' : 'bg-white/5 text-gray-400 hover:text-gray-300'}">$${v}</button>`).join('')}
+                        <input id="bribe-custom" type="number" min="1" placeholder="custom $" value="${budget && !presets.includes(budget) ? budget : ''}" class="w-20 bg-white/5 border border-white/10 rounded px-2 py-0.5 text-[11px] text-gray-300" onkeydown="if(event.key==='Enter'){setBribeBudget(parseFloat(this.value)||0)}">
+                        <button type="button" onclick="setBribeBudget(parseFloat(document.getElementById('bribe-custom').value)||0)" class="text-[11px] px-2 py-0.5 rounded bg-white/5 text-gray-400 hover:text-gray-300">Plan</button>
+                    </div>
+                    ${planHtml}
+                </div>
+            </div>`;
+    }
+    function setBribeBudget(v) { store.bribeBudget = v > 0 ? v : 0; renderVoteAdvisor(); }
+
     // ============================================================
     // LP GRADES — renderer for the org lp-grades product.
     // (Rev G1, 2026-08-19) The interim page-side grade computation is
@@ -5955,7 +6150,7 @@
 
         const filtersEl = document.getElementById('grades-filters');
         if (filtersEl) filtersEl.innerHTML = lenses.map(l =>
-            `<button type="button" onclick="setGradesView('${l.id}')" class="text-[11px] px-3 py-1 rounded-full font-medium ${view === l.id ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/5 text-gray-400 hover:text-gray-300'}">${l.label} <span class="text-[9px] opacity-60">${l.impl.rows().length}</span></button>`).join('');
+            `<button type="button" onclick="setGradesView('${l.id}')" title="${(l.description || '').replace(/"/g, '&quot;')}" class="text-[11px] px-3 py-1 rounded-full font-medium ${view === l.id ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/5 text-gray-400 hover:text-gray-300'}">${l.label} <span class="text-[9px] opacity-60">${l.impl.rows().length}</span></button>`).join('');
         const descEl = document.getElementById('grades-view-desc');
         if (descEl) descEl.textContent = active.description || '';
 
@@ -6029,7 +6224,7 @@
             return `
             <div class="rounded-lg ${mine ? 'bg-amber-500/[0.05] border border-amber-500/15' : 'bg-white/[0.02] hover:bg-white/[0.04]'} cursor-pointer" data-gpool="${(p.name + '|' + (p.dex || '')).replace(/"/g, '&quot;')}" onclick="document.getElementById('${detailId}')?.classList.toggle('hidden')">
                 <div class="flex items-center gap-3 p-2">
-                    <span class="w-9 h-7 rounded flex items-center justify-center text-sm font-bold shrink-0 ${gradeCls(p.grade)}">${p.grade || '\u2014'}</span>
+                    <span class="w-9 h-7 rounded flex items-center justify-center text-sm font-bold shrink-0 ${gradeCls(p.grade)}" title="Quality ${p.scores?.quality != null ? Math.round(p.scores.quality) : '\u2014'}/100 = trading quality (A) \u00d7 asset & chain value (B), weights ${Math.round((rubric.quality_weights?.trading_quality_A || 0) * 100)}/${Math.round((rubric.quality_weights?.asset_chain_value_B || 0) * 100)} per rubric ${rubric.config_version || ''}. Letters: A+\u2265${rubric.grade_boundaries?.A_plus} \u00b7 A\u2265${rubric.grade_boundaries?.A} \u00b7 B\u2265${rubric.grade_boundaries?.B} \u00b7 C\u2265${rubric.grade_boundaries?.C} \u00b7 D\u2265${rubric.grade_boundaries?.D}. Single-asset pools cap below A+ (can\u2019t demonstrate depth/utilization).">${p.grade || '\u2014'}</span>
                     <div class="flex flex-col min-w-0 shrink-0" style="width:170px">
                         <span class="text-sm font-medium truncate">${mine ? '<i class="fas fa-star text-amber-400 text-[10px] mr-1" title="Your selected wallet votes here"></i>' : ''}${dispName(p.name)}</span>
                         <div class="flex items-center gap-1">${dexTag(p.dex, p.is_single)}<span class="text-[9px] text-gray-600 uppercase">${p.bucket || ''}</span>${stateChip(p.state)}</div>
@@ -6054,6 +6249,8 @@
                 </div>
             </div>`;
         }).join('') || '<div class="text-gray-600 text-sm py-3">No pools match this lens right now \u2014 that itself is a healthy sign.</div>';
+
+        renderVoteAdvisor();
     }
 
     // Click-through: any pool name opens that pool's grade card (expanded, scrolled,
