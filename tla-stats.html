@@ -3831,16 +3831,14 @@
         const maxBucketVp = bucketVps.length ? Math.max(...bucketVps) : 0;
         const totalVp = maxBucketVp;
 
-        // Votion VP — per bucket sum of pool-level votion_current_vp, take max
-        const votionByBucket = {};
-        for (const p of (tlaSnapshot.pools || [])) {
-            if (p.status === 'inactive') continue;
-            const b = p.bucket;
-            if (!votionByBucket[b]) votionByBucket[b] = 0;
-            votionByBucket[b] += p.voting_power?.votion_current_vp || 0;
-        }
-        const totalVotionCurrentVp = Object.values(votionByBucket).length
-            ? Math.max(...Object.values(votionByBucket)) : 0;
+        // Votion VP (Rev T4.1): the per-pool votion_current_vp fields never existed
+        // in the org snapshot (the old per-pool votion data was method-tainted and
+        // deleted) — this sum was 0 forever. Source Votion-wide VP from the org
+        // votion product instead: Σ vaults[].lock_vp_human, the chain-derived lock
+        // VP the Votion vaults control. Per-POOL votion stays unknown until a
+        // per-pool vote capture ships (fail honest — see the LP Stats tab note).
+        const totalVotionCurrentVp = (votion && Array.isArray(votion.vaults))
+            ? votion.vaults.reduce((s2, vlt) => s2 + (vlt.lock_vp_human || 0), 0) : 0;
 
         // Optimized version — same approach
         const votionOptByBucket = {};
@@ -3857,7 +3855,12 @@
         // Member-level breakdowns belong in the separate Member Stats page; at the
         // TLA-wide level, "aDAO" = the treasury wallet that votes with the DAO's
         // collective stake. Each member's personal VP is conceptually "Other" here.
-        const treasuryDisplayVp = adaoPositions?.treasury?.summary?.display_voting_power_human || 0;
+        // FIX (Rev T4.1, 2026-08-20): summary.display_voting_power_human went null
+        // on the treasury record (same root cause as the aDAO Vote column) — the
+        // live field is voting.total_voting_power_human. Both donut slices died
+        // together when the positions product dropped the summary field.
+        const treasuryDisplayVp = adaoPositions?.treasury?.voting?.total_voting_power_human
+            || adaoPositions?.treasury?.summary?.display_voting_power_human || 0;
         const totalAdaoVp = treasuryDisplayVp;
 
         // For analytical context (not displayed here, but kept for Member Stats page)
