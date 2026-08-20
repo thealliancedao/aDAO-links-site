@@ -5096,7 +5096,12 @@
                     d.setUTCDate(1);                       // first of this month
                     for (let k = 0; k < 18; k++) {
                         const end = new Date(d.getTime() - 86400000).toISOString().slice(0, 10); // last day of previous month
-                        if (end < EARLIEST) break;
+                        // Rev I-A3.1: month-ends floor at the OLDEST single-file
+                        // source (backing-history begins 2026-04-13), not the
+                        // global per-day-source EARLIEST — April's backing row
+                        // was being cut by a floor that only applies to the
+                        // per-day fetch sources (which keep their own guards).
+                        if (end < '2026-04-13') break;
                         if (!have.has(end)) { dates.push(end); have.add(end); }
                         d.setUTCMonth(d.getUTCMonth() - 1);
                     }
