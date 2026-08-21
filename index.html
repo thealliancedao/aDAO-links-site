@@ -9192,6 +9192,40 @@
             
             
             // --- Unminted NFT Market Value Calculator ---
+            // Rev I-A9: the calculators died with the legacy CoinGecko cache —
+            // 'terra-luna-2' stopped populating after the np migration, so
+            // lunaPrice=0 nulled every output in BOTH calculator instances.
+            // Layered live sources now; the page's own rendered tiles are the
+            // last resort (they already display these numbers). Fail-honest:
+            // null still renders '--', never a stale constant.
+            function calcLunaUsd() {
+                var v = window.cachedPriceData && window.cachedPriceData['terra-luna-2'] && window.cachedPriceData['terra-luna-2'].usd;
+                if (v > 0) return v;
+                var el = document.getElementById('live-luna-price');
+                if (el) { var m = String(el.textContent).match(/\$([0-9.]+)/); if (m && +m[1] > 0) return +m[1]; }
+                return null;
+            }
+            function calcBackingPerNftLuna() {
+                var v = window.dashboardData && dashboardData.keyMetrics && dashboardData.keyMetrics.backingInLuna;
+                if (v > 0) return v;
+                var el = document.getElementById('backing-per-nft-luna-live');
+                if (el) { var n = parseFloat(String(el.textContent).replace(/[^0-9.]/g, '')); if (n > 0) return n; }
+                return null;
+            }
+            // SOLID from the org token-catalog: tokens keyed by denom
+            // (terra10aa3zd… = SOLID per the registry); venue prices carry .usd.
+            window.__solidUsd = null;
+            fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/token-catalog/snapshots/current.json?t=' + Date.now())
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (d) {
+                    if (!d || !Array.isArray(d.tokens)) return;
+                    var t = d.tokens.find(function (x) { return String(x.denom || '').indexOf('terra10aa3zdkrc7jwuf8ekl3zq7e7m42vmzqehcmu74e4egc7xkm5kr2s0muyst') === 0; });
+                    if (!t) return;
+                    var p = t.final_price_usd || null;
+                    if (!p && t.prices) { for (var k in t.prices) { var c = t.prices[k] && (t.prices[k].usd || t.prices[k].price_usd); if (c > 0) { p = c; break; } } }
+                    if (p > 0) window.__solidUsd = p;
+                }).catch(function () {});
+
             window.useLiveFloor = function(venue, target) {
                 // Pulls the floor the marketplace cards are ALREADY showing —
                 // same number, zero re-fetch; honest '--' means no fill.
@@ -9228,9 +9262,7 @@
                 // Get unminted count (no fallback — calculator will produce 0 if live data unavailable, which makes breakage visible)
                 const unmintedCount = dashboardData.statusSliders?.mint?.unMinted;
                 
-                // Get token prices from cached CoinGecko data
-                const prices = window.cachedPriceData || {};
-                const lunaPrice = prices['terra-luna-2']?.usd || 0;
+                const lunaPrice = calcLunaUsd() || 0;
                 
                 // Get LST ratios
                 const lstRatios = window.lstRatios || {};
@@ -9242,7 +9274,7 @@
                 let priceInUsd = 0;
                 let tokenPrice = 0;
                 
-                const solidUsd = (window.cachedTokenPrices && window.cachedTokenPrices.SOLID) || (prices['solid'] && prices['solid'].usd) || (window.solidPriceUsd || 0);
+                const solidUsd = window.__solidUsd || 0;
                 switch(token) {
                     case 'SOLID':
                         tokenPrice = solidUsd;
@@ -9275,8 +9307,8 @@
                 const totalMarketValue = effectivePrice * unmintedCount;
                 
                 // Get baseline backing value for comparison (no fallback — see comment above re: visible breakage)
-                const backingPerNftLuna = dashboardData.keyMetrics?.backingInLuna;
-                const backingPerNftUsd = backingPerNftLuna * lunaPrice;
+                const backingPerNftLuna = calcBackingPerNftLuna();
+                const backingPerNftUsd = (backingPerNftLuna || 0) * lunaPrice;
                 const totalBackingUsd = backingPerNftUsd * unmintedCount;
                 const vsBackingMultiple = totalBackingUsd > 0 ? totalMarketValue / totalBackingUsd : 0;
                 
@@ -9469,8 +9501,8 @@
                 
                 const effectivePrice = priceInUsd * (1 - discount / 100);
                 const totalMarketValue = effectivePrice * unmintedCount;
-                const backingPerNftLuna = dashboardData.keyMetrics?.backingInLuna;
-                const backingPerNftUsd = backingPerNftLuna * lunaPrice;
+                const backingPerNftLuna = calcBackingPerNftLuna();
+                const backingPerNftUsd = (backingPerNftLuna || 0) * lunaPrice;
                 const totalBackingUsd = backingPerNftUsd * unmintedCount;
                 const vsBackingMultiple = totalBackingUsd > 0 ? totalMarketValue / totalBackingUsd : 0;
                 const totalPremium = totalMarketValue - totalBackingUsd;
