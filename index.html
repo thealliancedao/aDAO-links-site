@@ -2461,11 +2461,14 @@
                     <!-- Row 1: Floor Price Input -->
                     <div class="mb-4">
                         <label class="block text-sm text-gray-400 mb-2">Floor Price</label>
-                        <div class="flex gap-2">
+                        <div class="flex flex-wrap gap-2">
                             <input type="number" id="unminted-floor-price" class="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:border-green-400 focus:outline-none" placeholder="Enter floor price" step="0.01" oninput="calculateUnmintedMarketValue()">
                             <!-- Rev I-A7: one-tap current floors (reads the live marketplace cards) -->
-                            <button type="button" onclick="useLiveFloor('bbl')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="Use the live BBL unbroken floor">BBL floor</button>
-                            <button type="button" onclick="useLiveFloor('atrium')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="Use the live Atrium floor (SOLID)">Atrium floor</button>
+                            <span class="flex flex-wrap gap-1.5 basis-full order-last mt-1.5">
+                                <button type="button" onclick="useLiveFloor('unbroken')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="Lowest UNBROKEN listing across all venues (USD, from the Backing/Floor tile) — sets type Unbroken">Unbroken floor (USD)</button>
+                                <button type="button" onclick="useLiveFloor('bbl')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="BBL collection floor in bLUNA — the cheapest listing, typically BROKEN; sets type Broken">BBL floor (bLUNA)</button>
+                                <button type="button" onclick="useLiveFloor('atrium')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="Atrium collection floor in SOLID — the cheapest listing, typically BROKEN; sets type Broken">Atrium floor (SOLID)</button>
+                            </span>
                             <select id="unminted-price-token" class="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:border-green-400 focus:outline-none" onchange="calculateUnmintedMarketValue()">
                                 <option value="SOLID">SOLID</option>
                                 <option value="bLUNA" selected>bLUNA</option>
@@ -3046,10 +3049,13 @@
                         <!-- Floor Price -->
                         <div>
                             <label class="block text-xs text-gray-400 mb-1">Floor Price</label>
-                            <div class="flex gap-2">
+                            <div class="flex flex-wrap gap-2">
                                 <input type="number" id="chart-unminted-price" class="flex-1 bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-white text-sm focus:border-green-400 focus:outline-none" placeholder="Enter price" step="0.01" oninput="calculateChartUnmintedValue()">
-                                <button type="button" onclick="useLiveFloor('bbl','chart')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="Use the live BBL unbroken floor">BBL floor</button>
-                                <button type="button" onclick="useLiveFloor('atrium','chart')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="Use the live Atrium floor (SOLID)">Atrium floor</button>
+                                <span class="flex flex-wrap gap-1.5 basis-full order-last mt-1.5">
+                                <button type="button" onclick="useLiveFloor('unbroken','chart')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="Lowest UNBROKEN listing across all venues (USD, from the Backing/Floor tile) — sets type Unbroken">Unbroken floor (USD)</button>
+                                <button type="button" onclick="useLiveFloor('bbl','chart')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="BBL collection floor in bLUNA — the cheapest listing, typically BROKEN; sets type Broken">BBL floor (bLUNA)</button>
+                                <button type="button" onclick="useLiveFloor('atrium','chart')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="Atrium collection floor in SOLID — the cheapest listing, typically BROKEN; sets type Broken">Atrium floor (SOLID)</button>
+                            </span>
                                 <select id="chart-unminted-token" class="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-white text-sm focus:border-green-400 focus:outline-none" onchange="calculateChartUnmintedValue()">
                                     <option value="SOLID">SOLID</option>
                                     <option value="bLUNA" selected>bLUNA</option>
@@ -9227,16 +9233,24 @@
                 }).catch(function () {});
 
             window.useLiveFloor = function(venue, target) {
-                // Pulls the floor the marketplace cards are ALREADY showing —
-                // same number, zero re-fetch; honest '--' means no fill.
-                var amtEl = document.getElementById(venue === 'bbl' ? 'bbl-floor-bluna' : 'atrium-floor-amt');
-                var v = amtEl && parseFloat(String(amtEl.textContent).replace(/[^0-9.]/g, ''));
-                if (!v) return;
+                // Fill from a value the page already shows; set the NFT-Type toggle
+                // to what that floor IS (venue collection floors are typically the
+                // cheapest listing = BROKEN; the tile floor is the unbroken lowest).
+                // Manual entry always works — chips only pre-fill.
                 var chart = target === 'chart';
+                var src = { unbroken: ['unbroken-floor-usd', 'USD', 'unbroken'],
+                            bbl:      ['bbl-floor-bluna',   'bLUNA', 'broken'],
+                            atrium:   ['atrium-floor-amt',  'SOLID', 'broken'] }[venue];
+                if (!src) return;
+                var el = document.getElementById(src[0]);
+                var m = el && String(el.textContent).match(/([0-9][0-9,]*\.?[0-9]*)/);
+                var v = m && parseFloat(m[1].replace(/,/g, ''));
+                if (!v) return;
                 var inp = document.getElementById(chart ? 'chart-unminted-price' : 'unminted-floor-price');
                 var sel = document.getElementById(chart ? 'chart-unminted-token' : 'unminted-price-token');
                 if (inp) inp.value = v;
-                if (sel) sel.value = venue === 'bbl' ? 'bLUNA' : 'SOLID';
+                if (sel) sel.value = src[1];
+                try { if (chart && window.setChartNftType) setChartNftType(src[2]); else if (!chart && window.setUnmintedNftType) setUnmintedNftType(src[2]); } catch (e) {}
                 (chart && window.calculateChartUnmintedValue) ? calculateChartUnmintedValue() : calculateUnmintedMarketValue();
             };
             window.calculateUnmintedMarketValue = function() {
@@ -9260,9 +9274,12 @@
                 const nftType = window.unmintedNftType || 'unbroken';
                 
                 // Get unminted count (no fallback — calculator will produce 0 if live data unavailable, which makes breakage visible)
-                const unmintedCount = dashboardData.statusSliders?.mint?.unMinted;
+                const unmintedCount = (dashboardData.statusSliders && dashboardData.statusSliders.mint && dashboardData.statusSliders.mint.unMinted)
+                    || (window.dashboardData && window.dashboardData.statusSliders && window.dashboardData.statusSliders.mint && window.dashboardData.statusSliders.mint.unMinted) || 0;
+                if (!unmintedCount) { return; }   // fail-honest: no live count yet, leave '--' rather than fake math
                 
-                const lunaPrice = calcLunaUsd() || 0;
+                function _numM(el, rx) { var e = document.getElementById(el); if (!e) return null; var m = String(e.textContent).match(rx || /([0-9][0-9,]*\.?[0-9]*)/); return m ? parseFloat(m[1].replace(/,/g, '')) : null; }
+                const lunaPrice = (window.cachedPriceData && window.cachedPriceData['terra-luna-2'] && window.cachedPriceData['terra-luna-2'].usd) || _numM('live-luna-price', /\$([0-9.]+)/) || 0;
                 
                 // Get LST ratios
                 const lstRatios = window.lstRatios || {};
@@ -9307,8 +9324,8 @@
                 const totalMarketValue = effectivePrice * unmintedCount;
                 
                 // Get baseline backing value for comparison (no fallback — see comment above re: visible breakage)
-                const backingPerNftLuna = calcBackingPerNftLuna();
-                const backingPerNftUsd = (backingPerNftLuna || 0) * lunaPrice;
+                const backingPerNftLuna = (window.dashboardData && dashboardData.keyMetrics && dashboardData.keyMetrics.backingInLuna) || _numM('backing-per-nft-luna-live') || 0;
+                const backingPerNftUsd = backingPerNftLuna * lunaPrice;
                 const totalBackingUsd = backingPerNftUsd * unmintedCount;
                 const vsBackingMultiple = totalBackingUsd > 0 ? totalMarketValue / totalBackingUsd : 0;
                 
@@ -9461,6 +9478,7 @@
             
             // Chart modal calculator functions
             window.calculateChartUnmintedValue = function() {
+              try {
                 const priceInput = document.getElementById('chart-unminted-price');
                 const tokenSelect = document.getElementById('chart-unminted-token');
                 const discountSlider = document.getElementById('chart-unminted-discount');
@@ -9478,31 +9496,28 @@
                 resultDiv?.classList.remove('hidden');
                 
                 const nftType = window.chartNftType || 'unbroken';
-                const unmintedCount = dashboardData.statusSliders?.mint?.unMinted;
-                const prices = window.cachedPriceData || {};
-                const lunaPrice = prices['terra-luna-2']?.usd || 0;
+                const unmintedCount = (dashboardData.statusSliders && dashboardData.statusSliders.mint && dashboardData.statusSliders.mint.unMinted)
+                    || (window.dashboardData && window.dashboardData.statusSliders && window.dashboardData.statusSliders.mint && window.dashboardData.statusSliders.mint.unMinted) || 0;
+                if (!unmintedCount) { return; }   // fail-honest: no live count yet, leave '--' rather than fake math
+                function _num(el, rx) { var e = document.getElementById(el); if (!e) return null; var m = String(e.textContent).match(rx || /([0-9][0-9,]*\.?[0-9]*)/); return m ? parseFloat(m[1].replace(/,/g, '')) : null; }
+                const lunaPrice = (window.cachedPriceData && window.cachedPriceData['terra-luna-2'] && window.cachedPriceData['terra-luna-2'].usd) || _num('live-luna-price', /\$([0-9.]+)/) || 0;
                 const lstRatios = window.lstRatios || {};
                 const bLunaRatio = lstRatios.bLUNA || 1.6048;
                 const ampLunaRatio = lstRatios.ampLUNA || window.cachedAmpLunaRate || 1.9015;
                 const arbLunaRatio = lstRatios.arbLUNA || 2.6873;
-                
                 let priceInUsd = 0;
-                switch(token) {
-                    case 'SOLID': {
-                        const sUsd = (window.cachedTokenPrices && window.cachedTokenPrices.SOLID) || (window.solidPriceUsd || 0);
-                        tokenPrice = sUsd; priceInUsd = floorPrice * sUsd; break;
-                    }
+                switch (token) {
+                    case 'SOLID': priceInUsd = floorPrice * (window.__solidUsd || 0); break;
                     case 'USD': priceInUsd = floorPrice; break;
                     case 'LUNA': priceInUsd = floorPrice * lunaPrice; break;
                     case 'bLUNA': priceInUsd = floorPrice * lunaPrice * bLunaRatio; break;
                     case 'ampLUNA': priceInUsd = floorPrice * lunaPrice * ampLunaRatio; break;
                     case 'arbLUNA': priceInUsd = floorPrice * lunaPrice * arbLunaRatio; break;
                 }
-                
                 const effectivePrice = priceInUsd * (1 - discount / 100);
                 const totalMarketValue = effectivePrice * unmintedCount;
-                const backingPerNftLuna = calcBackingPerNftLuna();
-                const backingPerNftUsd = (backingPerNftLuna || 0) * lunaPrice;
+                const backingPerNftLuna = (window.dashboardData && dashboardData.keyMetrics && dashboardData.keyMetrics.backingInLuna) || _num('backing-per-nft-luna-live') || 0;
+                const backingPerNftUsd = backingPerNftLuna * lunaPrice;
                 const totalBackingUsd = backingPerNftUsd * unmintedCount;
                 const vsBackingMultiple = totalBackingUsd > 0 ? totalMarketValue / totalBackingUsd : 0;
                 const totalPremium = totalMarketValue - totalBackingUsd;
@@ -9580,6 +9595,7 @@
                 if (chartCurrentTreasuryEl) chartCurrentTreasuryEl.textContent = formatUsd(currentTreasuryUsd);
                 if (chartUnmintedAddEl) chartUnmintedAddEl.textContent = '+' + formatUsdLarge(totalMarketValue);
                 if (chartPotentialTotalEl) chartPotentialTotalEl.textContent = formatUsdLarge(potentialTotal);
+              } catch (e) { console.warn('chart calc:', e && e.message); }
             }
             
             window.updateChartUnmintedDiscount = function() {
