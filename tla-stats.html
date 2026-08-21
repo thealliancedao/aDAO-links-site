@@ -5612,6 +5612,13 @@
         const groups = new Map(); let max = null; const opps = [];
         for (const p of _zapPools()) {
             if (p.dex_subtype === 'concentrated' || p.dex_subtype === 'stable') continue;
+            // 2026-08-21: require a NAMED DEX. This strip reads the gauge-set snapshot,
+            // which still carries drained migration corpses (dex:null, address-named —
+            // e.g. the old ampROAR-ROAR Astroport pair). One showed as a 15.66% "arb"
+            // vs Skeleton Swap while slippage.html (built from the DEX crons' own pool
+            // lists, corpses never present) correctly stayed quiet. Skeleton Swap pools
+            // carry dex_subtype:null and are xyk by construction — they stay in.
+            if (!p.dex) continue;
             const a0 = p.lp_health.asset_0, a1 = p.lp_health.asset_1;
             if (!(a0.usd_value > 0 && a1.usd_value > 0)) continue;
             const key = [a0.symbol, a1.symbol].sort().join('|');
