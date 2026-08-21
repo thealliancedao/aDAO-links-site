@@ -103,6 +103,11 @@
 </style>
 </head>
 <body>
+<!-- Site header — one implementation in lib/site-header.js (SPEC-unified-header step 1,
+     2026-08-21): this page had no way back to the rest of the site. -->
+<div id="site-header"></div>
+<script src="/lib/site-header.js"></script>
+<script>SiteHeader.mount({ page: 'transparency-hub' });</script>
 <div class="wrap">
   <header class="top">
     <div class="eyebrow">TLA Stats</div>

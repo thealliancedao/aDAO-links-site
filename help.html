@@ -69,17 +69,17 @@
 </head>
 <body class="min-h-screen">
 
-<header class="border-b border-white/5 bg-black/40">
+<!-- Site header — one implementation in lib/site-header.js (SPEC-unified-header step 1, 2026-08-21) -->
+<div id="site-header"></div>
+<script src="/lib/site-header.js"></script>
+<script>SiteHeader.mount({ page: 'help' });</script>
+<header class="border-b border-white/5 bg-black/20">
   <div class="max-w-5xl mx-auto px-4 py-5 flex items-center justify-between flex-wrap gap-3">
     <div>
       <h1 class="text-xl font-bold"><i class="fas fa-circle-question text-cyan-400 mr-2"></i>Help &amp; Support</h1>
       <p class="text-xs text-gray-500 mt-1">Understand the systems, get answers, report what looks wrong, ask for what's missing.</p>
     </div>
-    <nav class="flex items-center gap-3 text-sm">
-      <a href="index.html" class="text-gray-400 hover:text-cyan-300">Home</a>
-      <a href="transparency-hub.html" class="text-gray-400 hover:text-cyan-300">Transparency Hub</a>
-      <a href="tla-stats.html" class="text-gray-400 hover:text-cyan-300">TLA Stats</a>
-    </nav>
+    
   </div>
 </header>
 
