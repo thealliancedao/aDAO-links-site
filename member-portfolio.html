@@ -32,23 +32,13 @@
 </style>
 </head>
 <body>
-<header class="py-4">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap md:flex-nowrap justify-between items-center">
-        <div class="flex-shrink-0 w-1/2 md:w-32 order-1">
-            <a href="index.html"><img src="/assets/images/Alliance%20DAO%20Logo.png" alt="Alliance DAO Logo" class="h-12 md:h-16 w-auto" onerror="this.src='https://placehold.co/128x64/0D0D0D/EAEAEA?text=Logo'; this.onerror=null;"></a>
-        </div>
-        <nav class="hidden md:flex flex-1 w-full md:w-auto justify-center items-center gap-2 sm:gap-3 order-3 md:order-2 mt-4 md:mt-0">
-            <a href="index.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">Home</a>
-            <a href="nft-explorer-index.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial"><span class="md:hidden">Explorer</span><span class="hidden md:inline">NFT Explorer</span></a>
-            <a href="tla-stats.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial"><span class="md:hidden">TLA</span><span class="hidden md:inline">TLA Stats</span></a>
-            <a href="adao-lore.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial"><span class="md:hidden">Lore</span><span class="hidden md:inline">aDAO Lore</span></a>
-            <a href="dao.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">DAO</a>
-        </nav>
-        <div class="w-1/2 md:w-32 flex-shrink-0 flex justify-end order-2 md:order-3">
-            <img src="/assets/planets/Terra.PNG" alt="Terra Logo" class="h-12 md:h-16 w-auto" onerror="this.src='https://placehold.co/128x64/0D0D0D/EAEAEA?text=Logo'; this.onerror=null;">
-        </div>
-    </div>
-</header>
+<!-- Site header + global address picker — one implementation in lib/site-header.js +
+     lib/address-picker.js (SPEC-unified-header step 2, 2026-08-21). The picker is the
+     page's address input now; the old Paste/View/Save card below is retired. -->
+<div id="site-header"></div>
+<script src="/lib/site-header.js"></script>
+<script src="/lib/address-picker.js"></script>
+<script>SiteHeader.mount({ page: 'member-portfolio' });</script>
 <style>
     /* Shared sub-tab strip — same look as tla-stats.html so the two pages read
        as one surface (Rev P1.9 nav-continuity fix, 2026-08-20). */
@@ -79,8 +69,9 @@
 
 <main class="max-w-6xl mx-auto px-4 py-6">
 
-    <!-- ============ ADDRESS BAR ============ -->
-    <div class="glass-card p-5 mb-6">
+    <!-- ============ ADDRESS BAR — retired 2026-08-21: the header picker is the input.
+         Elements kept (hidden) because the page script still references them. ============ -->
+    <div class="glass-card p-5 mb-6 hidden" aria-hidden="true">
         <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
             <h1 class="font-semibold text-lg">Your Terra position, in one place</h1>
             <span class="text-[10px] text-gray-500"><i class="fas fa-lock text-emerald-400/70 mr-1"></i>Read-only — no wallet connect, nothing to sign. The address is saved on this device only.</span>
@@ -448,7 +439,7 @@
             chips.innerHTML = picks.map(([w, label]) =>
                 `<button type="button" class="demo-chip text-[11px] px-3 py-1 rounded-full bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25 font-medium" data-w="${esc(w)}">${esc(label)}</button>`).join('');
             chips.querySelectorAll('.demo-chip').forEach(b => b.addEventListener('click', () => {
-                $('wallet-input').value = b.dataset.w; renderPortfolio(b.dataset.w);
+                if (window.AddressPicker) AddressPicker.select(b.dataset.w); else { $('wallet-input').value = b.dataset.w; renderPortfolio(b.dataset.w); }
             }));
         }
         const ws = $('welcome-stats');
@@ -2128,12 +2119,21 @@
         });
 
         loadAll().then(() => {
-            const urlW = new URLSearchParams(location.search).get('wallet');
-            const saved = lsGet(CONFIG.storageKey);
-            if (saved) $('btn-clear').classList.remove('hidden');
-            const target = (isTerraAddr(urlW) && urlW) || (isTerraAddr(saved) && saved) || null;
-            if (target) { $('wallet-input').value = target; renderPortfolio(target); }
-            else showState('state-welcome');
+            // Step 2 (2026-08-21): the header picker owns selection. Migrate the page's
+            // old saved key once, then let the picker resolve URL → remembered → saved.
+            const legacy = lsGet(CONFIG.storageKey);
+            if (legacy && isTerraAddr(legacy)) { try { if (!localStorage.getItem('tla:saved_wallet')) localStorage.setItem('tla:saved_wallet', legacy); } catch {} lsSet(CONFIG.storageKey, null); }
+            let shown = false;
+            const show = (w) => { if (!isTerraAddr(w)) return; $('wallet-input').value = w; shown = true; renderPortfolio(w); };
+            if (window.AddressPicker) {
+                AddressPicker.mount({ onSelect: show, onClear: () => { store.wallet = null; showState('state-welcome'); } });
+                window.addEventListener('tla:wallet', (e) => { if (e.detail && e.detail.wallet && e.detail.wallet !== store.wallet) show(e.detail.wallet); });
+                setTimeout(() => { if (!shown && !store.wallet) showState('state-welcome'); }, 50);
+            } else {
+                const urlW = new URLSearchParams(location.search).get('wallet');
+                const target = (isTerraAddr(urlW) && urlW) || null;
+                if (target) show(target); else showState('state-welcome');
+            }
         }).catch(err => {
             console.error(err);
             $('state-loading').innerHTML = '<div class="text-red-400 text-sm">Failed to load the data feeds — refresh to retry.</div>';
@@ -2162,6 +2162,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '2.4', revDate: '2026-08-12', page: 'member-portfolio' });</script>
+<script>SiteFooter.mount({ rev: '2.5', revDate: '2026-08-21', page: 'member-portfolio' });</script>
 </body>
 </html>
