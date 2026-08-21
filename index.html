@@ -3048,8 +3048,11 @@
                             <label class="block text-xs text-gray-400 mb-1">Floor Price</label>
                             <div class="flex gap-2">
                                 <input type="number" id="chart-unminted-price" class="flex-1 bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-white text-sm focus:border-green-400 focus:outline-none" placeholder="Enter price" step="0.01" oninput="calculateChartUnmintedValue()">
+                                <button type="button" onclick="useLiveFloor('bbl','chart')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="Use the live BBL unbroken floor">BBL floor</button>
+                                <button type="button" onclick="useLiveFloor('atrium','chart')" class="px-2 py-1 text-[10px] rounded bg-gray-800 border border-gray-600 text-gray-300 hover:border-green-400" title="Use the live Atrium floor (SOLID)">Atrium floor</button>
                                 <select id="chart-unminted-token" class="bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-white text-sm focus:border-green-400 focus:outline-none" onchange="calculateChartUnmintedValue()">
-                                    <option value="bLUNA">bLUNA</option>
+                                    <option value="SOLID">SOLID</option>
+                                    <option value="bLUNA" selected>bLUNA</option>
                                     <option value="LUNA">LUNA</option>
                                     <option value="ampLUNA">ampLUNA</option>
                                     <option value="arbLUNA">arbLUNA</option>
@@ -3134,6 +3137,7 @@
                     <div class="flex gap-2 mt-3">
                         <a href="https://app.backbonelabs.io/nfts/marketplace/collections/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9" target="_blank" class="text-xs text-gray-400 hover:text-white"><i class="fas fa-external-link-alt mr-1"></i>Backbone</a>
                         <a href="https://www.boostdao.io/ignite/permissionless-terra" target="_blank" class="text-xs text-gray-400 hover:text-white"><i class="fas fa-external-link-alt mr-1"></i>Boost DAO</a>
+                        <a href="https://atriumdao.zone/collections" target="_blank" class="text-xs text-gray-400 hover:text-white"><i class="fas fa-external-link-alt mr-1"></i>Atrium</a>
                     </div>
                 </div>
             </div>
@@ -9188,17 +9192,18 @@
             
             
             // --- Unminted NFT Market Value Calculator ---
-            window.useLiveFloor = function(venue) {
+            window.useLiveFloor = function(venue, target) {
                 // Pulls the floor the marketplace cards are ALREADY showing —
                 // same number, zero re-fetch; honest '--' means no fill.
                 var amtEl = document.getElementById(venue === 'bbl' ? 'bbl-floor-bluna' : 'atrium-floor-amt');
                 var v = amtEl && parseFloat(String(amtEl.textContent).replace(/[^0-9.]/g, ''));
                 if (!v) return;
-                var inp = document.getElementById('unminted-floor-price');
-                var sel = document.getElementById('unminted-price-token');
+                var chart = target === 'chart';
+                var inp = document.getElementById(chart ? 'chart-unminted-price' : 'unminted-floor-price');
+                var sel = document.getElementById(chart ? 'chart-unminted-token' : 'unminted-price-token');
                 if (inp) inp.value = v;
                 if (sel) sel.value = venue === 'bbl' ? 'bLUNA' : 'SOLID';
-                calculateUnmintedMarketValue();
+                (chart && window.calculateChartUnmintedValue) ? calculateChartUnmintedValue() : calculateUnmintedMarketValue();
             };
             window.calculateUnmintedMarketValue = function() {
                 const priceInput = document.getElementById('unminted-floor-price');
@@ -9451,6 +9456,10 @@
                 
                 let priceInUsd = 0;
                 switch(token) {
+                    case 'SOLID': {
+                        const sUsd = (window.cachedTokenPrices && window.cachedTokenPrices.SOLID) || (window.solidPriceUsd || 0);
+                        tokenPrice = sUsd; priceInUsd = floorPrice * sUsd; break;
+                    }
                     case 'USD': priceInUsd = floorPrice; break;
                     case 'LUNA': priceInUsd = floorPrice * lunaPrice; break;
                     case 'bLUNA': priceInUsd = floorPrice * lunaPrice * bLunaRatio; break;
