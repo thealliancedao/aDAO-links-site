@@ -16,19 +16,19 @@
   details.faq summary::after { content:'+'; color:#67e8f9; font-weight:400; }
   details.faq[open] summary::after { content:'–'; }
   details.faq .a { padding:0 0 .8rem 0; font-size:.83rem; color:#9ca3af; line-height:1.55; }
-  .field { width:100%; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:8px; padding:.55rem .7rem; font-size:.85rem; color:#e5e7eb; }
+  .field { width:100%; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:8px; padding:.55rem .7rem; font-size:16px; color:#e5e7eb; }
   .field:focus { outline:none; border-color:#22d3ee66; }
   label { font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:#6b7280; font-weight:600; display:block; margin:.7rem 0 .25rem; }
-  .btn { display:inline-flex; align-items:center; gap:.5rem; padding:.55rem 1rem; border-radius:8px; font-size:.85rem; font-weight:600; transition:all .15s; cursor:pointer; border:1px solid transparent; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; padding:.6rem 1rem; border-radius:8px; font-size:.85rem; font-weight:600; transition:all .15s; cursor:pointer; border:1px solid transparent; min-height:44px; }
   .btn-cyan { background:rgba(34,211,238,.15); color:#67e8f9; border-color:rgba(34,211,238,.3); }
   .btn-cyan:hover { background:rgba(34,211,238,.25); }
-  .chat-msg { border-radius:12px; padding:.65rem .9rem; font-size:.85rem; line-height:1.55; max-width:85%; }
+  .chat-msg { border-radius:12px; padding:.65rem .9rem; font-size:.9rem; line-height:1.55; max-width:88%; overflow-wrap:anywhere; }
   .msg-row { display:flex; gap:.55rem; align-items:flex-start; }
   .msg-row.you { flex-direction:row-reverse; }
   .avatar { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.8rem; flex-shrink:0; margin-top:2px; }
   .avatar.bot { background:linear-gradient(135deg, rgba(168,85,247,.25), rgba(34,211,238,.25)); color:#c4b5fd; border:1px solid rgba(168,85,247,.3); }
   .avatar.you { background:rgba(34,211,238,.12); color:#67e8f9; border:1px solid rgba(34,211,238,.25); }
-  .chip { display:inline-flex; align-items:center; gap:.35rem; padding:.35rem .7rem; border-radius:9999px; font-size:.75rem;
+  .chip { display:inline-flex; align-items:center; gap:.35rem; padding:.5rem .8rem; border-radius:9999px; font-size:.78rem; white-space:nowrap;
     background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); color:#9ca3af; cursor:pointer; transition:all .15s; }
   .chip:hover { border-color:rgba(34,211,238,.4); color:#67e8f9; background:rgba(34,211,238,.06); }
   .accent-top { position:relative; overflow:hidden; }
@@ -41,6 +41,30 @@
   @keyframes ty { 0%,60%,100%{ transform:translateY(0); opacity:.4 } 30%{ transform:translateY(-4px); opacity:1 } }
   .hero-glow { background: radial-gradient(ellipse 70% 120% at 50% -20%, rgba(34,211,238,.10), transparent 60%),
                radial-gradient(ellipse 50% 100% at 80% -10%, rgba(168,85,247,.08), transparent 60%); }
+
+  /* ---- Rev 1.4: a real chat window ------------------------------------- */
+  /* Fixed-height shell: log fills, composer pins to the bottom. Mobile gets
+     dvh-based height (the address-bar-safe unit) and taller reach. */
+  .chat-shell { display:flex; flex-direction:column; height:min(58vh, 540px); min-height:320px;
+    border:1px solid rgba(255,255,255,.08); border-radius:12px; background:rgba(0,0,0,.25); overflow:hidden; }
+  #chat-log { flex:1; overflow-y:auto; padding:.9rem; display:flex; flex-direction:column; gap:.55rem; }
+  .composer { display:flex; gap:.5rem; align-items:flex-end; padding:.6rem; border-top:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.02); }
+  #chat-input { flex:1; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); border-radius:10px;
+    padding:.6rem .75rem; font-size:16px; color:#e5e7eb; line-height:1.45; resize:none; max-height:200px; overflow-y:auto; }
+  #chat-input:focus { outline:none; border-color:#22d3ee66; }
+  .send-btn { min-width:44px; min-height:44px; }
+  #chips { display:flex; gap:.5rem; flex-wrap:wrap; }
+  .draft-card { margin-top:.5rem; border:1px solid rgba(245,158,11,.35); border-radius:10px; background:rgba(245,158,11,.06); padding:.7rem .8rem; max-width:88%; align-self:flex-start; }
+  .draft-card .dc-title { font-size:.82rem; font-weight:700; color:#fcd34d; }
+  .draft-card .dc-body { font-size:.78rem; color:#d1d5db; white-space:pre-wrap; margin:.45rem 0; max-height:180px; overflow-y:auto;
+    border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:.5rem; background:rgba(0,0,0,.3); font-family:ui-monospace,monospace; }
+  @media (max-width: 640px) {
+    .chat-shell { height:min(70dvh, 640px); min-height:360px; }
+    .chat-msg { max-width:94%; }
+    #chips { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; scrollbar-width:none; }
+    #chips::-webkit-scrollbar { display:none; }
+    .draft-card { max-width:96%; }
+  }
 </style>
 </head>
 <body class="min-h-screen">
@@ -67,29 +91,31 @@
 </div>
 <main class="max-w-5xl mx-auto px-4 py-8 space-y-6">
 
-  <!-- ASK (agent chat — graceful when the service isn't deployed) -->
-  <section class="glass accent-top accent-cyan p-6" id="ask-section">
+  <!-- ASK (agent chat — Rev 1.4: a real chat window; graceful when the service isn't deployed) -->
+  <section class="glass accent-top accent-cyan p-4 sm:p-6" id="ask-section">
     <h2 class="font-bold text-lg mb-1"><i class="fas fa-robot text-purple-400 mr-2"></i>Ask about the site &amp; data</h2>
-    <p class="text-xs text-gray-500 mb-3">An assistant grounded on this site's own documentation and live data products. It checks claims against the same sources the pages render — including your own wallet's live record if you paste a terra1… address with your question — it doesn't guess, it doesn't give financial advice, and when it can't verify something it says so and routes you to the report form below.</p>
-    <div class="flex flex-wrap gap-2 mb-3" id="chips">
+    <p class="text-xs text-gray-500 mb-3">An assistant grounded on this site's own documentation and live data products. It checks claims against the same sources the pages render — including your own wallet's live record if you paste a terra1… address — it doesn't guess, it doesn't give financial advice, and when it can't verify something it says so. The Report and Request forms below run through it too: it investigates first, then helps you draft.</p>
+    <div class="mb-3" id="chips">
       <span class="chip" onclick="chipAsk(this)"><i class="fas fa-question"></i>Why are some columns blank?</span>
       <span class="chip" onclick="chipAsk(this)"><i class="fas fa-graduation-cap"></i>What do the LP grades mean?</span>
       <span class="chip" onclick="chipAsk(this)"><i class="fas fa-gas-pump"></i>Why does bribe runway matter?</span>
       <span class="chip" onclick="chipAsk(this)"><i class="fas fa-wallet"></i>Check my wallet (paste your terra1… address)</span>
     </div>
-    <div id="chat-log" class="space-y-2 mb-3 max-h-[360px] overflow-y-auto pr-1"></div>
-    <div class="flex gap-2">
-      <input id="chat-input" class="field" placeholder="e.g. Why is the Efficiency column blank? — or paste your terra1… address to have your portfolio numbers checked" onkeydown="if(event.key==='Enter')askAgent()">
-      <button class="btn btn-cyan" onclick="askAgent()"><i class="fas fa-paper-plane"></i>Ask</button>
+    <div class="chat-shell">
+      <div id="chat-log"></div>
+      <div class="composer">
+        <textarea id="chat-input" rows="2" placeholder="Ask anything about the site or its data — long questions welcome; this box grows and scrolls."></textarea>
+        <button class="btn btn-cyan send-btn" onclick="askAgent()" aria-label="Send"><i class="fas fa-paper-plane"></i></button>
+      </div>
     </div>
     <div id="agent-status" class="text-[10px] text-gray-600 mt-2"></div>
   </section>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <!-- REPORT AN ISSUE (v0 — structured GitHub issue, zero backend) -->
-    <section class="glass accent-top accent-red p-6">
+    <!-- REPORT AN ISSUE (Rev 1.4: runs through the assistant first; direct path kept) -->
+    <section class="glass accent-top accent-red p-4 sm:p-6">
       <h2 class="font-bold text-lg mb-1"><i class="fas fa-bug text-red-400 mr-2"></i>Report an issue</h2>
-      <p class="text-xs text-gray-500 mb-1">A number looks wrong, a tile is empty, something broke. This drafts a structured report you submit on GitHub — it lands directly in the maintainer's queue with everything needed to reproduce it.</p>
+      <p class="text-xs text-gray-500 mb-1">A number looks wrong, a tile is empty, something broke. The assistant checks your claim against the live record first — a "wrong number" is often a documented cause it can explain on the spot. Real faults get a pre-investigated draft you file on GitHub.</p>
       <label>Which page?</label>
       <select id="r-page" class="field">
         <option>index (landing)</option><option>tla-stats</option><option>member-portfolio</option>
@@ -99,14 +125,14 @@
       <textarea id="r-what" rows="3" class="field" placeholder="e.g. The aDAO slice of the VP donut shows 0 but the treasury votes 50/50 in stable"></textarea>
       <label>The number/value you saw (optional)</label>
       <input id="r-value" class="field" placeholder="e.g. 0 VP — expected ~841K">
-      <button class="btn btn-cyan mt-4" onclick="fileIssue('report')"><i class="fab fa-github"></i>Draft GitHub report</button>
-      <div class="text-[10px] text-gray-600 mt-2">Opens github.com prefilled — you press submit there. A free GitHub account is required (that's what keeps reports spam-free and traceable).</div>
+      <button class="btn btn-cyan mt-4 w-full sm:w-auto" onclick="sendTriage('report')"><i class="fas fa-magnifying-glass-chart"></i>Run it past the assistant</button>
+      <div class="text-[10px] text-gray-600 mt-2">Prefer to skip the assistant? <a href="#" onclick="fileIssue('report');return false" class="text-gray-400 underline hover:text-cyan-300">File directly on GitHub</a> — that path always works, even when the assistant is asleep or capped.</div>
     </section>
 
-    <!-- FEATURE REQUEST -->
-    <section class="glass accent-top accent-amber p-6">
+    <!-- FEATURE REQUEST (Rev 1.4: triaged by the assistant first; direct path kept) -->
+    <section class="glass accent-top accent-amber p-4 sm:p-6">
       <h2 class="font-bold text-lg mb-1"><i class="fas fa-lightbulb text-amber-300 mr-2"></i>Request a feature</h2>
-      <p class="text-xs text-gray-500 mb-1">Want a stat, chart, or view that doesn't exist? Describe it. Requests get triaged into: data exists (small build) · needs new capture · out of scope.</p>
+      <p class="text-xs text-gray-500 mb-1">Want a stat, chart, or view that doesn't exist? The assistant triages it live: already exists (it shows you where) · already queued (it names the spec) · data exists, small build · needs new capture · conflicts with the honesty rules — and helps you shape a proposal worth filing.</p>
       <label>What would you like to see?</label>
       <textarea id="f-what" rows="3" class="field" placeholder="e.g. A chart of DAO total value over time"></textarea>
       <label>Where should it live?</label>
@@ -116,12 +142,13 @@
       </select>
       <label>Why is it useful? (optional)</label>
       <input id="f-why" class="field" placeholder="e.g. helps depositors time pool entries">
-      <button class="btn btn-cyan mt-4" onclick="fileIssue('feature')"><i class="fab fa-github"></i>Draft GitHub request</button>
+      <button class="btn btn-cyan mt-4 w-full sm:w-auto" onclick="sendTriage('request')"><i class="fas fa-magnifying-glass-chart"></i>Run it past the assistant</button>
+      <div class="text-[10px] text-gray-600 mt-2">Prefer to skip the assistant? <a href="#" onclick="fileIssue('feature');return false" class="text-gray-400 underline hover:text-cyan-300">File directly on GitHub</a>.</div>
     </section>
   </div>
 
   <!-- FAQ -->
-  <section class="glass p-6">
+  <section class="glass p-4 sm:p-6">
     <h2 class="font-bold text-lg mb-2"><i class="fas fa-book-open text-cyan-400 mr-2"></i>Frequently asked</h2>
     <details class="faq"><summary>Why is a column or tile blank instead of showing a number?</summary>
       <div class="a">Deliberate policy, not a bug: the site never invents a number it can't back. If a pool shows a blank Efficiency, there is no trustworthy volume source for it (SkeletonSwap publishes none). If a stat says "no data", the capture that would feed it doesn't exist yet or its source went dark. Everywhere possible the blank carries a tooltip saying which. A blank is the honest answer; a made-up number would just be a lie with confidence.</div></details>
@@ -170,10 +197,11 @@
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
 <script>
-const REV='1.0', REV_DATE='2026-08-20';
+const REV='1.4', REV_DATE='2026-08-21';
 SiteFooter.mount({ rev: REV, revDate: REV_DATE, page: 'help' });
 
-// ---- v0: structured GitHub issues (zero backend) ----
+// ---- direct GitHub path (kept from v0 — must always work with the service
+//      asleep, rate-walled, or budget-capped; the triage path is the front door) ----
 const ISSUES_REPO='https://github.com/thealliancedao/tla-core/issues/new';
 function fileIssue(kind){
   const enc=encodeURIComponent;
@@ -182,20 +210,39 @@ function fileIssue(kind){
     const page=document.getElementById('r-page').value, what=document.getElementById('r-what').value.trim(), val=document.getElementById('r-value').value.trim();
     if(!what){ alert('Describe what looks wrong first.'); return; }
     title=`[Site report] ${page}: ${what.slice(0,60)}`;
-    body=`**Page:** ${page}\n**What looks wrong:**\n${what}\n\n**Value seen:** ${val||'—'}\n\n**When:** ${new Date().toISOString()}\n\n_Filed via the site Help page (v0 form)._`;
+    body=`**Page:** ${page}\n**What looks wrong:**\n${what}\n\n**Value seen:** ${val||'—'}\n\n**When:** ${new Date().toISOString()}\n\n_Filed via the site Help page (direct form)._`;
   }else{
     const what=document.getElementById('f-what').value.trim(), page=document.getElementById('f-page').value, why=document.getElementById('f-why').value.trim();
     if(!what){ alert('Describe the feature first.'); return; }
     title=`[Feature request] ${what.slice(0,60)}`;
-    body=`**Request:**\n${what}\n\n**Suggested home:** ${page}\n**Why useful:** ${why||'—'}\n\n_Filed via the site Help page (v0 form)._`;
+    body=`**Request:**\n${what}\n\n**Suggested home:** ${page}\n**Why useful:** ${why||'—'}\n\n_Filed via the site Help page (direct form)._`;
   }
   window.open(`${ISSUES_REPO}?title=${enc(title)}&body=${enc(body)}`,'_blank','noopener');
 }
 
+// ---- Rev 1.4: triage front doors — the forms run through the assistant ----
+// Builds a structured question, sends it in the right mode, and scrolls the
+// chat into view. The agent investigates (v1.7.0 triage modes) and answers
+// with a ---DRAFT--- block this page turns into a prefilled GitHub issue.
+function sendTriage(kind){
+  let q;
+  if(kind==='report'){
+    const page=document.getElementById('r-page').value, what=document.getElementById('r-what').value.trim(), val=document.getElementById('r-value').value.trim();
+    if(!what){ alert('Describe what looks wrong first.'); return; }
+    q=`[Issue report] Page: ${page}. What looks wrong: ${what}. Value seen: ${val||'—'}. Please verify this against the live data, tell me whether it's a known cause or a real fault, and draft the report.`;
+  }else{
+    const what=document.getElementById('f-what').value.trim(), page=document.getElementById('f-page').value, why=document.getElementById('f-why').value.trim();
+    if(!what){ alert('Describe the feature first.'); return; }
+    q=`[Feature request] ${what}. Suggested home: ${page}. Why useful: ${why||'—'}. Please triage this (already exists / already queued / small build / needs new capture / out of scope), explain any constraints, and draft the proposal.`;
+  }
+  document.getElementById('ask-section').scrollIntoView({behavior:'smooth', block:'start'});
+  sendQuestion(q, kind==='report'?'report':'request');
+}
+
 // ---- v1: agent chat (graceful when the service isn't deployed) ----
-// Set to the Render service URL once deployed (see platform-crons/help-agent/).
 const HELP_AGENT_URL = (window.SiteFooter && SiteFooter.AGENT_URL) || 'https://tla-help-agent.onrender.com';   // one home: lib/site-footer.js
 const chatLog=document.getElementById('chat-log');
+const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 function addMsg(txt, who){
   const row=document.createElement('div');
   row.className='msg-row '+(who==='you'?'you':'');
@@ -213,9 +260,21 @@ function addMsg(txt, who){
 function chipAsk(el){
   const t=el.textContent.trim();
   const inp=document.getElementById('chat-input');
-  if(/wallet/i.test(t)){ inp.value='My wallet is terra1… — replace this with your address and I\'ll check your live record: '; inp.focus(); return; }
+  if(/wallet/i.test(t)){ inp.value='My wallet is terra1… — replace this with your address and I\'ll check your live record: '; autoGrow(inp); inp.focus(); return; }
   inp.value=t; askAgent();
 }
+// Composer autogrow: starts at 2 rows, grows with the question up to 200px,
+// scrolls beyond — a long question stays fully readable before sending.
+function autoGrow(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight, 200)+'px'; }
+(function(){
+  const inp=document.getElementById('chat-input');
+  inp.addEventListener('input', function(){ autoGrow(inp); });
+  // Desktop: Enter sends, Shift+Enter = newline. Touch: Enter makes a newline
+  // (the send button sends) — thumbs expect the keyboard's return key to wrap.
+  inp.addEventListener('keydown', function(ev){
+    if(ev.key==='Enter' && !ev.shiftKey && !isTouch){ ev.preventDefault(); askAgent(); }
+  });
+})();
 let discAccepted = false;
 try { discAccepted = localStorage.getItem('tla_help_disclaimer_v1') === 'accepted'; } catch(e) {}
 const discScroll=document.getElementById('disc-scroll'), discBtn=document.getElementById('disc-accept');
@@ -227,7 +286,7 @@ if(discScroll) discScroll.addEventListener('scroll',()=>{
 function discClose(accepted){
   document.getElementById('disc-overlay').classList.add('hidden');
   if(accepted){ discAccepted=true; try{ localStorage.setItem('tla_help_disclaimer_v1','accepted'); }catch(e){}
-    if(window.__pendingQ){ const q=window.__pendingQ; window.__pendingQ=null; document.getElementById('chat-input').value=q; askAgent(); } }
+    if(window.__pendingQ){ const p=window.__pendingQ; window.__pendingQ=null; sendQuestion(p.q, p.mode); } }
   else window.__pendingQ=null;
 }
 // Rich answer renderer (2026-08-20): the model emits markdown + full
@@ -263,25 +322,62 @@ function fmtAnswer(el, raw) {
     })(copies[i]);
   }
 
-async function askAgent(){
+// ---- Rev 1.4: draft extraction — the triage modes end with a ---DRAFT---
+// block; pull it out of the displayed answer and render a filing card with a
+// prefilled-GitHub button, triage analysis attached.
+const DRAFT_RE = /---DRAFT---\s*TITLE:\s*([^\n]+)\n+BODY:\s*\n?([\s\S]*?)\s*---END DRAFT---/;
+function extractDraft(raw){
+  const m = String(raw).match(DRAFT_RE);
+  if(!m) return { text: raw, draft: null };
+  return { text: String(raw).replace(DRAFT_RE, '').trim(), draft: { title: m[1].trim(), body: m[2].trim() } };
+}
+function renderDraftCard(draft){
+  const card=document.createElement('div');
+  card.className='draft-card';
+  const t=document.createElement('div'); t.className='dc-title';
+  t.innerHTML='<i class="fas fa-file-lines mr-1"></i>Filing draft — triage attached';
+  const ti=document.createElement('div'); ti.className='dc-body'; ti.style.maxHeight='none'; ti.style.marginBottom='0'; ti.textContent=draft.title;
+  const b=document.createElement('div'); b.className='dc-body'; b.textContent=draft.body;
+  const btn=document.createElement('button'); btn.className='btn btn-cyan'; btn.style.width='100%';
+  btn.innerHTML='<i class="fab fa-github"></i>File on GitHub with this analysis';
+  btn.onclick=function(){
+    const enc=encodeURIComponent;
+    const body=draft.body+'\n\n_Filed via the site Help page — triaged by the assistant._';
+    window.open(`${ISSUES_REPO}?title=${enc(draft.title)}&body=${enc(body)}`,'_blank','noopener');
+  };
+  card.appendChild(t); card.appendChild(ti); card.appendChild(b); card.appendChild(btn);
+  chatLog.appendChild(card); chatLog.scrollTop=chatLog.scrollHeight;
+}
+
+function askAgent(){
   const inp=document.getElementById('chat-input');
   const q=inp.value.trim(); if(!q) return;
+  inp.value=''; autoGrow(inp);
+  sendQuestion(q, null);
+}
+async function sendQuestion(q, mode){
   if(!discAccepted){
-    window.__pendingQ=q;
+    window.__pendingQ={ q: q, mode: mode||null };
     document.getElementById('disc-overlay').classList.remove('hidden');
     return;
   }
-  inp.value=''; addMsg(q,'you');
+  addMsg(q,'you');
   if(!HELP_AGENT_URL){
-    addMsg('The assistant isn\'t online yet — it\'s the next stage of this Help system. Until then: the FAQ above answers the common questions, the Transparency Hub carries the full docs, and the report form gets a real issue in front of the maintainer. Nothing you ask here is lost by using those instead.','bot');
+    addMsg('The assistant isn\'t online yet — it\'s the next stage of this Help system. Until then: the FAQ above answers the common questions, the Transparency Hub carries the full docs, and the direct GitHub links under the forms get a real issue in front of the maintainer. Nothing you ask here is lost by using those instead.','bot');
     document.getElementById('agent-status').textContent='assistant: not deployed (v0 mode — forms and FAQ are live)';
     return;
   }
   const hold=addMsg('…','bot');
+  const payload=JSON.stringify({question:q, accepted_disclaimer:true, mode: mode||undefined});
+  const show=(raw)=>{
+    const ex=extractDraft(raw);
+    fmtAnswer(hold, ex.text || raw);
+    if(ex.draft) renderDraftCard(ex.draft);
+  };
   try{
-    const r=await fetch(HELP_AGENT_URL+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q, accepted_disclaimer:true})});
+    const r=await fetch(HELP_AGENT_URL+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:payload});
     const d=await r.json();
-    if(d.answer) fmtAnswer(hold, d.answer); else hold.textContent = d.error || 'No answer returned.';
+    if(d.answer) show(d.answer); else hold.textContent = d.error || 'No answer returned.';
     // respectful-use nudge: the assistant is a shared, budget-capped resource.
     // At question 5 of the visitor's hourly 10, say so once — BEFORE the wall.
     if(d.rate_used===5 && d.rate_limit){
@@ -296,11 +392,11 @@ async function askAgent(){
     hold.innerHTML='<span class="typing"><span></span><span></span><span></span></span> Waking the assistant (free hosting sleeps when idle) — retrying automatically in ~30s…';
     await new Promise(r=>setTimeout(r,30000));
     try{
-      const r2=await fetch(HELP_AGENT_URL+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q, accepted_disclaimer:true})});
+      const r2=await fetch(HELP_AGENT_URL+'/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:payload});
       const d2=await r2.json();
-      if(d2.answer) fmtAnswer(hold, d2.answer); else hold.textContent=d2.error||'No answer returned.';
+      if(d2.answer) show(d2.answer); else hold.textContent=d2.error||'No answer returned.';
     }catch(e2){
-      hold.textContent='Still unreachable — the service may be down rather than sleeping. The report form below always works.';
+      hold.textContent='Still unreachable — the service may be down rather than sleeping. The direct GitHub links under the forms always work.';
     }
   }
 }
