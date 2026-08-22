@@ -695,7 +695,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 1.8</span>
+                    <span class="font-mono">Rev 1.9</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>
@@ -838,15 +838,25 @@ function isValidImage(img) {
     return img.startsWith('ipfs://') || img.startsWith('https://') || img.startsWith('http://');
 }
 
+// Rev 1.9b (owner 2026-08-22): DAODAO's own gateway first — when theirs works, ours works.
+const IPFS_GATEWAYS = ['https://ipfs.daodao.zone/ipfs/', 'https://dweb.link/ipfs/', 'https://ipfs.io/ipfs/', 'https://gateway.pinata.cloud/ipfs/', 'https://w3s.link/ipfs/'];
+const ipfsCidOf = (u) => { const m = String(u || '').match(/\/ipfs\/(.+)$/); return m ? m[1] : null; };
+// On <img> error: try the next gateway for the same CID; returns false when exhausted.
+window.ipfsNext = function (img) {
+    const cid = img.getAttribute('data-cid'); if (!cid) return false;
+    const i = Number(img.getAttribute('data-gw') || 0) + 1;
+    if (i >= IPFS_GATEWAYS.length) return false;
+    img.setAttribute('data-gw', String(i)); img.src = IPFS_GATEWAYS[i] + cid; return true;
+};
 // Convert IPFS URL to gateway URL
 function getImageUrl(img) {
     if (!img) return null;
     if (!isValidImage(img)) return null;
     if (img.startsWith('ipfs://')) {
-        // PERF/FIX (owner HAR 2026-08-22): ipfs.io answers 403 to this site's member
-        // images (12/12 failed). Cloudflare's gateway serves them; ipfs.io kept as the
-        // onerror fallback by callers that set one.
-        return 'https://cloudflare-ipfs.com/ipfs/' + img.slice(7);
+        // Rev 1.9 (owner HAR 2026-08-22): ipfs.io answers 403 to this site's member images
+        // and cloudflare-ipfs.com no longer resolves (gateway retired). Gateways rotate on
+        // error (IPFS_GATEWAYS + ipfsNext) before the caller's placeholder fallback runs.
+        return IPFS_GATEWAYS[0] + img.slice(7);
     }
     return img;
 }
@@ -1680,7 +1690,7 @@ function renderMembers() {
         // Profile image
         const imgUrl = getImageUrl(memberImages[m.address]);
         const profileImg = imgUrl ? 
-            `<img src="${imgUrl}" alt="" class="w-10 h-10 md:w-12 md:h-12 rounded-xl object-cover flex-shrink-0 border-2 border-zinc-700" onerror="this.outerHTML='<div class=\\'w-10 h-10 md:w-12 md:h-12 rounded-xl ${tier.bg} flex items-center justify-center text-xl md:text-2xl flex-shrink-0\\'>${tier.icon}</div>'" />` :
+            `<img src="${imgUrl}" data-cid="${ipfsCidOf(imgUrl) || ''}" alt="" class="w-10 h-10 md:w-12 md:h-12 rounded-xl object-cover flex-shrink-0 border-2 border-zinc-700" onerror="if(ipfsNext(this))return;this.outerHTML='<div class=\\'w-10 h-10 md:w-12 md:h-12 rounded-xl ${tier.bg} flex items-center justify-center text-xl md:text-2xl flex-shrink-0\\'>${tier.icon}</div>'" />` :
             `<div class="w-10 h-10 md:w-12 md:h-12 rounded-xl ${tier.bg} flex items-center justify-center text-xl md:text-2xl flex-shrink-0">${tier.icon}</div>`;
         
         return `
@@ -1871,7 +1881,7 @@ function renderPodium(view) {
         const getPodiumImage = (member, medal, size) => {
             const imgUrl = getImageUrl(memberImages[member?.address]);
             if (imgUrl) {
-                return `<img src="${imgUrl}" alt="" class="${size} mx-auto rounded-xl object-cover mb-2 shadow-lg border-2 ${medal === '👑' ? 'border-yellow-300 ring-4 ring-yellow-400/30' : medal === '🥈' ? 'border-zinc-400' : 'border-amber-600'}" onerror="this.outerHTML='<div class=\\'${size} mx-auto rounded-xl bg-gradient-to-br ${medal === '👑' ? 'from-yellow-400 to-amber-600' : medal === '🥈' ? 'from-zinc-400 to-zinc-600' : 'from-amber-600 to-amber-800'} flex items-center justify-center ${size === 'w-24 h-24' ? 'text-4xl' : 'text-3xl'} mb-2 shadow-lg border-2 ${medal === '👑' ? 'border-yellow-300 ring-4 ring-yellow-400/30' : medal === '🥈' ? 'border-zinc-400' : 'border-amber-600'}\\'>${medal}</div>'" />`;
+                return `<img src="${imgUrl}" data-cid="${ipfsCidOf(imgUrl) || ''}" alt="" class="${size} mx-auto rounded-xl object-cover mb-2 shadow-lg border-2 ${medal === '👑' ? 'border-yellow-300 ring-4 ring-yellow-400/30' : medal === '🥈' ? 'border-zinc-400' : 'border-amber-600'}" onerror="if(ipfsNext(this))return;this.outerHTML='<div class=\\'${size} mx-auto rounded-xl bg-gradient-to-br ${medal === '👑' ? 'from-yellow-400 to-amber-600' : medal === '🥈' ? 'from-zinc-400 to-zinc-600' : 'from-amber-600 to-amber-800'} flex items-center justify-center ${size === 'w-24 h-24' ? 'text-4xl' : 'text-3xl'} mb-2 shadow-lg border-2 ${medal === '👑' ? 'border-yellow-300 ring-4 ring-yellow-400/30' : medal === '🥈' ? 'border-zinc-400' : 'border-amber-600'}\\'>${medal}</div>'" />`;
             }
             return `<div class="${size} mx-auto rounded-xl bg-gradient-to-br ${medal === '👑' ? 'from-yellow-400 to-amber-600' : medal === '🥈' ? 'from-zinc-400 to-zinc-600' : 'from-amber-600 to-amber-800'} flex items-center justify-center ${size === 'w-24 h-24' ? 'text-4xl' : 'text-3xl'} mb-2 shadow-lg border-2 ${medal === '👑' ? 'border-yellow-300 ring-4 ring-yellow-400/30' : medal === '🥈' ? 'border-zinc-400' : 'border-amber-600'}">${medal}</div>`;
         };
@@ -2919,7 +2929,7 @@ function renderPartnerMembers() {
         const imgUrl = getImageUrl(memberImages[v.address]);
         const daoIcon = v.inBoth ? '<span class="text-purple-400">🤝</span>' : (v.lionProps > 0 ? '<span class="text-amber-400">🦁</span>' : '<span class="text-pink-400">🎨</span>');
         const profileImg = imgUrl ? 
-            `<img src="${imgUrl}" alt="" class="w-8 h-8 rounded-lg object-cover border border-zinc-700" onerror="this.outerHTML='${daoIcon}'" />` :
+            `<img src="${imgUrl}" data-cid="${ipfsCidOf(imgUrl) || ''}" alt="" class="w-8 h-8 rounded-lg object-cover border border-zinc-700" onerror="if(ipfsNext(this))return;this.outerHTML='${daoIcon}'" />` :
             daoIcon;
         
         const combinedPropIds = partnerSequence().slice().reverse().map(r => [r.dao, r.id]);   // oldest → newest (newest at the right)
@@ -3028,7 +3038,7 @@ function renderAllianceMembers() {
         const imgUrl = getImageUrl(memberImages[v.address]);
         const statusIcon = `<span class="${v.statusColor}">${v.statusEmoji}</span>`;
         const profileImg = imgUrl ? 
-            `<img src="${imgUrl}" alt="" class="w-8 h-8 rounded-lg object-cover border border-zinc-700" onerror="this.outerHTML='${statusIcon}'" />` :
+            `<img src="${imgUrl}" data-cid="${ipfsCidOf(imgUrl) || ''}" alt="" class="w-8 h-8 rounded-lg object-cover border border-zinc-700" onerror="if(ipfsNext(this))return;this.outerHTML='${statusIcon}'" />` :
             statusIcon;
         
         return `
@@ -3214,6 +3224,6 @@ function renderAllianceMembers() {
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '1.8', revDate: '2026-08-22', page: 'dao' });</script>
+<script>SiteFooter.mount({ rev: '1.9', revDate: '2026-08-22', page: 'dao' });</script>
 </body>
 </html>

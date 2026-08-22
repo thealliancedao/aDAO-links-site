@@ -53,14 +53,14 @@
 <div class="wrap">
   <h1>Address Catalog</h1>
   <div class="sub">Every address this platform knows, and <b>how</b> it knows it. Built by the address-catalog cron from the trust register, the older curated lists, each DAO's own registry, the structural contract config and the live gauge/pool captures — one file that the help assistant, the DAO page and the news cards all read.</div>
-  <div class="how"><b>Reading the chips.</b> <span class="v chain">chain</span><span class="v github">github</span><span class="v scv_audit">scv_audit</span><span class="v oak_audit">oak_audit</span> can be checked without trusting this site. <span class="v past_prop">past_prop</span> means an executed proposal already interacted with it — precedent, not endorsement. <span class="v owner">owner</span><span class="v project_team">project_team</span><span class="v dao_registry">dao_registry</span><span class="v docs">docs</span> are human labels. Rows marked <span class="human">human-only</span> have no chain-level evidence. Nothing here says an address is safe — the chain is the source of truth; every address links to the explorer. To add or upgrade an entry, edit <code>tla-core/docs/curated/trusted-addresses.json</code> with a method, a reference and a link.</div>
+  <div class="how"><b>Reading the chips.</b> Chips say <i>how</i> the platform knows an address — they are information, not a guarantee, an endorsement or advice. <span class="v chain">chain</span><span class="v github">github</span><span class="v scv_audit">scv_audit</span><span class="v oak_audit">oak_audit</span> can be checked without trusting this site. <span class="v past_prop">past_prop</span> means an executed proposal already interacted with it — precedent, not endorsement. <span class="v owner">owner</span><span class="v project_team">project_team</span><span class="v dao_registry">dao_registry</span><span class="v docs">docs</span> are human labels. Rows marked <span class="human">human-only</span> have no chain-level evidence. Nothing here says an address is safe — the chain is the source of truth; every address links to the explorer. To add or upgrade an entry, edit <code>tla-core/docs/curated/trusted-addresses.json</code> with a method, a reference and a link.</div>
   <div class="bar">
     <input type="search" id="q" placeholder="search address · label · protocol · description" autocomplete="off">
     <span id="types"></span>
   </div>
   <div class="bar" id="methods"></div>
   <div class="counts" id="counts">loading…</div>
-  <table><thead><tr><th>Address</th><th>Label</th><th>Type · Protocol</th><th>Verified by</th></tr></thead><tbody id="rows"><tr><td colspan="4" class="empty">Loading catalog/trusted/current.json…</td></tr></tbody></table>
+  <table><thead><tr><th>Address</th><th>Label</th><th>Type · Protocol</th><th>Known by</th></tr></thead><tbody id="rows"><tr><td colspan="4" class="empty">Loading catalog/trusted/current.json…</td></tr></tbody></table>
   <div class="need" id="need" style="display:none"><h2>Seen, not verified</h2><p>Addresses that showed up in proposals and that no registry knows. Listing here is not trust — they move into the catalog only when someone adds a verification entry.</p><div id="needrows"></div></div>
   <div class="counts" style="margin-top:24px">Page REV <span id="page-rev"></span> · product <span id="prod-meta"></span></div>
 </div>
@@ -68,7 +68,7 @@
 <script src="/lib/site-footer.js"></script>
 <script>
 (function () {
-  const REV = '1.0', REV_DATE = '2026-08-22';   // rev-footer law
+  const REV = '1.1', REV_DATE = '2026-08-22';   // rev-footer law
   document.getElementById('page-rev').textContent = REV + ' · ' + REV_DATE;
   if (window.SiteFooter) SiteFooter.mount({ rev: REV, revDate: REV_DATE, page: 'address-catalog' });
   const URL_ = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/catalog/trusted/current.json?t=' + Math.floor(Date.now() / 900000);
@@ -78,7 +78,9 @@
   const short = (a) => a.slice(0, 12) + '…' + a.slice(-6);
   const EXPL = (a) => 'https://chainsco.pe/terra2/address/' + a;
   function chip(v) {
-    const tip = [v.ref, v.by ? 'by ' + v.by : null, v.on ? 'on ' + v.on : null].filter(Boolean).join(' · ');
+    // Rev 1.1: human methods are LABELS, attributed as such — never "verified by <person>".
+    const human = ['owner', 'project_team', 'dao_registry', 'docs'].includes(v.method);
+    const tip = [v.ref, v.by ? (human ? 'labeled by ' : 'checked by ') + v.by : null, v.on ? 'on ' + v.on : null].filter(Boolean).join(' · ');
     const inner = v.method + (v.url ? ' <i class="fas fa-arrow-up-right-from-square" style="font-size:8px"></i>' : '');
     return v.url ? '<a class="v ' + v.method + '" target="_blank" rel="noopener" href="' + esc(v.url) + '" title="' + esc(tip) + '">' + inner + '</a>' : '<span class="v ' + v.method + '" title="' + esc(tip) + '">' + inner + '</span>';
   }
@@ -90,7 +92,7 @@
       '<tr><td><span class="addr" title="click to copy · full: ' + esc(r.address) + '" data-copy="' + esc(r.address) + '">' + short(r.address) + '</span><br><a href="' + EXPL(r.address) + '" target="_blank" rel="noopener" style="font:10px var(--mono)">explorer ↗</a></td>' +
       '<td><div class="lbl">' + esc(r.label || '—') + '</div>' + (r.description ? '<div class="desc">' + esc(r.description) + '</div>' : '') + '</td>' +
       '<td><span class="t">' + esc(r.type || 'untyped') + '</span><br><span style="font-size:12px;color:var(--muted)">' + esc(r.protocol || '') + '</span></td>' +
-      '<td>' + ((r.verified || []).length ? r.verified.map(chip).join('') : '<span class="human">not verified</span>') + (r.human_only ? '<div class="human" style="margin-top:2px">human-only</div>' : '') + '</td></tr>').join('')
+      '<td>' + ((r.verified || []).length ? r.verified.map(chip).join('') : '<span class="human">no source recorded</span>') + (r.human_only ? '<div class="human" style="margin-top:2px">human-only</div>' : '') + '</td></tr>').join('')
       : '<tr><td colspan="4" class="empty">Nothing matches.</td></tr>';
   }
   document.addEventListener('click', (e) => {
@@ -105,7 +107,7 @@
     state.rows = d.addresses;
     const bt = (d.meta && d.meta.counts && d.meta.counts.by_type) || {}, bm = (d.meta && d.meta.counts && d.meta.counts.by_method) || {};
     $('types').innerHTML = Object.entries(bt).sort((a, b) => b[1] - a[1]).map(([k, n]) => '<span class="chip" data-type="' + esc(k) + '">' + esc(k) + ' ' + n + '</span>').join(' ');
-    $('methods').innerHTML = '<span style="font:10px var(--mono);color:var(--faint)">verified by</span> ' + ((d.meta && d.meta.methods) || Object.keys(bm)).map(k => '<span class="chip" data-method="' + esc(k) + '">' + esc(k) + ' ' + (bm[k] || 0) + '</span>').join(' ');
+    $('methods').innerHTML = '<span style="font:10px var(--mono);color:var(--faint)">known by</span> ' + ((d.meta && d.meta.methods) || Object.keys(bm)).map(k => '<span class="chip" data-method="' + esc(k) + '">' + esc(k) + ' ' + (bm[k] || 0) + '</span>').join(' ');
     $('prod-meta').textContent = (d.meta && d.meta.version) + ' · ' + String(d.meta && d.meta.generated_at).slice(0, 16).replace('T', ' ') + 'Z · ' + (d.meta && d.meta.status) + ((d.meta && d.meta.issues && d.meta.issues.length) ? ' · ' + d.meta.issues.length + ' register issue(s)' : '');
     const need = d.needs_verification || [];
     if (need.length) { $('need').style.display = ''; $('needrows').innerHTML = need.map(n => '<div class="row"><span class="addr" data-copy="' + esc(n.address) + '">' + esc(n.address) + '</span> · seen in: ' + esc(n.seen_in) + (n.suggested_method ? '<br>how to verify: ' + esc(n.suggested_method) : '') + ' · <a href="' + EXPL(n.address) + '" target="_blank" rel="noopener">explorer ↗</a></div>').join(''); }
