@@ -15492,7 +15492,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.84', REV_DATE = '2026-08-22';   // rev-footer law: bump BOTH every change
+        const REV = '3.85', REV_DATE = '2026-08-22';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -16014,11 +16014,31 @@
                 (pr.top.length ? '<div class="mt-1 text-[10px] text-gray-400">' + pr.top.map(r => '#' + r.card.id + ' ' + r.score + '% · ' + esc(String(r.card.status).toLowerCase()) + (r.card.endIso ? ' · ' + fmtDay(r.card.endIso) : '') + (r.card.yesPct != null ? ' · Y' + r.card.yesPct.toFixed(0) + '/N' + r.card.noPct.toFixed(0) : '')).join('<br>') + '</div>' : '') +
                 '<div class="mt-1 text-[9px] text-gray-500">Shape match = same contracts, actions, addresses and denoms with amounts stripped. Precedent is not chain proof: a matching shape only says this pattern was voted on before and how that vote went.</div></div>';
         };
-        async function pastFor(daoName) {
+        // Rev 3.85 (owner HAR 2026-08-22): pastFor used to go THROUGH openHistory, which
+        // re-pointed and then closed whatever modal was open — Quick audit from the alert
+        // modal wiped the alert. Data loading is now its own function; modals never move.
+        async function loadHistory(daoName) {
             newsState.history = newsState.history || {};
-            if (!newsState.history[daoName]) { const keep = gm.mode; await openHistory(daoName); if (keep !== 'history') gmClose(); }
-            return newsState.history[daoName] || [];
+            if (newsState.history[daoName]) return newsState.history[daoName];
+            let cards = null;
+            const slug = HISTORY_SRC[daoName];
+            if (slug) {
+                const doc = await (async () => { try { const r = await fetch('https://raw.githubusercontent.com/thealliancedao/dao-originations/main/' + slug + '/governance/proposals.json?t=' + Math.floor(Date.now() / 1800000)); return r.ok ? await r.json() : null; } catch { return null; } })();
+                cards = doc && doc.proposals ? Object.values(doc.proposals).map(p => corpusCard(daoName, p)).sort((a, b) => b.id - a.id) : null;
+            }
+            if (!cards) {
+                const g = WATCHED_DAOS.find(x => x.name === daoName);
+                if (g && g.kind === 'daodao') {
+                    cards = [];
+                    const mods = await smartQuery(g.addr, { proposal_modules: {} });
+                    for (const mod of (Array.isArray(mods) ? mods : [])) { const pl = await smartQuery(mod.address || mod, { reverse_proposals: { limit: 25 } }); for (const e of ((pl && pl.proposals) || [])) { const c = propCard(g.name, g.addr, e, Date.now()); if (c) cards.push(c); } }
+                    cards.sort((a, b) => b.id - a.id);
+                } else cards = newsState.all.filter(c => c.dao === daoName).sort((a, b) => b.id - a.id);
+            }
+            newsState.history[daoName] = cards;
+            return cards;
         }
+        const pastFor = loadHistory;
         const cardKey = (c) => c.dao + '|' + c.id;
         const findCard = (key) => newsState.all.find(c => cardKey(c) === key) || (gm.cards || []).find(c => cardKey(c) === key) || ((newsState.history || {})[key.split('|')[0]] || []).find(c => cardKey(c) === key);
         // Quick audit = the DAO page's contract: messages → clipboard → Help drawer in audit mode.
@@ -16034,6 +16054,7 @@
             c.precedent = pr;
             const html = precedentHtml(pr) + '<button type="button" class="pulse-pill mt-1.5" data-act="deep" data-key="' + esc(cardKey(c)) + '"><i class="fas fa-magnifying-glass-dollar mr-1"></i>Deeper check in Help (every address vs registries)</button>';
             document.querySelectorAll('[data-prec="' + cardKey(c).replace(/"/g, '') + '"]').forEach(el => { el.innerHTML = html; });
+            if (!document.querySelector('[data-prec="' + cardKey(c).replace(/"/g, '') + '"]') && $('gov-modal').style.display !== 'none') gmRender();   // card re-rendered meanwhile
         }
         function deepAudit(c) {
             if (!c) return;
@@ -16100,26 +16121,9 @@
             c.risk = riskOf(c); return c;
         };
         async function openHistory(daoName) {
-            newsState.history = newsState.history || {};
             gmOpen('history', [], daoName, daoName); $('gm-body').innerHTML = '<span class="text-gray-500 text-xs">Loading ' + esc(daoName) + ' history…</span>';
-            let cards = newsState.history[daoName];
-            if (!cards) {
-                const slug = HISTORY_SRC[daoName];
-                if (slug) {
-                    const doc = await (async () => { try { const r = await fetch('https://raw.githubusercontent.com/thealliancedao/dao-originations/main/' + slug + '/governance/proposals.json?t=' + Math.floor(Date.now() / 1800000)); return r.ok ? await r.json() : null; } catch { return null; } })();
-                    cards = doc && doc.proposals ? Object.values(doc.proposals).map(p => corpusCard(daoName, p)).sort((a, b) => b.id - a.id) : null;
-                }
-                if (!cards) {
-                    const g = WATCHED_DAOS.find(x => x.name === daoName);
-                    if (g && g.kind === 'daodao') {
-                        cards = [];
-                        const mods = await smartQuery(g.addr, { proposal_modules: {} });
-                        for (const mod of (Array.isArray(mods) ? mods : [])) { const pl = await smartQuery(mod.address || mod, { reverse_proposals: { limit: 25 } }); for (const e of ((pl && pl.proposals) || [])) { const c = propCard(g.name, g.addr, e, Date.now()); if (c) cards.push(c); } }
-                        cards.sort((a, b) => b.id - a.id);
-                    } else cards = newsState.all.filter(c => c.dao === daoName).sort((a, b) => b.id - a.id);
-                }
-                newsState.history[daoName] = cards;
-            }
+            const cards = await loadHistory(daoName);
+            if (gm.mode !== 'history' || gm.dao !== daoName) return;   // user moved on while loading — don't hijack
             gm.cards = cards; gm.idx = 0; gmRender();
         }
         function setTab(which) {
@@ -16469,7 +16473,7 @@
         window.__pulseTest = { tvlOf, votionOf, vpLockedOf, allTimeBribes, activePoolsOf,
             buildDenomPriceMap, bribesUsdInWindow, cumulativeLunaByMonth, monthsBetween,
             fuelImpliedOf, propCard, astroCard, defaultTab, riskOf, scanMovesFunds, scanLowEffort, statusBadge, epochBribesOf,
-            WATCHED_DAOS, X_ACCOUNTS, vpPotentialOf, solidPegOf, volTla, volPools, epochNow, gaugeSetOf, stakedOf, capaCard, lunaCard, cardHtml, msgShape, precedentOf, shapeCompare, deepDecode, openHistory, liveCards, pastCards, corpusCard, DAO_ORDER, alertSig, REV, REV_DATE };
+            WATCHED_DAOS, X_ACCOUNTS, vpPotentialOf, solidPegOf, volTla, volPools, epochNow, gaugeSetOf, stakedOf, capaCard, lunaCard, cardHtml, msgShape, precedentOf, shapeCompare, deepDecode, openHistory, loadHistory, quickAudit, gm, liveCards, pastCards, corpusCard, DAO_ORDER, alertSig, REV, REV_DATE };
     })();
     </script>
     <script>
