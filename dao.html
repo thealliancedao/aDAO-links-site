@@ -780,7 +780,7 @@ function copyPropMsgs(key, openHelp) {
     const done = () => {
         if (openHelp && window.SiteFooter && SiteFooter.openHelpDrawer) {
             SiteFooter.openHelpDrawer();
-            setTimeout(() => { const i = document.getElementById('hd-input'); if (i) { i.value = 'Does this proposal do what it says? Check every address against the registries:\n\n' + text; i.dispatchEvent(new Event('input')); i.focus(); } }, 150);
+            setTimeout(() => { const i = document.getElementById('hd-input'); if (i) { i.value = ''; i.style.height = ''; i.value = 'Does this proposal do what it says? Check every address against the registries:\n\n' + text; i.dispatchEvent(new Event('input')); i.scrollTop = 0; i.focus(); } }, 150);
         } else if (window.AddressPicker && AddressPicker.copy) { /* explorer-style verify card */ AddressPicker.copy(text.length > 160 ? text.slice(0, 157) + '…' : text); }
     };
     try { navigator.clipboard.writeText(text).then(done, done); } catch (e) { done(); }
@@ -1943,8 +1943,9 @@ function updateStatsCards(view) {
             // Calculate streak: must have voted in recent props from BOTH DAOs
             const lionStreak = calculatePartnerStreak(v, 'lion');
             const pixelStreak = calculatePartnerStreak(v, 'pixel');
-            // Lions is ONE bucket (owner): the streak is the best run in either DAO.
-            v.combinedStreak = Math.max(lionStreak, pixelStreak);
+            // Lions is ONE bucket (owner): the CURRENT streak counts back from the newest closed
+            // proposal across Lion DAO + Pixel Lions together (live ones skipped). Same order as the dots.
+            v.combinedStreak = partnerCurrentStreak(v);
         });
         
         bestStreak = Math.max(...partnerVoters.map(v => v.combinedStreak || 0), 0);
@@ -1984,7 +1985,7 @@ function updateStatsCards(view) {
     // Only show name if streak > 0
     if (bestStreak > 0 && bestStreakMember) {
         const displayName = isValidName(bestStreakMember.name) ? bestStreakMember.name : ((window.__catalogHandles || {})[bestStreakMember.address] || shortAddr(bestStreakMember.address));
-        document.getElementById('streak-leader-name').textContent = `🔥 ${displayName}`;
+        document.getElementById('streak-leader-name').textContent = `🔥 ${displayName} · current streak`;
     } else {
         document.getElementById('streak-leader-name').textContent = 'Best Streak';
     }
@@ -1993,6 +1994,22 @@ function updateStatsCards(view) {
     document.getElementById('total-members').textContent = `${namedMembers} / ${totalMembers}`;
 }
 
+function partnerSequence() {
+    // combined Lion+Pixel proposals, newest first — chain startHeight when captured, else id order per DAO
+    const idn = (x) => parseInt(String(x).replace(/\D/g, '') || 0);
+    const rows = Object.values(lionProposals).map(p => ({ dao: 'lion', id: p.id, h: p.startHeight || 0, live: !!p.live || String(p.status || '').toLowerCase() === 'open' }))
+        .concat(Object.values(pixelProposals).map(p => ({ dao: 'pixel', id: p.id, h: p.startHeight || 0, live: !!p.live || String(p.status || '').toLowerCase() === 'open' })));
+    return rows.sort((a, b) => (b.h - a.h) || (idn(b.id) - idn(a.id)));
+}
+function partnerCurrentStreak(v) {
+    let streak = 0;
+    for (const r of partnerSequence()) {
+        if (r.live) continue;                                   // still open — not a miss
+        const voted = r.dao === 'lion' ? v.lionVoteByProp?.[r.id] : v.pixelVoteByProp?.[r.id];
+        if (voted) streak++; else break;
+    }
+    return streak;
+}
 function calculatePartnerStreak(voter, dao) {
     // Get sorted prop IDs for the specific DAO
     const propIds = dao === 'lion' ? 
@@ -2899,13 +2916,13 @@ function renderPartnerMembers() {
             `<img src="${imgUrl}" alt="" class="w-8 h-8 rounded-lg object-cover border border-zinc-700" onerror="this.outerHTML='${daoIcon}'" />` :
             daoIcon;
         
-        const combinedPropIds = (v.lionPropIds || []).map(id => ['lion', id]).concat((v.pixelPropIds || []).map(id => ['pixel', id]));
+        const combinedPropIds = partnerSequence().slice().reverse().map(r => [r.dao, r.id]);   // oldest → newest (newest at the right)
         const allDots = combinedPropIds.map(([d, id]) => voteDot(d === 'lion' ? v.lionVoteByProp?.[id] : v.pixelVoteByProp?.[id], (d === 'lion' ? '🦁 ' : '🎨 ') + id, 'sm')).join('');
         const last20 = combinedPropIds.slice(-20).map(([d, id]) => voteDot(d === 'lion' ? v.lionVoteByProp?.[id] : v.pixelVoteByProp?.[id], (d === 'lion' ? '🦁 ' : '🎨 ') + id, 'sm')).join('');
         const yesN = Object.values(v.lionVoteByProp || {}).concat(Object.values(v.pixelVoteByProp || {})).filter(x => x === 'yes').length;
         const noN  = Object.values(v.lionVoteByProp || {}).concat(Object.values(v.pixelVoteByProp || {})).filter(x => x === 'no').length;
         const absN = Object.values(v.lionVoteByProp || {}).concat(Object.values(v.pixelVoteByProp || {})).filter(x => x === 'abstain').length;
-        const streak = Math.max(calculatePartnerStreak(v, 'lion') || 0, calculatePartnerStreak(v, 'pixel') || 0);
+        const streak = partnerCurrentStreak(v);
         const totalProps = combinedPropIds.length, votedProps = (v.lionProps || 0) + (v.pixelProps || 0);
         const rate = v.combinedScore;
         const rateColor = rate >= 90 ? 'text-yellow-400' : rate >= 75 ? 'text-cyan-400' : rate >= 50 ? 'text-violet-400' : 'text-zinc-400';
