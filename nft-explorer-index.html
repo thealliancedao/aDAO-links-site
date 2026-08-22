@@ -241,36 +241,13 @@
          SHARED HEADER (logo + 5-tab nav + Terra logo)
          Keep in sync with index.html
          ============================================================ -->
-    <header class="py-4">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap md:flex-nowrap justify-between items-center">
-            <div class="flex-shrink-0 w-1/2 md:w-32 order-1">
-                <a href="index.html"><img src="/assets/images/Alliance%20DAO%20Logo.png" alt="Alliance DAO Logo" class="h-12 md:h-16 w-auto" onerror="this.src='https://placehold.co/128x64/0D0D0D/EAEAEA?text=Logo'; this.onerror=null;"></a>
-            </div>
-            <nav class="hidden md:flex flex-1 w-full md:w-auto justify-center items-center gap-2 sm:gap-3 order-3 md:order-2 mt-4 md:mt-0">
-                <a href="index.html" data-page="index" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
-                    Home
-                </a>
-                <a href="nft-explorer-index.html" data-page="nft-explorer-index" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
-                    <span class="md:hidden">Explorer</span>
-                    <span class="hidden md:inline">NFT Explorer</span>
-                </a>
-                <a href="adao-lore.html" data-page="adao-lore" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
-                    <span class="md:hidden">Lore</span>
-                    <span class="hidden md:inline">aDAO Lore</span>
-                </a>
-                <a href="tla-stats.html" data-page="tla-stats" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
-                    <span class="md:hidden">TLA</span>
-                    <span class="hidden md:inline">TLA Stats</span>
-                </a>
-                <a href="dao.html" data-page="dao" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
-                    DAO
-                </a>
-            </nav>
-            <div class="w-1/2 md:w-32 flex-shrink-0 flex justify-end order-2 md:order-3">
-                <img src="/assets/planets/Terra.PNG" alt="Terra Logo" class="h-12 md:h-16 w-auto" onerror="this.src='https://placehold.co/128x64/0D0D0D/EAEAEA?text=Logo'; this.onerror=null;">
-            </div>
-        </div>
-    </header>
+    <!-- Site header + global address picker (SPEC-unified-header step 4, 2026-08-21).
+         The picker drives the Collection address filter AND the Wallet tab; the page's
+         own Search-by-Address / Last-4 sections are hidden (inputs kept as receivers). -->
+    <div id="site-header"></div>
+    <script src="/lib/site-header.js"></script>
+    <script src="/lib/address-picker.js"></script>
+    <script>SiteHeader.mount({ page: 'nft-explorer-index' });</script>
 
 
     <!-- Page-specific view toggle (logos handled by shared header above; Map view removed in Rev 4.13) -->
@@ -288,8 +265,8 @@
         <div id="collection-view">
             <div id="controls" class="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
                 
-                <!-- ADDRESS SEARCH SECTION - DESKTOP -->
-                <div class="hidden md:block mb-4">
+                <!-- ADDRESS SEARCH SECTION - DESKTOP — retired 2026-08-21 (header picker); inputs kept hidden as receivers -->
+                <div class="hidden" aria-hidden="true">
                     <div class="grid grid-cols-2 gap-4 mb-2">
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-1">Search by Address</label>
@@ -329,8 +306,8 @@
                     </div>
                 </div>
                 
-                <!-- ADDRESS SEARCH SECTION - MOBILE -->
-                <div class="md:hidden mb-4">
+                <!-- ADDRESS SEARCH SECTION - MOBILE — retired 2026-08-21 (header picker) -->
+                <div class="hidden" aria-hidden="true">
                     <label class="block text-sm font-medium text-gray-300 mb-1">Search by Address</label>
                     <div class="flex gap-1 mb-2">
                         <button id="mobile-as-read-btn" class="control-btn h-10 px-2 text-[10px] leading-tight bg-cyan-600 border-cyan-500 whitespace-nowrap">Full</button>
@@ -443,7 +420,7 @@
         <div id="analytics-view" class="hidden"></div>
 
         <div id="wallet-view" class="hidden">
-            <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700 mb-8">
+            <div class="p-4 bg-gray-800/50 rounded-lg border border-gray-700 mb-8 hidden" aria-hidden="true"><!-- retired 2026-08-21: header picker drives the Wallet tab -->
                 <!-- WALLET ADDRESS SEARCH - DESKTOP -->
                 <div class="hidden md:block">
                     <div class="grid grid-cols-2 gap-4 mb-2">
@@ -749,6 +726,26 @@
     <canvas id="share-canvas" class="hidden"></canvas>
 
     <script src="nft-explorer-app.js?v=6.0" defer></script>
+    <script>
+    // Header picker → explorer (step 4). Runs after the deferred app script so its
+    // globals (handleFilterChange, searchWallet, switchView) exist.
+    window.addEventListener('DOMContentLoaded', function () {
+        if (!window.AddressPicker) return;
+        var apply = function (w) {
+            var a = document.getElementById('search-address'), m = document.getElementById('mobile-search-address'), ws = document.getElementById('wallet-search-address');
+            if (a) a.value = w || ''; if (m) m.value = w || ''; if (ws) ws.value = w || '';
+            try { handleFilterChange(); } catch (e) {}
+            var walletActive = !document.getElementById('wallet-view')?.classList.contains('hidden');
+            if (w && walletActive) { try { searchWallet(); } catch (e) {} }
+        };
+        AddressPicker.mount({ onSelect: apply, onClear: function () { apply(''); } });
+        // when the user opens the Wallet tab with a selection, run it there too
+        document.addEventListener('click', function (ev) {
+            var t = ev.target.closest('#wallet-view-btn'); if (!t) return;
+            var sel = AddressPicker.get(); if (sel) setTimeout(function () { try { searchWallet(); } catch (e) {} }, 50);
+        });
+    });
+    </script>
 
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
     <nav class="mobile-bottom-nav" aria-label="Main navigation">
@@ -876,6 +873,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '4.14', revDate: '2026-08-20', page: 'nft-explorer' });</script>
+<script>SiteFooter.mount({ rev: '4.15', revDate: '2026-08-21', page: 'nft-explorer' });</script>
 </body>
 </html>

@@ -839,41 +839,13 @@
 <body>
     <div class="bg-mesh"></div>
     
-    <!-- Header -->
-    <!-- ============================================================
-         SHARED HEADER (logo + 5-tab nav + Terra logo)
-         Keep in sync with index.html
-         ============================================================ -->
-    <header class="py-4">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap md:flex-nowrap justify-between items-center">
-            <div class="flex-shrink-0 w-1/2 md:w-32 order-1">
-                <a href="index.html"><img src="/assets/images/Alliance%20DAO%20Logo.png" alt="Alliance DAO Logo" class="h-12 md:h-16 w-auto" onerror="this.src='https://placehold.co/128x64/0D0D0D/EAEAEA?text=Logo'; this.onerror=null;"></a>
-            </div>
-            <nav class="hidden md:flex flex-1 w-full md:w-auto justify-center items-center gap-2 sm:gap-3 order-3 md:order-2 mt-4 md:mt-0">
-                <a href="index.html" data-page="index" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
-                    Home
-                </a>
-                <a href="nft-explorer-index.html" data-page="nft-explorer-index" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
-                    <span class="md:hidden">Explorer</span>
-                    <span class="hidden md:inline">NFT Explorer</span>
-                </a>
-                <a href="adao-lore.html" data-page="adao-lore" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
-                    <span class="md:hidden">Lore</span>
-                    <span class="hidden md:inline">aDAO Lore</span>
-                </a>
-                <a href="tla-stats.html" data-page="tla-stats" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
-                    <span class="md:hidden">TLA</span>
-                    <span class="hidden md:inline">TLA Stats</span>
-                </a>
-                <a href="dao.html" data-page="dao" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">
-                    DAO
-                </a>
-            </nav>
-            <div class="w-1/2 md:w-32 flex-shrink-0 flex justify-end order-2 md:order-3">
-                <img src="/assets/planets/Terra.PNG" alt="Terra Logo" class="h-12 md:h-16 w-auto" onerror="this.src='https://placehold.co/128x64/0D0D0D/EAEAEA?text=Logo'; this.onerror=null;">
-            </div>
-        </div>
-    </header>
+    <!-- Site header + global address picker — lib/site-header.js + lib/address-picker.js
+         (SPEC-unified-header step 3, 2026-08-21). The picker drives #member-selector below
+         (kept, hidden) so the page's member overlay code is untouched. -->
+    <div id="site-header"></div>
+    <script src="/lib/site-header.js"></script>
+    <script src="/lib/address-picker.js"></script>
+    <script>SiteHeader.mount({ page: 'tla-stats' });</script>
 
     <header class="sticky top-0 z-50 backdrop-blur-xl bg-[#0a0b0f]/80 border-b border-white/5">
         <div class="max-w-7xl mx-auto px-4 py-4">
@@ -894,7 +866,7 @@
                      Inline styles force light text inside the native dropdown — system dark
                      mode otherwise renders option text as dark gray on white (invisible). -->
                 <div id="member-selector-wrap" class="flex flex-col items-start gap-1">
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 hidden" aria-hidden="true"><!-- retired 2026-08-21: header picker is the input; select kept as the receiver -->
                         <label for="member-selector" class="text-xs text-amber-400/80 font-semibold hidden md:flex items-center gap-1"><i class="fas fa-user-magnifying-glass"></i> View member:</label>
                         <div class="relative">
                             <select id="member-selector"
@@ -2331,7 +2303,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span id="footer-rev" class="font-mono">Rev T3.11</span>
+                    <span id="footer-rev" class="font-mono">Rev T3.12</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                     <span id="footer-rev-date" class="opacity-50 ml-1"></span>
@@ -5317,6 +5289,13 @@
     // retries every 2s until the snapshot's pools exist and it has painted,
     // then stops. Refreshes ride renderSlippageSim as before.
     document.addEventListener('DOMContentLoaded', () => {
+        if (window.AddressPicker && !window.__apMounted) {
+            window.__apMounted = true;
+            AddressPicker.mount({
+                onSelect: (w) => { const sel = document.getElementById('member-selector'); if (sel && !sel.disabled) { if ([...sel.options].some(o => o.value === w)) { sel.value = w; sel.dispatchEvent(new Event('change')); } else { store.selectedMemberWallet = w; onMemberSelectorChange({ target: { value: w } }); } } else { store.selectedMemberWallet = w; } },
+                onClear: () => { const sel = document.getElementById('member-selector'); store.selectedMemberWallet = null; if (sel) { sel.value = ''; if (!sel.disabled) sel.dispatchEvent(new Event('change')); } },
+            });
+        }
         let tries = 0;
         const t = setInterval(() => {
             tries++;
@@ -6421,6 +6400,7 @@
 
     // Board rows drive the same member lens as the header dropdown.
     function selectMemberFromBoard(wallet) {
+        try { if (window.AddressPicker) AddressPicker.sync(wallet); } catch (e) {}
         const sel = document.getElementById('member-selector');
         if (sel && [...sel.options].some(o => o.value === wallet)) {
             sel.value = wallet;
@@ -7104,7 +7084,8 @@
         }
         sel.disabled = false;
         // Restore prior selection if user picked one before data finished loading
-        if (store.selectedMemberWallet) sel.value = store.selectedMemberWallet;
+        // (incl. the header picker's remembered/URL wallet) — and render it.
+        if (store.selectedMemberWallet) { sel.value = store.selectedMemberWallet; setTimeout(() => onMemberSelectorChange({ target: { value: store.selectedMemberWallet } }), 0); }
         // Wire up change handler — only attach once
         if (!sel.dataset.wired) {
             sel.addEventListener('change', onMemberSelectorChange);
