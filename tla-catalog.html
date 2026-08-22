@@ -278,26 +278,11 @@
 <body class="min-h-screen">
 
     <!-- Site header -->
-    <header class="py-4">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap md:flex-nowrap justify-between items-center">
-            <div class="flex-shrink-0 w-1/2 md:w-32 order-1 flex items-center gap-3">
-                <a href="tools.html" class="text-gray-500 hover:text-cyan-400 transition-colors mr-1" title="Back to Tools">
-                    <i class="fas fa-arrow-left text-lg"></i>
-                </a>
-                <a href="index.html" title="Alliance DAO home"><img src="/assets/images/Alliance%20DAO%20Logo.png" alt="Alliance DAO Logo" class="h-12 md:h-16 w-auto" onerror="this.src='https://placehold.co/128x64/0D0D0D/EAEAEA?text=Logo'; this.onerror=null;"></a>
-            </div>
-            <nav class="hidden md:flex flex-1 w-full md:w-auto justify-center items-center gap-2 sm:gap-3 order-3 md:order-2 mt-4 md:mt-0">
-                <a href="index.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">Home</a>
-                <a href="nft-explorer-index.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial"><span class="md:hidden">Explorer</span><span class="hidden md:inline">NFT Explorer</span></a>
-                <a href="adao-lore.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial"><span class="md:hidden">Lore</span><span class="hidden md:inline">aDAO Lore</span></a>
-                <a href="tla-stats.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial"><span class="md:hidden">TLA</span><span class="hidden md:inline">TLA Stats</span></a>
-                <a href="dao.html" class="top-nav-tab bg-gray-800/50 hover:bg-gray-700/80 border border-gray-700 text-white font-bold py-2 px-3 text-xs sm:text-sm md:py-3 md:px-4 md:text-base rounded-lg shadow-lg transition-all transform hover:scale-105 whitespace-nowrap text-center flex-1 md:flex-initial">DAO</a>
-            </nav>
-            <div class="w-1/2 md:w-32 flex-shrink-0 flex justify-end order-2 md:order-3">
-                <img src="/assets/planets/Terra.PNG" alt="Terra Logo" class="h-12 md:h-16 w-auto" onerror="this.src='https://placehold.co/128x64/0D0D0D/EAEAEA?text=Logo'; this.onerror=null;">
-            </div>
-        </div>
-    </header>
+    <!-- Site header + address picker + ticker — lib/site-header.js (uniform chrome, 2026-08-21) -->
+    <div id="site-header"></div>
+    <script src="/lib/site-header.js"></script>
+    <script src="/lib/address-picker.js"></script>
+    <script>SiteHeader.mount({ page: 'tla-catalog' }); if (window.AddressPicker) AddressPicker.mount({});</script>
 
     <!-- Tools sub-nav -->
     <div class="bg-gray-900/40 border-b border-gray-800">
@@ -413,24 +398,11 @@
     </div>
 
     <!-- Footer -->
-    <footer class="py-6 mt-12 border-t border-gray-800">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-400">
-            <div class="flex justify-center items-center space-x-6 mb-4">
-                <a href="https://t.me/The_AllianceDAO" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors"><i class="fab fa-telegram-plane text-3xl"></i></a>
-                <a href="https://x.com/The_AllianceDAO" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors"><i class="fab fa-twitter text-3xl"></i></a>
-            </div>
-            <div class="flex flex-wrap justify-center items-center space-x-6 text-sm">
-                <a href="tutorials.html" class="hover:text-white hover:underline transition-colors">Tutorials</a>
-                <a href="links.html" class="hover:text-white hover:underline transition-colors">Official Links</a>
-                <a href="tools.html" class="hover:text-white hover:underline transition-colors">All Tools</a>
-            </div>
-            <div class="mt-4 text-xs text-gray-500">
-                <span class="font-mono">TLA Catalog v1.1</span>
-                <span class="opacity-60 mx-1">·</span>
-                <span>Powered by tla-chain-registry</span>
-            </div>
-        </div>
-    </footer>
+    <!-- Site footer — one implementation in lib/site-footer.js (uniform chrome, 2026-08-21) -->
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>SiteFooter.mount({ rev: '1.0', revDate: '2026-08-21', page: 'tla-catalog' });</script>
 
     <nav class="mobile-bottom-nav" aria-label="Main navigation">
         <a href="index.html" class="mobile-bottom-nav-tab"><i class="fas fa-house"></i><span>Home</span></a>

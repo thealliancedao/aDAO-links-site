@@ -860,7 +860,7 @@
             { id: 'tla',      label: 'TLA Stats',        icon: 'fa-coins' },
             { id: 'docs',     label: 'Docs',             icon: 'fa-book' },
         ], { onSelect: function (id) { var b = document.querySelector('#tla-legacy-tabs .tab-btn[data-tab="' + id + '"]'); if (b) b.click(); },
-             right: '<span id="sh-epoch-slot"></span>' });
+             right: '<span id="sh-epoch-slot"></span>', attach: '#tla-top-tile' });
         var syncActive = function () {
             var cur = (location.hash.slice(1) || 'overview');
             nav.querySelectorAll('.sh-subtab[data-tab]').forEach(function (x) { x.classList.toggle('active', x.getAttribute('data-tab') === cur); });
@@ -942,7 +942,7 @@
     
     <!-- Stats Bar -->
     <section class="max-w-7xl mx-auto px-4 py-6">
-        <div class="glass-card grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 divide-x divide-white/5">
+        <div id="tla-top-tile" class="glass-card"><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 divide-x divide-white/5">
             <div class="stat-box drillable" onclick="showHistoryModal('active-pools')" title="Click for epoch history">
                 <div class="stat-box-content">
                     <div class="stat-label">Active Pools</div>
@@ -1044,7 +1044,7 @@
                     <div class="ms-sub" id="stat-member-apr-amp-sub"></div>
                 </div>
             </div>
-        </div>
+        </div></div>
     </section>
     
     <!-- Tabs — rendered by SiteHeader.subnav above the info tiles (2026-08-21);
@@ -2337,7 +2337,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span id="footer-rev" class="font-mono">Rev T3.15</span>
+                    <span id="footer-rev" class="font-mono">Rev T3.16</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                     <span id="footer-rev-date" class="opacity-50 ml-1"></span>

@@ -38,8 +38,8 @@
         
         body { background: var(--bg-deep); min-height: 100vh; color: var(--text-primary); }
         
-        @media (min-width: 1400px) { html { font-size: 19px; } }
-        @media (min-width: 1800px) { html { font-size: 21px; } }
+        /* uniform chrome 2026-08-21: desktop base-font bump removed — every core page renders at 16px */
+        /* uniform chrome 2026-08-21: desktop base-font bump removed — every core page renders at 16px */
         
         .max-w-7xl { max-width: 1400px !important; }
         @media (min-width: 1600px) { .max-w-7xl { max-width: 1550px !important; } }
@@ -291,12 +291,12 @@
         { id: 'members',   label: 'Members',   icon: 'fa-users',       active: true },
         { id: 'proposals', label: 'Proposals', icon: 'fa-scroll' },
     ], { onSelect: function (id) { try { switchTab(id, document.querySelector('.header-tab[data-tab="' + id + '"]')); } catch (e) {} },
-         right: '<span id="load-status"><i class="fas fa-circle-notch fa-spin mr-1"></i> Loading...</span><a href="https://daodao.zone/dao/terra1sffd4efk2jpdt894r04qwmtjqrrjfc52tmj6vkzjxqhd8qqu2drs3m5vzm" target="_blank" rel="noopener" style="color:#e2e8f0;border:1px solid rgba(255,255,255,.12);padding:.3rem .7rem;border-radius:.5rem;text-decoration:none;font-family:Outfit,sans-serif"><i class="fas fa-external-link-alt mr-1"></i>Open DAODAO</a>' });
+         right: '<span id="load-status"><i class="fas fa-circle-notch fa-spin mr-1"></i> Loading...</span><a href="https://daodao.zone/dao/terra1sffd4efk2jpdt894r04qwmtjqrrjfc52tmj6vkzjxqhd8qqu2drs3m5vzm" target="_blank" rel="noopener" style="color:#e2e8f0;border:1px solid rgba(255,255,255,.12);padding:.3rem .7rem;border-radius:.5rem;text-decoration:none;font-family:Outfit,sans-serif"><i class="fas fa-external-link-alt mr-1"></i>Open DAODAO</a>', attach: '#adao-stats-bar', wrap: true });
     </script>
     
     <main class="max-w-7xl mx-auto px-4 py-6">
         <!-- Stats Grid - aDAO specific stats -->
-        <div id="adao-stats-bar" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        <div id="adao-stats-bar" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <div class="card p-4">
                 <div class="text-xs text-zinc-500 uppercase tracking-wide mb-1">Proposals</div>
                 <div class="text-2xl font-bold" id="stat-total">-</div>

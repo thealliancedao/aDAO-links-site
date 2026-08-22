@@ -236,7 +236,7 @@
         .listing-price-pill .lp-none { color: #9ca3af; font-weight: 400; }
 </style>
 </head>
-<body class="bg-gray-900 p-4 sm:p-8">
+<body class="bg-gray-900"><!-- uniform chrome 2026-08-21: body inset (p-4 sm:p-8) removed so the header is flush like every other page -->
     <!-- ============================================================
          SHARED HEADER (logo + 5-tab nav + Terra logo)
          Keep in sync with index.html
@@ -254,7 +254,7 @@
             { id: 'collection', label: 'Collection', icon: 'fa-images',    active: true },
             { id: 'analytics',  label: 'Analytics',  icon: 'fa-chart-line' },
             { id: 'wallet',     label: 'Wallet',     icon: 'fa-wallet' },
-        ], { onSelect: function (id) { var b = document.getElementById(id + '-view-btn'); if (b) b.click(); } });
+        ], { onSelect: function (id) { var b = document.getElementById(id + '-view-btn'); if (b) b.click(); }, attach: '#controls' });
         var sync = function () { var cur = (new URLSearchParams(location.search).get('view') || 'collection'); nav.querySelectorAll('.sh-subtab[data-tab]').forEach(function (x) { x.classList.toggle('active', x.getAttribute('data-tab') === cur); }); };
         window.addEventListener('popstate', sync); document.addEventListener('DOMContentLoaded', sync);
         document.addEventListener('click', function (ev) { if (ev.target.closest('.view-tab')) setTimeout(sync, 0); });
@@ -272,7 +272,7 @@
         </nav>
     </div>
 
-    <main class="max-w-screen-2xl mx-auto">
+    <main class="max-w-7xl mx-auto px-4">
         
         <div id="collection-view">
             <div id="controls" class="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
@@ -885,6 +885,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '4.16', revDate: '2026-08-21', page: 'nft-explorer' });</script>
+<script>SiteFooter.mount({ rev: '4.18', revDate: '2026-08-21', page: 'nft-explorer' });</script>
 </body>
 </html>

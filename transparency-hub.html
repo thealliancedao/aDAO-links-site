@@ -115,13 +115,14 @@
     { id: 'docs',      label: 'Docs',          icon: 'fa-book' },
     { id: 'health',    label: 'System Health', icon: 'fa-heart-pulse' },
     { id: 'endpoints', label: 'Endpoints',     icon: 'fa-plug' },
-  ], { onSelect: function (id) { var t = document.querySelector('#tabs .tab[data-v="' + id + '"]'); if (t) t.click(); } });
+  ], { onSelect: function (id) { var t = document.querySelector('#tabs .tab[data-v="' + id + '"]'); if (t) t.click(); }, attach: '#hub-top-tile' });
   // mirror the page's badges (counts) into the sub-nav labels
   var mirror = function () { ['health', 'endpoints'].forEach(function (id) { var src = document.getElementById(id === 'health' ? 'healthBadge' : 'epBadge'), dst = nav.querySelector('.sh-subtab[data-tab="' + id + '"]'); if (!src || !dst) return; var b = dst.querySelector('.sh-badge'); if (!b) { b = document.createElement('span'); b.className = 'sh-badge'; dst.appendChild(b); } b.textContent = src.textContent; }); };
   document.addEventListener('DOMContentLoaded', function () { mirror(); setInterval(mirror, 2000); });
 })();
 </script>
 <div class="wrap">
+  <div id="hub-top-tile" class="sh-tilewrap" style="margin-bottom:1em"></div>
   <header class="top">
     <div class="eyebrow">TLA Stats</div>
     <h1>Transparency Hub</h1>

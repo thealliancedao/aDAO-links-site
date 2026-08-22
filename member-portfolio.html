@@ -47,7 +47,7 @@
     { id: 'pools',     label: 'LP Stats',         icon: 'fa-water',          href: 'tla-stats.html#pools' },
     { id: 'tla',       label: 'TLA Stats',        icon: 'fa-coins',          href: 'tla-stats.html#tla' },
     { id: 'docs',      label: 'Docs',             icon: 'fa-book',           href: 'tla-stats.html#docs' },
-  ], { right: '<span id="sh-epoch-slot"></span>' });
+  ], { right: '<span id="sh-epoch-slot"></span>', attach: '#mp-top-tile' });
   document.addEventListener('DOMContentLoaded', function () { var e = document.getElementById('nav-epoch'), s = document.getElementById('sh-epoch-slot'); if (e && s) { e.classList.remove('hidden'); s.appendChild(e); } });
 })();
 </script>
@@ -79,7 +79,8 @@
     </div>
 </div>
 
-<main class="max-w-6xl mx-auto px-4 py-6">
+<main class="max-w-7xl mx-auto px-4 py-6">
+    <div id="mp-top-tile" class="glass-card p-3 mb-6"></div>
 
     <!-- ============ ADDRESS BAR — retired 2026-08-21: the header picker is the input.
          Elements kept (hidden) because the page script still references them. ============ -->
@@ -2174,6 +2175,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '2.6', revDate: '2026-08-21', page: 'member-portfolio' });</script>
+<script>SiteFooter.mount({ rev: '2.8', revDate: '2026-08-21', page: 'member-portfolio' });</script>
 </body>
 </html>

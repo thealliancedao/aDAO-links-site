@@ -1164,7 +1164,7 @@
     <script>SiteHeader.mount({ page: 'index', mobileTabs: false }); if (window.AddressPicker) AddressPicker.mount({});
     // Uniform chrome: the refresh strip rides in the shared sub-nav's right slot (no tabs on Home).
     (function () {
-      var nav = SiteHeader.subnav([], { right: '<span id="sh-refresh-slot"></span>' });
+      var nav = SiteHeader.subnav([], { right: '<span id="sh-refresh-slot"></span>', attach: '#pulse-card' });
       document.addEventListener('DOMContentLoaded', function () {
         var slot = document.getElementById('sh-refresh-slot'), strip = document.getElementById('global-refresh-btn') && document.getElementById('global-refresh-btn').parentNode;
         if (slot && strip) { var outer = strip.parentNode; slot.appendChild(strip); if (outer && outer.classList.contains('border-b')) outer.classList.add('hidden'); }
