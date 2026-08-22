@@ -15502,7 +15502,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.86', REV_DATE = '2026-08-22';
+        const REV = '3.87', REV_DATE = '2026-08-22';
         // Rev 3.86 PERF: one in-flight/resolved promise per URL for the big NFT products
         // (nfts.json is 6.7 MB and three loaders fetched it independently = 20 MB per load).
         window.__jsonOnce = window.__jsonOnce || ((url) => { const m = (window.__jsonOnceMap = window.__jsonOnceMap || new Map()); if (!m.has(url)) m.set(url, fetch(url).then(r => r.ok ? r.json() : null).catch(() => null)); return m.get(url); });   // rev-footer law: bump BOTH every change
@@ -15950,7 +15950,7 @@
                 '<a class="text-[11px] text-cyan-400 hover:underline" target="_blank" rel="noopener" href="' + esc(c.link) + '"><i class="fas fa-arrow-up-right-from-square mr-1"></i>Open governance' + (c.live ? ' &amp; vote' : '') + '</a>' +
                 (opts.audit !== false ? '<button type="button" class="text-[11px] text-violet-300 hover:underline" data-act="audit" data-key="' + esc(c.dao) + '|' + c.id + '"><i class="fas fa-magnifying-glass-dollar mr-1"></i>Quick audit</button>' : '') +
                 (opts.history !== false ? '<button type="button" class="text-[11px] text-gray-400 hover:underline" data-act="history" data-dao="' + esc(c.dao) + '"><i class="fas fa-clock-rotate-left mr-1"></i>All ' + esc(c.dao) + ' props</button>' : '') +
-                '</div><div data-prec="' + esc(cardKey(c)) + '">' + (c.precedent ? precedentHtml(c.precedent) : '') + '</div></div>';
+                '</div><div data-prec="' + esc(cardKey(c)) + '">' + (c.ledger ? ledgerHtml(c.ledger, c) : '') + (c.precedent ? precedentHtml(c.precedent) : '') + '</div></div>';
         }
         // ---- Rev 3.83 PRECEDENT CHECK (owner 2026-08-22) ------------------------------------
         // "Is this a copy of something that already passed?" Deterministic, no model:
@@ -16021,6 +16021,94 @@
             else { band = 'new'; reading = 'No close precedent in this governance (best ' + best.score + '% vs #' + best.card.id + '). New shape — put it through the deeper check.'; }
             return { band, reading, top, best, shape: A, compared: rows.length };
         }
+        // ---- Rev 3.87 ACTION LEDGER (owner 2026-08-22) --------------------------------------
+        // Every message → plain actions: what moves, from whom, to whom, how much of which
+        // token (decimals applied), with each counterparty resolved against the trust
+        // product (catalog/trusted), the member catalog (registered wallets) and the live
+        // pool snapshot. Per action:
+        //   pass  — every address known (trust product / pool / watched governance)
+        //   soft  — an address is NOT in the trust register but IS a registered member
+        //           wallet, or has appeared in an executed proposal of this governance
+        //   hard  — an address no registry knows and no past proposal has touched
+        // Flags are "needs verification", never "malicious": the text says so, and the
+        // "Request verification" button composes the ask for the owner/team.
+        const DENOM_FIXED = { uluna: { symbol: 'LUNA', decimals: 6 } };
+        let _resolvers = null;
+        async function resolvers() {
+            if (_resolvers) return _resolvers;
+            const get = async (u) => { try { const r = await fetch(u); return r.ok ? await r.json() : null; } catch { return null; } };
+            const [trusted, cat, astro] = await Promise.all([
+                get(BASE + '/catalog/trusted/current.json?t=' + Math.floor(Date.now() / 900000)),
+                get(BASE + '/catalog/snapshots/current.json?t=' + Math.floor(Date.now() / 900000)),
+                state.latest ? daily.astro(state.latest) : Promise.resolve(null),
+            ]);
+            const known = {}, members = {}, denoms = { ...DENOM_FIXED };
+            for (const r of (trusted && trusted.addresses) || []) known[r.address] = { label: r.label, type: r.type, methods: r.methods || [], human_only: !!r.human_only };
+            for (const [a, v] of Object.entries((cat && cat.by_address) || {})) members[a] = { handle: v.handle || null, slugs: (v.memberships || []).map(m => m.slug) };
+            for (const p of (astro && astro.pools) || []) { if (p.pool_address && !known[p.pool_address]) known[p.pool_address] = { label: p.pool_name + ' pool (Astroport)', type: 'pool', methods: ['chain'] }; for (const a of (p.assets || [])) if (a.denom && !denoms[a.denom]) denoms[a.denom] = { symbol: a.symbol || a.denom.slice(0, 12), decimals: a.decimals != null ? a.decimals : 6 }; }
+            for (const g of WATCHED_DAOS) if (g.addr && !known[g.addr]) known[g.addr] = { label: g.name, type: 'dao_core', methods: ['chain'] };
+            _resolvers = { known, members, denoms, trustedLoaded: !!trusted };
+            return _resolvers;
+        }
+        const fmtAmt = (raw, d) => { const n = Number(raw) / Math.pow(10, d.decimals); return (n >= 1000 ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : n.toLocaleString(undefined, { maximumFractionDigits: 6 })) + ' ' + d.symbol; };
+        function ledgerOf(card, R, pastShapes) {
+            const seen = new Set(); for (const sh of pastShapes || []) for (const a of sh.addrs) seen.add(a); for (const sh of pastShapes || []) for (const a of sh.contracts) seen.add(a);
+            const who = (a) => {
+                if (!a) return null;
+                if (R.known[a]) return { addr: a, name: R.known[a].label, level: 'pass', why: 'in the trust register (' + R.known[a].methods.join(', ') + ')' };
+                if (R.members[a]) return { addr: a, name: (R.members[a].handle || 'registered member wallet') + ' (' + R.members[a].slugs.join('/') + ')', level: 'soft', why: 'a registered member wallet — not a contract in the trust register' };
+                if (seen.has(a)) return { addr: a, name: 'unverified — seen in past ' + card.dao + ' proposals', level: 'soft', why: 'not in any registry, but executed proposals of this governance already touched it' };
+                return { addr: a, name: 'UNKNOWN to every registry', level: 'hard', why: 'no registry knows it and no past proposal of this governance has touched it' };
+            };
+            const asset = (den, amt) => { const d = R.denoms[den] || (R.known[den] ? { symbol: R.known[den].label, decimals: 6 } : null); return d ? fmtAmt(amt, d) : (amt + ' ' + (den || '?') + ' (raw — denom not in catalog)'); };
+            const actions = [];
+            (card.rawMsgs || []).forEach((m, i) => {
+                const d = deepDecode(m); const w = d && d.wasm && d.wasm.execute, b = d && d.bank && d.bank.send;
+                const act = { n: i + 1, kind: null, from: card.dao + ' (executes the proposal)', to: [], amounts: [], level: 'pass', notes: [] };
+                const consider = (p) => { if (p) { act.to.push(p); if (p.level === 'hard') act.level = 'hard'; else if (p.level === 'soft' && act.level !== 'hard') act.level = 'soft'; } };
+                if (b) { act.kind = 'transfer (bank send)'; consider(who(b.to_address)); for (const x of (b.amount || [])) act.amounts.push(asset(x.denom, x.amount)); }
+                else if (w) {
+                    const inner = w.msg && typeof w.msg === 'object' ? w.msg : {}; const action = Object.keys(inner)[0] || '?';
+                    act.kind = 'call ' + action; const c = who(w.contract_addr); if (c) { c.role = 'contract'; consider(c); }
+                    for (const x of (w.funds || [])) act.amounts.push(asset(x.denom, x.amount) + ' attached');
+                    // walk the inner message for recipients and assets
+                    const walk = (v, key) => {
+                        if (Array.isArray(v)) { v.forEach(x => walk(x, key)); return; }
+                        if (v && typeof v === 'object') {
+                            if (v.denom && v.amount != null) act.amounts.push(asset(v.denom, v.amount) + (key ? ' (' + key + ')' : ''));
+                            if (v.contract_addr && v.amount != null) act.amounts.push(asset(v.contract_addr, v.amount) + (key ? ' (' + key + ')' : ''));
+                            for (const k of Object.keys(v)) { if (/^(to_address|recipient|to|receiver|owner|beneficiary|spender)$/.test(k) && typeof v[k] === 'string' && /^terra1/.test(v[k])) { const p = who(v[k]); if (p) { p.role = k; consider(p); } } walk(v[k], k); }
+                        }
+                    };
+                    walk(inner, null);
+                    if (action === 'send' && inner.send && inner.send.contract) { const p = who(inner.send.contract); if (p) { p.role = 'cw20 send target'; consider(p); } if (inner.send.amount != null) act.amounts.push(asset(w.contract_addr, inner.send.amount) + ' (cw20 send)'); }
+                } else { act.kind = (d && typeof d === 'object' ? Object.keys(d)[0] : 'unknown'); act.notes.push('message type not decoded — review on chain'); act.level = 'soft'; }
+                actions.push(act);
+            });
+            const worst = actions.reduce((w, a) => a.level === 'hard' ? 'hard' : (a.level === 'soft' && w !== 'hard' ? 'soft' : w), 'pass');
+            return { actions, worst, trustedLoaded: R.trustedLoaded };
+        }
+        const ledgerHtml = (lg, card) => {
+            const col = { pass: 'text-emerald-300', soft: 'text-amber-300', hard: 'text-orange-300' };
+            const chip = (l) => '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ' + ({ pass: 'bg-emerald-500/20 text-emerald-300', soft: 'bg-amber-500/20 text-amber-300', hard: 'bg-orange-500/25 text-orange-200' }[l]) + '">' + ({ pass: 'PASS', soft: 'NEEDS VERIFICATION', hard: 'UNKNOWN — VERIFY' }[l]) + '</span>';
+            const unknowns = []; for (const a of lg.actions) for (const p of a.to) if (p.level !== 'pass' && !unknowns.some(u => u.addr === p.addr)) unknowns.push(p);
+            return '<div class="mt-2 rounded border border-white/10 bg-white/[0.02] px-2 py-1.5 text-[11px]"><div class="font-bold text-[10px] uppercase tracking-wider mb-1 text-gray-300"><i class="fas fa-list-check mr-1"></i>Action ledger · ' + lg.actions.length + ' action' + (lg.actions.length === 1 ? '' : 's') + ' · ' + chip(lg.worst) + (lg.trustedLoaded ? '' : ' <span class="text-gray-500">(trust product not published yet — only live registries used)</span>') + '</div>' +
+                lg.actions.map(a => '<div class="py-1 border-t border-white/5"><div class="flex items-center gap-2 flex-wrap"><span class="font-mono text-gray-500">#' + a.n + '</span><span class="text-gray-200 font-semibold">' + esc(a.kind) + '</span>' + chip(a.level) + '</div>' +
+                    '<div class="text-gray-400 mt-0.5">from <span class="text-gray-200">' + esc(a.from) + '</span>' + (a.to.length ? ' → ' + a.to.map(p => '<span class="' + col[p.level] + '" title="' + esc(p.why) + '">' + esc(p.name) + (p.role ? ' <span class="text-gray-600">[' + esc(p.role) + ']</span>' : '') + '</span> <span class="font-mono text-gray-600">' + p.addr.slice(0, 10) + '…' + p.addr.slice(-6) + '</span>').join(', ') : '') + '</div>' +
+                    (a.amounts.length ? '<div class="text-gray-300 mt-0.5 font-mono">' + a.amounts.map(esc).join(' · ') + '</div>' : '') +
+                    (a.notes.length ? '<div class="text-amber-300 mt-0.5">' + a.notes.map(esc).join(' · ') + '</div>' : '') + '</div>').join('') +
+                (unknowns.length ? '<div class="mt-1.5 rounded border border-amber-500/30 bg-amber-500/[0.06] px-2 py-1.5 text-amber-200">' + unknowns.length + ' address' + (unknowns.length === 1 ? '' : 'es') + ' need' + (unknowns.length === 1 ? 's' : '') + ' verification. This may or may not be a problem — it only means no registry vouches for ' + (unknowns.length === 1 ? 'it' : 'them') + ' yet. Check on chain, or ask the team to verify and add to the catalog.' +
+                    '<div class="mt-1 flex items-center gap-2 flex-wrap">' + unknowns.map(u => '<a class="text-[10px] text-cyan-300 hover:underline" target="_blank" rel="noopener" href="https://chainsco.pe/terra2/address/' + u.addr + '">' + u.addr.slice(0, 10) + '…' + u.addr.slice(-6) + ' on chain ↗</a>').join('') + '<button type="button" class="pulse-pill" data-act="reqverify" data-key="' + esc(cardKey(card)) + '"><i class="fas fa-paper-plane mr-1"></i>Request verification</button></div></div>' : '') +
+                '<div class="mt-1 text-[9px] text-gray-500">Names come from the address catalog (trust register, member catalog, live pools). Amounts use catalog decimals. A pass means every counterparty is known — not that the proposal is wise.</div></div>';
+        };
+        function requestVerification(c) {
+            if (!c || !c.ledger) return;
+            const unknowns = []; for (const a of c.ledger.actions) for (const p of a.to) if (p.level !== 'pass' && !unknowns.some(u => u.addr === p.addr)) unknowns.push(p);
+            const text = 'Verification request — ' + c.dao + ' proposal #' + c.id + ' "' + c.title + '"\n' + c.link + '\n\nAddresses no registry vouches for:\n' + unknowns.map(u => '• ' + u.addr + ' — ' + u.name + ' (' + u.why + ')').join('\n') + '\n\nIf you can confirm what these are (project contract, team wallet, router…), reply with the method (github / audit / project team / docs) and a link so it can be added to tla-core/docs/curated/trusted-addresses.json.';
+            const done = () => { window.open('https://discord.com/invite/Exa8qcwVS4', '_blank', 'noopener'); };
+            try { navigator.clipboard.writeText(text).then(done, done); } catch (e) { done(); }
+            const btn = document.querySelector('button[data-act="reqverify"][data-key="' + cardKey(c).replace(/"/g, '') + '"]'); if (btn) { btn.textContent = 'Copied — paste it in Discord'; }
+        }
         const precedentHtml = (pr) => {
             const col = { match: 'border-emerald-500/30 bg-emerald-500/[0.06] text-emerald-200', near: 'border-amber-500/30 bg-amber-500/[0.06] text-amber-200', new: 'border-orange-500/30 bg-orange-500/[0.06] text-orange-200', none: 'border-white/10 bg-white/[0.02] text-gray-400' }[pr.band];
             return '<div class="mt-2 rounded border ' + col + ' px-2 py-1.5 text-[11px]"><div class="font-bold text-[10px] uppercase tracking-wider mb-0.5"><i class="fas fa-clone mr-1"></i>Precedent · compared with ' + pr.compared + ' past proposal' + (pr.compared === 1 ? '' : 's') + '</div>' + esc(pr.reading) +
@@ -16062,17 +16150,20 @@
             if (!c) return;
             const slot = document.querySelector('[data-prec="' + cardKey(c).replace(/"/g, '') + '"]');
             if (slot) slot.innerHTML = '<div class="mt-2 text-[11px] text-gray-500">Checking precedent…</div>';
-            const past = await pastFor(c.dao);
+            const [past, R] = await Promise.all([pastFor(c.dao), resolvers()]);
             const pr = precedentOf(c, past);
             c.precedent = pr;
-            const html = precedentHtml(pr) + '<button type="button" class="pulse-pill mt-1.5" data-act="deep" data-key="' + esc(cardKey(c)) + '"><i class="fas fa-magnifying-glass-dollar mr-1"></i>Deeper check in Help (every address vs registries)</button>';
+            const execShapes = past.filter(p => ['executed', 'passed'].includes(String(p.status).toLowerCase()) && Array.isArray(p.rawMsgs) && p.rawMsgs.length).map(p => msgShape(p.rawMsgs));
+            c.ledger = ledgerOf(c, R, execShapes);
+            const html = ledgerHtml(c.ledger, c) + precedentHtml(pr) + '<button type="button" class="pulse-pill mt-1.5" data-act="deep" data-key="' + esc(cardKey(c)) + '"><i class="fas fa-magnifying-glass-dollar mr-1"></i>Deeper check in Help (every address vs registries)</button>';
             document.querySelectorAll('[data-prec="' + cardKey(c).replace(/"/g, '') + '"]').forEach(el => { el.innerHTML = html; });
             if (!document.querySelector('[data-prec="' + cardKey(c).replace(/"/g, '') + '"]') && $('gov-modal').style.display !== 'none') gmRender();   // card re-rendered meanwhile
         }
         function deepAudit(c) {
             if (!c) return;
             const text = JSON.stringify(c.rawMsgs || [], null, 2);
-            const pre = c.precedent ? 'Precedent check (deterministic, amounts stripped): ' + c.precedent.reading + (c.precedent.top.length ? ' Matches: ' + c.precedent.top.map(r => '#' + r.card.id + ' ' + r.score + '% ' + String(r.card.status).toLowerCase()).join(', ') + '.' : '') + '\n\n' : '';
+            const lg = c.ledger ? 'Action ledger (deterministic): ' + c.ledger.actions.map(a => '#' + a.n + ' ' + a.kind + ' → ' + a.to.map(p => p.name + ' ' + p.addr).join(', ') + (a.amounts.length ? ' [' + a.amounts.join('; ') + ']' : '') + ' = ' + a.level.toUpperCase()).join(' | ') + '. Overall ' + c.ledger.worst.toUpperCase() + '.\n' : '';
+            const pre = lg + (c.precedent ? 'Precedent check (deterministic, amounts stripped): ' + c.precedent.reading + (c.precedent.top.length ? ' Matches: ' + c.precedent.top.map(r => '#' + r.card.id + ' ' + r.score + '% ' + String(r.card.status).toLowerCase()).join(', ') + '.' : '') + '\n\n' : '');
             const done = () => {
                 if (window.SiteFooter && SiteFooter.openHelpDrawer) {
                     SiteFooter.openHelpDrawer();
@@ -16085,6 +16176,7 @@
             const b = ev.target.closest('button[data-act]'); if (!b) return;
             if (b.dataset.act === 'audit') quickAudit(findCard(b.dataset.key));
             if (b.dataset.act === 'deep') deepAudit(findCard(b.dataset.key));
+            if (b.dataset.act === 'reqverify') requestVerification(findCard(b.dataset.key));
             if (b.dataset.act === 'history') openHistory(b.dataset.dao);
         });
         // ---- modal (alert | history) ----
@@ -16491,7 +16583,7 @@
         window.__pulseTest = { tvlOf, votionOf, vpLockedOf, allTimeBribes, activePoolsOf,
             buildDenomPriceMap, bribesUsdInWindow, cumulativeLunaByMonth, monthsBetween,
             fuelImpliedOf, propCard, astroCard, defaultTab, riskOf, scanMovesFunds, scanLowEffort, statusBadge, epochBribesOf,
-            WATCHED_DAOS, X_ACCOUNTS, vpPotentialOf, solidPegOf, volTla, volPools, epochNow, gaugeSetOf, stakedOf, capaCard, lunaCard, cardHtml, msgShape, precedentOf, shapeCompare, deepDecode, openHistory, loadHistory, quickAudit, gm, liveCards, pastCards, corpusCard, DAO_ORDER, alertSig, REV, REV_DATE };
+            WATCHED_DAOS, X_ACCOUNTS, vpPotentialOf, solidPegOf, volTla, volPools, epochNow, gaugeSetOf, stakedOf, capaCard, lunaCard, cardHtml, msgShape, precedentOf, shapeCompare, deepDecode, openHistory, loadHistory, quickAudit, gm, ledgerOf, ledgerHtml, resolvers, liveCards, pastCards, corpusCard, DAO_ORDER, alertSig, REV, REV_DATE };
     })();
     </script>
     <script>
