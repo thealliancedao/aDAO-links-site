@@ -846,8 +846,35 @@
     <script src="/lib/site-header.js"></script>
     <script src="/lib/address-picker.js"></script>
     <script>SiteHeader.mount({ page: 'tla-stats' });</script>
+    <script>
+    // Uniform chrome: the page's tabs sit directly under the site header (above the
+    // info tiles), in the shared style. Clicks are forwarded to the hidden legacy
+    // .tab-btn elements so switchToTab(), hash links and analytics are unchanged.
+    (function () {
+        var nav = SiteHeader.subnav([
+            { id: 'overview', label: 'Overview',         icon: 'fa-chart-pie',       active: true },
+            { id: 'portfolio', label: 'Member Portfolio', icon: 'fa-user-astronaut',  href: 'member-portfolio.html', badge: 'NEW' },
+            { id: 'grades',   label: 'LP Grades',        icon: 'fa-graduation-cap' },
+            { id: 'pools',    label: 'LP Stats',         icon: 'fa-water' },
+            { id: 'tla',      label: 'TLA Stats',        icon: 'fa-coins' },
+            { id: 'docs',     label: 'Docs',             icon: 'fa-book' },
+        ], { onSelect: function (id) { var b = document.querySelector('#tla-legacy-tabs .tab-btn[data-tab="' + id + '"]'); if (b) b.click(); },
+             right: '<span id="sh-epoch-slot"></span>' });
+        var syncActive = function () {
+            var cur = (location.hash.slice(1) || 'overview');
+            nav.querySelectorAll('.sh-subtab[data-tab]').forEach(function (x) { x.classList.toggle('active', x.getAttribute('data-tab') === cur); });
+        };
+        window.addEventListener('hashchange', syncActive); window.addEventListener('popstate', syncActive); syncActive();
+        document.addEventListener('DOMContentLoaded', function () {
+            var slot = document.getElementById('sh-epoch-slot'), legacy = document.getElementById('tla-legacy-subheader');
+            if (!slot || !legacy) return;
+            var grp = legacy.querySelector('.flex.items-center.gap-4.flex-wrap'); if (grp) { grp.classList.remove('gap-4'); grp.classList.add('gap-3'); slot.appendChild(grp); }
+            var chip = document.getElementById('member-status-chip'); if (chip) slot.insertBefore(chip, slot.firstChild);
+        });
+    })();
+    </script>
 
-    <header class="sticky top-0 z-50 backdrop-blur-xl bg-[#0a0b0f]/80 border-b border-white/5">
+    <header class="hidden" aria-hidden="true" id="tla-legacy-subheader"><!-- 2026-08-21: title row retired; epoch/countdown/status moved into the shared sub-nav right slot at runtime; member-selector stays as the picker receiver -->
         <div class="max-w-7xl mx-auto px-4 py-4">
             <div class="flex items-center justify-between flex-wrap gap-4">
                 <div>
@@ -1014,8 +1041,9 @@
         </div>
     </section>
     
-    <!-- Tabs -->
-    <nav class="max-w-7xl mx-auto px-4">
+    <!-- Tabs — rendered by SiteHeader.subnav above the info tiles (2026-08-21);
+         this strip is kept hidden as the receiver for switchToTab()/hash logic. -->
+    <nav class="max-w-7xl mx-auto px-4 hidden" aria-hidden="true" id="tla-legacy-tabs">
         <div class="flex gap-1 border-b border-white/10 overflow-x-auto">
             <div class="tab-btn active" data-tab="overview">
                 <i class="fas fa-chart-pie mr-2"></i>Overview
@@ -2303,7 +2331,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span id="footer-rev" class="font-mono">Rev T3.12</span>
+                    <span id="footer-rev" class="font-mono">Rev T3.13</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                     <span id="footer-rev-date" class="opacity-50 ml-1"></span>

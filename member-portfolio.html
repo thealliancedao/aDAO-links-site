@@ -38,7 +38,19 @@
 <div id="site-header"></div>
 <script src="/lib/site-header.js"></script>
 <script src="/lib/address-picker.js"></script>
-<script>SiteHeader.mount({ page: 'member-portfolio' });</script>
+<script>SiteHeader.mount({ page: 'member-portfolio' });
+(function () {
+  SiteHeader.subnav([
+    { id: 'overview',  label: 'Overview',         icon: 'fa-chart-pie',      href: 'tla-stats.html#overview' },
+    { id: 'portfolio', label: 'Member Portfolio', icon: 'fa-user-astronaut', active: true, href: 'member-portfolio.html' },
+    { id: 'grades',    label: 'LP Grades',        icon: 'fa-graduation-cap', href: 'tla-stats.html#grades' },
+    { id: 'pools',     label: 'LP Stats',         icon: 'fa-water',          href: 'tla-stats.html#pools' },
+    { id: 'tla',       label: 'TLA Stats',        icon: 'fa-coins',          href: 'tla-stats.html#tla' },
+    { id: 'docs',      label: 'Docs',             icon: 'fa-book',           href: 'tla-stats.html#docs' },
+  ], { right: '<span id="sh-epoch-slot"></span>' });
+  document.addEventListener('DOMContentLoaded', function () { var e = document.getElementById('nav-epoch'), s = document.getElementById('sh-epoch-slot'); if (e && s) { e.classList.remove('hidden'); s.appendChild(e); } });
+})();
+</script>
 <style>
     /* Shared sub-tab strip — same look as tla-stats.html so the two pages read
        as one surface (Rev P1.9 nav-continuity fix, 2026-08-20). */
@@ -51,7 +63,7 @@
     .xtab.active { color: #fff; }
     .xtab.active::after { width: 100%; }
 </style>
-<div class="border-b border-white/5 bg-black/20 backdrop-blur-md sticky top-0 z-40">
+<div class="hidden" aria-hidden="true"><!-- 2026-08-21: strip rendered by SiteHeader.subnav (same component as tla-stats); #nav-epoch kept and moved into the sub-nav right slot -->
     <div class="max-w-7xl mx-auto px-4 flex items-center justify-between">
         <div class="flex gap-1 overflow-x-auto">
             <a href="tla-stats.html#overview" class="xtab"><i class="fas fa-chart-pie mr-2"></i>Overview</a>
@@ -2162,6 +2174,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '2.5', revDate: '2026-08-21', page: 'member-portfolio' });</script>
+<script>SiteFooter.mount({ rev: '2.6', revDate: '2026-08-21', page: 'member-portfolio' });</script>
 </body>
 </html>

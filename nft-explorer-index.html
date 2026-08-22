@@ -248,11 +248,23 @@
     <script src="/lib/site-header.js"></script>
     <script src="/lib/address-picker.js"></script>
     <script>SiteHeader.mount({ page: 'nft-explorer-index' });</script>
+    <script>
+    (function () {
+        var nav = SiteHeader.subnav([
+            { id: 'collection', label: 'Collection', icon: 'fa-images',    active: true },
+            { id: 'analytics',  label: 'Analytics',  icon: 'fa-chart-line' },
+            { id: 'wallet',     label: 'Wallet',     icon: 'fa-wallet' },
+        ], { onSelect: function (id) { var b = document.getElementById(id + '-view-btn'); if (b) b.click(); } });
+        var sync = function () { var cur = (new URLSearchParams(location.search).get('view') || 'collection'); nav.querySelectorAll('.sh-subtab[data-tab]').forEach(function (x) { x.classList.toggle('active', x.getAttribute('data-tab') === cur); }); };
+        window.addEventListener('popstate', sync); document.addEventListener('DOMContentLoaded', sync);
+        document.addEventListener('click', function (ev) { if (ev.target.closest('.view-tab')) setTimeout(sync, 0); });
+    })();
+    </script>
 
 
     <!-- Page-specific view toggle (logos handled by shared header above; Map view removed in Rev 4.13) -->
     <!-- Page-level view tabs: underline style, left-aligned with content, visually distinct from the site nav pills above -->
-    <div class="max-w-screen-2xl mx-auto mb-6 border-b border-gray-700/80 px-1">
+    <div class="hidden" aria-hidden="true"><!-- 2026-08-21: view tabs rendered by SiteHeader.subnav; buttons kept as receivers for switchView() -->
         <nav class="flex">
             <button id="collection-view-btn" class="view-tab active">Collection</button>
             <button id="analytics-view-btn" class="view-tab">Analytics</button>
@@ -873,6 +885,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '4.15', revDate: '2026-08-21', page: 'nft-explorer' });</script>
+<script>SiteFooter.mount({ rev: '4.16', revDate: '2026-08-21', page: 'nft-explorer' });</script>
 </body>
 </html>

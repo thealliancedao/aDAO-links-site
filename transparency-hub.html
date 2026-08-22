@@ -108,13 +108,25 @@
 <div id="site-header"></div>
 <script src="/lib/site-header.js"></script>
 <script src="/lib/address-picker.js"></script>
-<script>SiteHeader.mount({ page: 'transparency-hub' }); if (window.AddressPicker) AddressPicker.mount({});</script>
+<script>SiteHeader.mount({ page: 'transparency-hub' }); if (window.AddressPicker) AddressPicker.mount({});
+(function () {
+  var nav = SiteHeader.subnav([
+    { id: 'updates',   label: 'Updates',       icon: 'fa-bullhorn', active: true },
+    { id: 'docs',      label: 'Docs',          icon: 'fa-book' },
+    { id: 'health',    label: 'System Health', icon: 'fa-heart-pulse' },
+    { id: 'endpoints', label: 'Endpoints',     icon: 'fa-plug' },
+  ], { onSelect: function (id) { var t = document.querySelector('#tabs .tab[data-v="' + id + '"]'); if (t) t.click(); } });
+  // mirror the page's badges (counts) into the sub-nav labels
+  var mirror = function () { ['health', 'endpoints'].forEach(function (id) { var src = document.getElementById(id === 'health' ? 'healthBadge' : 'epBadge'), dst = nav.querySelector('.sh-subtab[data-tab="' + id + '"]'); if (!src || !dst) return; var b = dst.querySelector('.sh-badge'); if (!b) { b = document.createElement('span'); b.className = 'sh-badge'; dst.appendChild(b); } b.textContent = src.textContent; }); };
+  document.addEventListener('DOMContentLoaded', function () { mirror(); setInterval(mirror, 2000); });
+})();
+</script>
 <div class="wrap">
   <header class="top">
     <div class="eyebrow">TLA Stats</div>
     <h1>Transparency Hub</h1>
     <div class="lede">How we get the data, how we verify it, and what's changing. Follow along — see live system health, the endpoints we depend on, the docs behind every number, and what we're actively building.</div>
-    <div class="tabs" id="tabs">
+    <div class="tabs" id="tabs" style="display:none" aria-hidden="true"><!-- 2026-08-21: rendered by SiteHeader.subnav; kept as receivers -->
       <div class="tab active" data-v="updates">Updates</div>
       <div class="tab" data-v="docs">Docs</div>
       <div class="tab" data-v="health">System Health <span class="badge" id="healthBadge">…</span></div>
