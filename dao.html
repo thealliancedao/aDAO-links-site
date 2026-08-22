@@ -751,6 +751,7 @@ const DAO_META = {
     lion:  { label: 'Lion DAO',    short: 'Lion',  core: 'terra1tkersa2mqwy2h8exj799qx2xrhdu0dkymk9psp6v0k4kz4tkxucssgluec', chip: 'bg-amber-500/20 text-amber-200 border-amber-500/40' },
     pixel: { label: 'Pixel Lions', short: 'Pixel', core: 'terra1c690mdrwdetnr09zfk3tf9xz9jhrgd9wpjyf3tuccj74ql09eqmq6sh7en', chip: 'bg-pink-500/20 text-pink-200 border-pink-500/40' },
 };
+function partnerDisplayName(v) { return isValidName(v.name) ? v.name : ((window.__catalogHandles || {})[v.address] || null); }
 function proposalsForView() {
     const tag = (obj, dao) => Object.values(obj || {}).map(p => Object.assign({}, p, { _dao: dao }));
     if (currentMemberView === 'partner') return tag(lionProposals, 'lion').concat(tag(pixelProposals, 'pixel'));
@@ -1817,11 +1818,11 @@ function renderPodium(view) {
         filtered.sort((a, b) => b.combinedScore - a.combinedScore);
         
         top3 = filtered.slice(0, 3).map(v => ({
-            name: v.name,
+            name: partnerDisplayName(v),
             address: v.address,
             rate: v.combinedScore,
             votes: v.lionProps + v.pixelProps,
-            currentStreak: 0
+            currentStreak: v.combinedStreak || 0
         }));
         total = Object.keys(lionProposals).length + Object.keys(pixelProposals).length;
         title = filter === 'both' ? 'Dual DAO Champions' : (filter === 'lion' ? 'Lion DAO Champions' : (filter === 'pixel' ? 'PixelLion Champions' : 'Partner DAO Champions'));
@@ -1942,16 +1943,16 @@ function updateStatsCards(view) {
             // Calculate streak: must have voted in recent props from BOTH DAOs
             const lionStreak = calculatePartnerStreak(v, 'lion');
             const pixelStreak = calculatePartnerStreak(v, 'pixel');
-            // Combined streak is the minimum of both (must be active in both)
-            v.combinedStreak = Math.min(lionStreak, pixelStreak);
+            // Lions is ONE bucket (owner): the streak is the best run in either DAO.
+            v.combinedStreak = Math.max(lionStreak, pixelStreak);
         });
         
         bestStreak = Math.max(...partnerVoters.map(v => v.combinedStreak || 0), 0);
         bestStreakMember = bestStreak > 0 ? partnerVoters.find(v => (v.combinedStreak || 0) === bestStreak) : null;
         activeStreakCount = partnerVoters.filter(v => (v.combinedStreak || 0) >= 2).length;
         avgParticipation = partnerVoters.length > 0 ? partnerVoters.reduce((s, v) => s + v.combinedScore, 0) / partnerVoters.length : 0;
-        // Named = partner voters with valid names, Total = unique voters (Lion + Pixel combined)
-        namedMembers = partnerVoters.filter(v => isValidName(v.name)).length;
+        // Named = registry name OR address-catalog handle; Total = unique voters (Lion + Pixel combined)
+        namedMembers = partnerVoters.filter(v => partnerDisplayName(v)).length;
         totalMembers = partnerVoters.length;
         
     } else if (view === 'alliance') {
@@ -1973,8 +1974,8 @@ function updateStatsCards(view) {
         bestStreakMember = bestStreak > 0 ? boosted.find(v => (v.allianceStreak || 0) === bestStreak) : null;
         activeStreakCount = boosted.filter(v => (v.allianceStreak || 0) >= 2).length;
         avgParticipation = boosted.length > 0 ? boosted.reduce((s, v) => s + v.combinedScore, 0) / boosted.length : 0;
-        // Named = boosted members with valid names, Total = all boosted members
-        namedMembers = boosted.filter(v => isValidName(v.name)).length;
+        // Named = registry name OR address-catalog handle
+        namedMembers = boosted.filter(v => partnerDisplayName(v)).length;
         totalMembers = boosted.length;
     }
     
@@ -1982,7 +1983,7 @@ function updateStatsCards(view) {
     document.getElementById('streak-leader').textContent = bestStreak + ' props';
     // Only show name if streak > 0
     if (bestStreak > 0 && bestStreakMember) {
-        const displayName = isValidName(bestStreakMember.name) ? bestStreakMember.name : shortAddr(bestStreakMember.address);
+        const displayName = isValidName(bestStreakMember.name) ? bestStreakMember.name : ((window.__catalogHandles || {})[bestStreakMember.address] || shortAddr(bestStreakMember.address));
         document.getElementById('streak-leader-name').textContent = `🔥 ${displayName}`;
     } else {
         document.getElementById('streak-leader-name').textContent = 'Best Streak';
@@ -2605,6 +2606,9 @@ function processPartnerVoters() {
         pixelPropIds,
         lionPct: lionTotal > 0 ? (v.lionPropsSet.size / lionTotal * 100) : 0,
         pixelPct: pixelTotal > 0 ? (v.pixelPropsSet.size / pixelTotal * 100) : 0,
+        // Lions score (owner, 2026-08-22): each DAO's participation is a rate out of THAT DAO's own
+        // proposal count (e.g. 20% of Lion DAO's 24, 15% of Pixel Lions' 12), then averaged — so
+        // the Lion+Pixel pair never outweighs aDAO's single rate when the Allies view compares them.
         combinedScore: ((v.lionPropsSet.size / Math.max(lionTotal, 1)) + (v.pixelPropsSet.size / Math.max(pixelTotal, 1))) / 2 * 100,
         inBoth: v.lionPropsSet.size > 0 && v.pixelPropsSet.size > 0
     })).sort((a, b) => b.combinedScore - a.combinedScore);
