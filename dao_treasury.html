@@ -254,6 +254,26 @@
                 </div>
             </div>
         
+        <!-- Rev 2.5 — PROTOCOL INCOME: the daily alliance_claim_rewards tx on the NFT contract.
+             Chain facts from nfts/adao/claims/history.json (one row per claim tx): LUNA claimed
+             from the alliance validators → bonded → ampLUNA minted → 90% to NFT backing, 10% to
+             this treasury. Windows are sums of captured claims; "at current rate" lines are
+             labelled projections, never reported as income. -->
+        <div id="protocol-income" class="stat-card rounded-xl p-4 mb-8">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div class="flex items-center gap-2"><i class="fas fa-droplet text-emerald-400"></i><span class="text-sm font-medium text-white">Protocol Income · daily alliance claim</span><span class="text-[10px] text-gray-500">10% of every claim → treasury · 90% → NFT backing</span></div>
+                <a id="pi-last-tx" class="text-xs text-cyan-400 hover:underline" target="_blank" rel="noopener" href="#">last claim tx ↗</a>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="pi-tiles">
+                <div class="rounded-lg bg-white/[0.03] border border-white/5 p-3"><div class="text-[10px] uppercase tracking-wider text-gray-500">Last claim</div><div class="text-lg font-bold text-white font-mono" id="pi-last">—</div><div class="text-[11px] text-gray-400" id="pi-last-s">waiting for first capture</div></div>
+                <div class="rounded-lg bg-white/[0.03] border border-white/5 p-3"><div class="text-[10px] uppercase tracking-wider text-gray-500">To treasury · 7d</div><div class="text-lg font-bold text-emerald-300 font-mono" id="pi-7d">—</div><div class="text-[11px] text-gray-400" id="pi-7d-s"></div></div>
+                <div class="rounded-lg bg-white/[0.03] border border-white/5 p-3"><div class="text-[10px] uppercase tracking-wider text-gray-500">To treasury · 30d</div><div class="text-lg font-bold text-emerald-300 font-mono" id="pi-30d">—</div><div class="text-[11px] text-gray-400" id="pi-30d-s"></div></div>
+                <div class="rounded-lg bg-white/[0.03] border border-white/5 p-3"><div class="text-[10px] uppercase tracking-wider text-gray-500">To NFT backing · 7d</div><div class="text-lg font-bold text-cyan-300 font-mono" id="pi-backing"></div><div class="text-[11px] text-gray-400" id="pi-backing-s"></div></div>
+            </div>
+            <div class="mt-3 text-[11px] text-gray-400 font-mono" id="pi-rate"></div>
+            <div class="mt-1 text-[10px] text-gray-500" id="pi-note">Source: nfts/adao/claims/history.json — every row is a claim tx on chain (write-once by tx hash). The ledger starts at first capture; longer windows fill in as days accrue. Projections are "if the last 7 days repeat", not income.</div>
+        </div>
+
         <!-- Value Change Breakdown — the hero "What Changed" story panel.
              Always visible (was hidden by default, only unhid after data loaded).
              Shows price movement vs position growth, and the story behind treasury value changes. -->
@@ -523,7 +543,7 @@
         // ==================== Configuration ====================
         const DAO_TREASURY_ADDRESS = 'terra1sffd4efk2jpdt894r04qwmtjqrrjfc52tmj6vkzjxqhd8qqu2drs3m5vzm';
         const COUNCIL_TREASURY_ADDRESS = 'terra1yqv0af22675wlcmgflxk4ve07vt8qlm999gk0cuw5l64r5xxgadsyg8ywv';
-        const TLA_DATA_BASE_URL = 'https://raw.githubusercontent.com/defipatriot/tla_json_storage/main';
+        // Rev 2.5: TLA_DATA_BASE_URL (defipatriot/tla_json_storage) retired — never read.
         const PROPS_URL = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/proposals.json';
         
         // Token color mapping for chart
@@ -1418,28 +1438,32 @@
                 }
             } catch (e) { /* fall through to legacy walk-back */ }
 
-            // FALLBACK: legacy epoch files. The legacy cron died after epoch 185, so the
-            // walk-back is extended to 12 epochs to keep reaching it as a last resort.
-            const currentEpoch = getCurrentEpoch();
-            for (let tryEpoch = currentEpoch - 1; tryEpoch >= currentEpoch - 12; tryEpoch--) {
-                try {
-                    const url = `${TLA_DATA_BASE_URL}/tla-data-epoch-${tryEpoch}-end.json`;
-                    console.log(`Trying to fetch TLA data: ${url}`);
-                    const response = await fetch(url);
-                    if (response.ok) {
-                        const data = await response.json();
-                        console.log(`Loaded TLA data from epoch ${tryEpoch}`);
-                        currentTlaData = data;
-                        return data;
-                    }
-                } catch (e) {
-                    console.warn(`Failed to fetch epoch ${tryEpoch}:`, e);
-                }
-            }
+            // Rev 2.5: no legacy fallback — the personal repo is retired; blank beats a dead read.
             console.error('Could not fetch any TLA data');
             return null;
         }
         
+        // Rev 2.5 — protocol income from the claim ledger
+        async function renderProtocolIncome() {
+            const $ = (id) => document.getElementById(id);
+            try {
+                const r = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/claims/history.json?t=' + Math.floor(Date.now() / 900000));
+                if (!r.ok) { $('pi-last-s').textContent = 'ledger not published yet — the NFT cron writes it on its next run'; return null; }
+                const d = await r.json();
+                const amp = (v) => v == null ? '—' : (Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' ampLUNA');
+                const px = (window.ampLunaPriceUsd || (geckoIdPrices && geckoIdPrices['eris-amplified-luna'] && geckoIdPrices['eris-amplified-luna'].usd)) || null;
+                const usd = (v) => (v != null && px) ? ' ≈ $' + (v * px).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '';
+                const last = d.last; const w7 = d.windows && d.windows.d7, w30 = d.windows && d.windows.d30, wa = d.windows && d.windows.all;
+                if (last) { $('pi-last').textContent = amp(last.ampluna_to_treasury); $('pi-last-s').textContent = last.date + ' · ' + Number(last.luna_claimed).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' LUNA claimed → ' + Number(last.ampluna_minted).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' ampLUNA minted' + (last.take_rate != null ? ' · take ' + (last.take_rate * 100).toFixed(0) + '%' : ''); $('pi-last-tx').href = 'https://chainsco.pe/terra2/tx/' + last.tx_hash; }
+                if (w7) { $('pi-7d').textContent = amp(w7.ampluna_to_treasury); $('pi-7d-s').textContent = w7.claims + ' claim' + (w7.claims === 1 ? '' : 's') + usd(w7.ampluna_to_treasury); } else $('pi-7d-s').textContent = 'no claims captured in window';
+                if (w30) { $('pi-30d').textContent = amp(w30.ampluna_to_treasury); $('pi-30d-s').textContent = w30.claims + ' claim' + (w30.claims === 1 ? '' : 's') + usd(w30.ampluna_to_treasury) + (w30.claims < 28 ? ' · ledger covers ' + w30.claims + ' of 30 days' : ''); }
+                if (w7) { $('pi-backing').textContent = amp(w7.ampluna_to_backing); $('pi-backing-s').textContent = 'per day ' + Number(w7.per_day_to_backing).toLocaleString(undefined, { maximumFractionDigits: 2 }) + usd(w7.ampluna_to_backing); }
+                if (w7 && w7.per_day_to_treasury) { const pd = w7.per_day_to_treasury; $('pi-rate').textContent = 'at the last-7-day rate (projection, not income): ' + pd.toFixed(2) + ' ampLUNA/day · ' + (pd * 7).toFixed(1) + '/week · ' + (pd * 30).toFixed(0) + '/month · ' + (pd * 365).toFixed(0) + '/year' + (px ? ' ≈ $' + (pd * 365 * px).toLocaleString(undefined, { maximumFractionDigits: 0 }) + '/year at today\'s price' : ''); }
+                if (wa) $('pi-note').textContent += ' Captured so far: ' + wa.claims + ' claims since ' + d.first_date + ', ' + Number(wa.ampluna_to_treasury).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' ampLUNA to treasury.';
+                return d;
+            } catch (e) { $('pi-last-s').textContent = 'ledger unavailable'; return null; }
+        }
+
         // Fetch LIVE treasury data from blockchain (like main dashboard does)
         // Rev 3.56 — Treasury data comes SOLELY from the shared aDAOLive library
         // (lib/adao-live-data.js): single source of truth, retry/backoff, sessionStorage
@@ -1477,78 +1501,10 @@
             
             console.log(`Fetching historical snapshots, current epoch: ${currentEpoch}`);
             
-            // Try to fetch last 20 snapshots from TLA data files
-            for (let epoch = currentEpoch - 1; epoch >= currentEpoch - 20 && epoch > 160; epoch--) {
-                try {
-                    const url = `${TLA_DATA_BASE_URL}/tla-data-epoch-${epoch}-end.json`;
-                    const response = await fetch(url);
-                    if (response.ok) {
-                        const data = await response.json();
-                        const dashboard = data.dashboard;
-                        const treasury = dashboard?.treasury;
-                        
-                        if (treasury) {
-                            const prices = data.token_prices || {};
-                            
-                            // Track alliance positions separately for charts
-                            const lionDao = dashboard.alliances?.lion_dao;
-                            let stakedTotal = 0;
-                            
-                            // Alliance data for historical charts
-                            const allianceData = {
-                                luna_staked: 0,
-                                luna_rewards: 0,
-                                staking_apr: 0,
-                                roar_staked: 0,
-                                roar_vp: 0,
-                                pixelions_staked: 0,
-                                pixelions_vp: 0
-                            };
-                            
-                            if (lionDao) {
-                                // LUNA staking
-                                if (lionDao.chain_staking) {
-                                    allianceData.luna_staked = lionDao.chain_staking.total_staked_luna || 0;
-                                    allianceData.luna_rewards = lionDao.chain_staking.total_unclaimed_luna || 0;
-                                    allianceData.staking_apr = lionDao.chain_staking.staking_apr_pct || 0;
-                                    const lunaPrice = prices.LUNA?.price || prices.LUNA || 0;
-                                    stakedTotal += allianceData.luna_staked * lunaPrice;
-                                }
-                                // ROAR staking
-                                if (lionDao.roar_dao_stake) {
-                                    allianceData.roar_staked = lionDao.roar_dao_stake.staked_roar || 0;
-                                    allianceData.roar_vp = lionDao.roar_dao_stake.voting_power_pct || 0;
-                                    const roarPrice = prices.ROAR?.price || prices.ROAR || 0;
-                                    stakedTotal += allianceData.roar_staked * roarPrice;
-                                }
-                                // pixeLions staking
-                                if (lionDao.pixelions_dao_stake) {
-                                    allianceData.pixelions_staked = lionDao.pixelions_dao_stake.staked_nfts || 0;
-                                    allianceData.pixelions_vp = lionDao.pixelions_dao_stake.voting_power_pct || 0;
-                                }
-                            }
-                            
-                            // NOTE: TLA Deposits NOT included in stakedTotal - they have their own tab
-                            
-                            snapshots.push({
-                                epoch: data.meta?.epoch || epoch,
-                                timestamp: data.meta?.generated_at,
-                                treasuryAssets: treasury.tokens || [],
-                                councilAssets: [],
-                                stakedTotal_USD: stakedTotal,
-                                treasuryTotal_USD: treasury.total_usd,
-                                councilTotal_USD: 0,
-                                prices: prices,
-                                alliance: allianceData // Store alliance data for charts
-                            });
-                            console.log(`Loaded historical epoch ${epoch}: alliance staked $${stakedTotal.toFixed(0)}`);
-                        }
-                    }
-                } catch (e) {
-                    // Snapshot not found
-                }
-            }
-            
+            // Rev 2.5 (2026-08-22): the legacy epoch files lived in the retired personal repo
+            // defipatriot/tla_json_storage (last file epoch 185). 20 dead probes per load.
+            // History is the org dao-dashboard daily archive ONLY — one point per DAY, not
+            // per epoch, so the chart is a real series instead of two dots and a line.
             // ── dao-dashboard daily archives: history past the legacy cutoff ──
             // The legacy epoch cron died after 185; the dao-dashboard cron archives
             // its first run each UTC day (since 2026-06-12). One entry per epoch
@@ -1558,24 +1514,21 @@
                 const have = new Set(snapshots.map(s => s.epoch));
                 const REF = new Date('2025-12-01T00:00:00Z'), REFN = 162, WK = 7 * 24 * 3600e3;
                 const DD = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/dao-dashboard/daily/';
-                for (let ep = Math.max(186, currentEpoch - 20); ep <= currentEpoch; ep++) {
-                    if (have.has(ep)) continue;
-                    const epochEnd = new Date(REF.getTime() + (ep - REFN + 1) * WK);
-                    for (let d = 1; d <= 7; d++) {
-                        const probe = new Date(Math.min(epochEnd.getTime() - d * 86400000, Date.now()));
-                        if (probe < new Date('2026-06-12')) break; // archive start
-                        const key = probe.toISOString().slice(0, 10);
-                        try {
-                            const r = await fetch(DD + key + '.json');
-                            if (!r.ok) continue;
-                            const dd = await r.json();
+                const DD_EARLIEST = '2026-08-12';   // first file in the org tree (measured 2026-08-22); nothing earlier is probed
+                const dayList = []; for (let d = new Date(); d.toISOString().slice(0, 10) >= DD_EARLIEST && dayList.length < 120; d = new Date(d.getTime() - 86400000)) dayList.push(d.toISOString().slice(0, 10));
+                const daily = await Promise.all(dayList.map(key => fetch(DD + key + '.json').then(r => r.ok ? r.json() : null).catch(() => null)));
+                for (let di = 0; di < dayList.length; di++) {
+                    const key = dayList[di], dd = daily[di]; if (!dd) continue;
+                    const ep = Math.floor((Date.parse(key + 'T00:00:00Z') - REF.getTime()) / WK) + REFN;
+                    {
+                        {
                             const t = dd?.dashboard?.treasury;
-                            if (!t) break;
+                            if (!t) continue;
                             const lion = dd.dashboard?.alliances?.lion_dao?.chain_staking;
                             const lunaP = dd.token_prices?.LUNA || 0;
                             const lionStaked = lion?.validators?.[0]?.staked_luna || 0;
                             snapshots.push({
-                                epoch: ep,
+                                epoch: ep, date: key,
                                 timestamp: dd.meta?.generated_at,
                                 treasuryAssets: t.tokens || [],
                                 councilAssets: [],
@@ -1589,14 +1542,13 @@
                                     staking_apr: lion?.staking_apr_pct || 0,
                                 },
                             });
-                            console.log(`Loaded dao-dashboard archive for epoch ${ep} (${key})`);
-                            break;
-                        } catch (_) { /* try earlier date */ }
+                        }
                     }
                 }
-            } catch (e) { console.warn('archive history augmentation skipped:', e); }
+            } catch (e) { console.warn('archive history load failed:', e); }
 
-            historicalSnapshots = snapshots.sort((a, b) => a.epoch - b.epoch); // Oldest first
+            historicalSnapshots = snapshots.sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.epoch - b.epoch); // Oldest first
+            window.__treasuryHistory = historicalSnapshots;   // Rev 2.5: gate hook
             console.log(`Loaded ${historicalSnapshots.length} historical snapshots`);
             return historicalSnapshots;
         }
@@ -1849,10 +1801,11 @@
             
             selectedToken = { name: positionName, wallet: 'staked' };
             
-            // Show chart section with position info
-            document.getElementById('chart-placeholder').classList.add('hidden');
-            document.getElementById('chart-token-badge').classList.remove('hidden');
-            document.getElementById('chart-token-name').textContent = `${positionName} (Staked)`;
+            // Show chart section with position info (Rev 2.5: badge/name elements were removed in
+            // Rev 3.0 of the chart; these branches still dereferenced them and threw — guarded)
+            document.getElementById('chart-placeholder')?.classList.add('hidden');
+            document.getElementById('chart-token-badge')?.classList.remove('hidden');
+            const _nm = document.getElementById('chart-token-name'); if (_nm) _nm.textContent = `${positionName} (Staked)`;
             
             // Hide range tabs (not applicable to staked-position view)
             const rangeTabs = document.getElementById('chart-range-tabs');
@@ -2132,10 +2085,10 @@
         }
         
         function renderTotalChart() {
-            // Show total value trend
-            document.getElementById('chart-placeholder').classList.add('hidden');
-            document.getElementById('chart-token-badge').classList.remove('hidden');
-            document.getElementById('chart-token-name').textContent = 'Total Holdings';
+            // Show total value trend (Rev 2.5: guarded — see renderStakedPositionChart)
+            document.getElementById('chart-placeholder')?.classList.add('hidden');
+            document.getElementById('chart-token-badge')?.classList.remove('hidden');
+            const _nm2 = document.getElementById('chart-token-name'); if (_nm2) _nm2.textContent = 'Total Holdings';
             
             const chartWrapper = document.getElementById('chart-wrapper');
             const noHistoryMsg = document.getElementById('no-history-msg');
@@ -2600,6 +2553,7 @@
             // Fetch LIVE Council Treasury data from blockchain
             councilAssets = await fetchLiveTreasuryData(COUNCIL_TREASURY_ADDRESS);
             console.log(`Loaded ${councilAssets.length} LIVE Council Treasury tokens`);
+            renderProtocolIncome();   // Rev 2.5: claim ledger (non-blocking)
             
             // Build staked positions from Alliance partnerships ONLY (not TLA Deposits)
             // TLA Deposits are shown in the TLA Deposits tab, not here
@@ -2930,6 +2884,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '2.4', revDate: '2026-08-12', page: 'dao_treasury' });</script>
+<script>SiteFooter.mount({ rev: '2.5', revDate: '2026-08-22', page: 'dao_treasury' });</script>
 </body>
 </html>
