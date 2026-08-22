@@ -1281,7 +1281,7 @@
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-3" id="pulse-stats">
                 <div class="pulse-stat"><div class="l">TLA Staked Liquidity</div><div class="v" id="ps-tvl">…</div><div class="s" id="ps-tvl-s"></div></div>
                 <div class="pulse-stat"><div class="l">Voting Power Locked</div><div class="v" id="ps-vp">…</div><div class="s" id="ps-vp-s"></div></div>
-                <div class="pulse-stat"><div class="l">Bribes · This Epoch</div><div class="v" id="ps-bribes">…</div><div class="s" id="ps-bribes-s"></div></div>
+                <div class="pulse-stat"><div class="l">Bribes · Settled Epoch</div><div class="v" id="ps-bribes">…</div><div class="s" id="ps-bribes-s"></div></div>
                 <div class="pulse-stat"><div class="l">DEX Volume · 24h</div><div class="v" id="ps-epoch">…</div><div class="s" id="ps-epoch-s"></div></div>
             </div>
             <div class="flex items-center justify-between flex-wrap gap-2">
@@ -15489,7 +15489,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.97', REV_DATE = '2026-08-22';
+        const REV = '3.98', REV_DATE = '2026-08-22';
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16448,7 +16448,7 @@
                 const m = new Date().toISOString().slice(0, 7);
                 const bs = await jf('tla-voting/bribe-state/' + m.replace('-', '/') + '.json', 60);
                 const eb = epochBribesOf(bs, pmap);
-                if (eb) { $('ps-bribes').textContent = fmt$(eb.usd); $('ps-bribes-s').textContent = 'epoch ' + eb.period + ' buckets · ' + eb.pools + ' pools · at current prices · all-time ' + fmtN(at.luna) + ' LUNA / ' + fmtN(at.adds) + ' bribes'; }
+                if (eb) { const cur = epochNow().label; $('ps-bribes').textContent = fmt$(eb.usd); $('ps-bribes-s').textContent = 'epoch #' + eb.period + (Number(eb.period) < cur ? ' (last settled — #' + cur + ' settles at rollover)' : '') + ' · ' + eb.pools + ' pools · at current prices · all-time ' + fmtN(at.luna) + ' LUNA / ' + fmtN(at.adds) + ' bribes'; }
                 else { $('ps-bribes').textContent = '—'; $('ps-bribes-s').textContent = 'bribe-state unavailable · all-time ' + fmtN(at.luna) + ' LUNA'; }
             })();
             // Rev 3.91: tile 4 = DEX volume across TLA-relevant Astroport pools (24h now, 7d from real captures)
@@ -16520,7 +16520,7 @@
             const bribeVal = bw.usd >= 1 ? fmt$(bw.usd) : (bw.legs ? '<$1' : '$0');
             const vpL = vpLockedOf(mL), vpF = vpLockedOf(mF);
             const rows = [
-                ['TLA staked', delta(stakedSnapOf(nL) && stakedSnapOf(nL).usd, stakedSnapOf(nF) && stakedSnapOf(nF).usd, fmt$, spanNote(nFd)) + decLine(dec, (() => { const a = stakedSnapOf(nL), t = tvlOf(aL, sL); return a && t ? a.usd / t : null; })()), 'daily', 'Σ staked_in_tla_usd over ACTIVE gauge pools (Eris TLA definition, all DEXes, deduped across buckets). Quantity/price split is the Astroport pool decomposition scaled by the staked share — an approximation, labelled ≈.'],
+                ['TLA staked', delta(stakedSnapOf(nL) && stakedSnapOf(nL).usd, stakedSnapOf(nF) && stakedSnapOf(nF).usd, fmt$, spanNote(nFd)) + (dec && dec.pricePct != null ? sub([k('DEX-wide split: tokens ' + pct(dec.quantityPct) + ' · prices ' + pct(dec.pricePct), Math.abs(dec.pricePct) > Math.abs(dec.quantityPct) ? (dec.pricePct >= 0 ? 'up' : 'dn') : (dec.quantityPct >= 0 ? 'up' : 'dn'))]) : ''), 'daily', 'Σ staked_in_tla_usd over ACTIVE gauge pools (Eris TLA definition, all DEXes, deduped across buckets). The chip repeats the DEX-wide token/price split (exact on the DEX TVL row) as context — staked-only amounts are not captured, so no staked-only USD split is claimed (Rev 3.98).'],
                 ['DEX TVL (TLA pools)', delta(tvlOf(aL, sL), tvlOf(aF, sF), fmt$, spanNote(aFd)) + decLine(dec), 'daily', 'Everything sitting in the TLA-relevant pools on Astroport + SkeletonSwap — staked into TLA or not (PoL, unstaked LP). TLA staked is the part deposited into the gauges. Quantity = the window-start token amounts re-valued at today\'s prices vs today; price = the rest.'],
                 ['VP Locked', delta(vpL && vpL.vp, vpF && vpF.vp, (v) => fmtM(v) + ' vAMP', spanNote(mFd)), 'daily', 'Total vAMP held across all wallets — locks grow it, decay shrinks it.'],
                 ['Votion vault TVL', delta(votionOf(vL), votionOf(vF), fmt$, spanNote(vFd)), 'daily', 'Optimizer vault TVL (field exists since 2026-08-03 — earlier windows honestly show Δ n/a).'],
@@ -16529,7 +16529,7 @@
                     const m = new Date().toISOString().slice(0, 7);
                     const bs = await jf('tla-voting/bribe-state/' + m.replace('-', '/') + '.json', 60);
                     const eb = epochBribesOf(bs, pmap);
-                    return ['Bribes this epoch', eb ? (fmt$(eb.usd) + ' <span class="text-[10px] text-gray-500">epoch ' + eb.period + ' buckets · ' + eb.pools + ' pools · + PD manager bribes not incl.</span>') : '<span class="text-gray-600">—</span>', 'events', 'Everything sitting in the current epoch bribe buckets awaiting voters, at current prices. Phoenix Directive routes its bribes via the ve3 manager (separate stream) — its amounts are additional.'];
+                    return ['Bribes · epoch #' + (eb ? eb.period : '?') + (eb && Number(eb.period) < epochNow().label ? ' (settled)' : ''), eb ? (fmt$(eb.usd) + ' <span class="text-[10px] text-gray-500">' + ' '.replace(' ', '') + 'buckets · ' + eb.pools + ' pools · + PD manager bribes not incl.</span>') : '<span class="text-gray-600">—</span>', 'events', 'Everything sitting in the current epoch bribe buckets awaiting voters, at current prices. Phoenix Directive routes its bribes via the ve3 manager (separate stream) — its amounts are additional.'];
                 })(),
             ];
             // Rev 3.91 — activity group (owner's list): gauge churn, unrealized VP, Votion, volume
