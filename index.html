@@ -14430,17 +14430,21 @@
                 async function loadSalesHistory() {
                     const salesStartTime = performance.now();
                     const currentYear = new Date().getFullYear();
-                    const yearsToFetch = [2023, 2024, 2025]; // All available years
+                    const yearsToFetch = [2023, 2024, 2025, 2026]; // year keys for the result-index logic below
                     
                     try {
-                        // Fetch all years in parallel
-                        const fetchPromises = yearsToFetch.map(year => 
-                            fetch(`${SALES_BASE_URL}nft-sales-${year}.json`)
-                                .then(r => r.ok ? r.json() : null)
-                                .catch(() => null)
-                        );
-                        
-                        const results = await Promise.all(fetchPromises);
+                        // Rev 3.96 (owner 2026-08-22): the nft-sales-YYYY.json files never existed in the
+                        // org repo — 3 dead probes per load and "Total Sales --". The org product
+                        // sales-history.json (chain backfill + forward incremental, 1,221 BBL settles
+                        // since 2023-12-27) is adapted to the legacy per-year shape here, once.
+                        const sh = await fetch(`${SALES_BASE_URL}sales-history.json`).then(r => r.ok ? r.json() : null).catch(() => null);
+                        const toLegacy = (r) => ({ nft_id: String(r.token_id), timestamp: r.timestamp, token: r.denom_symbol, amount: Number(r.gross_amount) / 1e6, usd_at_time: null, tx_hash: r.tx_hash, buyer: r.buyer, seller: r.seller, auction_id: r.auction_id });
+                        const byYear = {};
+                        for (const r of ((sh && sh.sales) || [])) { const y = Number(String(r.timestamp).slice(0, 4)); (byYear[y] = byYear[y] || []).push(toLegacy(r)); }
+                        const bblAll = ((sh && sh.sales) || []).map(toLegacy);
+                        const totalBluna = bblAll.filter(x => x.token === 'bLUNA').reduce((a, x) => a + x.amount, 0);
+                        const results = yearsToFetch.map(y => byYear[y] ? { year: y, sales: { bbl: byYear[y], boost: [] }, cumulative_totals: { bbl: { total_volume_bluna: totalBluna, total_sales: bblAll.length, total_volume_luna: bblAll.filter(x => x.token === 'LUNA').reduce((a, x) => a + x.amount, 0) }, boost: { total_volume_usd: 0, total_sales: 0 } } } : null);
+
                         
                         // Combine all sales data
                         allTimeSalesData = {
@@ -15485,7 +15489,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.95', REV_DATE = '2026-08-22';
+        const REV = '3.97', REV_DATE = '2026-08-22';
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16541,11 +16545,33 @@
             // Rev 3.95 (owner log 2026-08-22): the Eris backend allow-lists origins — the browser gets
             // "not allowed origin: thealliancedao.com" (500). The votion cron already captures the
             // same endpoint verbatim, server-side, every run → votion/optimization/current.json.
+            // Rev 3.96: the product carries `yield` per vault (votion cron 1.3.0) — show it. Until that
+            // cron version has run, derive the same number here from the same two fields.
             const votionApr = async (slug, tvlUsd) => {
-                try { const o = (state.votOpt = state.votOpt || await jf('votion/optimization/current.json', 15)); const v = o && o.vaults && o.vaults[slug]; const rew = v && v.summary && v.summary.totalExpectedReward; if (typeof rew !== 'number' || !(tvlUsd > 0)) return null; const perPeriod = rew / tvlUsd; return { rew, perPeriod, aprSimple: perPeriod * 365 / 7 * 100, period: o.period, calculated: o.calculated }; } catch { return null; }
+                try { const o = (state.votOpt = state.votOpt || await jf('votion/optimization/current.json', 15)); const v = o && o.vaults && o.vaults[slug]; if (!v) return null;
+                    if (v.yield && v.yield.apr_simple_pct != null) return { rew: v.yield.expected_reward_usd, perPeriod: v.yield.per_period_pct / 100, aprSimple: v.yield.apr_simple_pct, period: o.period, calculated: o.calculated, src: 'product' };
+                    const rew = v.summary && v.summary.totalExpectedReward; if (typeof rew !== 'number' || !(tvlUsd > 0)) return null; const perPeriod = rew / tvlUsd; return { rew, perPeriod, aprSimple: perPeriod * 365 / 7 * 100, period: o.period, calculated: o.calculated, src: 'page' }; } catch { return null; }
             };
             const [apA, apB] = await Promise.all([vA ? votionApr('ampluna-max', vA.vault_tvl_usd) : null, vB ? votionApr('arbluna-max', vB.vault_tvl_usd) : null]);
-            const aprRow = (label, v, ap, slug) => [label, v ? (ap ? (ap.aprSimple.toFixed(1) + '%' + sub([k('votion rewards, simple APR'), k('$' + ap.rew.toFixed(2) + ' / period ' + ap.period), k('on ' + fmt$(v.vault_tvl_usd || 0) + ' TVL'), '<a class="k" style="color:#67e8f9" target="_blank" rel="noopener" href="https://votion.money/pools/liquidity-alliance/' + slug + '">votion.money APY ↗</a>'])) : ('—' + sub([k('optimization capture unavailable'), k(v.exchange_rate.toFixed(4) + ' rate'), k(fmt$(v.vault_tvl_usd || 0))]))) : '—', 'live', 'Our derivation: expected period reward (Votion API via the votion cron, the same feed votion.money reads) ÷ vault TVL, × 365/7. Simple APR, votion leg only — excludes the LST asset yield and Votion\'s compounding, so it is LOWER than the APY votion.money shows. Open votion.money for their number.'];
+            // Rev 3.97 (owner 2026-08-22: "doesn't match Votion"): Votion's APY is realized — vault
+            // exchange-rate growth (votion leg) plus LST hub-rate growth (asset leg), compounded. We
+            // capture both daily, so the REALIZED figure is the headline (product `yield.realized_7d`
+            // from votion cron 1.3.0; derived here from the same daily files until it has run);
+            // the forward expected-reward APR is the chip.
+            const realizedFrom = (slug, vNow, vPast, days) => { if (!vNow || !vPast || !(days > 0)) return null; const g = (a, b) => (typeof a === 'number' && typeof b === 'number' && b > 0) ? a / b - 1 : null; const vg = g(vNow.exchange_rate, vPast.exchange_rate), hg = g(vNow.lst_luna_hub_rate, vPast.lst_luna_hub_rate); const apy = (x) => x == null ? null : (Math.pow(1 + x, 365 / days) - 1) * 100; return { window_days: days, vault_apy_pct: apy(vg), asset_apy_pct: apy(hg), combined_apy_pct: (vg == null || hg == null) ? null : (Math.pow((1 + vg) * (1 + hg), 365 / days) - 1) * 100 }; };
+            const realizedFor = async (slug, vNow) => {
+                const o = state.votOpt; const pv = o && o.vaults && o.vaults[slug] && o.vaults[slug].yield && o.vaults[slug].yield.realized_7d;
+                if (pv && pv.vault_apy_pct != null) return { ...pv, src: 'product' };
+                const [d7, v7] = await nearest(daily.votion, dstr(addDays(new Date(latest + 'T00:00:00Z'), -7)), 3);
+                const past = v7 && Array.isArray(v7.vaults) ? v7.vaults.find(x => x.address === vNow.address) : null;
+                const days = (v7 && v7.meta && v7.meta.generated_at && vL && vL.meta && vL.meta.generated_at) ? (Date.parse(vL.meta.generated_at) - Date.parse(v7.meta.generated_at)) / 86400e3 : null;
+                const r = realizedFrom(slug, vNow, past, days); return r ? { ...r, src: 'page' } : null;
+            };
+            const [rzA, rzB] = await Promise.all([vA ? realizedFor('ampluna-max', vA) : null, vB ? realizedFor('arbluna-max', vB) : null]);
+            const pc1 = (x) => x == null ? '—' : x.toFixed(1) + '%';
+            const aprRow = (label, v, ap, rz, slug) => [label, v ? ((rz && rz.vault_apy_pct != null ? pc1(rz.vault_apy_pct) + ' <span class="pr-d text-gray-400">+ ' + pc1(rz.asset_apy_pct) + ' asset</span>' : (ap ? ap.aprSimple.toFixed(1) + '%' : '—')) +
+                sub([rz && rz.vault_apy_pct != null ? k('realized ' + Math.round(rz.window_days) + 'd · combined ' + pc1(rz.combined_apy_pct) + ' APY') : k('realized window unavailable'), ap ? k('forward ' + ap.aprSimple.toFixed(1) + '% APR · $' + ap.rew.toFixed(2) + ' / period') : k('forward reward unavailable'), k(fmt$(v.vault_tvl_usd || 0) + ' TVL'), '<a class="k" style="color:#67e8f9" target="_blank" rel="noopener" href="https://votion.money/pools/liquidity-alliance/' + slug + '">votion.money ↗</a>'])) : '—', 'live',
+                'Headline = REALIZED votion APY: the vault\'s vLST/LST exchange-rate growth over the trailing window from our daily captures, compounded to a year — the same thing Votion\'s "Votion APY" tracks. "+ asset" = the LST hub-rate growth the same way (Votion\'s "Asset APY"); combined = both. The forward chip is next period\'s expected reward ÷ TVL, simple. Measured from chain captures; Votion\'s exact windows/compounding are theirs, so expect small differences.'];
             const vol7 = await volume7dOf(latest), vol7F = await volume7dOf(aFd);
             // Active = gauge-listed pools with status active; inactive = listed with balance but not
             // active (voted below threshold / zero VP). Counts carry a Δ; newly-changed names as chips.
@@ -16559,7 +16585,7 @@
             // Rev 3.94 arrangement (owner): LEFT = liquidity & activity · RIGHT = voting power, bribes, Votion yield. 6 and 6.
             rows[5] = await rows[5];   // the epoch-bribes row is async
             const left = [rows[0], rows[1], volRow, activeRow, inactiveRow, rows[3]];
-            const right = [rows[2], vpPotRow, rows[4], rows[5], aprRow('Votion ampLUNA Max', vA, apA, 'ampluna-max'), aprRow('Votion arbLUNA Max', vB, apB, 'arbluna-max')];
+            const right = [rows[2], vpPotRow, rows[4], rows[5], aprRow('Votion ampLUNA Max', vA, apA, rzA, 'ampluna-max'), aprRow('Votion arbLUNA Max', vB, apB, rzB, 'arbluna-max')];
             const rows2 = right;
             // Rev 3.93 layout: label | value+Δ on one line; detail chips on a second, right-aligned line.
             const row = ([name, val, chip, tip]) => { const i = val.indexOf('<div class="pr-s">'); const main = i < 0 ? val : val.slice(0, i), rest = i < 0 ? '' : val.slice(i);
