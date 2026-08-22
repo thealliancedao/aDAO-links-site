@@ -3365,8 +3365,10 @@
                 CONFIG.fuelIndexUrl ? fetch(CONFIG.fuelIndexUrl).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
                 // Community layer — all fail-soft: page renders fully without them,
                 // the community pie mode / people boards just show their empty states.
-                fetch(CONFIG.tlaParticipantsUrl).then(r => r.ok ? r.json() : null).catch(() => null),
-                fetch(CONFIG.adaoAlliesUrl).then(r => r.ok ? r.json() : null)
+                // PERF (owner HAR 2026-08-22): both URLs are participants/current.json (2.4 MB) —
+                // one fetch, shared by both consumers.
+                (window.__participantsOnce = window.__participantsOnce || fetch(CONFIG.tlaParticipantsUrl).then(r => r.ok ? r.json() : null).catch(() => null)),
+                (window.__participantsOnce)
                     // ORG ADAPTER: the allies cron is retired. participants/current.json
                     // carries the same community layer under .members; expose it as
                     // .allies so the ally boards keep rendering.

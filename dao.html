@@ -695,7 +695,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 1.6</span>
+                    <span class="font-mono">Rev 1.8</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>
@@ -843,8 +843,10 @@ function getImageUrl(img) {
     if (!img) return null;
     if (!isValidImage(img)) return null;
     if (img.startsWith('ipfs://')) {
-        // Use a public IPFS gateway
-        return 'https://ipfs.io/ipfs/' + img.slice(7);
+        // PERF/FIX (owner HAR 2026-08-22): ipfs.io answers 403 to this site's member
+        // images (12/12 failed). Cloudflare's gateway serves them; ipfs.io kept as the
+        // onerror fallback by callers that set one.
+        return 'https://cloudflare-ipfs.com/ipfs/' + img.slice(7);
     }
     return img;
 }
@@ -918,8 +920,12 @@ async function loadPendingProposals() {
         
         const pending = [];
         
-        // Check next few proposal IDs
-        for (let i = maxLoadedId + 1; i <= maxLoadedId + 5; i++) {
+        // PERF (owner HAR 2026-08-22): 5 blind `proposal` queries = 5 LCD 500s every load.
+        // Ask proposal_count once and probe only ids that exist.
+        let propCount = null;
+        try { const rc = await fetch(`${LCD_BASE}/cosmwasm/wasm/v1/contract/${PROP_CONTRACT}/smart/${btoa(JSON.stringify({ proposal_count: {} }))}`); if (rc.ok) propCount = Number((await rc.json()).data); } catch (_) {}
+        const probeTo = Number.isFinite(propCount) ? Math.min(propCount, maxLoadedId + 5) : maxLoadedId;
+        for (let i = maxLoadedId + 1; i <= probeTo; i++) {
             try {
                 const query = btoa(JSON.stringify({ proposal: { proposal_id: i } }));
                 const url = `${LCD_BASE}/cosmwasm/wasm/v1/contract/${PROP_CONTRACT}/smart/${query}`;
@@ -3208,6 +3214,6 @@ function renderAllianceMembers() {
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '1.7', revDate: '2026-08-20', page: 'dao' });</script>
+<script>SiteFooter.mount({ rev: '1.8', revDate: '2026-08-22', page: 'dao' });</script>
 </body>
 </html>
