@@ -254,10 +254,12 @@
             { id: 'collection', label: 'Collection', icon: 'fa-images',    active: true },
             { id: 'analytics',  label: 'Analytics',  icon: 'fa-chart-line' },
             { id: 'wallet',     label: 'Wallet',     icon: 'fa-wallet' },
-        ], { onSelect: function (id) { var b = document.getElementById(id + '-view-btn'); if (b) b.click(); }, attach: '#controls' });
+        ], { onSelect: function (id) { var b = document.getElementById(id + '-view-btn'); if (b) b.click(); }, attach: '#ex-top-tile' });
         var sync = function () { var cur = (new URLSearchParams(location.search).get('view') || 'collection'); nav.querySelectorAll('.sh-subtab[data-tab]').forEach(function (x) { x.classList.toggle('active', x.getAttribute('data-tab') === cur); }); };
         window.addEventListener('popstate', sync); document.addEventListener('DOMContentLoaded', sync);
-        document.addEventListener('click', function (ev) { if (ev.target.closest('.view-tab')) setTimeout(sync, 0); });
+        // DOM is the truth for the active tab (the view containers' hidden class), not the URL.
+        var syncFromDom = function () { var v = !document.getElementById('wallet-view').classList.contains('hidden') ? 'wallet' : !document.getElementById('analytics-view').classList.contains('hidden') ? 'analytics' : 'collection'; nav.querySelectorAll('.sh-subtab[data-tab]').forEach(function (x) { x.classList.toggle('active', x.getAttribute('data-tab') === v); }); };
+        document.addEventListener('DOMContentLoaded', function () { ['collection-view', 'analytics-view', 'wallet-view'].forEach(function (id) { var el = document.getElementById(id); if (el && window.MutationObserver) new MutationObserver(syncFromDom).observe(el, { attributes: true, attributeFilter: ['class'] }); }); syncFromDom(); });
     })();
     </script>
 
@@ -273,7 +275,9 @@
     </div>
 
     <main class="max-w-7xl mx-auto px-4">
-        
+        <!-- 2026-08-22: persistent top tile for the view tabs — it must survive view switches
+             (attaching to the Collection filter card hid the tabs on Analytics/Wallet). -->
+        <div id="ex-top-tile" class="sh-tilewrap" style="margin-bottom:1em"></div>
         <div id="collection-view">
             <div id="controls" class="p-4 bg-gray-800/50 rounded-lg border border-gray-700">
                 
@@ -885,6 +889,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '4.18', revDate: '2026-08-21', page: 'nft-explorer' });</script>
+<script>SiteFooter.mount({ rev: '4.19', revDate: '2026-08-22', page: 'nft-explorer' });</script>
 </body>
 </html>
