@@ -1164,10 +1164,18 @@
     <script>SiteHeader.mount({ page: 'index', mobileTabs: false }); if (window.AddressPicker) AddressPicker.mount({});
     // Uniform chrome: the refresh strip rides in the shared sub-nav's right slot (no tabs on Home).
     (function () {
-      var nav = SiteHeader.subnav([], { right: '<span id="sh-refresh-slot"></span>', attach: '#pulse-card' });
+      // Home's in-page tabs (Ecosystem News · Ecosystem Pulse) on the shared component,
+      // at the top of the pulse card like every other page. The page's own buttons stay
+      // as hidden receivers. The refresh strip is retired (hidden; its JS is left intact).
+      SiteHeader.subnav([
+        { id: 'news',  label: 'Ecosystem News',  icon: 'fa-bullhorn',    active: true },
+        { id: 'pulse', label: 'Ecosystem Pulse', icon: 'fa-heart-pulse' },
+      ], { onSelect: function (id) { var b = document.getElementById('ptab-' + id); if (b) b.click(); }, attach: '#pulse-card' });
       document.addEventListener('DOMContentLoaded', function () {
-        var slot = document.getElementById('sh-refresh-slot'), strip = document.getElementById('global-refresh-btn') && document.getElementById('global-refresh-btn').parentNode;
-        if (slot && strip) { var outer = strip.parentNode; slot.appendChild(strip); if (outer && outer.classList.contains('border-b')) outer.classList.add('hidden'); }
+        var strip = document.getElementById('global-refresh-btn') && document.getElementById('global-refresh-btn').parentNode; if (strip) { var outer = strip.parentNode; (outer && outer.classList.contains('border-b') ? outer : strip).classList.add('hidden'); }
+        var news = document.getElementById('ptab-news'); if (news && news.parentNode) { news.parentNode.classList.add('hidden'); news.parentNode.setAttribute('aria-hidden', 'true'); }
+        // keep the shared tabs in step if the page switches programmatically
+        ['news', 'pulse'].forEach(function (id) { var b = document.getElementById('ptab-' + id); if (b) b.addEventListener('click', function () { document.querySelectorAll('#site-subnav .sh-subtab').forEach(function (x) { x.classList.toggle('active', x.getAttribute('data-tab') === id); }); }); });
       });
     })();
     </script>

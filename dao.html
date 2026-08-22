@@ -2346,6 +2346,14 @@ document.addEventListener('keydown', (e) => {
 // ========================================
 // PARTNER DAO DATA LOADING
 // ========================================
+// 2026-08-22: partner proposal files are now written by the dao-governance cron as
+// proper JSON. The legacy unwrap below (for the old double-encoded hand exports)
+// corrupts proper JSON (\\n inside descriptions → raw newline → parse error), which
+// silently emptied the Lions/Allies tabs. Parse proper JSON first; legacy second.
+function parseProposalFile(text) {
+    try { return JSON.parse(text); } catch (e) { /* legacy double-encoded export */ }
+    return JSON.parse(text.replace(/^"|"$/g, '').replace(/\\n/g, '\n').replace(/\\"/g, '"'));
+}
 async function loadPartnerData() {
     try {
         console.log('📋 Loading partner DAO data...');
@@ -2358,7 +2366,7 @@ async function loadPartnerData() {
             const lionRes = await fetch(LION_PROPS_URL);
             if (lionRes.ok) {
                 const text = await lionRes.text();
-                const data = JSON.parse(text.replace(/^"|"$/g, '').replace(/\\n/g, '\n').replace(/\\"/g, '"'));
+                const data = parseProposalFile(text);
                 lionProposals = data.proposals || {};
                 console.log(`  🦁 Lion DAO: ${Object.keys(lionProposals).length} proposals`);
             }
@@ -2369,7 +2377,7 @@ async function loadPartnerData() {
             const pixelRes = await fetch(PIXEL_PROPS_URL);
             if (pixelRes.ok) {
                 const text = await pixelRes.text();
-                const data = JSON.parse(text.replace(/^"|"$/g, '').replace(/\\n/g, '\n').replace(/\\"/g, '"'));
+                const data = parseProposalFile(text);
                 pixelProposals = data.proposals || {};
                 console.log(`  🎨 PixelLions: ${Object.keys(pixelProposals).length} proposals`);
             }
