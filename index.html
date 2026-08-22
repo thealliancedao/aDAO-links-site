@@ -1223,6 +1223,7 @@
             .pulse-chip { font-size: 9px; padding: 1px 6px; border-radius: 4px; font-family: monospace; }
             .pulse-chip.daily { background: rgba(255,255,255,0.06); color: #9ca3af; }
             .pulse-chip.events { background: rgba(251,191,36,0.12); color: #fbbf24; }
+            .pulse-chip.live { background: rgba(34,211,238,0.12); color: #22d3ee; }
             .pulse-row { border-bottom: 1px solid rgba(255,255,255,0.05); display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; column-gap: 12px; padding: 7px 0; }
             .pulse-row .pr-l { font-size: 13px; color: #d1d5db; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
             .pulse-row .pr-v { font-size: 14px; color: #fff; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -15484,7 +15485,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.93', REV_DATE = '2026-08-22';
+        const REV = '3.94', REV_DATE = '2026-08-22';
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16345,7 +16346,11 @@
             if (!n) return null;
             const quantity = toAtToday - fromAtToday;                       // same prices, different amounts
             const price = (toActual - fromActual) - quantity;                // everything else in the actual move
-            return { quantity, price, pools: n, of: m, covered: toActual };
+            // % forms (owner 2026-08-22): token growth in TOKEN terms = amounts change valued at one
+            // price set; price growth = the residual over the window-start value.
+            const quantityPct = fromAtToday ? quantity / fromAtToday * 100 : null;
+            const pricePct = fromActual ? price / fromActual * 100 : null;
+            return { quantity, price, quantityPct, pricePct, pools: n, of: m, covered: toActual };
         };
         // The daily snapshot carries volume_24h_usd per pool (volume_7d_usd is null there).
         // 24h = today's capture; 7d = Σ of the last 7 REAL daily captures' 24h figures,
@@ -16492,7 +16497,11 @@
             const sub = (parts) => '<div class="pr-s">' + parts.filter(Boolean).join('') + '</div>';
             const k = (txt, cls) => '<span class="k' + (cls ? ' ' + cls : '') + '">' + txt + '</span>';
             const arrow = (v) => (v >= 0 ? '▲' : '▼') + fmt$(Math.abs(v));
-            const decLine = (d, scale) => d ? sub([k('tokens ' + arrow(d.quantity * (scale || 1)), d.quantity * (scale || 1) >= 0 ? 'up' : 'dn'), k('prices ' + arrow(d.price * (scale || 1)), d.price * (scale || 1) >= 0 ? 'up' : 'dn'), '<span title="' + d.pools + '/' + d.of + ' pools decomposable' + (scale ? '; staked row is scaled by staked share (≈)' : '') + '">' + (scale ? '≈ ' : '') + d.pools + '/' + d.of + ' pools</span>']) : '';
+            const pct = (v) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1) + '%';
+            const decLine = (d, scale) => d ? sub([
+                k('tokens ' + (d.quantityPct != null ? pct(d.quantityPct) + ' ' : '') + '(' + arrow(d.quantity * (scale || 1)) + ')', d.quantity >= 0 ? 'up' : 'dn'),
+                k('prices ' + (d.pricePct != null ? pct(d.pricePct) + ' ' : '') + '(' + arrow(d.price * (scale || 1)) + ')', d.price >= 0 ? 'up' : 'dn'),
+                '<span title="Token %: window-start token amounts vs today\'s, both valued at today\'s prices — price-free. Price %: the residual of the USD move over the window-start value. ' + d.pools + '/' + d.of + ' pools decomposable' + (scale ? '; staked row USD split is scaled by staked share (≈)' : '') + '">' + (scale ? '≈ ' : '') + d.pools + '/' + d.of + ' pools</span>']) : '';
             const sF = aFd ? await daily.ss(aFd) : null;
             const delta = (cur, prev, fmt, note) => {
                 if (cur == null) return '<span class="text-gray-500" title="capture missing">—</span>';
@@ -16511,7 +16520,7 @@
                 ['Pool TVL (TLA-relevant)', delta(tvlOf(aL, sL), tvlOf(aF, sF), fmt$, spanNote(aFd)) + decLine(dec), 'daily', 'Sum of TLA-relevant pool TVL across both dexes — includes unstaked and PoL-owned liquidity. Quantity = the window-start token amounts re-valued at today\'s prices vs today; price = the rest.'],
                 ['VP Locked', delta(vpL && vpL.vp, vpF && vpF.vp, (v) => fmtM(v) + ' vAMP', spanNote(mFd)), 'daily', 'Total vAMP held across all wallets — locks grow it, decay shrinks it.'],
                 ['Votion vault TVL', delta(votionOf(vL), votionOf(vF), fmt$, spanNote(vFd)), 'daily', 'Optimizer vault TVL (field exists since 2026-08-03 — earlier windows honestly show Δ n/a).'],
-                ['Bribes posted in window', bribeVal + sub([k('current prices'), k((bw.legs + bw.unpriced) + ' legs'), k('any target epoch')]), 'events', 'bribe_add events whose tx landed inside the window, whatever epoch they fund (bulk adds for future epochs count on the day they were posted, not when they pay out). NEW bribe_add value posted inside the window at current prices — recent flow, often small.'],
+                ['Bribes posted · last ' + (state.windowDays >= 1 ? state.windowDays + 'd' : '24h'), bribeVal + sub([k('current prices'), k((bw.legs + bw.unpriced) + ' legs'), k('any target epoch')]), 'events', 'bribe_add events whose tx landed inside the window, whatever epoch they fund (bulk adds for future epochs count on the day they were posted, not when they pay out). NEW bribe_add value posted inside the window at current prices — recent flow, often small.'],
                 await (async () => {
                     const m = new Date().toISOString().slice(0, 7);
                     const bs = await jf('tla-voting/bribe-state/' + m.replace('-', '/') + '.json', 60);
@@ -16525,19 +16534,34 @@
             const vot = vL && Array.isArray(vL.vaults) ? vL.vaults : [];
             const votBest = (needle) => { const v = vot.filter(x => (x.vdenom || '').toLowerCase().includes(needle)); if (!v.length) return null; const b = v.reduce((m, x) => (x.exchange_rate || 0) > (m.exchange_rate || 0) ? x : m, v[0]); return b; };
             const vA = votBest('vampluna'), vB = votBest('varbluna');
+            // Rev 3.94 — Votion expected rewards live from backend.erisprotocol.com (CORS open; the
+            // same feed votion.money reads). We show OUR derivation — period reward ÷ vault TVL,
+            // simple-annualised — labelled as such. Votion's displayed APY (asset + votion legs,
+            // their compounding) comes from unpublished code; we link to it, never imitate it.
+            const votionApr = async (slug, tvlUsd) => {
+                try { const r = await fetch('https://backend.erisprotocol.com/votion/liquidity-alliance/' + slug + '/optimization'); if (!r.ok) return null; const o = await r.json(); const rew = o && o.summary && o.summary.totalExpectedReward; if (typeof rew !== 'number' || !(tvlUsd > 0)) return null; const perPeriod = rew / tvlUsd; return { rew, perPeriod, aprSimple: perPeriod * 365 / 7 * 100, period: o.period, calculated: o.calculated }; } catch { return null; }
+            };
+            const [apA, apB] = await Promise.all([vA ? votionApr('ampluna-max', vA.vault_tvl_usd) : null, vB ? votionApr('arbluna-max', vB.vault_tvl_usd) : null]);
+            const aprRow = (label, v, ap, slug) => [label, v ? (ap ? (ap.aprSimple.toFixed(1) + '%' + sub([k('votion rewards, simple APR'), k('$' + ap.rew.toFixed(2) + ' / period ' + ap.period), k('on ' + fmt$(v.vault_tvl_usd || 0) + ' TVL'), '<a class="k" style="color:#67e8f9" target="_blank" rel="noopener" href="https://votion.money/pools/liquidity-alliance/' + slug + '">votion.money APY ↗</a>'])) : ('—' + sub([k('Eris backend unreachable'), k(v.exchange_rate.toFixed(4) + ' rate'), k(fmt$(v.vault_tvl_usd || 0))]))) : '—', 'live', 'Our derivation: expected period reward (Eris backend, the feed votion.money reads) ÷ vault TVL, × 365/7. Simple APR, votion leg only — excludes the LST asset yield and Votion\'s compounding, so it is LOWER than the APY votion.money shows. Open votion.money for their number.'];
             const vol7 = await volume7dOf(latest), vol7F = await volume7dOf(aFd);
-            const rows2 = [
-                ['Newly active LPs', churn ? (churn.newly.length + (churn.newly.length ? sub([k(churn.names(nL, churn.newly).slice(0, 4).join(', '))]) : '')) : '—', 'daily', 'Gauge pools that are ACTIVE today and were not at the window start (by LP identity).'],
-                ['Newly inactive LPs', churn ? (churn.gone.length + (churn.gone.length ? sub([k(churn.names(nF, churn.gone).slice(0, 4).join(', '))]) : '')) : '—', 'daily', 'Gauge pools that were ACTIVE at the window start and are not today.'],
-                ['VP potential unrealized', (vpNow && vpPot != null) ? (fmtM(Math.max(0, vpPot - vpNow.vp)) + ' vAMP' + sub([k('if every lock were 104w · 10×')])) : '—', 'daily', 'Σ fixed_amount × 10 minus current VP — the VP the ecosystem would have if all locks were at the 10× ceiling. Not a prediction.'],
-                ['Votion ampLUNA vault', vA ? (vA.exchange_rate.toFixed(4) + sub([k('vampLUNA / ampLUNA'), k(fmt$(vA.vault_tvl_usd || 0)), k((vA.holder_count || 0) + ' holders')])) : '—', 'daily', 'Votion max vault exchange rate (optimizer output); the product carries rate and TVL, not an APR. An APR shown here would be an estimate — so none is shown.'],
-                ['Votion arbLUNA vault', vB ? (vB.exchange_rate.toFixed(4) + sub([k('varbLUNA / arbLUNA'), k(fmt$(vB.vault_tvl_usd || 0)), k((vB.holder_count || 0) + ' holders')])) : '—', 'daily', 'Votion max vault exchange rate (optimizer output); the product carries rate and TVL, not an APR.'],
-                ['DEX volume · 7d', vol7 ? (fmt$(vol7.v7) + (vol7F && vol7F.days === vol7.days ? '<span class="pr-d ' + (vol7.v7 >= vol7F.v7 ? 'text-emerald-400' : 'text-red-400') + '">' + (vol7.v7 >= vol7F.v7 ? '▲' : '▼') + fmt$(Math.abs(vol7.v7 - vol7F.v7)) + '</span>' : '') + sub([k(vol7.days + ' daily captures'), k('Astroport only')])) : '—', 'daily', 'Sum of the last 7 real daily captures\' 24h volume over TLA-relevant Astroport pools (days covered shown — never extrapolated). Δ compares with the 7 days ending at the window start, only when both have the same coverage. SkeletonSwap volume is not captured.'],
-            ];
+            // Active = gauge-listed pools with status active; inactive = listed with balance but not
+            // active (voted below threshold / zero VP). Counts carry a Δ; newly-changed names as chips.
+            const lpCounts = (snap) => { if (!snap) return null; const seen = new Map(); for (const p of (snap.pools || [])) seen.set(p.lp_address || p.pool_address || p.name, p); let a = 0, i = 0; for (const p of seen.values()) (p.status === 'active' ? a++ : i++); return { active: a, inactive: i }; };
+            const lcL = lpCounts(nL), lcF = lpCounts(nF);
+            const countDelta = (cur, prev) => cur == null ? '—' : (cur + (prev != null ? '<span class="pr-d ' + (cur - prev >= 0 ? 'text-emerald-400' : 'text-red-400') + '">' + (cur - prev >= 0 ? '▲' : '▼') + Math.abs(cur - prev) + '</span>' : ''));
+            const volRow = ['DEX volume · 7d', vol7 ? (fmt$(vol7.v7) + (vol7F && vol7F.days === vol7.days ? '<span class="pr-d ' + (vol7.v7 >= vol7F.v7 ? 'text-emerald-400' : 'text-red-400') + '">' + (vol7.v7 >= vol7F.v7 ? '▲' : '▼') + fmt$(Math.abs(vol7.v7 - vol7F.v7)) + '</span>' : '') + sub([k(vol7.days + ' daily captures'), k('Astroport only')])) : '—', 'daily', 'Sum of the last 7 real daily captures\' 24h volume over TLA-relevant Astroport pools (days covered shown — never extrapolated). Δ compares with the 7 days ending at the window start, only when both have the same coverage. SkeletonSwap volume is not captured.'];
+            const activeRow = ['Active LPs', lcL ? (countDelta(lcL.active, lcF && lcF.active) + (churn && churn.newly.length ? sub([k('new: ' + churn.names(nL, churn.newly).slice(0, 4).join(', '))]) : '')) : '—', 'daily', 'Gauge-listed pools with status ACTIVE (deduped across buckets). Δ vs window start; chips name pools that became active in the window.'];
+            const inactiveRow = ['Inactive LPs', lcL ? (countDelta(lcL.inactive, lcF && lcF.inactive) + (churn && churn.gone.length ? sub([k('dropped: ' + churn.names(nF, churn.gone).slice(0, 4).join(', '))]) : '')) : '—', 'daily', 'Gauge-listed pools that are NOT active — voted below threshold or zero VP — but still listed with balances. Δ vs window start; chips name pools that left active in the window.'];
+            const vpPotRow = ['VP potential unrealized', (vpNow && vpPot != null) ? (fmtM(Math.max(0, vpPot - vpNow.vp)) + ' vAMP' + sub([k('if every lock were 104w · 10×')])) : '—', 'daily', 'Σ fixed_amount × 10 minus current VP — the VP the ecosystem would have if all locks were at the 10× ceiling. Not a prediction.'];
+            // Rev 3.94 arrangement (owner): LEFT = liquidity & activity · RIGHT = voting power, bribes, Votion yield. 6 and 6.
+            rows[5] = await rows[5];   // the epoch-bribes row is async
+            const left = [rows[0], rows[1], volRow, activeRow, inactiveRow, rows[3]];
+            const right = [rows[2], vpPotRow, rows[4], rows[5], aprRow('Votion ampLUNA Max', vA, apA, 'ampluna-max'), aprRow('Votion arbLUNA Max', vB, apB, 'arbluna-max')];
+            const rows2 = right;
             // Rev 3.93 layout: label | value+Δ on one line; detail chips on a second, right-aligned line.
             const row = ([name, val, chip, tip]) => { const i = val.indexOf('<div class="pr-s">'); const main = i < 0 ? val : val.slice(0, i), rest = i < 0 ? '' : val.slice(i);
                 return '<div class="pulse-row" title="' + tip.replace(/"/g, '&quot;') + '"><span class="pr-l">' + name + '<span class="pulse-chip ' + chip + '">' + chip + '</span></span><span class="pr-v">' + main + '</span>' + rest + '</div>'; };
-            rowsEl.innerHTML = '<div class="pulse-grid-2"><div>' + rows.map(row).join('') + '</div><div>' + rows2.map(row).join('') + '</div></div>';
+            rowsEl.innerHTML = '<div class="pulse-grid-2"><div>' + left.map(row).join('') + '</div><div>' + right.map(row).join('') + '</div></div>';
         }
 
         async function phDay(date) {
