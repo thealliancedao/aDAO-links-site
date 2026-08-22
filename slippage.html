@@ -39,16 +39,12 @@
 <body>
 <div class="bg-mesh"></div>
 
-<header class="max-w-4xl mx-auto px-4 pt-6 pb-2">
-    <div class="flex items-center justify-between flex-wrap gap-3">
-        <a href="index.html"><img src="/assets/images/Alliance%20DAO%20Logo.png" alt="Alliance DAO Logo" class="h-12 md:h-14 w-auto" onerror="this.src='https://placehold.co/128x64/0D0D0D/EAEAEA?text=Logo'; this.onerror=null;"></a>
-        <nav class="flex items-center gap-2 text-sm">
-            <a href="tools.html" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300"><i class="fas fa-toolbox mr-1.5 text-cyan-400"></i>Tools</a>
-            <a href="tla-stats.html" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300"><i class="fas fa-chart-pie mr-1.5 text-cyan-400"></i>TLA Stats</a>
-            <a href="member-portfolio.html" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300"><i class="fas fa-user mr-1.5 text-cyan-400"></i>My Portfolio</a>
-        </nav>
-    </div>
-</header>
+<!-- Site header + global address picker (SPEC-unified-header step 5, 2026-08-21).
+     The picker is the zap planner's wallet input; the inline box is retired (kept hidden). -->
+<div id="site-header"></div>
+<script src="/lib/site-header.js"></script>
+<script src="/lib/address-picker.js"></script>
+<script>SiteHeader.mount({ page: 'slippage' });</script>
 
 <main class="max-w-4xl mx-auto px-4 pb-10">
     <div class="text-center mt-6 mb-6">
@@ -83,7 +79,7 @@
     <div class="glass-card p-5 mb-5" id="zap-card">
         <div class="flex items-center gap-2 flex-wrap">
             <h3 class="font-semibold"><i class="fas fa-right-left text-cyan-400 mr-1.5"></i>Zap planner <span class="text-[10px] font-normal text-gray-500">— per-position exit &amp; entry costs</span></h3>
-            <span class="ml-auto flex items-center gap-1.5">
+            <span class="ml-auto flex items-center gap-1.5 hidden" aria-hidden="true"><!-- retired 2026-08-21: header picker is the input -->
                 <input id="wallet-input" list="wallet-list" placeholder="name or terra1… (optional)" autocomplete="off"
                        class="w-52 text-[11px] px-2.5 py-1 rounded-full bg-white/5 text-gray-300 border border-white/10 focus:border-cyan-500/50 outline-none">
                 <datalist id="wallet-list"></datalist>
@@ -127,7 +123,7 @@
     // Rev footer (DeFi_Patriot 2026-08-03): bump BOTH on every change; #page-rev renders
     // from these constants so the footer can never drift from the code.
     // Changelog: tla-core/docs/changelogs/slippage-log.md
-    const REV = '2.0', REV_DATE = '2026-08-03';
+    const REV = '2.1', REV_DATE = '2026-08-21';
 
     const DEX_URLS = [
         ['astroport', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/snapshots/current.json'],
@@ -677,8 +673,17 @@
         setAmount(1000);
         load();
         // ?wallet= deep link (name or address) — from tla-stats / member-portfolio
-        const qp = new URLSearchParams(location.search).get('wallet');
-        if (qp) loadMembers().then(() => selectMemberByWallet(qp));
+        // Header picker owns the selection (step 5): URL / remembered / saved are
+        // resolved by the picker; this page just receives wallets.
+        if (window.AddressPicker) {
+            AddressPicker.mount({
+                onSelect: (w) => { loadMembers().then(() => { const m = selectMemberByWallet(w); const st = $('wallet-status'); if (st) st.textContent = m ? '' : '· this wallet has no captured TLA positions'; }); },
+                onClear: clearMember,
+            });
+        } else {
+            const qp = new URLSearchParams(location.search).get('wallet');
+            if (qp) loadMembers().then(() => selectMemberByWallet(qp));
+        }
     }
     if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', init);
 
@@ -696,6 +701,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '2.0', revDate: '2026-08-12', page: 'slippage' });</script>
+<script>SiteFooter.mount({ rev: '2.1', revDate: '2026-08-21', page: 'slippage' });</script>
 </body>
 </html>
