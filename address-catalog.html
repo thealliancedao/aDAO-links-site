@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Address Catalog — TLA Stats</title>
+<style>
+  :root{
+    --bg:#0a0e12; --panel:#11161c; --panel2:#161d25; --line:#222c38;
+    --ink:#e7edf3; --muted:#8a98a8; --faint:#5a6675;
+    --ok:#3ecf8e; --warn:#f0b042; --down:#f0556a; --info:#5aa9e6; --accent:#3ecf8e; --violet:#b98aff;
+    --mono:'SFMono-Regular',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1180px;margin:0 auto;padding:16px 18px 60px}
+  h1{font-size:22px;margin:0 0 4px} .sub{color:var(--muted);font-size:13px;margin-bottom:14px;max-width:90ch}
+  .how{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:12px 14px;font-size:12.5px;color:var(--muted);margin-bottom:14px;line-height:1.55}
+  .how b{color:var(--ink)}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  input[type=search]{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--ink);font:13px var(--mono);outline:none}
+  input[type=search]:focus{border-color:var(--accent)}
+  .chip{font:600 11px/1 var(--mono);padding:6px 9px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer;white-space:nowrap}
+  .chip.on{border-color:var(--accent);color:var(--accent)}
+  .counts{font:11px var(--mono);color:var(--faint);margin:0 0 8px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{font:600 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg)}
+  td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:hover td{background:var(--panel)}
+  .addr{font:11px var(--mono);color:var(--muted);cursor:pointer;white-space:nowrap} .addr:hover{color:var(--ink)}
+  .lbl{font-weight:600} .desc{color:var(--muted);font-size:12px;margin-top:2px;max-width:56ch}
+  .t{font:600 10px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--info);white-space:nowrap}
+  .v{display:inline-flex;align-items:center;gap:4px;font:600 10px/1 var(--mono);padding:4px 6px;border-radius:5px;margin:0 4px 4px 0;border:1px solid var(--line);background:var(--panel2);color:var(--muted);cursor:help;white-space:nowrap}
+  .v.chain,.v.github,.v.scv_audit,.v.oak_audit{border-color:rgba(62,207,142,.35);color:var(--ok)}
+  .v.past_prop{border-color:rgba(185,138,255,.35);color:var(--violet)}
+  .v.owner,.v.project_team,.v.dao_registry,.v.docs{border-color:rgba(240,176,66,.3);color:var(--warn)}
+  .v a{color:inherit}
+  .human{font:600 10px/1 var(--mono);color:var(--warn)}
+  .need{margin-top:28px;border:1px dashed var(--warn);border-radius:10px;padding:12px 14px;background:rgba(240,176,66,.04)}
+  .need h2{font-size:14px;margin:0 0 6px;color:var(--warn)}
+  .need p{font-size:12.5px;color:var(--muted);margin:0 0 8px}
+  .need .row{font:12px var(--mono);color:var(--muted);padding:6px 0;border-top:1px solid var(--line)}
+  .empty{color:var(--faint);padding:24px;text-align:center}
+  @media(max-width:767px){ th:nth-child(4),td:nth-child(4){display:none} .desc{max-width:none} }
+</style>
+</head>
+<body>
+<div id="site-header"></div>
+<script src="/lib/site-header.js"></script>
+<script src="/lib/address-picker.js"></script>
+<script>SiteHeader.mount({ page: 'address-catalog' }); if (window.AddressPicker) AddressPicker.mount({});</script>
+<div class="wrap">
+  <h1>Address Catalog</h1>
+  <div class="sub">Every address this platform knows, and <b>how</b> it knows it. Built by the address-catalog cron from the trust register, the older curated lists, each DAO's own registry, the structural contract config and the live gauge/pool captures — one file that the help assistant, the DAO page and the news cards all read.</div>
+  <div class="how"><b>Reading the chips.</b> <span class="v chain">chain</span><span class="v github">github</span><span class="v scv_audit">scv_audit</span><span class="v oak_audit">oak_audit</span> can be checked without trusting this site. <span class="v past_prop">past_prop</span> means an executed proposal already interacted with it — precedent, not endorsement. <span class="v owner">owner</span><span class="v project_team">project_team</span><span class="v dao_registry">dao_registry</span><span class="v docs">docs</span> are human labels. Rows marked <span class="human">human-only</span> have no chain-level evidence. Nothing here says an address is safe — the chain is the source of truth; every address links to the explorer. To add or upgrade an entry, edit <code>tla-core/docs/curated/trusted-addresses.json</code> with a method, a reference and a link.</div>
+  <div class="bar">
+    <input type="search" id="q" placeholder="search address · label · protocol · description" autocomplete="off">
+    <span id="types"></span>
+  </div>
+  <div class="bar" id="methods"></div>
+  <div class="counts" id="counts">loading…</div>
+  <table><thead><tr><th>Address</th><th>Label</th><th>Type · Protocol</th><th>Verified by</th></tr></thead><tbody id="rows"><tr><td colspan="4" class="empty">Loading catalog/trusted/current.json…</td></tr></tbody></table>
+  <div class="need" id="need" style="display:none"><h2>Seen, not verified</h2><p>Addresses that showed up in proposals and that no registry knows. Listing here is not trust — they move into the catalog only when someone adds a verification entry.</p><div id="needrows"></div></div>
+  <div class="counts" style="margin-top:24px">Page REV <span id="page-rev"></span> · product <span id="prod-meta"></span></div>
+</div>
+<div id="site-footer"></div>
+<script src="/lib/site-footer.js"></script>
+<script>
+(function () {
+  const REV = '1.0', REV_DATE = '2026-08-22';   // rev-footer law
+  document.getElementById('page-rev').textContent = REV + ' · ' + REV_DATE;
+  if (window.SiteFooter) SiteFooter.mount({ rev: REV, revDate: REV_DATE, page: 'address-catalog' });
+  const URL_ = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/catalog/trusted/current.json?t=' + Math.floor(Date.now() / 900000);
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const state = { rows: [], type: null, methods: new Set(), q: '' };
+  const short = (a) => a.slice(0, 12) + '…' + a.slice(-6);
+  const EXPL = (a) => 'https://chainsco.pe/terra2/address/' + a;
+  function chip(v) {
+    const tip = [v.ref, v.by ? 'by ' + v.by : null, v.on ? 'on ' + v.on : null].filter(Boolean).join(' · ');
+    const inner = v.method + (v.url ? ' <i class="fas fa-arrow-up-right-from-square" style="font-size:8px"></i>' : '');
+    return v.url ? '<a class="v ' + v.method + '" target="_blank" rel="noopener" href="' + esc(v.url) + '" title="' + esc(tip) + '">' + inner + '</a>' : '<span class="v ' + v.method + '" title="' + esc(tip) + '">' + inner + '</span>';
+  }
+  function render() {
+    const q = state.q.toLowerCase();
+    const rows = state.rows.filter(r => (!state.type || r.type === state.type) && (!state.methods.size || [...state.methods].every(m => (r.methods || []).includes(m))) && (!q || [r.address, r.label, r.protocol, r.description, ...(r.sources || [])].join(' ').toLowerCase().includes(q)));
+    $('counts').textContent = rows.length + ' of ' + state.rows.length + ' addresses' + (state.type ? ' · type ' + state.type : '') + (state.methods.size ? ' · verified by ' + [...state.methods].join(' + ') : '') + (q ? ' · "' + state.q + '"' : '');
+    $('rows').innerHTML = rows.length ? rows.map(r =>
+      '<tr><td><span class="addr" title="click to copy · full: ' + esc(r.address) + '" data-copy="' + esc(r.address) + '">' + short(r.address) + '</span><br><a href="' + EXPL(r.address) + '" target="_blank" rel="noopener" style="font:10px var(--mono)">explorer ↗</a></td>' +
+      '<td><div class="lbl">' + esc(r.label || '—') + '</div>' + (r.description ? '<div class="desc">' + esc(r.description) + '</div>' : '') + '</td>' +
+      '<td><span class="t">' + esc(r.type || 'untyped') + '</span><br><span style="font-size:12px;color:var(--muted)">' + esc(r.protocol || '') + '</span></td>' +
+      '<td>' + ((r.verified || []).length ? r.verified.map(chip).join('') : '<span class="human">not verified</span>') + (r.human_only ? '<div class="human" style="margin-top:2px">human-only</div>' : '') + '</td></tr>').join('')
+      : '<tr><td colspan="4" class="empty">Nothing matches.</td></tr>';
+  }
+  document.addEventListener('click', (e) => {
+    const c = e.target.closest('[data-copy]'); if (c) { const a = c.dataset.copy; (window.AddressPicker && AddressPicker.copy) ? AddressPicker.copy(a) : navigator.clipboard.writeText(a); c.textContent = 'copied'; setTimeout(() => { c.textContent = short(a); }, 900); }
+    const t = e.target.closest('[data-type]'); if (t) { state.type = state.type === t.dataset.type ? null : t.dataset.type; document.querySelectorAll('[data-type]').forEach(x => x.classList.toggle('on', x.dataset.type === state.type)); render(); }
+    const m = e.target.closest('[data-method]'); if (m) { const k = m.dataset.method; state.methods.has(k) ? state.methods.delete(k) : state.methods.add(k); m.classList.toggle('on', state.methods.has(k)); render(); }
+  });
+  $('q').addEventListener('input', () => { state.q = $('q').value.trim(); render(); });
+  const qs = new URLSearchParams(location.search); if (qs.get('q')) { $('q').value = qs.get('q'); state.q = qs.get('q'); }
+  fetch(URL_).then(r => r.ok ? r.json() : null).then(d => {
+    if (!d || !Array.isArray(d.addresses)) { $('rows').innerHTML = '<tr><td colspan="4" class="empty">catalog/trusted/current.json is not published yet — the address-catalog cron (1.3.0) writes it on its next run.</td></tr>'; $('counts').textContent = ''; return; }
+    state.rows = d.addresses;
+    const bt = (d.meta && d.meta.counts && d.meta.counts.by_type) || {}, bm = (d.meta && d.meta.counts && d.meta.counts.by_method) || {};
+    $('types').innerHTML = Object.entries(bt).sort((a, b) => b[1] - a[1]).map(([k, n]) => '<span class="chip" data-type="' + esc(k) + '">' + esc(k) + ' ' + n + '</span>').join(' ');
+    $('methods').innerHTML = '<span style="font:10px var(--mono);color:var(--faint)">verified by</span> ' + ((d.meta && d.meta.methods) || Object.keys(bm)).map(k => '<span class="chip" data-method="' + esc(k) + '">' + esc(k) + ' ' + (bm[k] || 0) + '</span>').join(' ');
+    $('prod-meta').textContent = (d.meta && d.meta.version) + ' · ' + String(d.meta && d.meta.generated_at).slice(0, 16).replace('T', ' ') + 'Z · ' + (d.meta && d.meta.status) + ((d.meta && d.meta.issues && d.meta.issues.length) ? ' · ' + d.meta.issues.length + ' register issue(s)' : '');
+    const need = d.needs_verification || [];
+    if (need.length) { $('need').style.display = ''; $('needrows').innerHTML = need.map(n => '<div class="row"><span class="addr" data-copy="' + esc(n.address) + '">' + esc(n.address) + '</span> · seen in: ' + esc(n.seen_in) + (n.suggested_method ? '<br>how to verify: ' + esc(n.suggested_method) : '') + ' · <a href="' + EXPL(n.address) + '" target="_blank" rel="noopener">explorer ↗</a></div>').join(''); }
+    render();
+  }).catch(() => { $('rows').innerHTML = '<tr><td colspan="4" class="empty">Could not load the catalog product.</td></tr>'; });
+})();
+</script>
+</body>
+</html>
