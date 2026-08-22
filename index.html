@@ -15492,7 +15492,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.82', REV_DATE = '2026-08-22';   // rev-footer law: bump BOTH every change
+        const REV = '3.83', REV_DATE = '2026-08-22';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -15932,18 +15932,112 @@
                 '<a class="text-[11px] text-cyan-400 hover:underline" target="_blank" rel="noopener" href="' + esc(c.link) + '"><i class="fas fa-arrow-up-right-from-square mr-1"></i>Open governance' + (c.live ? ' &amp; vote' : '') + '</a>' +
                 (opts.audit !== false ? '<button type="button" class="text-[11px] text-violet-300 hover:underline" data-act="audit" data-key="' + esc(c.dao) + '|' + c.id + '"><i class="fas fa-magnifying-glass-dollar mr-1"></i>Quick audit</button>' : '') +
                 (opts.history !== false ? '<button type="button" class="text-[11px] text-gray-400 hover:underline" data-act="history" data-dao="' + esc(c.dao) + '"><i class="fas fa-clock-rotate-left mr-1"></i>All ' + esc(c.dao) + ' props</button>' : '') +
-                '</div></div>';
+                '</div><div data-prec="' + esc(cardKey(c)) + '">' + (c.precedent ? precedentHtml(c.precedent) : '') + '</div></div>';
+        }
+        // ---- Rev 3.83 PRECEDENT CHECK (owner 2026-08-22) ------------------------------------
+        // "Is this a copy of something that already passed?" Deterministic, no model:
+        // every message is deep-decoded (nested base64), reduced to a SHAPE — contracts,
+        // actions, addresses, denoms, key-paths — with AMOUNTS STRIPPED, then compared
+        // with every past proposal of the same governance. Precedent is not chain proof
+        // and not endorsement: it says "this shape has/hasn't been voted on before, and
+        // how that vote went". Banned words apply (no safe/legit/genuine/approved).
+        const deepDecode = (v, depth) => {
+            depth = depth || 0; if (depth > 6) return v;
+            if (typeof v === 'string') {
+                if (/^[A-Za-z0-9+/=]{16,}$/.test(v) && v.length % 4 === 0) { try { const t = atob(v); if (/^[\s\[{]/.test(t)) return deepDecode(JSON.parse(t), depth + 1); } catch {} }
+                return v;
+            }
+            if (Array.isArray(v)) return v.map(x => deepDecode(x, depth + 1));
+            if (v && typeof v === 'object') { const o = {}; for (const k of Object.keys(v)) o[k] = deepDecode(v[k], depth + 1); return o; }
+            return v;
+        };
+        const AMOUNT_KEYS = /^(amount|amount_raw|min_.*|max_.*|timeout_timestamp|timestamp|deadline|expires?|expiration|nonce|memo|id|proposal_id|height)$/i;
+        function msgShape(rawMsgs) {
+            const f = { contracts: new Set(), actions: new Set(), addrs: new Set(), denoms: new Set(), paths: new Set(), amounts: [] };
+            const walk = (v, path, key) => {
+                if (typeof v === 'string') {
+                    if (/^terra1[02-9ac-hj-np-z]{38,58}$/.test(v)) f.addrs.add(v);
+                    else if (/^(u[a-z]+|ibc\/[0-9A-F]{64}|factory\/terra1[^/]+\/.+)$/.test(v)) f.denoms.add(v);
+                    else if (/^\d{3,}$/.test(v) && AMOUNT_KEYS.test(key || '')) f.amounts.push(path + '=' + v);
+                    return;
+                }
+                if (typeof v === 'number') { if (AMOUNT_KEYS.test(key || '')) f.amounts.push(path + '=' + v); return; }
+                if (Array.isArray(v)) { v.forEach((x, i) => walk(x, path + '[]', key)); return; }
+                if (v && typeof v === 'object') for (const k of Object.keys(v)) { if (!AMOUNT_KEYS.test(k)) f.paths.add(path + '/' + k); walk(v[k], path + '/' + k, k); }
+            };
+            for (const m of (rawMsgs || [])) {
+                const d = deepDecode(m);
+                const w = d && d.wasm && d.wasm.execute, b = d && d.bank && d.bank.send;
+                if (w) { f.contracts.add(w.contract_addr); const inner = w.msg && typeof w.msg === 'object' ? w.msg : {}; Object.keys(inner).forEach(k => f.actions.add(k)); walk(inner, w.contract_addr + ':' + Object.keys(inner)[0], null); for (const x of (w.funds || [])) { if (x.denom) f.denoms.add(x.denom); if (x.amount) f.amounts.push('funds/' + x.denom + '=' + x.amount); } }
+                else if (b) { f.actions.add('bank.send'); f.addrs.add(b.to_address); for (const x of (b.amount || [])) { if (x.denom) f.denoms.add(x.denom); if (x.amount) f.amounts.push('bank/' + x.denom + '=' + x.amount); } }
+                else { const k = d && typeof d === 'object' ? Object.keys(d)[0] : 'unknown'; f.actions.add(k); walk(d, k, null); }
+            }
+            return f;
+        }
+        const jacc = (a, b) => { if (!a.size && !b.size) return 1; let n = 0; for (const x of a) if (b.has(x)) n++; return n / (a.size + b.size - n); };
+        function shapeCompare(A, B) {
+            const parts = [['contracts', 0.35], ['actions', 0.25], ['addrs', 0.2], ['denoms', 0.1], ['paths', 0.1]];
+            let score = 0; const same = [], diff = [];
+            for (const [k, w] of parts) {
+                const j = jacc(A[k], B[k]); score += w * j;
+                if (j === 1 && (A[k].size || B[k].size)) same.push(k);
+                else if (j < 1) { const only = [...A[k]].filter(x => !B[k].has(x)), miss = [...B[k]].filter(x => !A[k].has(x)); diff.push(k + (only.length ? ' new: ' + only.map(x => x.length > 20 ? x.slice(0, 10) + '…' + x.slice(-6) : x).join(', ') : '') + (miss.length ? ' missing: ' + miss.map(x => x.length > 20 ? x.slice(0, 10) + '…' + x.slice(-6) : x).join(', ') : '')); }
+            }
+            return { score: Math.round(score * 100), same, diff, amountsDiffer: A.amounts.join('|') !== B.amounts.join('|') };
+        }
+        // past = cards with rawMsgs (corpus or live). Returns ranked precedents + a plain-language reading.
+        function precedentOf(card, past) {
+            const A = msgShape(card.rawMsgs || []);
+            const rows = (past || []).filter(p => p && p.id !== card.id && Array.isArray(p.rawMsgs) && p.rawMsgs.length).map(p => ({ card: p, ...shapeCompare(A, msgShape(p.rawMsgs)) })).sort((a, b) => b.score - a.score || b.card.id - a.card.id);
+            const top = rows.filter(r => r.score >= 60).slice(0, 5);
+            const passedN = top.filter(r => ['passed', 'executed'].includes(String(r.card.status).toLowerCase())).length;
+            const rejN = top.filter(r => /rejected|vetoed|closed|execution_failed/.test(String(r.card.status).toLowerCase())).length;
+            const best = rows[0] || null;
+            let band, reading;
+            if (!A.contracts.size && !A.actions.size) { band = 'none'; reading = 'No executable messages — text-only proposal; nothing to compare.'; }
+            else if (!rows.length) { band = 'none'; reading = 'No past proposals with messages available for this governance — nothing to compare against.'; }
+            // A changed address or contract can never be a "match" whatever the score — that
+            // is the exact swap a drain attempt makes. Identity differences always surface.
+            else if (best.score >= 90 && !best.diff.some(d => /^(addrs|contracts)/.test(d))) { band = 'match'; reading = 'Same shape as ' + top.length + ' past proposal' + (top.length === 1 ? '' : 's') + ' (' + passedN + ' passed, ' + rejN + ' rejected)' + (best.amountsDiffer ? ' — amounts differ, everything else matches.' : ' — amounts match too.'); }
+            else if (best.score >= 60) { band = 'near'; reading = 'Close to #' + best.card.id + ' (' + best.score + '% of shape, ' + String(best.card.status).toLowerCase() + '). Differences: ' + best.diff.join('; ') + '. Worth the deeper check.'; }
+            else { band = 'new'; reading = 'No close precedent in this governance (best ' + best.score + '% vs #' + best.card.id + '). New shape — put it through the deeper check.'; }
+            return { band, reading, top, best, shape: A, compared: rows.length };
+        }
+        const precedentHtml = (pr) => {
+            const col = { match: 'border-emerald-500/30 bg-emerald-500/[0.06] text-emerald-200', near: 'border-amber-500/30 bg-amber-500/[0.06] text-amber-200', new: 'border-orange-500/30 bg-orange-500/[0.06] text-orange-200', none: 'border-white/10 bg-white/[0.02] text-gray-400' }[pr.band];
+            return '<div class="mt-2 rounded border ' + col + ' px-2 py-1.5 text-[11px]"><div class="font-bold text-[10px] uppercase tracking-wider mb-0.5"><i class="fas fa-clone mr-1"></i>Precedent · compared with ' + pr.compared + ' past proposal' + (pr.compared === 1 ? '' : 's') + '</div>' + esc(pr.reading) +
+                (pr.top.length ? '<div class="mt-1 text-[10px] text-gray-400">' + pr.top.map(r => '#' + r.card.id + ' ' + r.score + '% · ' + esc(String(r.card.status).toLowerCase()) + (r.card.endIso ? ' · ' + fmtDay(r.card.endIso) : '') + (r.card.yesPct != null ? ' · Y' + r.card.yesPct.toFixed(0) + '/N' + r.card.noPct.toFixed(0) : '')).join('<br>') + '</div>' : '') +
+                '<div class="mt-1 text-[9px] text-gray-500">Shape match = same contracts, actions, addresses and denoms with amounts stripped. Precedent is not chain proof: a matching shape only says this pattern was voted on before and how that vote went.</div></div>';
+        };
+        async function pastFor(daoName) {
+            newsState.history = newsState.history || {};
+            if (!newsState.history[daoName]) { const keep = gm.mode; await openHistory(daoName); if (keep !== 'history') gmClose(); }
+            return newsState.history[daoName] || [];
         }
         const cardKey = (c) => c.dao + '|' + c.id;
-        const findCard = (key) => newsState.all.find(c => cardKey(c) === key) || ((newsState.history || {})[key.split('|')[0]] || []).find(c => cardKey(c) === key);
+        const findCard = (key) => newsState.all.find(c => cardKey(c) === key) || (gm.cards || []).find(c => cardKey(c) === key) || ((newsState.history || {})[key.split('|')[0]] || []).find(c => cardKey(c) === key);
         // Quick audit = the DAO page's contract: messages → clipboard → Help drawer in audit mode.
-        function quickAudit(c) {
+        // Quick audit (Rev 3.83): step 1 = precedent check, inline, instantly, no model.
+        // Step 2 (button) = the deeper registry walk in Help, with the precedent reading
+        // prepended so the agent knows what was already established.
+        async function quickAudit(c) {
+            if (!c) return;
+            const slot = document.querySelector('[data-prec="' + cardKey(c).replace(/"/g, '') + '"]');
+            if (slot) slot.innerHTML = '<div class="mt-2 text-[11px] text-gray-500">Checking precedent…</div>';
+            const past = await pastFor(c.dao);
+            const pr = precedentOf(c, past);
+            c.precedent = pr;
+            const html = precedentHtml(pr) + '<button type="button" class="pulse-pill mt-1.5" data-act="deep" data-key="' + esc(cardKey(c)) + '"><i class="fas fa-magnifying-glass-dollar mr-1"></i>Deeper check in Help (every address vs registries)</button>';
+            document.querySelectorAll('[data-prec="' + cardKey(c).replace(/"/g, '') + '"]').forEach(el => { el.innerHTML = html; });
+        }
+        function deepAudit(c) {
             if (!c) return;
             const text = JSON.stringify(c.rawMsgs || [], null, 2);
+            const pre = c.precedent ? 'Precedent check (deterministic, amounts stripped): ' + c.precedent.reading + (c.precedent.top.length ? ' Matches: ' + c.precedent.top.map(r => '#' + r.card.id + ' ' + r.score + '% ' + String(r.card.status).toLowerCase()).join(', ') + '.' : '') + '\n\n' : '';
             const done = () => {
                 if (window.SiteFooter && SiteFooter.openHelpDrawer) {
                     SiteFooter.openHelpDrawer();
-                    setTimeout(() => { const i = document.getElementById('hd-input'); if (i) { i.value = 'Does this ' + c.dao + ' proposal #' + c.id + ' ("' + String(c.title).slice(0, 80) + '") do what it says? Check every address against the registries:\n\n' + text; i.dispatchEvent(new Event('input')); i.scrollTop = 0; i.focus(); } }, 150);
+                    setTimeout(() => { const i = document.getElementById('hd-input'); if (i) { i.value = pre + 'Does this ' + c.dao + ' proposal #' + c.id + ' ("' + String(c.title).slice(0, 80) + '") do what it says? Check every address against the registries:\n\n' + text; i.dispatchEvent(new Event('input')); i.scrollTop = 0; i.focus(); } }, 150);
                 }
             };
             try { navigator.clipboard.writeText(text).then(done, done); } catch (e) { done(); }
@@ -15951,6 +16045,7 @@
         document.addEventListener('click', (ev) => {
             const b = ev.target.closest('button[data-act]'); if (!b) return;
             if (b.dataset.act === 'audit') quickAudit(findCard(b.dataset.key));
+            if (b.dataset.act === 'deep') deepAudit(findCard(b.dataset.key));
             if (b.dataset.act === 'history') openHistory(b.dataset.dao);
         });
         // ---- modal (alert | history) ----
@@ -16366,7 +16461,7 @@
         window.__pulseTest = { tvlOf, votionOf, vpLockedOf, allTimeBribes, activePoolsOf,
             buildDenomPriceMap, bribesUsdInWindow, cumulativeLunaByMonth, monthsBetween,
             fuelImpliedOf, propCard, astroCard, defaultTab, riskOf, scanMovesFunds, scanLowEffort, statusBadge, epochBribesOf,
-            WATCHED_DAOS, X_ACCOUNTS, vpPotentialOf, solidPegOf, volTla, volPools, epochNow, gaugeSetOf, stakedOf, capaCard, lunaCard, cardHtml, liveCards, pastCards, corpusCard, DAO_ORDER, alertSig, REV, REV_DATE };
+            WATCHED_DAOS, X_ACCOUNTS, vpPotentialOf, solidPegOf, volTla, volPools, epochNow, gaugeSetOf, stakedOf, capaCard, lunaCard, cardHtml, msgShape, precedentOf, shapeCompare, deepDecode, liveCards, pastCards, corpusCard, DAO_ORDER, alertSig, REV, REV_DATE };
     })();
     </script>
     <script>
