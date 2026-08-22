@@ -1168,9 +1168,11 @@
       // at the top of the pulse card like every other page. The page's own buttons stay
       // as hidden receivers. The refresh strip is retired (hidden; its JS is left intact).
       SiteHeader.subnav([
-        { id: 'news',  label: 'Ecosystem News',  icon: 'fa-bullhorn',    active: true },
-        { id: 'pulse', label: 'Ecosystem Pulse', icon: 'fa-heart-pulse' },
-      ], { onSelect: function (id) { var b = document.getElementById('ptab-' + id); if (b) b.click(); }, attach: '#pulse-card' });
+        { id: 'news',  label: 'Ecosystem News',  icon: 'fa-bullhorn' },
+        { id: 'pulse', label: 'Ecosystem Pulse', icon: 'fa-heart-pulse', active: true },
+      ], { onSelect: function (id) { var b = document.getElementById('ptab-' + id); if (b) b.click(); }, attach: '#pulse-card',
+           // Rev 3.81: epoch countdown (local time default, UTC toggle) rides in the right slot; filled by epochClock() below.
+           right: '<span id="sh-epoch-clock" title="TLA gauge epoch — 7-day periods from 2022-10-31 00:00 UTC">…</span><button type="button" id="sh-epoch-tz" class="sh-subtab" style="padding:.2em .6em;font-size:.85em">UTC</button>' });
       document.addEventListener('DOMContentLoaded', function () {
         var strip = document.getElementById('global-refresh-btn') && document.getElementById('global-refresh-btn').parentNode; if (strip) { var outer = strip.parentNode; (outer && outer.classList.contains('border-b') ? outer : strip).classList.add('hidden'); }
         var news = document.getElementById('ptab-news'); if (news && news.parentNode) { news.parentNode.classList.add('hidden'); news.parentNode.setAttribute('aria-hidden', 'true'); }
@@ -1254,10 +1256,10 @@
             </div>
             <div id="pulse-body">
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-3" id="pulse-stats">
-                <div class="pulse-stat"><div class="l">TLA Liquidity</div><div class="v" id="ps-tvl">…</div><div class="s" id="ps-tvl-s"></div></div>
+                <div class="pulse-stat"><div class="l">TLA Staked Liquidity</div><div class="v" id="ps-tvl">…</div><div class="s" id="ps-tvl-s"></div></div>
                 <div class="pulse-stat"><div class="l">Voting Power Locked</div><div class="v" id="ps-vp">…</div><div class="s" id="ps-vp-s"></div></div>
                 <div class="pulse-stat"><div class="l">Voter Incentives · All-Time</div><div class="v" id="ps-bribes">…</div><div class="s" id="ps-bribes-s"></div></div>
-                <div class="pulse-stat"><div class="l">Gauge Epoch</div><div class="v" id="ps-epoch">…</div><div class="s" id="ps-epoch-s"></div></div>
+                <div class="pulse-stat"><div class="l">Gauge Epoch · Now</div><div class="v" id="ps-epoch">…</div><div class="s" id="ps-epoch-s"></div></div>
             </div>
             <div class="flex items-center justify-between flex-wrap gap-2">
                 <span class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Change over</span>
@@ -15475,7 +15477,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.80', REV_DATE = '2026-08-19';   // rev-footer law: bump BOTH every change
+        const REV = '3.81', REV_DATE = '2026-08-22';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -15490,6 +15492,41 @@
                 for (const p of (d.pools || [])) if (p.tla_relevant || p.bucket) t += (p.tvl_usd || 0);
             }
             return t;
+        };
+        // Rev 3.81 — TLA epoch clock. Genesis 2022-10-31T00:00:00Z, 7-day periods,
+        // canonical label = index + 1 (matches getCurrentEpoch's 162 = 2025-12-01 anchor).
+        // The distributions file's max period is the last DISTRIBUTED epoch (one behind).
+        const EPOCH_GENESIS_MS = Date.UTC(2022, 9, 31), EPOCH_MS = 7 * 86400e3;
+        const epochNow = (now) => {
+            const t = (now == null ? Date.now() : +now);
+            const index = Math.floor((t - EPOCH_GENESIS_MS) / EPOCH_MS);
+            return { index, label: index + 1, startsAt: EPOCH_GENESIS_MS + index * EPOCH_MS, endsAt: EPOCH_GENESIS_MS + (index + 1) * EPOCH_MS };
+        };
+        // Gauge set of the latest captured period: Set of 'cw20:addr' / 'native:denom'.
+        const gaugeSetOf = (hist) => {
+            if (!hist || !Array.isArray(hist.entries) || !hist.entries.length) return null;
+            const pmax = Math.max(...hist.entries.map(e => e.period || 0));
+            const set = new Set();
+            for (const e of hist.entries) if (e.period === pmax) for (const g of (e.gauges || [])) for (const a of (g.assets || [])) {
+                const ai = a.asset || {}; if (ai.cw20) set.add('cw20:' + ai.cw20); else if (ai.native) set.add('native:' + ai.native);
+            }
+            return { period: pmax, set };
+        };
+        // TLA STAKED liquidity = Σ staked_liquidity_usd over pools whose gauge_pool_id is in
+        // the gauge set (what the Eris TLA page calls TVL — NOT pool TVL: LUNA-ampLUNA PCL is
+        // ~$875K of pool TVL but ~$100K staked; the rest is unstaked PoL). Coverage-forward:
+        // gauge assets with no priced capture (SkeletonSwap LPs, ampCAPA, …) count as
+        // unpriced and the headline is shown as a lower bound, never padded.
+        const stakedOf = (astro, gs) => {
+            if (!astro || !gs) return null;
+            let usd = 0, priced = 0;
+            for (const p of (astro.pools || [])) {
+                const gid = p.raw && p.raw.gauge && p.raw.gauge.gauge_pool_id;
+                if (!gid || !gs.set.has(gid)) continue;
+                const v = p.raw.staked_liquidity_usd;
+                if (typeof v === 'number') { usd += v; priced++; }
+            }
+            return { usd, priced, total: gs.set.size };
         };
         const votionOf = (d) => (d && d.totals && typeof d.totals.total_vault_tvl_usd === 'number')
             ? d.totals.total_vault_tvl_usd : null;
@@ -15628,6 +15665,53 @@
             c.risk = riskOf(c);
             return c;
         };
+        // CAPA poll card (Anchor gov shape; gate-fixtured from the owner's HAR 2026-08-22).
+        // End is a HEIGHT: countdown uses a MEASURED block time (latest vs latest-1000)
+        // and is labeled an estimate; no block time ⇒ no countdown (blank beats phantom).
+        const capaCard = (daoName, link, poll, chainNow) => {
+            if (!poll || poll.id == null) return null;
+            const live = String(poll.status) === 'in_progress';
+            let daysLeft = null;
+            if (live && chainNow && chainNow.height && chainNow.blockTimeSec && poll.end_height != null) daysLeft = Math.max(0, (Number(poll.end_height) - chainNow.height) * chainNow.blockTimeSec / 86400);
+            const yes = Number(poll.yes_votes || 0), no = Number(poll.no_votes || 0), ab = Number(poll.abstain_votes || 0), cast = yes + no + ab;
+            const tp = Number((live ? poll.staked_amount : (poll.total_balance_at_end_poll || poll.staked_amount)) || 0);
+            const msgs = (poll.execute_data || []).map(e => ({ wasm: { execute: { contract_addr: e.contract, msg: e.msg } } }));
+            const c = { dao: daoName, id: Number(poll.id), title: poll.title || ('Poll ' + poll.id), desc: String(poll.description || '').slice(0, 220),
+                status: live ? 'open' : ({ passed: 'passed', executed: 'executed', rejected: 'rejected', expired: 'expired', failed: 'execution_failed' }[String(poll.status)] || String(poll.status)),
+                live, daysLeft, daysLeftEstimated: daysLeft != null,
+                yesPct: cast ? yes / cast * 100 : null, noPct: cast ? no / cast * 100 : null, turnoutPct: tp > 0 ? cast / tp * 100 : null,
+                movesFunds: scanMovesFunds(JSON.stringify(msgs)), lowEffort: scanLowEffort(poll.title, poll.description),
+                link: poll.link || link, kind: 'anchor-gov' };
+            c.risk = riskOf(c);
+            return c;
+        };
+        // LUNA x/gov card (/cosmos/gov/v1 shape). Threshold base excludes abstain on
+        // chain; the card shows share of votes cast like every other card. Veto counts as No.
+        const lunaCard = (daoName, link, p, tally, bonded, nowMs) => {
+            if (!p || p.id == null) return null;
+            const live = p.status === 'PROPOSAL_STATUS_VOTING_PERIOD';
+            const t = tally || p.final_tally_result || {};
+            const yes = Number(t.yes_count || 0), no = Number(t.no_count || 0), ab = Number(t.abstain_count || 0), veto = Number(t.no_with_veto_count || 0), cast = yes + no + ab + veto;
+            const endMs = p.voting_end_time ? new Date(p.voting_end_time).getTime() : null;
+            const c = { dao: daoName, id: Number(p.id), title: p.title || ('Proposal ' + p.id), desc: String(p.summary || '').slice(0, 220),
+                status: live ? 'open' : ({ PROPOSAL_STATUS_PASSED: 'passed', PROPOSAL_STATUS_REJECTED: 'rejected', PROPOSAL_STATUS_FAILED: 'execution_failed', PROPOSAL_STATUS_DEPOSIT_PERIOD: 'deposit period' }[p.status] || String(p.status || '').toLowerCase()),
+                live, daysLeft: live && endMs ? Math.max(0, (endMs - nowMs) / 86400000) : null,
+                yesPct: cast ? yes / cast * 100 : null, noPct: cast ? (no + veto) / cast * 100 : null, turnoutPct: Number(bonded) > 0 ? cast / Number(bonded) * 100 : null,
+                movesFunds: scanMovesFunds(JSON.stringify(p.messages || '')), lowEffort: scanLowEffort(p.title, p.summary),
+                link: link + '/' + p.id, kind: 'x-gov' };
+            c.risk = riskOf(c);
+            return c;
+        };
+        async function lcdJson(path) { try { const r = await fetch(LCD + path); return r.ok ? await r.json() : null; } catch { return null; } }
+        async function chainNowMeasured() {
+            const latest = await lcdJson('/cosmos/base/tendermint/v1beta1/blocks/latest');
+            const h = latest && latest.block && latest.block.header ? Number(latest.block.header.height) : null;
+            if (!h) return null;
+            const past = await lcdJson('/cosmos/base/tendermint/v1beta1/blocks/' + (h - 1000));
+            if (!past || !past.block) return { height: h, blockTimeSec: null };
+            const dt = (new Date(latest.block.header.time) - new Date(past.block.header.time)) / 1000;
+            return { height: h, blockTimeSec: dt > 0 ? dt / 1000 : null };
+        }
         // Astroport Assembly card (HAR-verified shape 2026-08-04): status 'active'
         // = live; power-weighted Yes/No; endTimestamp may be absent → no countdown.
         const astroCard = (p, nowMs) => {
@@ -15676,9 +15760,10 @@
             if (st.indexOf('vote ended') === 0) return ['VOTE ENDED', 'bg-orange-500/15 text-orange-300'];
             return [st.toUpperCase() || '—', 'bg-white/5 text-gray-500'];
         };
-        // News default-tab law (DeFi_Patriot 2026-08-04): any LIVE proposal anywhere →
-        // News tab opens by default; otherwise Pulse. Live cards sort first.
-        const defaultTab = (cards) => cards.some(c => c && c.live) ? 'news' : 'pulse';
+        // Default-tab law (DeFi_Patriot 2026-08-22, supersedes 08-04): Pulse ALWAYS opens
+        // first; live proposals get the on-load governance alert (SPEC-landing-rework)
+        // instead of hijacking the tab. Live cards still sort first inside News.
+        const defaultTab = (cards) => 'pulse';
         const solidPegOf = (phDay) => (phDay && phDay.SOLID && phDay.SOLID.usd) || null;
         // 24h volume series for the bar subchart (decision-grade context):
         // tvl → TLA-relevant pool volume; fuel → LUNA-FUEL; solid → both SOLID pools.
@@ -15732,7 +15817,11 @@
             { name: 'Pixellions', kind: 'daodao', addr: 'terra1c690mdrwdetnr09zfk3tf9xz9jhrgd9wpjyf3tuccj74ql09eqmq6sh7en' },
             { name: 'Pixellions Council', kind: 'daodao', addr: 'terra1xgg9cf94ws2mawr6lyrdvmyxt48xkwgp8gvtsrcg2yktqvk8w2rqxflq06' },
             // Astroport Assembly: live via tRPC adapter in loadNews (HAR-verified)
-            // CAPA governance: none exists separately — ampCAPA (above) IS it.
+            // Rev 3.81 (owner HAR 2026-08-22): CAPA DOES have its own governance — an
+            // Anchor-style gov contract on phoenix-1 (polls/voters/config). ampCAPA
+            // above is the DAODAO mirror track. Both are watched. LUNA = x/gov via LCD.
+            { name: 'CAPA Governance', kind: 'anchor-gov', addr: 'terra1sf66d5vap897xlvv2hlcp4l20y4pp42r6ala4snk8mgd246jvufqwe0cnm', link: 'https://app.solidcapa.com/governance' },
+            { name: 'Terra (LUNA)', kind: 'x-gov', link: 'https://station.terra.money/gov' },
         ];
         const LCD = 'https://terra-lcd.publicnode.com';
         async function smartQuery(addr, q) {
@@ -15797,7 +15886,7 @@
                 '<div class="flex items-center gap-2 flex-wrap">' +
                 (() => { const [t, cls] = statusBadge(c); return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ' + cls + '">' + t + '</span>'; })() +
                 '<span class="text-xs font-bold text-white">' + esc(c.dao) + ' · #' + c.id + '</span>' +
-                (c.daysLeft != null && c.live ? '<span class="text-[10px] text-amber-200 font-mono">' + c.daysLeft.toFixed(1) + 'd left</span>' : '') +
+                (c.daysLeft != null && c.live ? '<span class="text-[10px] text-amber-200 font-mono">' + c.daysLeft.toFixed(1) + 'd left' + (c.daysLeftEstimated ? ' (est.)' : '') + '</span>' : '') +
                 (c.yesPct != null ? '<span class="text-[10px] font-mono ml-auto"><span class="text-emerald-400">Yes ' + c.yesPct.toFixed(0) + '%</span> · <span class="text-red-400">No ' + c.noPct.toFixed(0) + '%</span> <span class="text-gray-600">of cast</span></span>' : '') +
                 '</div>' +
                 '<div class="text-sm text-gray-200 mt-1 font-semibold">' + esc(c.title) + '</div>' +
@@ -15817,6 +15906,26 @@
                         const c = propCard(g.name, g.addr, e, Date.now());
                         if (c) cards.push(c);
                     }
+                }
+            }));
+            // CAPA governance polls (anchor-gov; graceful — card absent on outage)
+            await Promise.all(WATCHED_DAOS.filter(g => g.kind === 'anchor-gov' && g.addr).map(async (g) => {
+                const pl = await smartQuery(g.addr, { polls: { limit: 2, order_by: 'desc' } });
+                const polls = (pl && pl.polls) || [];
+                if (!polls.length) return;
+                const chainNow = polls.some(p => String(p.status) === 'in_progress') ? await chainNowMeasured() : null;
+                for (const p of polls) { const c = capaCard(g.name, g.link, p, chainNow); if (c) cards.push(c); }
+            }));
+            // LUNA x/gov (newest 3; live ones get the chain tally)
+            await Promise.all(WATCHED_DAOS.filter(g => g.kind === 'x-gov').map(async (g) => {
+                const list = await lcdJson('/cosmos/gov/v1/proposals?pagination.limit=3&pagination.reverse=true');
+                const props = (list && list.proposals) || [];
+                if (!props.length) return;
+                const pool = await lcdJson('/cosmos/staking/v1beta1/pool');
+                const bonded = pool && pool.pool ? pool.pool.bonded_tokens : null;
+                for (const p of props) {
+                    const tally = p.status === 'PROPOSAL_STATUS_VOTING_PERIOD' ? ((await lcdJson('/cosmos/gov/v1/proposals/' + p.id + '/tally')) || {}).tally : null;
+                    const c = lunaCard(g.name, g.link, p, tally, bonded, Date.now()); if (c) cards.push(c);
                 }
             }));
             // Astroport Assembly (tRPC; graceful on CORS/outage — card simply absent)
@@ -15876,10 +15985,10 @@
             return byMonth;
         }
 
-        const state = { windowDays: 2, latest: null, metric: 'tvl', page: 0, chartCache: {}, catalog: null, byMonth: null };
+        const state = { windowDays: 2, latest: null, metric: 'tvl', page: 0, chartCache: {}, catalog: null, byMonth: null, gaugeSet: null };
         const WINDOWS = [[1,'24h'],[2,'48h'],[7,'7d'],[14,'14d'],[30,'30d']];
         const METRICS = [
-            ['tvl', 'TLA TVL', '$'],
+            ['tvl', 'Pool TVL (TLA-relevant)', '$'],
             ['vplocked', 'VP Locked', 'vAMP'],
             ['votion', 'Votion TVL', '$'],
             ['incentives', 'Incentives (cumulative)', 'LUNA'],
@@ -15898,9 +16007,18 @@
         async function renderStats() {
             const latest = state.latest;
             const [aL, sL, mL] = await Promise.all([daily.astro(latest), daily.ss(latest), daily.member(latest)]);
-            const tvl = tvlOf(aL, sL);
-            $('ps-tvl').textContent = tvl == null ? '—' : fmt$(tvl);
-            $('ps-tvl-s').textContent = 'Astroport + SkeletonSwap · daily captures';
+            const hist = await jf('tla-voting/distributions/history.json', 60);
+            const gs = gaugeSetOf(hist);
+            const stk = stakedOf(aL, gs); state.gaugeSet = gs;
+            const poolTvl = tvlOf(aL, sL);
+            if (stk && stk.priced) {
+                const lb = stk.priced < stk.total;
+                $('ps-tvl').textContent = (lb ? '≥' : '') + fmt$(stk.usd);
+                $('ps-tvl-s').textContent = stk.priced + '/' + stk.total + ' gauge assets priced · staked in TLA (Eris definition)' + (poolTvl ? ' · pool TVL ' + fmt$(poolTvl) : '');
+            } else {
+                $('ps-tvl').textContent = poolTvl == null ? '—' : fmt$(poolTvl);
+                $('ps-tvl-s').textContent = 'pool TVL · gauge set unavailable';
+            }
             const vp = vpLockedOf(mL) || (await (async () => { const [, v] = await nearest(daily.member, latest, 3); return vpLockedOf(v); })());
             $('ps-vp').textContent = vp ? fmtM(vp.vp) + ' vAMP' : '—';
             $('ps-vp-s').textContent = vp ? vp.wallets + ' wallets · units cross-verified vs gauge state' : '';
@@ -15908,13 +16026,32 @@
             const at = allTimeBribes(Object.values(state.byMonth));
             $('ps-bribes').textContent = fmtN(at.luna) + ' LUNA';
             $('ps-bribes-s').textContent = fmtN(at.adds) + ' bribes · ' + at.bribers + ' bribers · since Aug 2024' + (at.nonLunaLegs ? ' · +' + fmtN(at.nonLunaLegs) + ' other-asset legs' : '');
-            const hist = await jf('tla-voting/distributions/history.json', 60);
+            const en = epochNow();
+            $('ps-epoch').textContent = '#' + en.label;
             if (hist && Array.isArray(hist.entries) && hist.entries.length) {
                 const pmax = Math.max(...hist.entries.map(e => e.period || 0));
                 const latestEntries = hist.entries.filter(e => e.period === pmax);
-                $('ps-epoch').textContent = '#' + pmax;
-                $('ps-epoch-s').textContent = activePoolsOf(latestEntries) + ' incentivized pools';
-            } else { $('ps-epoch').textContent = '—'; }
+                $('ps-epoch-s').innerHTML = activePoolsOf(latestEntries) + ' incentivized pools · last distributed #' + pmax + ' · <span id="ps-epoch-clock"></span>';
+            } else { $('ps-epoch-s').innerHTML = 'ends <span id="ps-epoch-clock"></span>'; }
+            epochClock();
+        }
+        // Epoch countdown (right slot on desktop, tile subline on mobile). Visitor's local
+        // time by default; toggle to UTC (persisted, for VPN users). Ticks every minute.
+        const tzKey = 'tla:epoch-tz';
+        function epochClock() {
+            const paint = () => {
+                const en = epochNow(), utc = localStorage.getItem(tzKey) === 'utc';
+                const end = new Date(en.endsAt), ms = en.endsAt - Date.now();
+                const h = Math.floor(ms / 3600e3), d = Math.floor(h / 24), m = Math.floor((ms % 3600e3) / 60e3);
+                const left = (d ? d + 'd ' : '') + (h % 24) + 'h ' + m + 'm';
+                const when = utc ? end.toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
+                                 : end.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+                const txt = 'Epoch #' + en.label + ' ends in ' + left + ' · ' + when;
+                document.querySelectorAll('#sh-epoch-clock, #ps-epoch-clock').forEach(el => { el.textContent = el.id === 'sh-epoch-clock' ? txt : left + ' · ' + when; });
+                const b = $('sh-epoch-tz'); if (b) { b.textContent = utc ? 'UTC' : 'Local'; b.classList.toggle('active', utc); b.title = 'Showing ' + (utc ? 'UTC' : 'your local time') + ' — click to switch'; }
+            };
+            const b = $('sh-epoch-tz'); if (b && !b.dataset.wired) { b.dataset.wired = '1'; b.addEventListener('click', () => { localStorage.setItem(tzKey, localStorage.getItem(tzKey) === 'utc' ? 'local' : 'utc'); paint(); }); }
+            paint(); if (!epochClock.timer) epochClock.timer = setInterval(paint, 60e3);
         }
 
         async function renderRows() {
@@ -15945,7 +16082,8 @@
             const bribeVal = bw.usd >= 1 ? fmt$(bw.usd) : (bw.legs ? '<$1' : '$0');
             const vpL = vpLockedOf(mL), vpF = vpLockedOf(mF);
             const rows = [
-                ['TLA TVL', delta(tvlOf(aL, sL), tvlOf(aF, sF), fmt$, spanNote(aFd)), 'daily', 'Sum of TLA-relevant pool TVL across both dexes.'],
+                ['TLA staked', delta(stakedOf(aL, state.gaugeSet) && stakedOf(aL, state.gaugeSet).usd, stakedOf(aF, state.gaugeSet) && stakedOf(aF, state.gaugeSet).usd, fmt$, spanNote(aFd)), 'daily', 'Σ staked liquidity across the current gauge set (Eris TLA definition); both ends use today\'s gauge set. Unpriced gauge assets excluded at both ends.'],
+                ['Pool TVL (TLA-relevant)', delta(tvlOf(aL, sL), tvlOf(aF, sF), fmt$, spanNote(aFd)), 'daily', 'Sum of TLA-relevant pool TVL across both dexes — includes unstaked and PoL-owned liquidity.'],
                 ['VP Locked', delta(vpL && vpL.vp, vpF && vpF.vp, (v) => fmtM(v) + ' vAMP', spanNote(mFd)), 'daily', 'Total vAMP held across all wallets — locks grow it, decay shrinks it.'],
                 ['Votion vault TVL', delta(votionOf(vL), votionOf(vF), fmt$, spanNote(vFd)), 'daily', 'Optimizer vault TVL (field exists since 2026-08-03 — earlier windows honestly show Δ n/a).'],
                 ['Bribes added in window', bribeVal + ' <span class="text-[10px] text-gray-500">at current prices · ' + (bw.legs + bw.unpriced) + ' legs</span>', 'events', 'NEW bribe_add value posted inside the window at current prices — recent flow, often small.'],
@@ -16079,7 +16217,7 @@
         window.__pulseTest = { tvlOf, votionOf, vpLockedOf, allTimeBribes, activePoolsOf,
             buildDenomPriceMap, bribesUsdInWindow, cumulativeLunaByMonth, monthsBetween,
             fuelImpliedOf, propCard, astroCard, defaultTab, riskOf, scanMovesFunds, scanLowEffort, statusBadge, epochBribesOf,
-            WATCHED_DAOS, X_ACCOUNTS, vpPotentialOf, solidPegOf, volTla, volPools, REV, REV_DATE };
+            WATCHED_DAOS, X_ACCOUNTS, vpPotentialOf, solidPegOf, volTla, volPools, epochNow, gaugeSetOf, stakedOf, capaCard, lunaCard, REV, REV_DATE };
     })();
     </script>
     <script>
