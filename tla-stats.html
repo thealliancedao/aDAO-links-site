@@ -845,6 +845,14 @@
     <div id="site-header"></div>
     <script src="/lib/site-header.js"></script>
     <script src="/lib/address-picker.js"></script>
+    <style>
+      .sh-epoch{display:flex;align-items:center;gap:.9em}
+      .sh-epoch .text-center{display:flex;align-items:baseline;gap:.35em;text-align:left}
+      .sh-epoch .text-xs{font-size:.62em;color:#64748b;text-transform:uppercase;letter-spacing:.06em}
+      .sh-epoch .text-lg,.sh-epoch .text-sm{font-size:.95em}
+      .sh-epoch #load-status{font-size:.7em}
+      .sh-epoch #data-notice{margin:0 0 0 .5em}
+    </style>
     <script>SiteHeader.mount({ page: 'tla-stats' });</script>
     <script>
     // Uniform chrome: the page's tabs sit directly under the site header (above the
@@ -868,7 +876,12 @@
         document.addEventListener('DOMContentLoaded', function () {
             var slot = document.getElementById('sh-epoch-slot'), legacy = document.getElementById('tla-legacy-subheader');
             if (!slot || !legacy) return;
-            var grp = legacy.querySelector('.flex.items-center.gap-4.flex-wrap'); if (grp) { grp.classList.remove('gap-4'); grp.classList.add('gap-3'); slot.appendChild(grp); }
+            // the epoch group = the flex row that CONTAINS #live-epoch (not the outer title row)
+            var le = document.getElementById('live-epoch'), grp = le && le.parentNode && le.parentNode.parentNode;
+            if (grp && legacy.contains(grp) && !grp.querySelector('h1')) {
+                grp.className = 'sh-epoch'; grp.querySelectorAll('.h-8.w-px').forEach(function (d) { d.remove(); });
+                slot.appendChild(grp);
+            }
             var chip = document.getElementById('member-status-chip'); if (chip) slot.insertBefore(chip, slot.firstChild);
         });
     })();
@@ -2331,7 +2344,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span id="footer-rev" class="font-mono">Rev T3.13</span>
+                    <span id="footer-rev" class="font-mono">Rev T3.14</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                     <span id="footer-rev-date" class="opacity-50 ml-1"></span>
