@@ -72,7 +72,8 @@
 <!-- Site header — one implementation in lib/site-header.js (SPEC-unified-header step 1, 2026-08-21) -->
 <div id="site-header"></div>
 <script src="/lib/site-header.js"></script>
-<script>SiteHeader.mount({ page: 'help' });</script>
+<script src="/lib/address-picker.js"></script>
+<script>SiteHeader.mount({ page: 'help' }); if (window.AddressPicker) AddressPicker.mount({});</script>
 <header class="border-b border-white/5 bg-black/20">
   <div class="max-w-5xl mx-auto px-4 py-5 flex items-center justify-between flex-wrap gap-3">
     <div>
