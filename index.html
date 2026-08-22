@@ -1236,8 +1236,12 @@
                 <span class="text-[10px] text-gray-600">live from on-chain captures &amp; governance · no estimates</span>
             </div>
             <div id="news-body" class="hidden">
-                <div class="flex items-center justify-between gap-2 mb-1">
-                    <span class="text-[10px] text-gray-500" id="news-count"></span>
+                <div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
+                    <span class="flex items-center gap-1" id="news-views">
+                        <button class="pulse-pill" data-view="live" id="news-view-live">Live / Pending</button>
+                        <button class="pulse-pill" data-view="past" id="news-view-past">Past props</button>
+                        <span class="text-[10px] text-gray-500 ml-1" id="news-count"></span>
+                    </span>
                     <span class="flex items-center gap-1.5">
                         <button class="pulse-pill" id="news-prev">&lsaquo;</button>
                         <span class="text-[10px] text-gray-500 font-mono" id="news-pos"></span>
@@ -1252,6 +1256,17 @@
                     </div>
                     <div id="x-feed" style="max-height:340px;overflow-y:auto"></div>
                     <div class="text-[9px] text-gray-600 mt-1">Embedded from X — if X declines to render timelines for logged-out visitors, accounts show as direct links instead.</div>
+                </div>
+            </div>
+            <!-- Rev 3.82: governance modals (on-load alert + per-DAO history). One root, two modes. -->
+            <div id="gov-modal" class="hidden" style="position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:12px">
+                <div style="width:min(720px,100%);max-height:90dvh;display:flex;flex-direction:column;background:rgba(10,12,16,.98);border:1px solid rgba(34,211,238,.25);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.7)">
+                    <div class="flex items-center justify-between gap-2 px-4 pt-3 pb-2 border-b border-white/10">
+                        <div><div class="text-sm font-bold text-white" id="gm-title"></div><div class="text-[10px] text-gray-500" id="gm-sub"></div></div>
+                        <span class="flex items-center gap-1.5"><button class="pulse-pill" id="gm-prev">&lsaquo;</button><span class="text-[10px] text-gray-500 font-mono" id="gm-pos"></span><button class="pulse-pill" id="gm-next">&rsaquo;</button><button class="pulse-pill ml-2" id="gm-close" title="Close">&times;</button></span>
+                    </div>
+                    <div class="px-4 py-3 overflow-y-auto text-sm" id="gm-body"></div>
+                    <div class="px-4 pb-3 pt-2 border-t border-white/10 flex items-center gap-2 flex-wrap" id="gm-actions"></div>
                 </div>
             </div>
             <div id="pulse-body">
@@ -15477,7 +15492,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.81', REV_DATE = '2026-08-22';   // rev-footer law: bump BOTH every change
+        const REV = '3.82', REV_DATE = '2026-08-22';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -15644,7 +15659,12 @@
         const propCard = (daoName, daoAddr, entry, nowMs) => {
             if (!entry || !entry.proposal) return null;
             const p = entry.proposal;
-            const live = p.status === 'open';
+            // Rev 3.82: veto_timelock arrives as an OBJECT {veto_timelock:{expiration}} on chain
+            // (Lion DAO #24, 2026-08-22). Normalize to its key; it is PENDING — shown with live.
+            const stRaw = p.status, status = (stRaw && typeof stRaw === 'object') ? String(Object.keys(stRaw)[0] || '') : String(stRaw || '');
+            const live = status === 'open';
+            const pending = status === 'veto_timelock';
+            const vetoUntil = pending && stRaw.veto_timelock && stRaw.veto_timelock.expiration && stRaw.veto_timelock.expiration.at_time ? new Date(Number(stRaw.veto_timelock.expiration.at_time) / 1e6).toISOString() : null;
             let daysLeft = null;
             const at = p.expiration && p.expiration.at_time;
             if (at) daysLeft = Math.max(0, (Number(at) / 1e6 - nowMs) / 86400000);
@@ -15655,12 +15675,13 @@
             const c = {
                 dao: daoName, id: entry.id, title: p.title || ('Proposal ' + entry.id),
                 desc: String(p.description || '').slice(0, 220),
-                status: p.status, live, daysLeft,
+                status, live, pending, daysLeft, vetoUntil,
                 yesPct: cast ? yes / cast * 100 : null, noPct: cast ? no / cast * 100 : null,
                 turnoutPct: tp > 0 ? cast / tp * 100 : null,
                 movesFunds: scanMovesFunds(JSON.stringify(p.msgs || '')),
                 lowEffort: scanLowEffort(p.title, p.description),
-                link: 'https://daodao.zone/dao/' + daoAddr + '/proposals',
+                link: 'https://daodao.zone/dao/' + daoAddr + '/proposals/' + entry.id,
+                rawMsgs: p.msgs || [], endIso: at ? new Date(Number(at) / 1e6).toISOString() : null, kind: 'daodao',
             };
             c.risk = riskOf(c);
             return c;
@@ -15670,15 +15691,20 @@
         // and is labeled an estimate; no block time ⇒ no countdown (blank beats phantom).
         const capaCard = (daoName, link, poll, chainNow) => {
             if (!poll || poll.id == null) return null;
-            const live = String(poll.status) === 'in_progress';
+            // Rev 3.82 (owner 2026-08-22: poll 13 showed LIVE at 0.0d): Anchor polls stay
+            // in_progress until someone calls end_poll. Live = in_progress AND end height
+            // still ahead of the measured chain height; otherwise "vote ended — awaiting close".
+            const inProgress = String(poll.status) === 'in_progress';
+            const ended = inProgress && chainNow && chainNow.height && poll.end_height != null && Number(poll.end_height) <= chainNow.height;
+            const live = inProgress && !ended && !!(chainNow && chainNow.height);
             let daysLeft = null;
-            if (live && chainNow && chainNow.height && chainNow.blockTimeSec && poll.end_height != null) daysLeft = Math.max(0, (Number(poll.end_height) - chainNow.height) * chainNow.blockTimeSec / 86400);
+            if (live && chainNow.blockTimeSec) daysLeft = Math.max(0, (Number(poll.end_height) - chainNow.height) * chainNow.blockTimeSec / 86400);
             const yes = Number(poll.yes_votes || 0), no = Number(poll.no_votes || 0), ab = Number(poll.abstain_votes || 0), cast = yes + no + ab;
             const tp = Number((live ? poll.staked_amount : (poll.total_balance_at_end_poll || poll.staked_amount)) || 0);
             const msgs = (poll.execute_data || []).map(e => ({ wasm: { execute: { contract_addr: e.contract, msg: e.msg } } }));
             const c = { dao: daoName, id: Number(poll.id), title: poll.title || ('Poll ' + poll.id), desc: String(poll.description || '').slice(0, 220),
-                status: live ? 'open' : ({ passed: 'passed', executed: 'executed', rejected: 'rejected', expired: 'expired', failed: 'execution_failed' }[String(poll.status)] || String(poll.status)),
-                live, daysLeft, daysLeftEstimated: daysLeft != null,
+                status: live ? 'open' : ended ? 'vote ended — awaiting close' : inProgress ? 'in_progress (chain height unknown)' : ({ passed: 'passed', executed: 'executed', rejected: 'rejected', expired: 'expired', failed: 'execution_failed' }[String(poll.status)] || String(poll.status)),
+                live, pending: false, daysLeft, daysLeftEstimated: daysLeft != null, rawMsgs: msgs, endHeight: poll.end_height != null ? Number(poll.end_height) : null,
                 yesPct: cast ? yes / cast * 100 : null, noPct: cast ? no / cast * 100 : null, turnoutPct: tp > 0 ? cast / tp * 100 : null,
                 movesFunds: scanMovesFunds(JSON.stringify(msgs)), lowEffort: scanLowEffort(poll.title, poll.description),
                 link: poll.link || link, kind: 'anchor-gov' };
@@ -15695,7 +15721,7 @@
             const endMs = p.voting_end_time ? new Date(p.voting_end_time).getTime() : null;
             const c = { dao: daoName, id: Number(p.id), title: p.title || ('Proposal ' + p.id), desc: String(p.summary || '').slice(0, 220),
                 status: live ? 'open' : ({ PROPOSAL_STATUS_PASSED: 'passed', PROPOSAL_STATUS_REJECTED: 'rejected', PROPOSAL_STATUS_FAILED: 'execution_failed', PROPOSAL_STATUS_DEPOSIT_PERIOD: 'deposit period' }[p.status] || String(p.status || '').toLowerCase()),
-                live, daysLeft: live && endMs ? Math.max(0, (endMs - nowMs) / 86400000) : null,
+                live, pending: false, daysLeft: live && endMs ? Math.max(0, (endMs - nowMs) / 86400000) : null, endIso: endMs ? new Date(endMs).toISOString() : null, rawMsgs: p.messages || [],
                 yesPct: cast ? yes / cast * 100 : null, noPct: cast ? (no + veto) / cast * 100 : null, turnoutPct: Number(bonded) > 0 ? cast / Number(bonded) * 100 : null,
                 movesFunds: scanMovesFunds(JSON.stringify(p.messages || '')), lowEffort: scanLowEffort(p.title, p.summary),
                 link: link + '/' + p.id, kind: 'x-gov' };
@@ -15754,6 +15780,9 @@
         const statusBadge = (c) => {
             if (c.live) return ['LIVE', 'bg-amber-500/25 text-amber-300'];
             const st = String(c.status || '').toLowerCase();
+            if (st === 'veto_timelock') return ['VETO LOCK', 'bg-violet-500/25 text-violet-200'];
+            if (st === 'vetoed') return ['VETOED', 'bg-red-500/20 text-red-300'];
+            if (st === 'deposit period') return ['DEPOSIT', 'bg-white/5 text-gray-400'];
             if (st === 'passed' || st === 'executed' || st === 'execution_failed') return ['PASSED', 'bg-emerald-500/20 text-emerald-300'];
             if (st === 'rejected' || st === 'failed') return ['REJECTED', 'bg-red-500/20 text-red-300'];
             if (st === 'expired' || st === 'stale') return ['EXPIRED', 'bg-white/5 text-gray-500'];
@@ -15864,7 +15893,132 @@
             el.innerHTML = X_ACCOUNTS.map(a => '<button class="pulse-pill' + (a === xState.handle ? ' active' : '') + '" data-xa="' + a + '">@' + a + '</button>').join('');
             el.querySelectorAll('[data-xa]').forEach(b => b.addEventListener('click', () => { xState.handle = b.dataset.xa; renderXAccounts(); renderXFeed(); }));
         }
-        const newsState = { cards: [], idx: 0 };
+        // Rev 3.82 — owner's reading order for Past props; Live/Pending sorts risk-first then newest.
+        const DAO_ORDER = ['Terra (LUNA)', 'aDAO', 'Lion DAO', 'Pixellions', 'Pixellions Council', 'CAPA Governance', 'ampCAPA', 'Astroport Assembly', 'aDAO Council', 'Phoenix Directive'];
+        const daoRank = (n) => { const i = DAO_ORDER.indexOf(n); return i < 0 ? 99 : i; };
+        // Where each governance's history lives: cron corpus (dao-originations) when captured, else live-only.
+        const HISTORY_SRC = { 'aDAO': 'adao', 'Lion DAO': 'lion-dao', 'Pixellions': 'pixel-lions', 'CAPA Governance': 'capapult', 'Terra (LUNA)': 'terra' };
+        const newsState = { cards: [], idx: 0, view: 'live', all: [] };
+        const isOpen = (c) => c && (c.live || c.pending);
+        const pastCards = (all) => { const out = []; for (const c of all.filter(c => !isOpen(c))) { const i = out.findIndex(r => r.dao === c.dao); if (i < 0) out.push(c); else if (c.id > out[i].id) out[i] = c; } return out.sort((a, b) => daoRank(a.dao) - daoRank(b.dao) || a.dao.localeCompare(b.dao)); };
+        const liveCards = (all) => all.filter(isOpen).sort((a, b) => ((b.risk && b.risk.review) - (a.risk && a.risk.review)) || (b.live - a.live) || (daoRank(a.dao) - daoRank(b.dao)) || (b.id - a.id));
+        function applyView(view) {
+            newsState.view = view;
+            newsState.cards = view === 'live' ? liveCards(newsState.all) : pastCards(newsState.all);
+            newsState.idx = 0;
+            ['live', 'past'].forEach(v => { const b = $('news-view-' + v); if (b) b.classList.toggle('active', v === view); });
+            renderNewsCard();
+        }
+        const esc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        const fmtDay = (iso) => iso ? String(iso).slice(0, 10) : null;
+        function cardHtml(c, opts) {
+            opts = opts || {};
+            const [t, cls] = statusBadge(c);
+            return '<div class="rounded-lg border ' + (c.live ? 'border-amber-500/30 bg-amber-500/[0.05]' : c.pending ? 'border-violet-500/30 bg-violet-500/[0.05]' : 'border-white/10 bg-white/[0.02]') + ' p-3">' +
+                '<div class="flex items-center gap-2 flex-wrap">' +
+                '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ' + cls + '">' + t + '</span>' +
+                '<span class="text-xs font-bold text-white">' + esc(c.dao) + ' · #' + c.id + '</span>' +
+                (c.daysLeft != null && c.live ? '<span class="text-[10px] text-amber-200 font-mono">' + c.daysLeft.toFixed(1) + 'd left' + (c.daysLeftEstimated ? ' (est.)' : '') + '</span>' : '') +
+                (c.pending && c.vetoUntil ? '<span class="text-[10px] text-violet-200 font-mono">council window closes ' + fmtDay(c.vetoUntil) + ' ' + String(c.vetoUntil).slice(11, 16) + ' UTC</span>' : '') +
+                (!c.live && c.endIso ? '<span class="text-[10px] text-gray-500 font-mono">' + (c.pending ? 'vote closed ' : 'ended ') + fmtDay(c.endIso) + '</span>' : '') +
+                (!c.live && !c.endIso && c.endHeight ? '<span class="text-[10px] text-gray-500 font-mono">end height ' + c.endHeight + '</span>' : '') +
+                (c.yesPct != null ? '<span class="text-[10px] font-mono ml-auto"><span class="text-emerald-400">Yes ' + c.yesPct.toFixed(0) + '%</span> · <span class="text-red-400">No ' + c.noPct.toFixed(0) + '%</span> <span class="text-gray-600">of cast</span>' + (c.turnoutPct != null ? ' <span class="text-gray-600">· turnout ' + (c.turnoutPct < 1 ? c.turnoutPct.toFixed(2) : c.turnoutPct.toFixed(0)) + '%</span>' : '') + '</span>' : '') +
+                '</div>' +
+                '<div class="text-sm text-gray-200 mt-1 font-semibold">' + esc(c.title) + '</div>' +
+                (c.desc ? '<div class="text-[11px] text-gray-500 mt-0.5">' + esc(c.desc) + '…</div>' : '') +
+                (c.risk && c.risk.flags.length ? '<div class="flex items-center gap-1 flex-wrap mt-1">' + c.risk.flags.map(f => '<span class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-300 font-mono">' + esc(f) + '</span>').join('') + '</div>' : '') +
+                (c.risk && c.risk.review ? '<div class="mt-1.5 rounded border border-red-500/40 bg-red-500/[0.08] px-2 py-1 text-[11px] text-red-300"><i class="fas fa-triangle-exclamation mr-1"></i><b>Auto-flag:</b> this LIVE proposal moves funds with ' + (c.lowEffort ? 'minimal description' : '') + (c.lowEffort && c.turnoutPct != null && c.turnoutPct < 1 ? ' and ' : '') + (c.turnoutPct != null && c.turnoutPct < 1 ? 'tiny turnout' : '') + ' — a pattern used in treasury-drain attacks. Heuristic, not an accusation: verify independently and vote.</div>' : '') +
+                '<div class="flex items-center gap-3 flex-wrap mt-1.5">' +
+                '<a class="text-[11px] text-cyan-400 hover:underline" target="_blank" rel="noopener" href="' + esc(c.link) + '"><i class="fas fa-arrow-up-right-from-square mr-1"></i>Open governance' + (c.live ? ' &amp; vote' : '') + '</a>' +
+                (opts.audit !== false ? '<button type="button" class="text-[11px] text-violet-300 hover:underline" data-act="audit" data-key="' + esc(c.dao) + '|' + c.id + '"><i class="fas fa-magnifying-glass-dollar mr-1"></i>Quick audit</button>' : '') +
+                (opts.history !== false ? '<button type="button" class="text-[11px] text-gray-400 hover:underline" data-act="history" data-dao="' + esc(c.dao) + '"><i class="fas fa-clock-rotate-left mr-1"></i>All ' + esc(c.dao) + ' props</button>' : '') +
+                '</div></div>';
+        }
+        const cardKey = (c) => c.dao + '|' + c.id;
+        const findCard = (key) => newsState.all.find(c => cardKey(c) === key) || ((newsState.history || {})[key.split('|')[0]] || []).find(c => cardKey(c) === key);
+        // Quick audit = the DAO page's contract: messages → clipboard → Help drawer in audit mode.
+        function quickAudit(c) {
+            if (!c) return;
+            const text = JSON.stringify(c.rawMsgs || [], null, 2);
+            const done = () => {
+                if (window.SiteFooter && SiteFooter.openHelpDrawer) {
+                    SiteFooter.openHelpDrawer();
+                    setTimeout(() => { const i = document.getElementById('hd-input'); if (i) { i.value = 'Does this ' + c.dao + ' proposal #' + c.id + ' ("' + String(c.title).slice(0, 80) + '") do what it says? Check every address against the registries:\n\n' + text; i.dispatchEvent(new Event('input')); i.scrollTop = 0; i.focus(); } }, 150);
+                }
+            };
+            try { navigator.clipboard.writeText(text).then(done, done); } catch (e) { done(); }
+        }
+        document.addEventListener('click', (ev) => {
+            const b = ev.target.closest('button[data-act]'); if (!b) return;
+            if (b.dataset.act === 'audit') quickAudit(findCard(b.dataset.key));
+            if (b.dataset.act === 'history') openHistory(b.dataset.dao);
+        });
+        // ---- modal (alert | history) ----
+        const gm = { mode: null, cards: [], idx: 0 };
+        function gmRender() {
+            const c = gm.cards[gm.idx];
+            $('gm-pos').textContent = gm.cards.length ? (gm.idx + 1) + '/' + gm.cards.length : '';
+            $('gm-body').innerHTML = c ? cardHtml(c, { history: gm.mode !== 'history' }) : '<span class="text-gray-500 text-xs">Nothing to show.</span>';
+            if (gm.mode === 'history') {
+                // scrollable ledger under the card: every proposal, newest first — date · outcome · votes
+                $('gm-body').innerHTML += '<div class="mt-3 border-t border-white/10 pt-2"><div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">All ' + esc(gm.dao) + ' proposals · newest first</div>' +
+                    gm.cards.map((x, i) => { const [t, cls] = statusBadge(x); return '<button type="button" data-gm-idx="' + i + '" class="w-full text-left flex items-center gap-2 py-1 border-b border-white/5 hover:bg-white/[0.03]' + (i === gm.idx ? ' bg-white/[0.04]' : '') + '"><span class="text-[9px] font-bold px-1.5 py-0.5 rounded ' + cls + '" style="min-width:62px;text-align:center">' + t + '</span><span class="text-[10px] text-gray-500 font-mono" style="min-width:78px">' + (fmtDay(x.endIso) || (x.endHeight ? 'h' + x.endHeight : '—')) + '</span><span class="text-[11px] text-gray-200 truncate flex-1">#' + x.id + ' ' + esc(x.title) + '</span>' + (x.yesPct != null ? '<span class="text-[10px] font-mono text-gray-400">Y' + x.yesPct.toFixed(0) + '/N' + x.noPct.toFixed(0) + '</span>' : '') + '</button>'; }).join('') + '</div>';
+                $('gm-body').querySelectorAll('button[data-gm-idx]').forEach(b => b.addEventListener('click', () => { gm.idx = Number(b.dataset.gmIdx); gmRender(); $('gm-body').scrollTop = 0; }));
+            }
+            $('gm-actions').innerHTML = (c ? '<a class="pulse-pill" target="_blank" rel="noopener" href="' + esc(c.link) + '"><i class="fas fa-arrow-up-right-from-square mr-1"></i>Open governance' + (c.live ? ' &amp; vote' : '') + '</a>' +
+                '<button type="button" class="pulse-pill" data-act="audit" data-key="' + esc(cardKey(c)) + '"><i class="fas fa-magnifying-glass-dollar mr-1"></i>Quick audit</button>' : '') +
+                '<button type="button" class="pulse-pill" id="gm-help"><i class="fas fa-circle-question mr-1"></i>Ask Help</button>' +
+                (gm.mode === 'alert' ? '<button type="button" class="pulse-pill ml-auto" id="gm-dismiss">Got it — hide until next visit</button>' : '');
+            const h = $('gm-help'); if (h) h.onclick = () => { if (window.SiteFooter && SiteFooter.openHelpDrawer) SiteFooter.openHelpDrawer(); };
+            const d = $('gm-dismiss'); if (d) d.onclick = () => { sessionStorage.setItem('tla:gov-alert', alertSig(gm.cards)); gmClose(); };
+        }
+        function gmOpen(mode, cards, title, sub) { gm.mode = mode; gm.cards = cards; gm.idx = 0; gm.dao = sub; $('gm-title').textContent = title; $('gm-sub').textContent = mode === 'history' ? 'from chain captures · newest first' : 'live from chain · vote on the governance site · Quick audit checks every address against the registries'; $('gov-modal').classList.remove('hidden'); gmRender(); }
+        function gmClose() { $('gov-modal').classList.add('hidden'); }
+        const alertSig = (cards) => cards.map(cardKey).sort().join(',');
+        // On-load governance alert (owner 2026-08-22): one of the first things a visitor sees;
+        // every LIVE or VETO-LOCK proposal across all watched governances, scrollable,
+        // acknowledged once per session (re-shown when the live set changes).
+        function maybeAlert() {
+            const open = liveCards(newsState.all);
+            if (!open.length) return;
+            if (sessionStorage.getItem('tla:gov-alert') === alertSig(open)) return;
+            gmOpen('alert', open, open.length + ' proposal' + (open.length === 1 ? '' : 's') + ' need' + (open.length === 1 ? 's' : '') + ' your attention', null);
+        }
+        // Per-DAO history: cron corpus when we capture it (date · outcome · votes for every
+        // proposal), else a deeper live read (daodao reverse_proposals 25 / Astroport list).
+        const corpusCard = (daoName, p) => {
+            const st = String(p.status || '').toLowerCase().replace(/ /g, '_');
+            const c = { dao: daoName, id: Number(String(p.id).replace(/\D/g, '')), title: p.title, desc: String(p.description || '').slice(0, 220),
+                status: st === 'open' ? 'open' : st, live: st === 'open', pending: st === 'veto_timelock',
+                daysLeft: null, yesPct: p.voting ? p.voting.yesPercent : null, noPct: p.voting ? p.voting.noPercent : null, turnoutPct: p.voting ? p.voting.turnout : null,
+                vetoUntil: p.vetoLockUntil || null, endIso: p.expiration && p.expiration.at_time_iso ? p.expiration.at_time_iso : null, endHeight: p.expiration && p.expiration.at_height != null ? p.expiration.at_height : null,
+                movesFunds: !!(p.treasuryImpact && p.treasuryImpact.outflows && p.treasuryImpact.outflows.length), lowEffort: scanLowEffort(p.title, p.description),
+                link: p.link || ((newsState.all.find(x => x.dao === daoName) || {}).link || '#'), rawMsgs: p.rawMsgs || [], outcome: p.outcome, outcomeReason: p.outcomeReason };
+            c.risk = riskOf(c); return c;
+        };
+        async function openHistory(daoName) {
+            newsState.history = newsState.history || {};
+            gmOpen('history', [], daoName, daoName); $('gm-body').innerHTML = '<span class="text-gray-500 text-xs">Loading ' + esc(daoName) + ' history…</span>';
+            let cards = newsState.history[daoName];
+            if (!cards) {
+                const slug = HISTORY_SRC[daoName];
+                if (slug) {
+                    const doc = await (async () => { try { const r = await fetch('https://raw.githubusercontent.com/thealliancedao/dao-originations/main/' + slug + '/governance/proposals.json?t=' + Math.floor(Date.now() / 1800000)); return r.ok ? await r.json() : null; } catch { return null; } })();
+                    cards = doc && doc.proposals ? Object.values(doc.proposals).map(p => corpusCard(daoName, p)).sort((a, b) => b.id - a.id) : null;
+                }
+                if (!cards) {
+                    const g = WATCHED_DAOS.find(x => x.name === daoName);
+                    if (g && g.kind === 'daodao') {
+                        cards = [];
+                        const mods = await smartQuery(g.addr, { proposal_modules: {} });
+                        for (const mod of (Array.isArray(mods) ? mods : [])) { const pl = await smartQuery(mod.address || mod, { reverse_proposals: { limit: 25 } }); for (const e of ((pl && pl.proposals) || [])) { const c = propCard(g.name, g.addr, e, Date.now()); if (c) cards.push(c); } }
+                        cards.sort((a, b) => b.id - a.id);
+                    } else cards = newsState.all.filter(c => c.dao === daoName).sort((a, b) => b.id - a.id);
+                }
+                newsState.history[daoName] = cards;
+            }
+            gm.cards = cards; gm.idx = 0; gmRender();
+        }
         function setTab(which) {
             $('ptab-news').classList.toggle('active', which === 'news');
             $('ptab-pulse').classList.toggle('active', which === 'pulse');
@@ -15874,26 +16028,15 @@
         function renderNewsCard() {
             const cards = newsState.cards;
             const el = $('news-card');
-            if (!cards.length) { el.innerHTML = '<span class="text-gray-500 text-xs">No governance activity found (or providers unreachable).</span>'; $('news-pos').textContent = ''; return; }
+            const liveN = newsState.all.filter(c => c.live).length, pendN = newsState.all.filter(c => c.pending).length;
+            $('news-count').textContent = newsState.view === 'live'
+                ? (liveN || pendN ? [liveN ? liveN + ' live' : '', pendN ? pendN + ' in veto lock' : ''].filter(Boolean).join(' · ') : 'nothing open right now')
+                : 'latest per governance · pick one for its full history';
+            if (!cards.length) { el.innerHTML = '<span class="text-gray-500 text-xs">' + (newsState.view === 'live' ? 'No live or pending proposals across watched governances.' : 'No governance activity found (or providers unreachable).') + '</span>'; $('news-pos').textContent = ''; return; }
             newsState.idx = ((newsState.idx % cards.length) + cards.length) % cards.length;
             const c = cards[newsState.idx];
-            const liveN = cards.filter(x => x.live).length;
-            $('news-count').textContent = liveN ? (liveN + ' LIVE proposal' + (liveN === 1 ? '' : 's') + ' — vote now') : 'no live proposals · latest per governance';
             $('news-pos').textContent = (newsState.idx + 1) + '/' + cards.length;
-            const esc = (t) => String(t).replace(/</g, '&lt;');
-            el.innerHTML =
-                '<div class="rounded-lg border ' + (c.live ? 'border-amber-500/30 bg-amber-500/[0.05]' : 'border-white/10 bg-white/[0.02]') + ' p-3">' +
-                '<div class="flex items-center gap-2 flex-wrap">' +
-                (() => { const [t, cls] = statusBadge(c); return '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ' + cls + '">' + t + '</span>'; })() +
-                '<span class="text-xs font-bold text-white">' + esc(c.dao) + ' · #' + c.id + '</span>' +
-                (c.daysLeft != null && c.live ? '<span class="text-[10px] text-amber-200 font-mono">' + c.daysLeft.toFixed(1) + 'd left' + (c.daysLeftEstimated ? ' (est.)' : '') + '</span>' : '') +
-                (c.yesPct != null ? '<span class="text-[10px] font-mono ml-auto"><span class="text-emerald-400">Yes ' + c.yesPct.toFixed(0) + '%</span> · <span class="text-red-400">No ' + c.noPct.toFixed(0) + '%</span> <span class="text-gray-600">of cast</span></span>' : '') +
-                '</div>' +
-                '<div class="text-sm text-gray-200 mt-1 font-semibold">' + esc(c.title) + '</div>' +
-                (c.desc ? '<div class="text-[11px] text-gray-500 mt-0.5">' + esc(c.desc) + '…</div>' : '') +
-                (c.risk && c.risk.flags.length ? '<div class="flex items-center gap-1 flex-wrap mt-1">' + c.risk.flags.map(f => '<span class="text-[9px] px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-300 font-mono">' + esc(f) + '</span>').join('') + '</div>' : '') +
-                (c.risk && c.risk.review ? '<div class="mt-1.5 rounded border border-red-500/40 bg-red-500/[0.08] px-2 py-1 text-[11px] text-red-300"><i class="fas fa-triangle-exclamation mr-1"></i><b>Auto-flag:</b> this LIVE proposal moves funds with ' + (c.lowEffort ? 'minimal description' : '') + (c.lowEffort && c.turnoutPct != null && c.turnoutPct < 1 ? ' and ' : '') + (c.turnoutPct != null && c.turnoutPct < 1 ? 'tiny turnout' : '') + ' — a pattern used in treasury-drain attacks. Heuristic, not an accusation: verify independently and vote.</div>' : '') +
-                '<a class="inline-block mt-1.5 text-[11px] text-cyan-400 hover:underline" target="_blank" rel="noopener" href="' + c.link + '"><i class="fas fa-arrow-up-right-from-square mr-1"></i>Open governance' + (c.live ? ' &amp; vote' : '') + '</a></div>';
+            el.innerHTML = cardHtml(c);
         }
         async function loadNews() {
             const cards = [];
@@ -15913,7 +16056,7 @@
                 const pl = await smartQuery(g.addr, { polls: { limit: 2, order_by: 'desc' } });
                 const polls = (pl && pl.polls) || [];
                 if (!polls.length) return;
-                const chainNow = polls.some(p => String(p.status) === 'in_progress') ? await chainNowMeasured() : null;
+                const chainNow = await chainNowMeasured();   // always: in_progress needs the height to tell live from ended
                 for (const p of polls) { const c = capaCard(g.name, g.link, p, chainNow); if (c) cards.push(c); }
             }));
             // LUNA x/gov (newest 3; live ones get the chain tally)
@@ -15943,10 +16086,9 @@
                 const i = rest.findIndex(r => r.dao === c.dao);
                 if (i < 0) rest.push(c); else if (c.id > rest[i].id) rest[i] = c;
             }
-            newsState.cards = [...live.sort((a, b) => ((b.risk && b.risk.review) - (a.risk && a.risk.review)) || (b.id - a.id)), ...rest.sort((a, b) => a.dao.localeCompare(b.dao))];
-            newsState.idx = 0;
-            renderNewsCard();
-            setTab(defaultTab(newsState.cards));
+            newsState.all = cards;
+            applyView(live.length ? 'live' : 'past');
+            maybeAlert();
         }
         const daily = {
             astro: (d) => jf('dex-data/astroport/snapshots/daily/' + d + '.json', 999999),
@@ -16031,8 +16173,8 @@
             if (hist && Array.isArray(hist.entries) && hist.entries.length) {
                 const pmax = Math.max(...hist.entries.map(e => e.period || 0));
                 const latestEntries = hist.entries.filter(e => e.period === pmax);
-                $('ps-epoch-s').innerHTML = activePoolsOf(latestEntries) + ' incentivized pools · last distributed #' + pmax + ' · <span id="ps-epoch-clock"></span>';
-            } else { $('ps-epoch-s').innerHTML = 'ends <span id="ps-epoch-clock"></span>'; }
+                $('ps-epoch-s').innerHTML = activePoolsOf(latestEntries) + ' incentivized pools · last distributed #' + pmax + '<div class="mt-1" style="height:3px;border-radius:2px;background:rgba(255,255,255,.06)"><div id="ps-epoch-bar" style="height:3px;border-radius:2px;background:#22d3ee;width:0"></div></div><span id="ps-epoch-clock"></span> · votes settle &amp; rewards distribute at rollover';
+            } else { $('ps-epoch-s').innerHTML = '<span id="ps-epoch-clock"></span> · votes settle &amp; rewards distribute at rollover'; }
             epochClock();
         }
         // Epoch countdown (right slot on desktop, tile subline on mobile). Visitor's local
@@ -16046,7 +16188,9 @@
                 const left = (d ? d + 'd ' : '') + (h % 24) + 'h ' + m + 'm';
                 const when = utc ? end.toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
                                  : end.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
-                const txt = 'Epoch #' + en.label + ' ends in ' + left + ' · ' + when;
+                const pct = Math.min(100, Math.max(0, (Date.now() - en.startsAt) / EPOCH_MS * 100));
+                const txt = 'Epoch #' + en.label + ' · ' + pct.toFixed(0) + '% · ends in ' + left + ' · ' + when;
+                const bar = $('ps-epoch-bar'); if (bar) bar.style.width = pct.toFixed(1) + '%';
                 document.querySelectorAll('#sh-epoch-clock, #ps-epoch-clock').forEach(el => { el.textContent = el.id === 'sh-epoch-clock' ? txt : left + ' · ' + when; });
                 const b = $('sh-epoch-tz'); if (b) { b.textContent = utc ? 'UTC' : 'Local'; b.classList.toggle('active', utc); b.title = 'Showing ' + (utc ? 'UTC' : 'your local time') + ' — click to switch'; }
             };
@@ -16201,6 +16345,11 @@
             $('ptab-news').addEventListener('click', () => setTab('news'));
             $('ptab-pulse').addEventListener('click', () => setTab('pulse'));
             $('news-prev').addEventListener('click', () => { newsState.idx--; renderNewsCard(); });
+            $('news-view-live').addEventListener('click', () => applyView('live'));
+            $('news-view-past').addEventListener('click', () => applyView('past'));
+            $('gm-close').addEventListener('click', gmClose); $('gov-modal').addEventListener('click', (e) => { if (e.target === $('gov-modal')) gmClose(); });
+            $('gm-prev').addEventListener('click', () => { if (gm.cards.length) { gm.idx = (gm.idx - 1 + gm.cards.length) % gm.cards.length; gmRender(); } });
+            $('gm-next').addEventListener('click', () => { if (gm.cards.length) { gm.idx = (gm.idx + 1) % gm.cards.length; gmRender(); } });
             $('news-next').addEventListener('click', () => { newsState.idx++; renderNewsCard(); });
             setTab('pulse');            // pulse until governance answers; defaultTab may flip to news
             state.latest = await findLatestDaily();
@@ -16217,7 +16366,7 @@
         window.__pulseTest = { tvlOf, votionOf, vpLockedOf, allTimeBribes, activePoolsOf,
             buildDenomPriceMap, bribesUsdInWindow, cumulativeLunaByMonth, monthsBetween,
             fuelImpliedOf, propCard, astroCard, defaultTab, riskOf, scanMovesFunds, scanLowEffort, statusBadge, epochBribesOf,
-            WATCHED_DAOS, X_ACCOUNTS, vpPotentialOf, solidPegOf, volTla, volPools, epochNow, gaugeSetOf, stakedOf, capaCard, lunaCard, REV, REV_DATE };
+            WATCHED_DAOS, X_ACCOUNTS, vpPotentialOf, solidPegOf, volTla, volPools, epochNow, gaugeSetOf, stakedOf, capaCard, lunaCard, cardHtml, liveCards, pastCards, corpusCard, DAO_ORDER, alertSig, REV, REV_DATE };
     })();
     </script>
     <script>
