@@ -366,7 +366,7 @@
         <div class="stat-card rounded-xl p-4 mb-6">
             <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <h2 class="text-lg font-bold text-white">
-                    <i class="fas fa-chart-line text-green-400 mr-2"></i>Token Performance
+                    <i class="fas fa-chart-line text-green-400 mr-2"></i>Token Performance <span id="chart-span-delta" class="ml-2 text-[11px] font-mono font-normal"></span>
                     <span id="chart-epoch-count" class="text-xs text-gray-500 font-normal ml-2"></span>
                 </h2>
                 <div class="flex items-center gap-3 flex-wrap">
@@ -531,8 +531,7 @@
                 <div class="bg-blue-900/20 border border-blue-700/50 rounded-xl p-4">
                     <h3 class="text-sm font-bold text-blue-400 mb-2"><i class="fas fa-info-circle mr-2"></i>About Treasury Tracking</h3>
                     <p class="text-sm text-gray-400">
-                        Balance history is compiled from weekly epoch snapshots. The DAO Treasury receives a 10% take rate from the ALLY minting contract.
-                        Click any token row to see its balance history chart above.
+                        Balances are live from chain. History is the org <code>dao-dashboard</code> daily archive (one point per day since 2026-08-12; older epoch files lived in a retired repo and are not read). Every day Eris's bot claims the NFT contract's alliance rewards, bonds them to ampLUNA and sends <b>10%</b> to this treasury — the Protocol Income block above is that ledger, one row per claim tx. Amount charts move in straight, steady lines because that daily take is the only regular inflow; proposals that move tokens appear as gold points on the chart and in the list on the right. Click any token row to chart it.
                     </p>
                 </div>
             </div>
@@ -703,7 +702,20 @@
             return {};
         }
         
-        // Get executed props with treasury impact
+        // Rev 2.5: the org dao-governance corpus writes treasuryImpact as {outflows:[{denom,amount,to}],
+        // inflows:[…]} in RAW chain units — the page expected the legacy netByToken map, so 24 of 39
+        // proposals with real treasury movement rendered as "none". Adapter: denom → symbol via
+        // denomMap, amount / 10^decimals, outflows negative. Date = vote close (at_time_iso) when
+        // no execution timestamp is recorded — DAODAO executes at close, so it is the same day.
+        // Rev 2.5: denoms outside the page's own map (EURe, ATOM, stLUNA…) resolve via the token catalog.
+        let catalogDenoms = null;
+        async function loadCatalogDenoms() { try { const r = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/token-catalog/snapshots/current.json?t=' + Math.floor(Date.now() / 3600000)); if (!r.ok) return; const c = await r.json(); catalogDenoms = {}; for (const t of (c.tokens || [])) { const sym = (t.discovered && t.discovered.symbol) || (t.sources && t.sources.chain_registry && t.sources.chain_registry.symbol); if (t.denom && sym) catalogDenoms[t.denom] = { name: sym, dec: (t.discovered && t.discovered.decimals != null) ? t.discovered.decimals : 6 }; } } catch (_) {} }
+        const denomSymbol = (den) => { const m = denomMap[den]; if (m) return { name: m.name, dec: m.decimals }; if (catalogDenoms && catalogDenoms[den]) return catalogDenoms[den]; if (/^factory\/terra1[^/]+\/uLP$/i.test(den) || /amplp/i.test(den)) return { name: 'ampLP (receipt)', dec: 6 }; if (/\/uLP$/i.test(den)) return { name: 'LP receipt', dec: 6 }; if (/\/zluna$/i.test(den)) return { name: 'zLUNA (receipt)', dec: 6 }; return { name: den.length > 16 ? den.slice(0, 10) + '…' + den.slice(-4) : den, dec: 6 }; };
+        function corpusNetByToken(impact) {
+            const net = {};
+            for (const [arr, sign] of [[impact.outflows, -1], [impact.inflows, 1]]) for (const f of (arr || [])) { if (!f || f.amount == null) continue; const sy = denomSymbol(f.denom || ''); net[sy.name] = (net[sy.name] || 0) + sign * Number(f.amount) / Math.pow(10, sy.dec); }
+            return net;
+        }
         function getExecutedPropsWithImpact() {
             const propsWithImpact = [];
             
@@ -715,7 +727,8 @@
                 
                 // Fall back to decoded treasuryImpact if no execution data
                 const impact = prop.treasuryImpact || {};
-                let netByToken = actualImpact?.netByToken || impact.netByToken || {};
+                let netByToken = actualImpact?.netByToken || impact.netByToken || ((impact.outflows || impact.inflows) ? corpusNetByToken(impact) : {});
+                if (!prop.executedAt && prop.expiration && prop.expiration.at_time_iso) prop.executedAt = prop.expiration.at_time_iso;   // corpus: vote close = execution day
                 
                 // Filter out receipt tokens from netByToken
                 const filteredNet = {};
@@ -734,8 +747,8 @@
                     id,
                     title: prop.title,
                     block: execTx.block,
-                    inflows: actualImpact?.received || impact.inflows || [],
-                    outflows: actualImpact?.sent || impact.outflows || [],
+                    inflows: actualImpact?.received || (impact.inflows || []).map(f => ({ token: denomSymbol(f.denom || '').name, amount: Number(f.amount) / Math.pow(10, denomSymbol(f.denom || '').dec), to: f.to })),
+                    outflows: actualImpact?.sent || (impact.outflows || []).map(f => ({ token: denomSymbol(f.denom || '').name, amount: Number(f.amount) / Math.pow(10, denomSymbol(f.denom || '').dec), to: f.to })),
                     netByToken: filteredNet,
                     executedAt: prop.executedAt || null,
                     epoch: prop.executedAt ? getEpochForDate(prop.executedAt) : null,
@@ -776,7 +789,7 @@
         // Receipt tokens to filter out (intermediate tokens, not real assets)
         function isReceiptToken(token) {
             const t = (token || '').toLowerCase();
-            return t.includes('zluna') || t.includes('zlun') || t.includes('amplp') || t.includes(' lp');
+            return t.includes('zluna') || t.includes('zlun') || t.includes('amplp') || t.includes(' lp') || t.includes('lp receipt') || t.includes('receipt');
         }
         
         // Normalize token names
@@ -2031,7 +2044,7 @@
                                     const item = items[0];
                                     const epoch = item.raw.epoch;
                                     const date = new Date(item.raw.x).toLocaleDateString();
-                                    return epoch === 'Live' ? `Live (${date})` : `Epoch ${epoch} (${date})`;
+                                    return epoch === 'Live' ? `Live (${date})` : `${date} · epoch ${epoch}`;
                                 },
                                 label: function(context) {
                                     let label = `${chartLabel}: ${context.raw.y.toLocaleString()} ${yAxisLabel}`;
@@ -2188,7 +2201,7 @@
                                 title: (items) => {
                                     const epoch = items[0].raw.epoch;
                                     const date = new Date(items[0].raw.x).toLocaleDateString();
-                                    return epoch === 'Live' ? `Live (${date})` : `Epoch ${epoch} (${date})`;
+                                    return epoch === 'Live' ? `Live (${date})` : `${date} · epoch ${epoch}`;
                                 },
                                 label: (context) => `Total: $${context.raw.y.toLocaleString()}`
                             }
@@ -2305,14 +2318,13 @@
                     // Use normalized name for comparison to handle case/variation differences
                     const tokenData = assets.find(a => normalizeTokenName(a.token || a.name) === normalizedSearchName);
                     if (tokenData) {
-                        const y = chartValueMode === 'usd'
-                            ? priceAt(snapshot, tokenName, tokenData.amount)
-                            : tokenData.amount;
+                        const usdV = priceAt(snapshot, tokenName, tokenData.amount);
+                        const y = chartValueMode === 'usd' ? usdV : tokenData.amount;
                         dataPoints.push({
                             x: new Date(snapshot.timestamp),
                             y: y,
-                            amount: tokenData.amount,
-                            epoch: snapshot.epoch
+                            amount: tokenData.amount, usd: (typeof usdV === 'number' ? usdV : null),
+                            epoch: snapshot.epoch, date: snapshot.date || null
                         });
                     }
                 }
@@ -2328,7 +2340,7 @@
                 dataPoints.push({
                     x: new Date(),
                     y: y,
-                    amount: currentToken.amount,
+                    amount: currentToken.amount, usd: (typeof currentToken.usd === 'number' ? currentToken.usd : null),
                     epoch: 'Live'
                 });
             }
@@ -2350,15 +2362,25 @@
                 filteredPoints[i].propEvents = getPropsAffectingTokenInRange(tokenName, fromDate, toDate);
             }
             
-            // Update Change label to match selected range
-            const labelMap = { '30d': 'Change (30d)', '90d': 'Change (90d)', '180d': 'Change (180d)' };
+            // Rev 2.5: the label says what the window ACTUALLY covers — with 11 days of history,
+            // 30d / 90d / 180d all show the same 11 days, and the tiles did not change. Now they say so.
+            const spanDays = filteredPoints.length > 1 ? Math.round((filteredPoints[filteredPoints.length - 1].x - filteredPoints[0].x) / 86400000) : 0;
+            const askedDays = { '30d': 30, '90d': 90, '180d': 180 }[selectedRange];
             const labelEl = document.getElementById('stat-change-label');
-            if (labelEl) labelEl.textContent = labelMap[selectedRange] || 'Change';
+            if (labelEl) labelEl.textContent = askedDays && spanDays < askedDays - 1 ? `Change (${spanDays}d captured of ${askedDays}d)` : `Change (${selectedRange})`;
+            (() => {   // Δ in BOTH units over the visible span, in the chart header
+                const first = filteredPoints[0], last = filteredPoints[filteredPoints.length - 1];
+                const el = document.getElementById('chart-span-delta'); if (!el || !first || !last || first === last) { if (el) el.textContent = ''; return; }
+                const dAmt = (last.amount || 0) - (first.amount || 0);
+                const dUsd = (typeof last.usd === 'number' && typeof first.usd === 'number') ? last.usd - first.usd : null;
+                const f = (v, d) => (v >= 0 ? '+' : '−') + Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: d });
+                el.innerHTML = '<span class="text-gray-500">over ' + spanDays + 'd:</span> <span class="' + (dAmt >= 0 ? 'text-green-400' : 'text-red-400') + '">' + f(dAmt, 2) + ' ' + tokenName + (first.amount ? ' (' + f((last.amount / first.amount - 1) * 100, 2) + '%)' : '') + '</span>' + (dUsd != null ? ' · <span class="' + (dUsd >= 0 ? 'text-green-400' : 'text-red-400') + '">' + f(dUsd, 2).replace(/^([+−])/, '$1$') + ' USD</span>' : '');
+            })();
             
             // Update epoch count display (based on what's actually shown)
             const epochCount = filteredPoints.filter(d => d.epoch !== 'Live').length;
             if (epochCountEl) {
-                epochCountEl.textContent = `(${epochCount} epochs${filteredPoints.some(d => d.epoch === 'Live') ? ' + Live' : ''})`;
+                epochCountEl.textContent = `(${epochCount} daily captures${filteredPoints.some(d => d.epoch === 'Live') ? ' + Live' : ''})`;
             }
             
             if (filteredPoints.length < 1) {
@@ -2449,7 +2471,7 @@
                                     const item = items[0];
                                     const epoch = item.raw.epoch;
                                     const date = new Date(item.raw.x).toLocaleDateString();
-                                    return epoch === 'Live' ? `Live (${date})` : `Epoch ${epoch} (${date})`;
+                                    return epoch === 'Live' ? `Live (${date})` : `${date} · epoch ${epoch}`;
                                 },
                                 label: function(context) {
                                     const value = context.raw.y;
@@ -2547,6 +2569,7 @@
             
             // Fetch LIVE DAO Treasury data from blockchain (not from JSON)
             console.log('Fetching LIVE treasury data from blockchain...');
+            await loadCatalogDenoms();   // Rev 2.5: before proposals render
             daoAssets = await fetchLiveTreasuryData(DAO_TREASURY_ADDRESS);
             console.log(`Loaded ${daoAssets.length} LIVE DAO Treasury tokens`);
             
