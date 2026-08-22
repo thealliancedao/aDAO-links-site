@@ -6969,7 +6969,7 @@
                 }
                 
                 if (!ratio || ratio === 1) {
-                    alert(`LST ratio not available for ${token}. Load ratios from TLA ext file first.`);
+                    alert(`LST ratio not available for ${token} — network-and-prices product not loaded yet.`);
                     return;
                 }
                 
@@ -10175,41 +10175,20 @@
                                 console.log(`Loaded dao-dashboard cron data (epoch ${tlaDataMeta.loadedEpoch}, ${ageHours.toFixed(1)}h old)`);
                                 return cachedTlaData;
                             }
-                            console.warn(`dao-dashboard.json present but ${ageHours.toFixed(1)}h old — falling back to legacy epoch files`);
-                        }
-                    } catch (e) { /* fall through to legacy walk-back */ }
-                    
-                    // Try newest first: currentEpoch+1 (just in case), currentEpoch (uploaded early),
-                    // currentEpoch-1 (typical: last completed), then fall back to older epochs.
-                    // This ensures a freshly uploaded epoch file is picked up immediately.
-                    // Walk back up to 12 epochs: the legacy epoch-end cron stopped publishing (last file
-                    // = epoch 185), so a 5-epoch window goes permanently blind. The staleness machinery
-                    // below (stale pill + "Epoch N data" label) keeps this honest until the DAO-dashboard
-                    // aggregates move to the new pipeline.
-                    const epochsToTry = [currentEpoch + 1, currentEpoch];
-                    for (let b = 1; b <= 12; b++) epochsToTry.push(currentEpoch - b);
-                    
-                    for (let i = 0; i < epochsToTry.length; i++) {
-                        const tryEpoch = epochsToTry[i];
-                        const url = `https://raw.githubusercontent.com/defipatriot/tla_json_storage/main/tla-data-epoch-${tryEpoch}-end.json`;
-                        try {
-                            const response = await fetch(url);
-                            if (response.ok) {
-                                cachedTlaData = await response.json();
-                                tlaDataMeta.loadedEpoch = tryEpoch;
-                                // epochsBehind: how far behind currentEpoch-1 (the expected "last completed") we are.
-                                // Negative = ahead (very fresh), 0 = expected, positive = stale.
-                                const epochsBehind = (currentEpoch - 1) - tryEpoch;
-                                tlaDataMeta.epochsOld = epochsBehind;
-                                tlaDataMeta.isStale = epochsBehind > 0;
-                                console.log(`TLA Data loaded from epoch ${tryEpoch} (${tlaDataMeta.isStale ? 'STALE - ' + epochsBehind + ' epochs old' : 'current'})`);
+                            // Rev 3.89: the legacy walk-back probed defipatriot/tla_json_storage (retired,
+                            // last file epoch 185) — 14 dead fetches whenever the cron looked stale.
+                            // Stale cron data is used HONESTLY instead: the staleness pill stays lit.
+                            if (dd?.dashboard) {
+                                cachedTlaData = dd;
+                                tlaDataMeta.loadedEpoch = dd.meta?.epoch ?? currentEpoch;
+                                tlaDataMeta.epochsOld = Math.max(1, Math.round(ageHours / 168));
+                                tlaDataMeta.isStale = true;
+                                console.warn(`dao-dashboard cron data is ${ageHours.toFixed(1)}h old — using it, flagged stale`);
                                 return cachedTlaData;
                             }
-                        } catch (e) {
-                            continue; // Try next epoch
                         }
-                    }
-                    throw new Error('TLA data not found in nearby epochs');
+                    } catch (e) { /* no cron product reachable */ }
+                    throw new Error('dao-dashboard cron product not reachable');
                 } catch (error) {
                     console.error('Failed to fetch TLA data:', error);
                     return null;
@@ -10224,42 +10203,26 @@
             // Cache for TLA ext data (LST ratios)
             let cachedTlaExtData = null;
             
+            // Rev 3.89 (owner 2026-08-22): the tla-ext epoch files lived in the retired personal
+            // repo defipatriot/tla-ext_json_storage and stopped at epoch 185 — every load probed
+            // dead files. The org replacement is network-and-prices/current.json (hourly, LST
+            // ratios read from the Eris HUB on chain — never a market ratio). This adapter emits
+            // the legacy { meta:{epoch}, lst_ratios:{tokens:{X:{ratio}}} } shape so every
+            // consumer below is untouched (receivers-only rule).
             async function fetchTlaExtData() {
                 if (cachedTlaExtData) return cachedTlaExtData;
                 try {
-                    // Use the real current epoch (the old hardcoded 163 fallback pointed at files
-                    // that never existed) and walk back: ext epoch files are published sparsely
-                    // (…177, 178, 181, 182, 185), so a deep walk-back finds the newest available.
-                    // Rev 3.51 — the ext cron has been stalled at epoch 185, so a naive walkback
-                    // from the current epoch burned ~9 404s on every page load. We now remember
-                    // the last epoch that worked (sessionStorage) and probe: current epoch first
-                    // (catches cron resumption), then the last-known-good, then the full walk.
-                    const currentEpoch = await getCurrentEpoch();
-                    let lastGood = null;
-                    try { lastGood = parseInt(sessionStorage.getItem('adao_live:tla_ext_last_epoch') || '', 10) || null; } catch (_) {}
-                    const walk = [];
-                    for (let b = 0; b <= 14; b++) walk.push(currentEpoch - b);
-                    const ordered = (lastGood && lastGood < currentEpoch && walk.includes(lastGood))
-                        ? [currentEpoch, lastGood, ...walk.filter(e => e !== currentEpoch && e !== lastGood)]
-                        : walk;
-                    for (const tryEpoch of ordered) {
-                        try {
-                            const r = await fetch(`https://raw.githubusercontent.com/defipatriot/tla-ext_json_storage/main/tla-ext-epoch-${tryEpoch}-end.json`);
-                            if (r.ok) {
-                                cachedTlaExtData = await r.json();
-                                try { sessionStorage.setItem('adao_live:tla_ext_last_epoch', String(tryEpoch)); } catch (_) {}
-                                const behind = currentEpoch - tryEpoch;
-                                console.log('Loaded TLA ext data:', cachedTlaExtData?.meta?.epoch, behind > 1 ? `(${behind} epochs behind current — ext cron stalled?)` : '');
-                                return cachedTlaExtData;
-                            }
-                        } catch (e) { /* try older */ }
-                    }
-                    console.warn('TLA ext data not found, using defaults');
-                    return null;
-                } catch (error) {
-                    console.error('Failed to fetch TLA ext data:', error);
-                    return null;
-                }
+                    const r = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/network-and-prices/current.json');
+                    if (!r.ok) { console.warn('network-and-prices/current.json unavailable — LST ratios use defaults'); return null; }
+                    const np = await r.json();
+                    const tokens = {};
+                    for (const [sym, v] of Object.entries(np.lst_ratios || {})) if (v && typeof v.ratio === 'number') tokens[sym] = { ratio: v.ratio, hub: v.hub || null, source: v.source || null, fetched_at: v.fetched_at || null };
+                    const capturedMs = Date.parse(np.capturedAt || 0);
+                    const epoch = Number.isFinite(capturedMs) ? Math.floor((capturedMs - Date.UTC(2022, 9, 31)) / (7 * 86400e3)) + 1 : null;   // canonical label = index + 1
+                    cachedTlaExtData = { meta: { epoch, source: 'network-and-prices (org, hourly, Eris hub on chain)', capturedAt: np.capturedAt || null }, lst_ratios: { tokens }, luna_market: np.luna_market || null };
+                    console.log('Loaded LST ratios from network-and-prices:', Object.keys(tokens).join(', '), '· captured', np.capturedAt);
+                    return cachedTlaExtData;
+                } catch (error) { console.error('Failed to fetch network-and-prices:', error); return null; }
             }
             
             // Get arbLUNA ratio from TLA ext data or fallback
@@ -10319,7 +10282,7 @@
                     ampCAPA: lstTokens.ampCAPA?.ratio || 1.1055,
                     ampROAR: lstTokens.ampROAR?.ratio || 1.1087,
                     xASTRO: lstTokens.xASTRO?.ratio || 1.22,
-                    source: tlaExtData ? 'TLA ext file' : 'defaults',
+                    source: tlaExtData ? (tlaExtData.meta && tlaExtData.meta.source) || 'network-and-prices' : 'defaults',   // Rev 3.89: org product, named
                     epoch: extEpoch,
                     isCurrentEpoch: isCurrentEpoch,
                     ratioSources: ratioSources
@@ -10362,16 +10325,16 @@
                 const sourceEl = document.getElementById('lst-ratios-source');
                 if (sourceEl) {
                     if (!tlaExtData) {
-                        sourceEl.textContent = '⚠ Using default values (TLA ext file not found)';
+                        sourceEl.textContent = '⚠ Using default values (network-and-prices product not reachable)';
                         sourceEl.className = 'text-xs text-red-400 mt-2';
                     } else if (!isCurrentEpoch) {
-                        sourceEl.textContent = `⚠ Epoch ${extEpoch} data (current is ${currentEpoch}) - needs update!`;
+                        sourceEl.textContent = `⚠ Ratios captured in epoch ${extEpoch} (current is ${currentEpoch}) — network-and-prices cron may be stalled`;
                         sourceEl.className = 'text-xs text-yellow-400 mt-2';
                     } else if (!hasLstRatios) {
-                        sourceEl.textContent = `Epoch ${extEpoch} (votion.ratios only - upload new format)`;
+                        sourceEl.textContent = `Epoch ${extEpoch} (partial ratio set)`;
                         sourceEl.className = 'text-xs text-yellow-400 mt-2';
                     } else {
-                        sourceEl.textContent = `✓ Epoch ${extEpoch} (lst_ratios) - Current!`;
+                        sourceEl.textContent = `✓ Eris hub rates on chain · epoch ${extEpoch} · hourly (network-and-prices)`;
                         sourceEl.className = 'text-xs text-green-400 mt-2';
                     }
                 }
@@ -15502,7 +15465,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.88', REV_DATE = '2026-08-22';
+        const REV = '3.89', REV_DATE = '2026-08-22';
         // Rev 3.86 PERF: one in-flight/resolved promise per URL for the big NFT products
         // (nfts.json is 6.7 MB and three loaders fetched it independently = 20 MB per load).
         window.__jsonOnce = window.__jsonOnce || ((url) => { const m = (window.__jsonOnceMap = window.__jsonOnceMap || new Map()); if (!m.has(url)) m.set(url, fetch(url).then(r => r.ok ? r.json() : null).catch(() => null)); return m.get(url); });   // rev-footer law: bump BOTH every change
