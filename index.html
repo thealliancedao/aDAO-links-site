@@ -1259,7 +1259,7 @@
                 </div>
             </div>
             <!-- Rev 3.82: governance modals (on-load alert + per-DAO history). One root, two modes. -->
-            <div id="gov-modal" class="hidden" style="position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:12px">
+            <div id="gov-modal" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:12px">
                 <div style="width:min(720px,100%);max-height:90dvh;display:flex;flex-direction:column;background:rgba(10,12,16,.98);border:1px solid rgba(34,211,238,.25);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.7)">
                     <div class="flex items-center justify-between gap-2 px-4 pt-3 pb-2 border-b border-white/10">
                         <div><div class="text-sm font-bold text-white" id="gm-title"></div><div class="text-[10px] text-gray-500" id="gm-sub"></div></div>
@@ -15492,7 +15492,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.83', REV_DATE = '2026-08-22';   // rev-footer law: bump BOTH every change
+        const REV = '3.84', REV_DATE = '2026-08-22';   // rev-footer law: bump BOTH every change
         const BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
         const $ = (id) => document.getElementById(id);
         const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
@@ -15729,7 +15729,12 @@
             return c;
         };
         async function lcdJson(path) { try { const r = await fetch(LCD + path); return r.ok ? await r.json() : null; } catch { return null; } }
+        let chainNowCache = null;
         async function chainNowMeasured() {
+            if (chainNowCache && Date.now() - chainNowCache.t < 300e3) return chainNowCache.v;
+            const v = await chainNowMeasuredRaw(); chainNowCache = { t: Date.now(), v }; return v;
+        }
+        async function chainNowMeasuredRaw() {
             const latest = await lcdJson('/cosmos/base/tendermint/v1beta1/blocks/latest');
             const h = latest && latest.block && latest.block.header ? Number(latest.block.header.height) : null;
             if (!h) return null;
@@ -16067,8 +16072,11 @@
             const h = $('gm-help'); if (h) h.onclick = () => { if (window.SiteFooter && SiteFooter.openHelpDrawer) SiteFooter.openHelpDrawer(); };
             const d = $('gm-dismiss'); if (d) d.onclick = () => { sessionStorage.setItem('tla:gov-alert', alertSig(gm.cards)); gmClose(); };
         }
-        function gmOpen(mode, cards, title, sub) { gm.mode = mode; gm.cards = cards; gm.idx = 0; gm.dao = sub; $('gm-title').textContent = title; $('gm-sub').textContent = mode === 'history' ? 'from chain captures · newest first' : 'live from chain · vote on the governance site · Quick audit checks every address against the registries'; $('gov-modal').classList.remove('hidden'); gmRender(); }
-        function gmClose() { $('gov-modal').classList.add('hidden'); }
+        function gmOpen(mode, cards, title, sub) { gm.mode = mode; gm.cards = cards; gm.idx = 0; gm.dao = sub; $('gm-title').textContent = title; $('gm-sub').textContent = mode === 'history' ? 'from chain captures · newest first' : 'live from chain · vote on the governance site · Quick audit checks every address against the registries'; $('gov-modal').style.display = 'flex'; gmRender(); }
+        // Rev 3.84: was classList 'hidden' vs an inline display:flex — inline style wins, so the
+        // modal could never close (owner report). Drive display directly; Esc closes too.
+        function gmClose() { $('gov-modal').style.display = 'none'; }
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('gov-modal').style.display !== 'none') gmClose(); });
         const alertSig = (cards) => cards.map(cardKey).sort().join(',');
         // On-load governance alert (owner 2026-08-22): one of the first things a visitor sees;
         // every LIVE or VETO-LOCK proposal across all watched governances, scrollable,
@@ -16461,7 +16469,7 @@
         window.__pulseTest = { tvlOf, votionOf, vpLockedOf, allTimeBribes, activePoolsOf,
             buildDenomPriceMap, bribesUsdInWindow, cumulativeLunaByMonth, monthsBetween,
             fuelImpliedOf, propCard, astroCard, defaultTab, riskOf, scanMovesFunds, scanLowEffort, statusBadge, epochBribesOf,
-            WATCHED_DAOS, X_ACCOUNTS, vpPotentialOf, solidPegOf, volTla, volPools, epochNow, gaugeSetOf, stakedOf, capaCard, lunaCard, cardHtml, msgShape, precedentOf, shapeCompare, deepDecode, liveCards, pastCards, corpusCard, DAO_ORDER, alertSig, REV, REV_DATE };
+            WATCHED_DAOS, X_ACCOUNTS, vpPotentialOf, solidPegOf, volTla, volPools, epochNow, gaugeSetOf, stakedOf, capaCard, lunaCard, cardHtml, msgShape, precedentOf, shapeCompare, deepDecode, openHistory, liveCards, pastCards, corpusCard, DAO_ORDER, alertSig, REV, REV_DATE };
     })();
     </script>
     <script>
