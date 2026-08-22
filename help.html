@@ -95,12 +95,13 @@
   <!-- ASK (agent chat — Rev 1.4: a real chat window; graceful when the service isn't deployed) -->
   <section class="glass accent-top accent-cyan p-4 sm:p-6" id="ask-section">
     <h2 class="font-bold text-lg mb-1"><i class="fas fa-robot text-purple-400 mr-2"></i>Ask about the site &amp; data</h2>
-    <p class="text-xs text-gray-500 mb-3">An assistant grounded on this site's own documentation and live data products. It checks claims against the same sources the pages render — including your own wallet's live record if you paste a terra1… address — it doesn't guess, it doesn't give financial advice, and when it can't verify something it says so. The Report and Request forms below run through it too: it investigates first, then helps you draft.</p>
+    <p class="text-xs text-gray-500 mb-3">An assistant grounded on this site's own documentation and live data products. It checks claims against the same sources the pages render — including your own wallet's live record if you paste a terra1… address — it doesn't guess, it doesn't give financial advice, and when it can't verify something it says so. The Report and Request forms below run through it too: it investigates first, then helps you draft. Paste a governance proposal&rsquo;s messages and it audits every address against the platform registries — saying plainly what is chain-verified, what is a human label, and what is unknown.</p>
     <div class="mb-3" id="chips">
       <span class="chip" onclick="chipAsk(this)"><i class="fas fa-question"></i>Why are some columns blank?</span>
       <span class="chip" onclick="chipAsk(this)"><i class="fas fa-graduation-cap"></i>What do the LP grades mean?</span>
       <span class="chip" onclick="chipAsk(this)"><i class="fas fa-gas-pump"></i>Why does bribe runway matter?</span>
       <span class="chip" onclick="chipAsk(this)"><i class="fas fa-wallet"></i>Check my wallet (paste your terra1… address)</span>
+      <span class="chip" onclick="chipAsk(this)" title="Paste a proposal's messages JSON — every address is checked against the platform registries with an evidence tier"><i class="fas fa-magnifying-glass-dollar"></i>Audit a proposal (paste its messages JSON)</span>
     </div>
     <div class="chat-shell">
       <div id="chat-log"></div>
@@ -262,6 +263,7 @@ function chipAsk(el){
   const t=el.textContent.trim();
   const inp=document.getElementById('chat-input');
   if(/wallet/i.test(t)){ inp.value='My wallet is terra1… — replace this with your address and I\'ll check your live record: '; autoGrow(inp); inp.focus(); return; }
+  if(/audit a proposal/i.test(t)){ inp.value='Does this proposal do what it says? Check every address against the registries:\n\n[ paste the proposal\'s messages JSON here ]'; autoGrow(inp); inp.focus(); inp.setSelectionRange(inp.value.indexOf('['), inp.value.length); return; }
   inp.value=t; askAgent();
 }
 // Composer autogrow: starts at 2 rows, grows with the question up to 200px,
