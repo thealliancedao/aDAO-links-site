@@ -1172,7 +1172,7 @@
         { id: 'pulse', label: 'Ecosystem Pulse', icon: 'fa-heart-pulse', active: true },
       ], { onSelect: function (id) { var b = document.getElementById('ptab-' + id); if (b) b.click(); }, attach: '#pulse-card',
            // Rev 3.81: epoch countdown (local time default, UTC toggle) rides in the right slot; filled by epochClock() below.
-           right: '<span id="sh-epoch-pill" style="display:inline-flex;align-items:center;gap:10px;padding:6px 12px;border-radius:10px;border:1px solid rgba(34,211,238,.35);background:rgba(34,211,238,.08)"><i class="fas fa-hourglass-half" style="color:#22d3ee"></i><span id="sh-epoch-clock" style="font-family:ui-monospace,monospace;font-size:13px;color:#e5e7eb" title="TLA gauge epoch — 7-day periods from 2022-10-31 00:00 UTC">…</span><span id="sh-epoch-tzseg" style="display:inline-flex;border:1px solid rgba(255,255,255,.15);border-radius:6px;overflow:hidden;font-size:11px"><button type="button" data-tz="local" style="padding:3px 8px;border:0;background:transparent;color:#9ca3af;cursor:pointer">Local</button><button type="button" data-tz="utc" style="padding:3px 8px;border:0;background:transparent;color:#9ca3af;cursor:pointer">UTC</button></span></span>' });
+           right: '<span id="sh-epoch-pill" title="TLA gauge epoch — 7-day periods from 2022-10-31 00:00 UTC; votes settle and rewards distribute at rollover" style="display:inline-flex;align-items:center;gap:8px;padding:4px 6px 4px 10px;border-radius:9px;border:1px solid rgba(34,211,238,.35);background:rgba(34,211,238,.08)"><span style="font-size:10px;letter-spacing:.08em;color:#22d3ee;font-weight:700">EPOCH</span><span id="sh-epoch-clock" style="font-family:ui-monospace,monospace;font-size:13px;color:#fff;font-weight:600">…</span><span id="sh-epoch-tzseg" style="display:inline-flex;border:1px solid rgba(255,255,255,.15);border-radius:6px;overflow:hidden;font-size:11px"><button type="button" data-tz="local" style="padding:3px 8px;border:0;background:transparent;color:#9ca3af;cursor:pointer">Local</button><button type="button" data-tz="utc" style="padding:3px 8px;border:0;background:transparent;color:#9ca3af;cursor:pointer">UTC</button></span></span>' });
       document.addEventListener('DOMContentLoaded', function () {
         var strip = document.getElementById('global-refresh-btn') && document.getElementById('global-refresh-btn').parentNode; if (strip) { var outer = strip.parentNode; (outer && outer.classList.contains('border-b') ? outer : strip).classList.add('hidden'); }
         var news = document.getElementById('ptab-news'); if (news && news.parentNode) { news.parentNode.classList.add('hidden'); news.parentNode.setAttribute('aria-hidden', 'true'); }
@@ -1223,7 +1223,14 @@
             .pulse-chip { font-size: 9px; padding: 1px 6px; border-radius: 4px; font-family: monospace; }
             .pulse-chip.daily { background: rgba(255,255,255,0.06); color: #9ca3af; }
             .pulse-chip.events { background: rgba(251,191,36,0.12); color: #fbbf24; }
-            .pulse-row { border-bottom: 1px solid rgba(255,255,255,0.04); }
+            .pulse-row { border-bottom: 1px solid rgba(255,255,255,0.05); display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; column-gap: 12px; padding: 7px 0; }
+            .pulse-row .pr-l { font-size: 13px; color: #d1d5db; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+            .pulse-row .pr-v { font-size: 14px; color: #fff; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+            .pulse-row .pr-d { font-size: 12px; font-family: ui-monospace, monospace; font-weight: 600; margin-left: 6px; }
+            .pulse-row .pr-s { grid-column: 1 / -1; font-size: 11px; color: #9ca3af; font-family: ui-monospace, monospace; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-top: 2px; line-height: 1.3; }
+            .pulse-row .pr-s .k { padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.05); }
+            .pulse-row .pr-s .up { color: #34d399; } .pulse-row .pr-s .dn { color: #f87171; }
+            .pulse-grid-2 { display: grid; grid-template-columns: 1fr; } @media (min-width: 1024px) { .pulse-grid-2 { grid-template-columns: 1fr 1fr; column-gap: 40px; } }
             .pulse-metric-btn { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.05); color: #9ca3af; cursor: pointer; }
             .pulse-metric-btn.active { background: rgba(34,211,238,0.18); color: #22d3ee; }
         </style>
@@ -12959,6 +12966,16 @@
                                 overviewGrid?.classList.remove('lg:grid-cols-1', 'lg:grid-cols-2');
                                 overviewGrid?.classList.add('lg:grid-cols-3');
                             }
+                            // Atrium stats come from the aDAO chain-of-truth pipeline only; other
+                            // collections would show aDAO's numbers — hide the card with an honest note.
+                            const atriumCard = document.getElementById('atrium-marketplace-card');
+                            if (atriumCard) {
+                                atriumCard.style.display = collection === 'alliance_dao' ? '' : 'none';
+                                let note = document.getElementById('atrium-unsupported-note');
+                                if (!note) { note = document.createElement('div'); note.id = 'atrium-unsupported-note'; note.className = 'marketplace-section flex items-center justify-center text-xs text-gray-400 text-center px-4'; atriumCard.parentNode.insertBefore(note, atriumCard.nextSibling); }
+                                note.textContent = 'Atrium lists ' + (collectionConfig.name || collection) + ' too, but this site only captures Atrium data for aDAO so far — capture pending.';
+                                note.style.display = collection === 'alliance_dao' ? 'none' : '';
+                            }
                             // The tier-floor rows (Broken / Unbroken base / Phoenix) are aDAO-only
                             // facts — hide them for other collections instead of showing aDAO's numbers.
                             ['bbl', 'boost', 'atrium'].forEach(k => { const el = document.getElementById(k + '-tier-floors'); if (el) el.classList.toggle('hidden', collection !== 'alliance_dao' || !el.innerHTML); });
@@ -15467,7 +15484,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.92', REV_DATE = '2026-08-22';
+        const REV = '3.93', REV_DATE = '2026-08-22';
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16279,7 +16296,7 @@
                 if (i < 0) rest.push(c); else if (c.id > rest[i].id) rest[i] = c;
             }
             newsState.all = cards;
-            applyView(live.length ? 'live' : 'past');
+            applyView(liveCards(cards).length ? 'live' : 'past');   // Rev 3.93: pending (veto lock) counts as open
             maybeAlert();
         }
         const daily = {
@@ -16440,11 +16457,11 @@
                 const en = epochNow(), utc = localStorage.getItem(tzKey) === 'utc';
                 const end = new Date(en.endsAt), ms = en.endsAt - Date.now();
                 const h = Math.floor(ms / 3600e3), d = Math.floor(h / 24), m = Math.floor((ms % 3600e3) / 60e3);
-                const left = (d ? d + 'd ' : '') + (h % 24) + 'h ' + m + 'm';
-                const when = utc ? end.toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
-                                 : end.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+                const left = d ? d + 'd ' + (h % 24) + 'h' : (h % 24) + 'h ' + m + 'm';
+                const when = utc ? end.toISOString().slice(5, 16).replace('T', ' ').replace(/^(\d\d)-(\d\d)/, (_, mo, dd) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(mo) - 1] + ' ' + Number(dd)) + ' UTC'
+                                 : end.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
                 const pct = Math.min(100, Math.max(0, (Date.now() - en.startsAt) / EPOCH_MS * 100));
-                const txt = 'Epoch #' + en.label + ' ends in ' + left + ' · ' + when + ' · ' + pct.toFixed(0) + '% done';
+                const txt = '#' + en.label + ' · ' + left + ' left · ' + when;
                 const bar = $('ps-epoch-bar'); if (bar) bar.style.width = pct.toFixed(1) + '%';
                 document.querySelectorAll('#sh-epoch-clock, #ps-epoch-clock').forEach(el => { el.textContent = el.id === 'sh-epoch-clock' ? txt : left + ' · ' + when; });
                 document.querySelectorAll('#sh-epoch-tzseg button').forEach(b => { const on = (b.dataset.tz === 'utc') === utc; b.style.background = on ? 'rgba(34,211,238,.25)' : 'transparent'; b.style.color = on ? '#fff' : '#9ca3af'; b.style.fontWeight = on ? '700' : '400'; });
@@ -16472,13 +16489,16 @@
             if (!state.catalog) state.catalog = await jf('token-catalog/snapshots/current.json', 60);
             const dec = tvlDecompose(aL, aF, buildDenomPriceMap(state.catalog));
             // sub-line: "token quantity ▲$x · prices ▲$y" — the honest answer to "did liquidity grow or did prices?"
-            const decLine = (d, scale) => d ? '<div class="text-[10px] text-gray-500 font-mono">of which token quantity <span class="' + ((d.quantity * (scale || 1)) >= 0 ? 'text-emerald-400' : 'text-red-400') + '">' + ((d.quantity * (scale || 1)) >= 0 ? '▲' : '▼') + fmt$(Math.abs(d.quantity * (scale || 1))) + '</span> · prices <span class="' + ((d.price * (scale || 1)) >= 0 ? 'text-emerald-400' : 'text-red-400') + '">' + ((d.price * (scale || 1)) >= 0 ? '▲' : '▼') + fmt$(Math.abs(d.price * (scale || 1))) + '</span> <span class="text-gray-600">(' + d.pools + '/' + d.of + ' pools decomposable' + (scale ? ', scaled by staked share ≈' : '') + ')</span></div>' : '';
+            const sub = (parts) => '<div class="pr-s">' + parts.filter(Boolean).join('') + '</div>';
+            const k = (txt, cls) => '<span class="k' + (cls ? ' ' + cls : '') + '">' + txt + '</span>';
+            const arrow = (v) => (v >= 0 ? '▲' : '▼') + fmt$(Math.abs(v));
+            const decLine = (d, scale) => d ? sub([k('tokens ' + arrow(d.quantity * (scale || 1)), d.quantity * (scale || 1) >= 0 ? 'up' : 'dn'), k('prices ' + arrow(d.price * (scale || 1)), d.price * (scale || 1) >= 0 ? 'up' : 'dn'), '<span title="' + d.pools + '/' + d.of + ' pools decomposable' + (scale ? '; staked row is scaled by staked share (≈)' : '') + '">' + (scale ? '≈ ' : '') + d.pools + '/' + d.of + ' pools</span>']) : '';
             const sF = aFd ? await daily.ss(aFd) : null;
             const delta = (cur, prev, fmt, note) => {
-                if (cur == null) return '<span class="text-gray-600" title="capture missing">—</span>';
-                if (prev == null) return fmt(cur) + ' <span class="text-[10px] text-gray-600" title="Series starts inside the window — no honest delta exists yet.">Δ n/a</span>';
+                if (cur == null) return '<span class="text-gray-500" title="capture missing">—</span>';
+                if (prev == null) return fmt(cur) + ' <span class="pr-d text-gray-500" title="Series starts inside the window — no honest delta exists yet.">Δ n/a</span>';
                 const d = cur - prev, up = d >= 0;
-                return fmt(cur) + ' <span class="text-[11px] font-mono ' + (up ? 'text-emerald-400' : 'text-red-400') + '" title="' + fmt(prev) + ' → ' + fmt(cur) + '">' + (up ? '▲' : '▼') + fmt(Math.abs(d)).replace('$', '$') + '</span>' + (note || '');
+                return fmt(cur) + '<span class="pr-d ' + (up ? 'text-emerald-400' : 'text-red-400') + '" title="' + fmt(prev) + ' → ' + fmt(cur) + '">' + (up ? '▲' : '▼') + fmt(Math.abs(d)) + '</span>' + (note || '');
             };
             if (!state.catalog) state.catalog = await jf('token-catalog/snapshots/current.json', 60);
             const pmap = buildDenomPriceMap(state.catalog);
@@ -16491,7 +16511,7 @@
                 ['Pool TVL (TLA-relevant)', delta(tvlOf(aL, sL), tvlOf(aF, sF), fmt$, spanNote(aFd)) + decLine(dec), 'daily', 'Sum of TLA-relevant pool TVL across both dexes — includes unstaked and PoL-owned liquidity. Quantity = the window-start token amounts re-valued at today\'s prices vs today; price = the rest.'],
                 ['VP Locked', delta(vpL && vpL.vp, vpF && vpF.vp, (v) => fmtM(v) + ' vAMP', spanNote(mFd)), 'daily', 'Total vAMP held across all wallets — locks grow it, decay shrinks it.'],
                 ['Votion vault TVL', delta(votionOf(vL), votionOf(vF), fmt$, spanNote(vFd)), 'daily', 'Optimizer vault TVL (field exists since 2026-08-03 — earlier windows honestly show Δ n/a).'],
-                ['Bribes posted in window', bribeVal + ' <span class="text-[10px] text-gray-500">at current prices · ' + (bw.legs + bw.unpriced) + ' legs · any target epoch</span>', 'events', 'bribe_add events whose tx landed inside the window, whatever epoch they fund (bulk adds for future epochs count on the day they were posted, not when they pay out). NEW bribe_add value posted inside the window at current prices — recent flow, often small.'],
+                ['Bribes posted in window', bribeVal + sub([k('current prices'), k((bw.legs + bw.unpriced) + ' legs'), k('any target epoch')]), 'events', 'bribe_add events whose tx landed inside the window, whatever epoch they fund (bulk adds for future epochs count on the day they were posted, not when they pay out). NEW bribe_add value posted inside the window at current prices — recent flow, often small.'],
                 await (async () => {
                     const m = new Date().toISOString().slice(0, 7);
                     const bs = await jf('tla-voting/bribe-state/' + m.replace('-', '/') + '.json', 60);
@@ -16507,17 +16527,17 @@
             const vA = votBest('vampluna'), vB = votBest('varbluna');
             const vol7 = await volume7dOf(latest), vol7F = await volume7dOf(aFd);
             const rows2 = [
-                ['Newly active LPs', churn ? (churn.newly.length + (churn.newly.length ? ' <span class="text-[10px] text-gray-500">' + churn.names(nL, churn.newly).slice(0, 4).join(', ') + '</span>' : '')) : '—', 'daily', 'Gauge pools that are ACTIVE today and were not at the window start (by LP identity).'],
-                ['Newly inactive LPs', churn ? (churn.gone.length + (churn.gone.length ? ' <span class="text-[10px] text-gray-500">' + churn.names(nF, churn.gone).slice(0, 4).join(', ') + '</span>' : '')) : '—', 'daily', 'Gauge pools that were ACTIVE at the window start and are not today.'],
-                ['VP potential unrealized', (vpNow && vpPot != null) ? (fmtM(Math.max(0, vpPot - vpNow.vp)) + ' vAMP <span class="text-[10px] text-gray-500">if every lock re-locked to 104w (10×)</span>') : '—', 'daily', 'Σ fixed_amount × 10 minus current VP — the VP the ecosystem would have if all locks were at the 10× ceiling. Not a prediction.'],
-                ['Votion ampLUNA vault', vA ? (vA.exchange_rate.toFixed(4) + ' <span class="text-[10px] text-gray-500">vampLUNA/ampLUNA · ' + fmt$(vA.vault_tvl_usd || 0) + ' · ' + (vA.holder_count || 0) + ' holders</span>') : '—', 'daily', 'Votion max vault exchange rate (optimizer output); the product carries rate and TVL, not an APR. An APR shown here would be an estimate — so none is shown.'],
-                ['Votion arbLUNA vault', vB ? (vB.exchange_rate.toFixed(4) + ' <span class="text-[10px] text-gray-500">varbLUNA/arbLUNA · ' + fmt$(vB.vault_tvl_usd || 0) + ' · ' + (vB.holder_count || 0) + ' holders</span>') : '—', 'daily', 'Votion max vault exchange rate (optimizer output); the product carries rate and TVL, not an APR.'],
-                ['DEX volume · 7d (all TLA pairs)', vol7 ? (fmt$(vol7.v7) + (vol7F && vol7F.days === vol7.days ? ' <span class="text-[11px] font-mono ' + (vol7.v7 >= vol7F.v7 ? 'text-emerald-400' : 'text-red-400') + '">' + (vol7.v7 >= vol7F.v7 ? '▲' : '▼') + fmt$(Math.abs(vol7.v7 - vol7F.v7)) + '</span>' : '') + ' <span class="text-[10px] text-gray-500">Σ of ' + vol7.days + ' daily captures · Astroport only</span>') : '—', 'daily', 'Sum of the last 7 real daily captures\' 24h volume over TLA-relevant Astroport pools (days covered shown — never extrapolated). Δ compares with the 7 days ending at the window start, only when both have the same coverage. SkeletonSwap volume is not captured.'],
+                ['Newly active LPs', churn ? (churn.newly.length + (churn.newly.length ? sub([k(churn.names(nL, churn.newly).slice(0, 4).join(', '))]) : '')) : '—', 'daily', 'Gauge pools that are ACTIVE today and were not at the window start (by LP identity).'],
+                ['Newly inactive LPs', churn ? (churn.gone.length + (churn.gone.length ? sub([k(churn.names(nF, churn.gone).slice(0, 4).join(', '))]) : '')) : '—', 'daily', 'Gauge pools that were ACTIVE at the window start and are not today.'],
+                ['VP potential unrealized', (vpNow && vpPot != null) ? (fmtM(Math.max(0, vpPot - vpNow.vp)) + ' vAMP' + sub([k('if every lock were 104w · 10×')])) : '—', 'daily', 'Σ fixed_amount × 10 minus current VP — the VP the ecosystem would have if all locks were at the 10× ceiling. Not a prediction.'],
+                ['Votion ampLUNA vault', vA ? (vA.exchange_rate.toFixed(4) + sub([k('vampLUNA / ampLUNA'), k(fmt$(vA.vault_tvl_usd || 0)), k((vA.holder_count || 0) + ' holders')])) : '—', 'daily', 'Votion max vault exchange rate (optimizer output); the product carries rate and TVL, not an APR. An APR shown here would be an estimate — so none is shown.'],
+                ['Votion arbLUNA vault', vB ? (vB.exchange_rate.toFixed(4) + sub([k('varbLUNA / arbLUNA'), k(fmt$(vB.vault_tvl_usd || 0)), k((vB.holder_count || 0) + ' holders')])) : '—', 'daily', 'Votion max vault exchange rate (optimizer output); the product carries rate and TVL, not an APR.'],
+                ['DEX volume · 7d', vol7 ? (fmt$(vol7.v7) + (vol7F && vol7F.days === vol7.days ? '<span class="pr-d ' + (vol7.v7 >= vol7F.v7 ? 'text-emerald-400' : 'text-red-400') + '">' + (vol7.v7 >= vol7F.v7 ? '▲' : '▼') + fmt$(Math.abs(vol7.v7 - vol7F.v7)) + '</span>' : '') + sub([k(vol7.days + ' daily captures'), k('Astroport only')])) : '—', 'daily', 'Sum of the last 7 real daily captures\' 24h volume over TLA-relevant Astroport pools (days covered shown — never extrapolated). Δ compares with the 7 days ending at the window start, only when both have the same coverage. SkeletonSwap volume is not captured.'],
             ];
-            const row = ([name, val, chip, tip]) => '<div class="pulse-row flex items-center justify-between py-1.5" title="' + tip.replace(/"/g, '&quot;') + '">' +
-                '<span class="text-gray-300 text-xs sm:text-sm">' + name + ' <span class="pulse-chip ' + chip + '">' + chip + '</span></span>' +
-                '<span class="text-white text-xs sm:text-sm text-right">' + val + '</span></div>';
-            rowsEl.innerHTML = '<div class="grid grid-cols-1 lg:grid-cols-2 lg:gap-x-8"><div>' + rows.map(row).join('') + '</div><div>' + rows2.map(row).join('') + '</div></div>';
+            // Rev 3.93 layout: label | value+Δ on one line; detail chips on a second, right-aligned line.
+            const row = ([name, val, chip, tip]) => { const i = val.indexOf('<div class="pr-s">'); const main = i < 0 ? val : val.slice(0, i), rest = i < 0 ? '' : val.slice(i);
+                return '<div class="pulse-row" title="' + tip.replace(/"/g, '&quot;') + '"><span class="pr-l">' + name + '<span class="pulse-chip ' + chip + '">' + chip + '</span></span><span class="pr-v">' + main + '</span>' + rest + '</div>'; };
+            rowsEl.innerHTML = '<div class="pulse-grid-2"><div>' + rows.map(row).join('') + '</div><div>' + rows2.map(row).join('') + '</div></div>';
         }
 
         async function phDay(date) {
