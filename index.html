@@ -15485,7 +15485,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.94', REV_DATE = '2026-08-22';
+        const REV = '3.95', REV_DATE = '2026-08-22';
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16396,7 +16396,7 @@
         const state = { windowDays: 2, latest: null, metric: 'tvl', page: 0, chartCache: {}, catalog: null, byMonth: null, gaugeSet: null };
         const WINDOWS = [[1,'24h'],[2,'48h'],[7,'7d'],[14,'14d'],[30,'30d']];
         const METRICS = [
-            ['tvl', 'Pool TVL (TLA-relevant)', '$'],
+            ['tvl', 'DEX TVL (TLA pools)', '$'],
             ['vplocked', 'VP Locked', 'vAMP'],
             ['votion', 'Votion TVL', '$'],
             ['incentives', 'Incentives (cumulative)', 'LUNA'],
@@ -16427,10 +16427,10 @@
             if (stk && stk.priced) {
                 const lb = stk.priced < stk.total;
                 $('ps-tvl').textContent = (lb ? '≥' : '') + fmt$(stk.usd);
-                $('ps-tvl-s').textContent = stk.priced + '/' + stk.total + ' active gauge pools priced · staked in TLA (Eris definition, all DEXes)' + (poolTvl ? ' · pool TVL ' + fmt$(poolTvl) : '') + (snapD !== latest ? ' · gauge capture ' + snapD : '');
+                $('ps-tvl-s').textContent = stk.priced + '/' + stk.total + ' active gauge pools priced · staked in TLA (Eris definition, all DEXes)' + (poolTvl ? ' · DEX TVL ' + fmt$(poolTvl) : '') + (snapD !== latest ? ' · gauge capture ' + snapD : '');
             } else {
                 $('ps-tvl').textContent = poolTvl == null ? '—' : fmt$(poolTvl);
-                $('ps-tvl-s').textContent = 'pool TVL · gauge state unavailable';
+                $('ps-tvl-s').textContent = 'DEX TVL · gauge state unavailable';
             }
             const vp = vpLockedOf(mL) || (await (async () => { const [, v] = await nearest(daily.member, latest, 3); return vpLockedOf(v); })());
             $('ps-vp').textContent = vp ? fmtM(vp.vp) + ' vAMP' : '—';
@@ -16517,7 +16517,7 @@
             const vpL = vpLockedOf(mL), vpF = vpLockedOf(mF);
             const rows = [
                 ['TLA staked', delta(stakedSnapOf(nL) && stakedSnapOf(nL).usd, stakedSnapOf(nF) && stakedSnapOf(nF).usd, fmt$, spanNote(nFd)) + decLine(dec, (() => { const a = stakedSnapOf(nL), t = tvlOf(aL, sL); return a && t ? a.usd / t : null; })()), 'daily', 'Σ staked_in_tla_usd over ACTIVE gauge pools (Eris TLA definition, all DEXes, deduped across buckets). Quantity/price split is the Astroport pool decomposition scaled by the staked share — an approximation, labelled ≈.'],
-                ['Pool TVL (TLA-relevant)', delta(tvlOf(aL, sL), tvlOf(aF, sF), fmt$, spanNote(aFd)) + decLine(dec), 'daily', 'Sum of TLA-relevant pool TVL across both dexes — includes unstaked and PoL-owned liquidity. Quantity = the window-start token amounts re-valued at today\'s prices vs today; price = the rest.'],
+                ['DEX TVL (TLA pools)', delta(tvlOf(aL, sL), tvlOf(aF, sF), fmt$, spanNote(aFd)) + decLine(dec), 'daily', 'Everything sitting in the TLA-relevant pools on Astroport + SkeletonSwap — staked into TLA or not (PoL, unstaked LP). TLA staked is the part deposited into the gauges. Quantity = the window-start token amounts re-valued at today\'s prices vs today; price = the rest.'],
                 ['VP Locked', delta(vpL && vpL.vp, vpF && vpF.vp, (v) => fmtM(v) + ' vAMP', spanNote(mFd)), 'daily', 'Total vAMP held across all wallets — locks grow it, decay shrinks it.'],
                 ['Votion vault TVL', delta(votionOf(vL), votionOf(vF), fmt$, spanNote(vFd)), 'daily', 'Optimizer vault TVL (field exists since 2026-08-03 — earlier windows honestly show Δ n/a).'],
                 ['Bribes posted · last ' + (state.windowDays >= 1 ? state.windowDays + 'd' : '24h'), bribeVal + sub([k('current prices'), k((bw.legs + bw.unpriced) + ' legs'), k('any target epoch')]), 'events', 'bribe_add events whose tx landed inside the window, whatever epoch they fund (bulk adds for future epochs count on the day they were posted, not when they pay out). NEW bribe_add value posted inside the window at current prices — recent flow, often small.'],
@@ -16538,11 +16538,14 @@
             // same feed votion.money reads). We show OUR derivation — period reward ÷ vault TVL,
             // simple-annualised — labelled as such. Votion's displayed APY (asset + votion legs,
             // their compounding) comes from unpublished code; we link to it, never imitate it.
+            // Rev 3.95 (owner log 2026-08-22): the Eris backend allow-lists origins — the browser gets
+            // "not allowed origin: thealliancedao.com" (500). The votion cron already captures the
+            // same endpoint verbatim, server-side, every run → votion/optimization/current.json.
             const votionApr = async (slug, tvlUsd) => {
-                try { const r = await fetch('https://backend.erisprotocol.com/votion/liquidity-alliance/' + slug + '/optimization'); if (!r.ok) return null; const o = await r.json(); const rew = o && o.summary && o.summary.totalExpectedReward; if (typeof rew !== 'number' || !(tvlUsd > 0)) return null; const perPeriod = rew / tvlUsd; return { rew, perPeriod, aprSimple: perPeriod * 365 / 7 * 100, period: o.period, calculated: o.calculated }; } catch { return null; }
+                try { const o = (state.votOpt = state.votOpt || await jf('votion/optimization/current.json', 15)); const v = o && o.vaults && o.vaults[slug]; const rew = v && v.summary && v.summary.totalExpectedReward; if (typeof rew !== 'number' || !(tvlUsd > 0)) return null; const perPeriod = rew / tvlUsd; return { rew, perPeriod, aprSimple: perPeriod * 365 / 7 * 100, period: o.period, calculated: o.calculated }; } catch { return null; }
             };
             const [apA, apB] = await Promise.all([vA ? votionApr('ampluna-max', vA.vault_tvl_usd) : null, vB ? votionApr('arbluna-max', vB.vault_tvl_usd) : null]);
-            const aprRow = (label, v, ap, slug) => [label, v ? (ap ? (ap.aprSimple.toFixed(1) + '%' + sub([k('votion rewards, simple APR'), k('$' + ap.rew.toFixed(2) + ' / period ' + ap.period), k('on ' + fmt$(v.vault_tvl_usd || 0) + ' TVL'), '<a class="k" style="color:#67e8f9" target="_blank" rel="noopener" href="https://votion.money/pools/liquidity-alliance/' + slug + '">votion.money APY ↗</a>'])) : ('—' + sub([k('Eris backend unreachable'), k(v.exchange_rate.toFixed(4) + ' rate'), k(fmt$(v.vault_tvl_usd || 0))]))) : '—', 'live', 'Our derivation: expected period reward (Eris backend, the feed votion.money reads) ÷ vault TVL, × 365/7. Simple APR, votion leg only — excludes the LST asset yield and Votion\'s compounding, so it is LOWER than the APY votion.money shows. Open votion.money for their number.'];
+            const aprRow = (label, v, ap, slug) => [label, v ? (ap ? (ap.aprSimple.toFixed(1) + '%' + sub([k('votion rewards, simple APR'), k('$' + ap.rew.toFixed(2) + ' / period ' + ap.period), k('on ' + fmt$(v.vault_tvl_usd || 0) + ' TVL'), '<a class="k" style="color:#67e8f9" target="_blank" rel="noopener" href="https://votion.money/pools/liquidity-alliance/' + slug + '">votion.money APY ↗</a>'])) : ('—' + sub([k('optimization capture unavailable'), k(v.exchange_rate.toFixed(4) + ' rate'), k(fmt$(v.vault_tvl_usd || 0))]))) : '—', 'live', 'Our derivation: expected period reward (Votion API via the votion cron, the same feed votion.money reads) ÷ vault TVL, × 365/7. Simple APR, votion leg only — excludes the LST asset yield and Votion\'s compounding, so it is LOWER than the APY votion.money shows. Open votion.money for their number.'];
             const vol7 = await volume7dOf(latest), vol7F = await volume7dOf(aFd);
             // Active = gauge-listed pools with status active; inactive = listed with balance but not
             // active (voted below threshold / zero VP). Counts carry a Δ; newly-changed names as chips.
