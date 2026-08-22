@@ -15502,7 +15502,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.87', REV_DATE = '2026-08-22';
+        const REV = '3.88', REV_DATE = '2026-08-22';
         // Rev 3.86 PERF: one in-flight/resolved promise per URL for the big NFT products
         // (nfts.json is 6.7 MB and three loaders fetched it independently = 20 MB per load).
         window.__jsonOnce = window.__jsonOnce || ((url) => { const m = (window.__jsonOnceMap = window.__jsonOnceMap || new Map()); if (!m.has(url)) m.set(url, fetch(url).then(r => r.ok ? r.json() : null).catch(() => null)); return m.get(url); });   // rev-footer law: bump BOTH every change
@@ -16044,6 +16044,18 @@
             ]);
             const known = {}, members = {}, denoms = { ...DENOM_FIXED };
             for (const r of (trusted && trusted.addresses) || []) known[r.address] = { label: r.label, type: r.type, methods: r.methods || [], human_only: !!r.human_only };
+            // Rev 3.88 (owner 2026-08-22: bribe manager read "unverified" while catalog/trusted was
+            // still 404): until the trust product is published, fall back to the registries the
+            // cron itself merges — structural contracts + entities from the catalog snapshot,
+            // wallets.json, known_contracts.json, and the DAO registries. Same sources, same answer.
+            if (!trusted) {
+                for (const [k, v] of Object.entries((cat && cat.contracts) || {})) if (v && v.addr && !known[v.addr]) known[v.addr] = { label: v.role || k, type: 'contract', methods: ['chain'] };
+                for (const [a, v] of Object.entries((cat && cat.entities) || {})) if (!known[a]) known[a] = { label: v.label, type: v.subtype || 'entity', methods: ['owner'] };
+                const [w, kc, ...regs] = await Promise.all([get(BASE + '/docs/curated/wallets.json'), get(BASE + '/docs/curated/known_contracts.json'), ...['adao', 'lion-dao', 'pixel-lions', 'capapult', 'terra'].map(d => get('https://raw.githubusercontent.com/thealliancedao/dao-originations/main/' + d + '/governance/registry.json'))]);
+                for (const [a, v] of Object.entries((w && w.wallets) || {})) if (v && v.label && !known[a]) known[a] = { label: v.label, type: v.subtype || 'entity', methods: v.verified ? ['owner'] : [] };
+                for (const [a, v] of Object.entries((kc && kc.contracts) || {})) if (v && v.name && !known[a]) known[a] = { label: v.name, type: v.type || 'contract', methods: ['owner'] };
+                regs.forEach((r, i) => { if (!r) return; const dao = ['adao', 'lion-dao', 'pixel-lions', 'capapult', 'terra'][i]; for (const [a, v] of Object.entries(r.contracts || {})) if (!known[a]) known[a] = { label: v.name, type: v.type || 'contract', methods: ['dao_registry'] }; for (const a of [r.coreAddress, r.govAddress]) if (a && !known[a]) known[a] = { label: (r.daoName || dao) + ' core', type: 'dao_core', methods: ['dao_registry'] }; });
+            }
             for (const [a, v] of Object.entries((cat && cat.by_address) || {})) members[a] = { handle: v.handle || null, slugs: (v.memberships || []).map(m => m.slug) };
             for (const p of (astro && astro.pools) || []) { if (p.pool_address && !known[p.pool_address]) known[p.pool_address] = { label: p.pool_name + ' pool (Astroport)', type: 'pool', methods: ['chain'] }; for (const a of (p.assets || [])) if (a.denom && !denoms[a.denom]) denoms[a.denom] = { symbol: a.symbol || a.denom.slice(0, 12), decimals: a.decimals != null ? a.decimals : 6 }; }
             for (const g of WATCHED_DAOS) if (g.addr && !known[g.addr]) known[g.addr] = { label: g.name, type: 'dao_core', methods: ['chain'] };
