@@ -2231,122 +2231,10 @@
     </div>
     
     <!-- Footer -->
-    <footer class="max-w-7xl mx-auto px-4 py-8 border-t border-white/5">
-        <!-- Mission Statement -->
-        <div class="mb-6 p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
-            <div class="flex items-start gap-3">
-                <i class="fas fa-balance-scale text-cyan-400 mt-1"></i>
-                <div>
-                    <h4 class="font-semibold text-cyan-400 mb-2">Our Philosophy</h4>
-                    <p class="text-sm text-gray-400 leading-relaxed">
-                        Alliance DAO serves as a balancing force in TLA governance. We're not here to compete with Phoenix Directive or Votion — 
-                        we're here to fill the natural gaps in the ve(3,3) incentive structure. Using data-driven analysis, we support LPs 
-                        with real utility and strategic value, working alongside PD and Votion to help promising projects and pools grow. 
-                        Together, we strengthen Terra's liquidity ecosystem.
-                    </p>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Ecosystem Links -->
-        <div class="mb-6 p-4 bg-gray-800/30 border border-gray-700/50 rounded-lg">
-            <h4 class="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wider">Terra Liquidity Ecosystem</h4>
-            <div class="flex flex-wrap gap-4">
-                <a href="https://www.erisprotocol.com/terra/liquidity-hub?tab=liquidity" target="_blank" 
-                   class="flex items-center gap-2 px-3 py-2 bg-purple-500/10 border border-purple-500/30 rounded-lg hover:bg-purple-500/20 transition-colors">
-                    <i class="fas fa-water text-purple-400"></i>
-                    <span class="text-sm text-purple-400">Eris TLA</span>
-                    <i class="fas fa-external-link-alt text-[10px] text-purple-400/50"></i>
-                </a>
-                <a href="https://app.astroport.fi/pools" target="_blank" 
-                   class="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors">
-                    <i class="fas fa-rocket text-red-400"></i>
-                    <span class="text-sm text-red-400">Astroport</span>
-                    <i class="fas fa-external-link-alt text-[10px] text-red-400/50"></i>
-                </a>
-                <a href="https://skeletonswap.backbonelabs.io/terra/pools" target="_blank" id="secondary-dex-link"
-                   class="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/20 transition-colors">
-                    <i class="fas fa-bone text-emerald-400"></i>
-                    <span class="text-sm text-emerald-400">Skeleton Swap</span>
-                    <i class="fas fa-external-link-alt text-[10px] text-emerald-400/50"></i>
-                </a>
-                <a href="https://votion.money/liquidity-alliance" target="_blank" 
-                   class="flex items-center gap-2 px-3 py-2 bg-blue-500/10 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 transition-colors">
-                    <i class="fas fa-vote-yea text-blue-400"></i>
-                    <span class="text-sm text-blue-400">Votion</span>
-                    <i class="fas fa-external-link-alt text-[10px] text-blue-400/50"></i>
-                </a>
-                <a href="tla-docs.html" 
-                   class="flex items-center gap-2 px-3 py-2 bg-cyan-500/10 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/20 transition-colors">
-                    <i class="fas fa-book text-cyan-400"></i>
-                    <span class="text-sm text-cyan-400">Docs</span>
-                </a>
-                <a href="https://daodao.zone/dao/terra1k8ug6dkzntczfzn76wsh24tdjmx944yj6mk063wum7n20cwd7lxq4lppjg/proposals" target="_blank" 
-                   class="flex items-center gap-2 px-3 py-2 bg-orange-500/10 border border-orange-500/30 rounded-lg hover:bg-orange-500/20 transition-colors">
-                    <i class="fas fa-fire text-orange-400"></i>
-                    <span class="text-sm text-orange-400">Phoenix Directive</span>
-                    <i class="fas fa-external-link-alt text-[10px] text-orange-400/50"></i>
-                </a>
-                <!-- PD Watch slot: goes live with pd-watch.html (spec committed, data product live) -->
-                <span class="flex items-center gap-2 px-3 py-2 bg-white/[0.02] border border-white/5 rounded-lg opacity-50 cursor-default" title="PD Directive Watch — allocation vs stated basis, drift, and support history. Coming soon; the data product behind it is already live.">
-                    <i class="fas fa-magnifying-glass-chart text-gray-500"></i>
-                    <span class="text-sm text-gray-500">PD Watch</span>
-                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-gray-500">soon</span>
-                </span>
-            </div>
-        </div>
-        
-        <!-- Disclaimers — one line + expander (DeFi_Patriot 2026-08-02: bottom-of-page fresh look;
-             the four-paragraph block was 2023-era weight for a footer) -->
-        <div class="mb-6 p-3 bg-gray-800/30 border border-gray-700/50 rounded-lg text-[11px] text-gray-500">
-            <div class="flex items-center justify-between gap-3 flex-wrap">
-                <span><strong class="text-gray-400">\u26a0\ufe0f Not financial advice.</strong> Community-built analytics on third-party data \u2014 figures can be delayed or wrong; verify before acting, and use at your own risk.</span>
-                <button onclick="document.getElementById('footer-disclaimers-full').classList.toggle('hidden')" class="text-[10px] text-gray-500 hover:text-cyan-400 transition-colors shrink-0">full disclaimers <i class="fas fa-chevron-down text-[8px]"></i></button>
-            </div>
-            <div id="footer-disclaimers-full" class="hidden mt-3 pt-3 border-t border-gray-700/50 space-y-2">
-                <p><strong class="text-gray-400">Not Financial Advice:</strong> The information provided on this dashboard is for informational and educational purposes only. It should not be construed as financial, investment, or trading advice. Always do your own research (DYOR) and consult with qualified professionals before making any financial decisions.</p>
-                <p><strong class="text-gray-400">Data Accuracy:</strong> While we strive to maintain accurate and up-to-date information, this dashboard relies on third-party data sources and automated calculations. Data may be delayed, incomplete, or contain errors. We make no guarantees regarding the accuracy, completeness, or reliability of any information presented.</p>
-                <p><strong class="text-gray-400">Third-Party Links:</strong> This site may contain links to external websites. We are not responsible for the content or accuracy of any third-party sites.</p>
-                <p><strong class="text-gray-400">Use at Your Own Risk:</strong> Any actions taken based on the information on this dashboard are at your own risk. The creators and contributors of this dashboard shall not be held liable for any losses, damages, or claims arising from the use of this information.</p>
-            </div>
-        </div>
-        
-        <!-- Credits — minimal, since rev/changelog and footer info come from shared footer below -->
-        <div class="flex flex-wrap items-center justify-center gap-4">
-            <div class="text-xs text-gray-500">
-                Open data \u00b7 captured &amp; published in <a href="https://github.com/thealliancedao/tla-core" target="_blank" class="text-cyan-400 hover:underline">thealliancedao/tla-core</a>
-            </div>
-        </div>
-    </footer>
-
-    <!-- ============================================================
-         SHARED FOOTER (links + rev + changelog trigger)
-         Keep in sync with index.html
-         ============================================================ -->
-    <footer class="py-6 mt-12 border-t border-gray-800">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-400">
-            <div class="flex justify-center items-center space-x-6 mb-4">
-                <a href="https://t.me/The_AllianceDAO" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors"><i class="fab fa-telegram-plane text-3xl"></i></a>
-                <a href="https://x.com/The_AllianceDAO" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors"><i class="fab fa-twitter text-3xl"></i></a>
-            </div>
-            <div class="flex flex-wrap justify-center items-center space-x-6 text-sm">
-                <a href="tutorials.html" class="hover:text-white hover:underline transition-colors">Tutorials</a>
-                <a href="links.html" class="hover:text-white hover:underline transition-colors">Official Links</a>
-                <a href="https://chainsco.pe/terra2/address/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9" target="_blank" rel="noopener noreferrer" class="hover:text-white hover:underline transition-colors">NFT Contract</a>
-                <a href="https://github.com/SCV-Security/PublicReports/blob/b819ec669f81e603caca261931e2a4aaca1cddf7/Alliance/Alliance%20DAO%20-%20NFT%20Collection%20Contract%20-%20Audit%20Report%20v1.0.pdf" target="_blank" rel="noopener noreferrer" class="hover:text-white hover:underline transition-colors">Contract Audit</a>
-            </div>
-            <div class="mt-4 text-xs text-gray-500">
-                <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span id="footer-rev" class="font-mono">Rev T3.16</span>
-                    <span class="opacity-60 mx-1">·</span>
-                    <span>Changelog</span>
-                    <span id="footer-rev-date" class="opacity-50 ml-1"></span>
-                </button>
-                <span class="opacity-40 mx-2">·</span>
-                <a href="transparency-hub.html" id="cronHealthTrigger" class="cron-health-trigger" data-overall="unknown" title="View full System Health" style="text-decoration:none"><span class="dot"></span><span class="label">System Health</span></a>
-            </div>
-        </div>
-    </footer>
+    <!-- Footer v2 (2026-08-23): lib footer, same as every page. The bespoke block
+         (philosophy card, ad-hoc ecosystem strip, literal \u escapes in the
+         disclaimer) is retired; the philosophy lives in the DAO/about pages. -->
+    <div id="site-footer"></div>
     
     <!-- Changelog Modal -->
     <div id="changelogModal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden opacity-0">
@@ -14411,5 +14299,6 @@ ${(() => {
         })();
     </script>
 
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T3.17', revDate: '2026-08-23', page: 'tla-stats' });</script>
 </body>
 </html>

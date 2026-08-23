@@ -3179,47 +3179,10 @@
     </div>
 
 
-    <footer class="border-t border-gray-800 mt-12 py-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-500 text-sm">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                <div><h4 class="font-bold text-gray-300 mb-2">Disclaimer</h4><p>This website is for informational purposes only and does not constitute financial advice. All data is provided "as is" without warranty. Please do your own research.</p></div>
-                <div><h4 class="font-bold text-gray-300 mb-2">Project Origin</h4><p>This site is built and maintained by a council member, not at the direction of the council, but as a passionate community member looking to improve the optics of the collection.</p></div>
-                <div><h4 class="font-bold text-gray-300 mb-2">Data Source</h4><p>Data on this site is a mix of live on-chain data and static snapshots. See the banner at the top for details.</p>
-                </div>
-                <div><h4 class="font-bold text-gray-300 mb-2">Transparency</h4><p>The plan is for the script used to retrieve on-chain data to be open-source. You will be able to view the public repository to see how information is retrieved.</p><a href="https://github.com/defipatriot" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline mt-2 inline-block">View on GitHub</a></div>
-            </div>
-        </div>
-    </footer>
-    
-    <footer class="py-6">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-400">
-            <div class="flex justify-center items-center space-x-6 mb-4">
-                <a href="https://t.me/The_AllianceDAO" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors"><i class="fab fa-telegram-plane text-3xl"></i></a>
-                <a href="https://x.com/The_AllianceDAO" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors"><i class="fab fa-twitter text-3xl"></i></a>
-            </div>
-            <div class="flex flex-wrap justify-center items-center space-x-6 text-sm">
-                <a href="tutorials.html" class="hover:text-white hover:underline transition-colors">Tutorials</a>
-                <a href="links.html" class="hover:text-white hover:underline transition-colors">Official Links</a>
-                <a href="https://chainsco.pe/terra2/address/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9" target="_blank" rel="noopener noreferrer" class="hover:text-white hover:underline transition-colors">NFT Contract</a>
-                <a href="https://github.com/SCV-Security/PublicReports/blob/b819ec669f81e603caca261931e2a4aaca1cddf7/Alliance/Alliance%20DAO%20-%20NFT%20Collection%20Contract%20-%20Audit%20Report%20v1.0.pdf" target="_blank" rel="noopener noreferrer" class="hover:text-white hover:underline transition-colors">Contract Audit</a>
-                <button id="app-info-trigger" class="hover:text-white hover:underline transition-colors cursor-pointer flex items-center gap-1"><i class="fas fa-mobile-alt text-cyan-400 text-xs"></i> App</button>
-            </div>
-            <div class="mt-4 text-xs text-gray-500">
-                <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono" id="page-rev">Rev 3.70 · 2026-08-04</span>
-                    <span class="opacity-60 mx-1">·</span>
-                    <span>Changelog</span>
-                </button>
-                <span class="opacity-40 mx-2">·</span>
-                <a href="transparency-hub.html" id="cronHealthTrigger" class="cron-health-trigger" data-overall="unknown" title="View full System Health" style="text-decoration:none">
-                    <span class="dot"></span>
-                    <span class="label">System Health</span>
-                </a>
-                <span class="opacity-40 mx-2">·</span>
-                <a href="https://t.me/The_AllianceDAO" target="_blank" rel="noopener noreferrer" class="hover:text-cyan-400 transition-colors cursor-pointer">Alliance Contact</a>
-            </div>
-        </div>
-    </footer>
+    <!-- Footer v2 (2026-08-23): one lib footer everywhere — legal block, ecosystem
+         links, open-source invitation. The old dual footer (frozen disclaimers, stale
+         Rev 3.70 tag, hand-copied link rows) is retired. -->
+    <div id="site-footer"></div>
 
     <!-- Cron Health Modal — fleet freshness monitoring (Rev 3.38) -->
     <div id="cronHealthModal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden opacity-0">
@@ -16491,6 +16454,9 @@
                 return days === state.windowDays ? '' : ' <span class="text-[9px] text-amber-400/80" title="Window start had no capture; nearest real capture used — actual measured span shown. Never interpolated.">Δ' + days + 'd</span>';
             };
             const [aL, sL, vL, mL] = await Promise.all([daily.astro(latest), daily.ss(latest), daily.votion(latest), daily.member(latest)]);
+            // member daily publishes late in the day — today 404s until then; fall back
+            // to the freshest capture so VP Locked / VP potential never dash out (Rev 3.99)
+            const mL2 = (mL && Array.isArray(mL.wallets)) ? mL : (await nearest(daily.member, latest, 3))[1];
             const [[aFd, aF], [vFd, vF], [mFd, mF], [nFd, nF]] = await Promise.all([
                 nearest(daily.astro, targetFrom, 5), nearest(daily.votion, targetFrom, 5), nearest(daily.member, targetFrom, 5), nearest(daily.snap, targetFrom, 5),
             ]);
@@ -16518,7 +16484,7 @@
             const wFiles = Object.entries(state.byMonth || {}).filter(([k]) => k >= targetFrom.slice(0, 7)).map(([, v]) => v);
             const bw = bribesUsdInWindow(wFiles, targetFrom, latest, pmap);
             const bribeVal = bw.usd >= 1 ? fmt$(bw.usd) : (bw.legs ? '<$1' : '$0');
-            const vpL = vpLockedOf(mL), vpF = vpLockedOf(mF);
+            const vpL = vpLockedOf(mL2), vpF = vpLockedOf(mF);
             const rows = [
                 ['TLA staked', delta(stakedSnapOf(nL) && stakedSnapOf(nL).usd, stakedSnapOf(nF) && stakedSnapOf(nF).usd, fmt$, spanNote(nFd)) + (dec && dec.pricePct != null ? sub([k('DEX-wide split: tokens ' + pct(dec.quantityPct) + ' · prices ' + pct(dec.pricePct), Math.abs(dec.pricePct) > Math.abs(dec.quantityPct) ? (dec.pricePct >= 0 ? 'up' : 'dn') : (dec.quantityPct >= 0 ? 'up' : 'dn'))]) : ''), 'daily', 'Σ staked_in_tla_usd over ACTIVE gauge pools (Eris TLA definition, all DEXes, deduped across buckets). The chip repeats the DEX-wide token/price split (exact on the DEX TVL row) as context — staked-only amounts are not captured, so no staked-only USD split is claimed (Rev 3.98).'],
                 ['DEX TVL (TLA pools)', delta(tvlOf(aL, sL), tvlOf(aF, sF), fmt$, spanNote(aFd)) + decLine(dec), 'daily', 'Everything sitting in the TLA-relevant pools on Astroport + SkeletonSwap — staked into TLA or not (PoL, unstaked LP). TLA staked is the part deposited into the gauges. Quantity = the window-start token amounts re-valued at today\'s prices vs today; price = the rest.'],
@@ -16534,7 +16500,7 @@
             ];
             // Rev 3.91 — activity group (owner's list): gauge churn, unrealized VP, Votion, volume
             const churn = gaugeChurn(nL, nF);
-            const vpNow = vpLockedOf(mL), vpPot = vpPotentialOf(mL);
+            const vpNow = vpLockedOf(mL2), vpPot = vpPotentialOf(mL2);
             const vot = vL && Array.isArray(vL.vaults) ? vL.vaults : [];
             const votBest = (needle) => { const v = vot.filter(x => (x.vdenom || '').toLowerCase().includes(needle)); if (!v.length) return null; const b = v.reduce((m, x) => (x.exchange_rate || 0) > (m.exchange_rate || 0) ? x : m, v[0]); return b; };
             const vA = votBest('vampluna'), vB = votBest('varbluna');
@@ -16570,7 +16536,7 @@
             const [rzA, rzB] = await Promise.all([vA ? realizedFor('ampluna-max', vA) : null, vB ? realizedFor('arbluna-max', vB) : null]);
             const pc1 = (x) => x == null ? '—' : x.toFixed(1) + '%';
             const aprRow = (label, v, ap, rz, slug) => [label, v ? ((rz && rz.vault_apy_pct != null ? pc1(rz.vault_apy_pct) + ' <span class="pr-d text-gray-400">+ ' + pc1(rz.asset_apy_pct) + ' asset</span>' : (ap ? ap.aprSimple.toFixed(1) + '%' : '—')) +
-                sub([rz && rz.vault_apy_pct != null ? k('realized ' + Math.round(rz.window_days) + 'd · combined ' + pc1(rz.combined_apy_pct) + ' APY') : k('realized window unavailable'), ap ? k('forward ' + ap.aprSimple.toFixed(1) + '% APR · $' + ap.rew.toFixed(2) + ' / period') : k('forward reward unavailable'), k(fmt$(v.vault_tvl_usd || 0) + ' TVL'), '<a class="k" style="color:#67e8f9" target="_blank" rel="noopener" href="https://votion.money/pools/liquidity-alliance/' + slug + '">votion.money ↗</a>'])) : '—', 'live',
+                sub([ap ? k('forward ' + ap.aprSimple.toFixed(1) + '% APR · $' + ap.rew.toFixed(2) + ' / period') : k('forward reward unavailable'), k(fmt$(v.vault_tvl_usd || 0) + ' TVL'), '<a class="k" style="color:#67e8f9" target="_blank" rel="noopener" href="https://votion.money/pools/liquidity-alliance/' + slug + '">votion.money ↗</a>'])) : '—', 'live',
                 'Headline = REALIZED votion APY: the vault\'s vLST/LST exchange-rate growth over the trailing window from our daily captures, compounded to a year — the same thing Votion\'s "Votion APY" tracks. "+ asset" = the LST hub-rate growth the same way (Votion\'s "Asset APY"); combined = both. The forward chip is next period\'s expected reward ÷ TVL, simple. Measured from chain captures; Votion\'s exact windows/compounding are theirs, so expect small differences.'];
             const vol7 = await volume7dOf(latest), vol7F = await volume7dOf(aFd);
             // Active = gauge-listed pools with status active; inactive = listed with balance but not
@@ -16737,6 +16703,6 @@
      but its System Health dot is lit from lib/cron-registry.js — the same
      source every other page uses, so they can never disagree. -->
 <script src="/lib/site-footer.js"></script>
-<script>if (window.SiteFooter) SiteFooter.wireHealth();</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: '3.99', revDate: '2026-08-23', page: 'index', appInfo: true });</script>
 </body>
 </html>
