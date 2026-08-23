@@ -143,217 +143,113 @@
     <script src="/lib/address-picker.js"></script>
     <script>SiteHeader.mount({ page: 'dao_tla_deposits' }); if (window.AddressPicker) AddressPicker.mount({});</script>
 
-    <header class="bg-gray-900/80 border-b border-gray-800 sticky top-0 z-50">
-        <div class="container mx-auto px-4 py-3">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2 text-sm">
-                    <a href="dao_treasury.html" class="text-gray-500 hover:text-white px-2 py-1 rounded hover:bg-gray-800 transition"><i class="fas fa-landmark mr-1"></i>Treasury</a>
+    <!-- Rev 3.0: page-level sub-header retired; the period picker lives in the hero -->
+    
+    <main class="max-w-7xl mx-auto px-4 py-5">
+        <!-- Rev 3.0 (2026-08-22) — the page tells ONE story, top to bottom:
+             1. HERO: how the deposits have done — tokens vs dollars, one big chart, one sentence.
+             2. NOW: what is deposited, how it is split, what it earns, what is pending.
+             3. WINDOW: what changed over the selected period, and why (tokens vs prices).
+             4. DETAIL: positions · token balances · DAO actions · locks · rewards. -->
+
+        <!-- 1. HERO -->
+        <section class="stat-card rounded-2xl p-4 md:p-5 mb-4 relative overflow-hidden">
+            <div class="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                    <p class="text-[11px] uppercase tracking-widest text-gray-500">aDAO · TLA deposits</p>
+                    <div class="flex items-baseline gap-3 flex-wrap">
+                        <p id="total-value" class="text-4xl md:text-5xl font-bold text-white tracking-tight">--</p>
+                        <p id="total-change" class="text-sm font-mono text-gray-400">--</p>
+                    </div>
+                    <p id="hero-sentence" class="text-sm text-gray-300 mt-1 max-w-3xl">Loading the deposit history…</p>
                 </div>
-                <div class="flex items-center gap-3">
-                    <div class="flex gap-1">
+                <div class="flex flex-col items-end gap-2">
+                    <div class="flex gap-1" id="period-group">
                         <button class="period-btn active" onclick="setPeriod(1,this)">vs yesterday</button>
                         <button class="period-btn" onclick="setPeriod(7,this)">7d</button>
-                        <button class="period-btn" onclick="setPeriod(30,this)" title="daily archive starts 2026-08-12 — earlier windows fall back to the oldest capture">30d</button>
+                        <button class="period-btn" onclick="setPeriod(30,this)">30d</button>
                     </div>
-                    <span id="epoch-badge" class="text-xs bg-gray-800 px-2 py-1 rounded text-gray-400">Loading...</span>
+                    <span id="epoch-badge" class="text-[10px] bg-gray-800 px-2 py-1 rounded text-gray-400">Loading...</span>
                 </div>
             </div>
-        </div>
-    </header>
-    
-    <main class="container mx-auto px-4 py-4">
-        <!-- Summary Row -->
-        <div class="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4">
-            <div class="stat-card rounded-lg p-2">
-                <p class="text-[10px] text-gray-500">Total Value</p>
-                <p id="total-value" class="text-lg font-bold text-white">--</p>
-                <p id="total-change" class="text-[10px] text-gray-600">--</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                <div class="rounded-xl bg-white/[0.03] border border-white/5 p-3"><p class="text-[10px] uppercase tracking-wider text-gray-500">Tokens · since first point</p><p id="hero-tokens" class="text-2xl font-bold text-green-400 font-mono">--</p><p class="text-[10px] text-gray-500">amounts at today's prices · price-free</p></div>
+                <div class="rounded-xl bg-white/[0.03] border border-white/5 p-3"><p class="text-[10px] uppercase tracking-wider text-gray-500">Dollars · since first point</p><p id="hero-dollars" class="text-2xl font-bold text-gray-200 font-mono">--</p><p class="text-[10px] text-gray-500">value at the prices of each day</p></div>
+                <div class="rounded-xl bg-white/[0.03] border border-white/5 p-3"><p class="text-[10px] uppercase tracking-wider text-gray-500" title="Deposit-weighted incentive APR from chain distributions. Amplified is ≥ non-amp (Eris compounds and amplifies it; not captured yet, shown as a floor).">Incentive APR · non / amp</p><p id="avg-apr" class="text-2xl font-bold font-mono"><span class="text-gray-200">--</span><span class="text-gray-600"> / </span><span class="text-orange-400">--</span></p><p id="weekly-rate" class="text-[10px] text-gray-500">--</p></div>
+                <div class="rounded-xl bg-white/[0.03] border border-white/5 p-3"><p class="text-[10px] uppercase tracking-wider text-gray-500">Pending rewards</p><p id="pending-rewards" class="text-2xl font-bold text-yellow-400 font-mono">--</p><p class="text-[10px] text-gray-500">claimable now · deposit rewards + zLUNA</p></div>
             </div>
-            <div class="stat-card rounded-lg p-2">
-                <p class="text-[10px] text-gray-500">Non-Amp</p>
-                <p id="total-non-amp" class="text-lg font-bold text-gray-300">--</p>
-            </div>
-            <div class="stat-card rounded-lg p-2">
-                <p class="text-[10px] text-gray-500">Amplified</p>
-                <p id="total-amp" class="text-lg font-bold text-orange-400">--</p>
-            </div>
-            <div class="stat-card rounded-lg p-2">
-                <p class="text-[10px] text-gray-500" title="Swap-fee APR only (from the Astroport/SS pool crons). Excludes ASTRO incentives and amplified compounding, so true yield is higher.">Avg Fee APR <span class="text-gray-600">ⓘ</span></p>
-                <p id="avg-apr" class="text-lg font-bold text-green-400">--</p>
-                <p id="weekly-rate" class="text-[10px] text-gray-600">--</p>
-            </div>
-            <div class="stat-card rounded-lg p-2">
-                <p class="text-[10px] text-gray-500">Rewards</p>
-                <p id="pending-rewards" class="text-lg font-bold text-yellow-400">--</p>
-            </div>
-            <div class="stat-card rounded-lg p-2 border-l-2" id="position-card">
-                <p class="text-[10px] text-gray-500">Tokens</p>
-                <p id="position-status" class="text-lg font-bold text-gray-500">--</p>
-                <p id="position-note" class="text-[10px] text-gray-600">--</p>
-            </div>
-        </div>
-        
-        <!-- Value Change Breakdown - Simplified Story -->
-        <div id="value-breakdown" class="stat-card rounded-lg p-4 mb-4 hidden">
-            <div class="flex items-center gap-2 mb-3">
-                <i class="fas fa-book-open text-cyan-400"></i>
-                <span class="text-sm font-medium text-white">What Happened <span id="wh-window" class="text-gray-400">since yesterday</span></span>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Left: The Story -->
-                <div class="space-y-3">
-                    <div id="story-market" class="flex items-start gap-3 p-2 rounded bg-gray-800/30">
-                        <div class="text-2xl">📉</div>
-                        <div>
-                            <p class="text-xs text-gray-400">Market Movement</p>
-                            <p id="market-value" class="text-lg font-mono font-bold">--</p>
-                            <p id="market-explain" class="text-[10px] text-gray-500">Token prices changed</p>
-                        </div>
-                    </div>
-                    
-                    <div id="story-growth" class="flex items-start gap-3 p-2 rounded bg-gray-800/30">
-                        <div class="text-2xl">🌱</div>
-                        <div>
-                            <p class="text-xs text-gray-400">Your Tokens Grew</p>
-                            <p id="growth-value" class="text-lg font-mono font-bold">--</p>
-                            <p id="growth-explain" class="text-[10px] text-gray-500">From compounding rewards</p>
-                        </div>
-                    </div>
-                    
-                    <div class="border-t border-gray-700 pt-3">
-                        <div class="flex items-start gap-3 p-2 rounded bg-gray-800/50">
-                            <div class="text-2xl">=</div>
-                            <div>
-                                <p class="text-xs text-gray-400">Net Result</p>
-                                <p id="net-value" class="text-lg font-mono font-bold">--</p>
-                                <p id="net-explain" class="text-[10px] text-gray-500"></p>
-                            </div>
-                        </div>
-                    </div>
+            <div class="mt-4">
+                <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+                    <h3 class="text-xs font-bold text-white"><i class="fas fa-chart-area text-green-400 mr-1"></i>Tokens vs Dollars <span id="vc-span" class="text-gray-500 font-normal"></span></h3>
+                    <span class="flex items-center gap-3 text-[10px] text-gray-500">
+                        <span id="vc-modes"><button class="period-btn active" onclick="setChartMode('index',this)" title="Both lines start at 100 at the first point: tokens (at today's prices) vs dollars (at the prices of the day). The gap between them is price.">Index</button><button class="period-btn" onclick="setChartMode('usd',this)" title="Dollar values">USD</button></span>
+                        <span><span class="inline-block w-2 h-2 rounded-full bg-green-500 mr-1"></span>tokens</span>
+                        <span><span class="inline-block w-2 h-2 rounded-full bg-slate-500 mr-1"></span>dollars</span>
+                        <span><span class="inline-block w-2 h-2 rounded-full bg-purple-500 mr-1"></span>DAO action</span>
+                    </span>
                 </div>
-                
-                <!-- Right: Context -->
-                <div class="bg-gray-800/20 rounded-lg p-3">
-                    <p class="text-xs font-medium text-white mb-2"><i class="fas fa-info-circle text-blue-400 mr-1"></i>Understanding This</p>
-                    <div class="space-y-2 text-[11px] text-gray-400">
-                        <p id="context-apr"></p>
-                        <p id="context-comparison"></p>
-                        <p id="context-verdict" class="font-medium"></p>
-                    </div>
-                    
-                    <div class="mt-3 pt-3 border-t border-gray-700">
-                        <p class="text-[10px] text-gray-500 mb-1">Quick Check:</p>
-                        <div class="flex items-center gap-2">
-                            <span id="check-tokens" class="text-[10px]">--</span>
-                        </div>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span id="check-expected" class="text-[10px]">--</span>
-                        </div>
-                    </div>
-                </div>
+                <div class="chart-container" style="height:260px"><canvas id="value-chart"></canvas></div>
             </div>
+        </section>
+
+        <!-- 2+3. NOW · WINDOW -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+            <section class="stat-card rounded-2xl p-4">
+                <p class="text-[11px] uppercase tracking-widest text-gray-500 mb-2">Deposited now</p>
+                <div class="flex items-baseline justify-between"><span class="text-xs text-gray-400">Non-amplified</span><span id="total-non-amp" class="text-lg font-bold text-gray-200 font-mono">--</span></div>
+                <div class="flex items-baseline justify-between mt-1"><span class="text-xs text-gray-400">Amplified <span class="badge-amp ml-1">AMP</span></span><span id="total-amp" class="text-lg font-bold text-orange-400 font-mono">--</span></div>
+                <div class="mt-2 h-2 rounded-full overflow-hidden bg-white/5 flex" id="split-bar"><div id="split-na" class="bg-gray-400" style="width:50%"></div><div id="split-amp" class="bg-orange-500" style="width:50%"></div></div>
+                <p id="split-note" class="text-[10px] text-gray-500 mt-1">Amplified deposits auto-compound and receive the bucket's amplification; non-amplified earn the base incentive and must be claimed.</p>
+            </section>
+            <section id="value-breakdown" class="stat-card rounded-2xl p-4 lg:col-span-2">
+                <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+                    <p class="text-[11px] uppercase tracking-widest text-gray-500">What changed <span id="wh-window" class="text-gray-400 normal-case tracking-normal">since yesterday</span></p>
+                    <span id="position-card" class="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-gray-400"><span class="text-gray-500">Tokens <span id="tokens-window"></span>:</span> <span id="position-status" class="font-mono font-bold text-gray-300">--</span> <span id="position-note" class="text-gray-500"></span></span>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div id="story-growth" class="rounded-xl bg-white/[0.03] border border-white/5 p-3"><div class="text-2xl">🌱</div><p class="text-[10px] uppercase tracking-wider text-gray-500 mt-1">Tokens earned</p><p id="growth-value" class="text-xl font-mono font-bold">--</p><p id="growth-explain" class="text-[10px] text-gray-500">rewards &amp; compounding, at today's prices</p></div>
+                    <div id="story-market" class="rounded-xl bg-white/[0.03] border border-white/5 p-3"><div class="text-2xl">📉</div><p class="text-[10px] uppercase tracking-wider text-gray-500 mt-1">Price effect</p><p id="market-value" class="text-xl font-mono font-bold">--</p><p id="market-explain" class="text-[10px] text-gray-500">what the market did to the same tokens</p></div>
+                    <div class="rounded-xl bg-white/[0.03] border border-white/5 p-3"><div class="text-2xl">=</div><p class="text-[10px] uppercase tracking-wider text-gray-500 mt-1">Net in dollars</p><p id="net-value" class="text-xl font-mono font-bold">--</p><p id="net-explain" class="text-[10px] text-gray-500"></p></div>
+                </div>
+                <div class="mt-3 text-[11px] text-gray-400 space-y-0.5"><p id="context-apr"></p><p id="context-comparison"></p><p id="context-verdict" class="font-medium"></p><p class="hidden" id="check-tokens"></p><p class="hidden" id="check-expected"></p></div>
+            </section>
         </div>
-        
-        <!-- Main Grid -->
+
+        <!-- 4. DETAIL -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <!-- Left: Positions & Tokens -->
             <div class="lg:col-span-2 space-y-4">
-                <!-- LP Positions -->
-                <div class="stat-card rounded-xl p-3">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-sm font-bold text-white"><i class="fas fa-layer-group text-cyan-400 mr-2"></i>LP Positions</h2>
-                        <div class="flex gap-1"><span class="badge-non-amp">Non-Amp</span><span class="badge-amp">Amp</span></div>
+                <section class="stat-card rounded-2xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-bold text-white"><i class="fas fa-layer-group text-cyan-400 mr-1"></i>LP positions</h3>
+                        <span class="text-[10px] text-gray-500"><span class="text-gray-300">white</span> non-amp · <span class="text-orange-400">orange</span> amplified · Δ vs the selected window</span>
                     </div>
                     <div id="positions-table" class="text-xs"><div class="text-center p-6 text-gray-500"><i class="fas fa-spinner fa-spin"></i> Loading...</div></div>
-                </div>
-                
-                <!-- Token Balances -->
-                <div class="stat-card rounded-xl p-3">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-sm font-bold text-white"><i class="fas fa-coins text-yellow-400 mr-2"></i>Token Balances</h2>
-                        <span class="text-[10px] text-gray-500">From TLA snapshot</span>
+                </section>
+                <section class="stat-card rounded-2xl p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-bold text-white"><i class="fas fa-coins text-yellow-400 mr-1"></i>Token balances inside the deposits</h3>
+                        <span class="text-[10px] text-gray-500">amount Δ = tokens · price Δ = market · over the selected window</span>
                     </div>
                     <div id="token-balances" class="grid grid-cols-2 md:grid-cols-3 gap-2"><div class="col-span-full text-center p-4 text-gray-500"><i class="fas fa-spinner fa-spin"></i></div></div>
-                </div>
-                
-                <!-- Pool Token Breakdown (when available) -->
-                <div id="pool-breakdown-section" class="stat-card rounded-xl p-3 hidden">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-sm font-bold text-white"><i class="fas fa-balance-scale text-purple-400 mr-2"></i>Pool Token Breakdown</h2>
-                    </div>
-                    <div id="pool-breakdown" class="space-y-3"></div>
-                </div>
+                </section>
             </div>
-            
-            <!-- Right: Analytics -->
             <div class="space-y-4">
-                <div class="flex gap-1">
-                    <button class="tab-btn active" onclick="showTab('trend',this)">Trend</button>
-                    <button class="tab-btn" onclick="showTab('compare',this)">Compare</button>
-                    <button class="tab-btn" onclick="showTab('rewards',this)">Rewards</button>
-                </div>
-                
-                <!-- Tab: Trend -->
-                <div id="tab-trend" class="space-y-3">
-                    <div class="stat-card rounded-xl p-3">
-                        <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-xs font-bold text-white"><i class="fas fa-chart-area text-green-400 mr-1"></i>Value Over Time</h3>
-                            <span class="text-[10px] text-gray-500"><span class="inline-block w-2 h-2 rounded-full bg-purple-500 mr-1"></span>DAO Action</span>
-                        </div>
-                        <div class="chart-container"><canvas id="value-chart"></canvas></div>
-                    </div>
-                    <div class="stat-card rounded-xl p-3">
-                        <h3 class="text-xs font-bold text-white mb-2"><i class="fas fa-lock text-purple-400 mr-1"></i>Locks & VP</h3>
-                        <div id="locks-info" class="space-y-1 text-xs"></div>
-                    </div>
-                </div>
-                
-                <!-- Tab: Compare -->
-                <div id="tab-compare" class="space-y-3 hidden">
-                    <div class="stat-card rounded-xl p-3">
-                        <h3 class="text-xs font-bold text-white mb-2"><i class="fas fa-exchange-alt text-cyan-400 mr-1"></i>Token Amount Changes</h3>
-                        <div id="token-changes" class="space-y-1 text-xs"></div>
-                    </div>
-                    <div class="stat-card rounded-xl p-3">
-                        <h3 class="text-xs font-bold text-white mb-2"><i class="fas fa-chart-bar text-yellow-400 mr-1"></i>Price Changes</h3>
-                        <div id="price-changes" class="space-y-1 text-xs"></div>
-                    </div>
-                </div>
-                
-                <!-- Tab: Rewards -->
-                <div id="tab-rewards" class="space-y-3 hidden">
-                    <div class="stat-card rounded-xl p-3">
-                        <h3 class="text-xs font-bold text-white mb-2"><i class="fas fa-gift text-orange-400 mr-1"></i>Pending Rewards</h3>
-                        <div id="rewards-breakdown" class="space-y-1 text-xs"></div>
-                    </div>
-                    <div class="bg-yellow-900/30 border border-yellow-800/50 rounded-lg p-2 text-[10px]">
-                        <p class="text-yellow-400 font-medium"><i class="fas fa-info-circle mr-1"></i>Note</p>
-                        <p class="text-gray-400 mt-1">Non-amp rewards don't auto-compound. Amp positions do.</p>
-                    </div>
-                </div>
-                
-                <!-- TLA Actions Section (always visible) -->
-                <div class="stat-card rounded-xl p-3 mt-3">
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="text-xs font-bold text-white"><i class="fas fa-gavel text-purple-400 mr-1"></i>Recent TLA Actions</h3>
-                        <span id="tla-actions-count" class="text-[10px] bg-purple-900/50 text-purple-300 px-1.5 py-0.5 rounded">--</span>
-                    </div>
-                    <div id="tla-actions-list" class="space-y-1.5 max-h-48 overflow-y-auto text-xs">
-                        <div class="text-gray-500 text-center py-2"><i class="fas fa-spinner fa-spin mr-1"></i>Loading...</div>
-                    </div>
-                    <div class="mt-2 pt-2 border-t border-gray-800 text-[10px] text-gray-600">
-                        <i class="fas fa-info-circle mr-1"></i>Props that adjusted LP positions, locks, or TLA deposits
-                    </div>
-                </div>
+                <section class="stat-card rounded-2xl p-4">
+                    <div class="flex items-center justify-between mb-2"><h3 class="text-sm font-bold text-white"><i class="fas fa-gavel text-purple-400 mr-1"></i>DAO actions on deposits</h3><span id="tla-actions-count" class="text-[10px] bg-purple-900/50 text-purple-300 px-1.5 py-0.5 rounded">--</span></div>
+                    <div id="tla-actions-list" class="space-y-1.5 max-h-64 overflow-y-auto text-xs"><div class="text-gray-500 text-center py-2"><i class="fas fa-spinner fa-spin mr-1"></i>Loading...</div></div>
+                    <p class="mt-2 pt-2 border-t border-gray-800 text-[10px] text-gray-600">Executed proposals that moved LP positions, locks or deposits — the purple points on the chart.</p>
+                </section>
+                <section class="stat-card rounded-2xl p-4"><h3 class="text-sm font-bold text-white mb-2"><i class="fas fa-gift text-orange-400 mr-1"></i>Pending rewards</h3><div id="rewards-breakdown" class="space-y-1 text-xs"></div><p class="text-[10px] text-gray-500 mt-2">Non-amp rewards don't auto-compound until claimed; amplified positions compound on their own.</p></section>
+                <section class="stat-card rounded-2xl p-4"><h3 class="text-sm font-bold text-white mb-2"><i class="fas fa-exchange-alt text-cyan-400 mr-1"></i>Token amount changes</h3><div id="token-changes" class="space-y-1 text-xs"></div></section>
+                <section class="stat-card rounded-2xl p-4"><h3 class="text-sm font-bold text-white mb-2"><i class="fas fa-chart-bar text-yellow-400 mr-1"></i>Price changes</h3><div id="price-changes" class="space-y-1 text-xs"></div></section>
+                <section class="stat-card rounded-2xl p-4"><h3 class="text-sm font-bold text-white mb-2"><i class="fas fa-lock text-purple-400 mr-1"></i>Locks &amp; VP</h3><div id="locks-info" class="space-y-1 text-xs"></div></section>
             </div>
         </div>
-        
-        <!-- Live Note -->
+
         <div id="live-note" class="mt-4 bg-blue-900/20 border border-blue-800/50 rounded-lg p-2 text-xs text-center hidden">
-            <i class="fas fa-broadcast-tower text-blue-400 mr-1"></i>
-            <span class="text-gray-400">Currently in Epoch <span id="current-epoch">--</span>. Snapshot from Epoch <span id="snapshot-epoch">--</span>.</span>
+            <span class="text-blue-400"><i class="fas fa-info-circle mr-1"></i>Live epoch <span id="current-epoch"></span> · last archive epoch <span id="snapshot-epoch"></span></span>
         </div>
+        <p class="mt-4 text-[10px] text-gray-600">Sources: live chain balances (aDAOLive) · member-data/dao-dashboard daily archive (one point per day; Dec 2025–May 2026 rows migrated from the epoch-end tool) · member-data/positions (incentive APR) · dao-originations (proposals). Tokens-index = amounts re-valued at today's prices; the dollars-index uses each day's own prices. Nothing here is advice.</p>
     </main>
     
     <script>
@@ -713,68 +609,66 @@
         }
         
         // Calculate value change breakdown
+        // Rev 2.5: same split as the Home pulse — token change valued at TODAY's prices (price-free),
+        // price effect = old amounts × price move. Also returns the token-terms %, the number that
+        // answers "did the deposits grow?" without USD in the way.
         function calcValueBreakdown(){
             if(!compareData) return null;
-            
             const oldTokens = compareData.liquidity?.adao_deposits?.tokens || [];
             const oldPrices = compareData.token_prices || {};
             const newPrices = tokenPrices;
-            
-            let priceImpact = 0;
-            let positionChange = 0;
-            
+            let priceImpact = 0, positionChange = 0, oldAtToday = 0, newAtToday = 0, covered = 0, total = 0;
             tokenBalances.forEach(newTok => {
+                total++;
                 const oldTok = oldTokens.find(t => t.symbol === newTok.symbol);
                 if(!oldTok) return;
-                
-                const oldPrice = getPrice(newTok.symbol, oldPrices);
-                const newPrice = getPrice(newTok.symbol, newPrices);
-                const oldAmount = oldTok.amount;
-                const newAmount = newTok.amount;
-                
-                if(oldPrice <= 0 || newPrice <= 0) return;
-                
-                priceImpact += oldAmount * (newPrice - oldPrice);
-                positionChange += (newAmount - oldAmount) * newPrice;
+                const oldPrice = getPrice(newTok.symbol, oldPrices), newPrice = getPrice(newTok.symbol, newPrices);
+                if(!(newPrice > 0)) return;
+                covered++;
+                oldAtToday += oldTok.amount * newPrice; newAtToday += newTok.amount * newPrice;
+                positionChange += (newTok.amount - oldTok.amount) * newPrice;
+                if(oldPrice > 0) priceImpact += oldTok.amount * (newPrice - oldPrice);
             });
-            
-            return { priceImpact, positionChange, netChange: priceImpact + positionChange };
+            const tokenPct = oldAtToday > 0 ? (newAtToday / oldAtToday - 1) * 100 : null;
+            const baselineDate = compareData.meta?.generated_at ? String(compareData.meta.generated_at).slice(0,10) : null;
+            return { priceImpact, positionChange, netChange: priceImpact + positionChange, tokenPct, covered, total, baselineDate };
         }
         
-        function showTab(name,btn){
-            document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-            btn.classList.add('active');
-            ['trend','compare','rewards'].forEach(t=>document.getElementById('tab-'+t).classList.add('hidden'));
-            document.getElementById('tab-'+name).classList.remove('hidden');
-        }
+        function showTab(){ /* Rev 3.0: tabs retired — everything is on the page */ }
         
         // Rev 2.5: the period picks the compare baseline from the DAILY archive (nearest capture
         // at-or-before the window start) and re-renders everything that compares.
         function setPeriod(days,btn){document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');window.__compareDays=days;const wh=document.getElementById('wh-window');if(wh)wh.textContent=days===1?'since yesterday':'over '+days+'d';if(window.__pickArchive){const a=window.__pickArchive(days);if(a){compareData=a;try{renderAll();}catch(e){console.warn('re-render failed',e);}}}}
         
+        // Rev 3.0 positions: each row = name · split bar (non-amp white / amp orange, width = share of
+        // the book) · USD · non / amp APR · Δ in tokens (price-free) and Δ in USD over the window.
         function renderPositions(){
             const c=document.getElementById('positions-table');
             if(!lpPositions.length){c.innerHTML='<div class="text-center py-4 text-gray-500">No positions</div>';return;}
             const oldPos=compareData?extractPos(compareData):[];
-            let html='<table class="w-full"><thead class="text-gray-500 border-b border-gray-800"><tr><th class="text-left py-1 pl-1">Pool</th><th class="text-right py-1">Non-Amp</th><th class="text-right py-1">Amp</th><th class="text-right py-1">Total</th><th class="text-right py-1" title="non-amp / amplified incentive APR (chain distributions). Amplified shown as ≥ non-amp until captured.">non / amp APR</th><th class="text-right py-1 pr-1">Δ</th></tr></thead><tbody>';
+            const book = lpPositions.reduce((s,p)=>s+p.total,0) || 1;
+            const aprMap = window.__poolIncentiveApr || {};
+            // token-terms Δ per pool from the positions product (underlying amounts) when we have both ends
+            const nowPos = (window.__positionsDoc && window.__positionsDoc.treasury && window.__positionsDoc.treasury.lp_positions) || [];
+            const pct = (v) => (v>=0?'+':'−') + Math.abs(v).toFixed(2) + '%';
+            let html='<table class="w-full"><thead class="text-gray-500 border-b border-gray-800"><tr><th class="text-left py-1.5 pl-1">Pool</th><th class="text-left py-1.5" style="width:34%">Share · split</th><th class="text-right py-1.5">Deposited</th><th class="text-right py-1.5" title="Incentive APR from chain distributions. Amplified shown as ≥ non-amp until captured.">non / amp APR</th><th class="text-right py-1.5 pr-1" title="USD change vs the selected window">Δ $</th></tr></thead><tbody>';
             let totalNa=0,totalAmp=0;
             lpPositions.forEach(p=>{
                 totalNa+=p.nonAmp;totalAmp+=p.amp;
                 const old=oldPos.find(x=>x.name===p.name);
                 const chg=old?(p.total-old.total):null;
                 const chgPct=old&&old.total>0?(chg/old.total*100):null;
-                const feeApr=getPoolFeeApr(p.dex,p.name);
-                const inc = window.__poolIncentiveApr ? window.__poolIncentiveApr[p.name] : null;   // Rev 2.5
+                const inc = aprMap[p.name];
+                const share = p.total/book*100, naW = p.total>0 ? p.nonAmp/p.total*100 : 0;
                 html+=`<tr class="pool-row border-b border-gray-800/50">
-                    <td class="py-1.5 pl-1"><span class="text-white">${p.name}</span>${p.type==='single'?'<span class="badge-single ml-1">S</span>':''}</td>
-                    <td class="py-1.5 text-right font-mono ${p.nonAmp>0?'text-gray-300':'text-gray-700'}">${p.nonAmp>0?fmt(p.nonAmp,0):'--'}</td>
-                    <td class="py-1.5 text-right font-mono ${p.amp>0?'text-orange-400':'text-gray-700'}">${p.amp>0?fmt(p.amp,0):'--'}</td>
-                    <td class="py-1.5 text-right font-mono font-bold text-white">${fmt(p.total,0)}</td>
-                    <td class="py-1.5 text-right font-mono" title="Incentive APR from chain distributions (non-amp, white). Amplified (orange) is shown as ≥ non-amp: Eris compounds and amplifies it, and that figure is not yet captured — a lower bound, not a guess. Fee APR (swap fees only): ${feeApr!=null?(feeApr*100).toFixed(2)+'%':'n/a'}">${inc!=null?`<span class="text-gray-200">${inc.toFixed(1)}%</span><span class="text-gray-600"> / </span><span class="text-orange-400">≥${inc.toFixed(1)}%</span>`:(feeApr!=null?`<span class="text-teal-300">${(feeApr*100).toFixed(2)}%</span><span class="text-gray-600 text-[10px]"> fee</span>`:'<span class="text-gray-700">--</span>')}</td>
-                    <td class="py-1.5 text-right pr-1 ${chg!==null?(chg>=0?'text-green-400':'text-red-400'):'text-gray-600'}">${chgPct!==null?fmtPct(chgPct):'--'}</td>
+                    <td class="py-2 pl-1"><span class="text-white font-medium">${p.name}</span>${p.type==='single'?'<span class="badge-single ml-1">S</span>':''}<div class="text-[10px] text-gray-600">${p.dex||''}</div></td>
+                    <td class="py-2"><div class="flex items-center gap-2"><div class="h-2 rounded-full overflow-hidden bg-white/5 flex" style="width:${Math.max(8, share*2.4).toFixed(0)}%;min-width:24px" title="${share.toFixed(1)}% of deposits · ${naW.toFixed(0)}% non-amp / ${(100-naW).toFixed(0)}% amplified"><div class="bg-gray-300" style="width:${naW.toFixed(1)}%"></div><div class="bg-orange-500" style="width:${(100-naW).toFixed(1)}%"></div></div><span class="text-[10px] text-gray-500 font-mono">${share.toFixed(1)}%</span></div></td>
+                    <td class="py-2 text-right font-mono"><span class="text-white font-bold">${fmt(p.total,0)}</span><div class="text-[10px] font-mono"><span class="text-gray-400">${p.nonAmp>0?fmt(p.nonAmp,0):'–'}</span> <span class="text-gray-600">/</span> <span class="text-orange-400">${p.amp>0?fmt(p.amp,0):'–'}</span></div></td>
+                    <td class="py-2 text-right font-mono">${inc!=null?`<span class="text-gray-200">${inc.toFixed(1)}%</span><span class="text-gray-600"> / </span><span class="text-orange-400">≥${inc.toFixed(1)}%</span>`:'<span class="text-gray-700">--</span>'}</td>
+                    <td class="py-2 text-right pr-1 font-mono ${chg!==null?(chg>=0?'text-green-400':'text-red-400'):'text-gray-600'}">${chg!==null?`${fmtChg(chg)}<div class="text-[10px] opacity-80">${pct(chgPct)}</div>`:'--'}</td>
                 </tr>`;
             });
-            html+=`</tbody><tfoot class="border-t border-cyan-800"><tr class="font-bold"><td class="py-1.5 pl-1">Total</td><td class="py-1.5 text-right font-mono text-gray-300">${fmt(totalNa,0)}</td><td class="py-1.5 text-right font-mono text-orange-400">${fmt(totalAmp,0)}</td><td class="py-1.5 text-right font-mono text-cyan-400">${fmt(totalNa+totalAmp,0)}</td><td></td><td></td></tr></tfoot></table>`;
+            html+=`</tbody><tfoot class="border-t border-cyan-800"><tr class="font-bold"><td class="py-2 pl-1 text-white">Total</td><td class="py-2 text-[10px] text-gray-500 font-normal">${lpPositions.length} positions</td><td class="py-2 text-right font-mono"><span class="text-white">${fmt(totalNa+totalAmp,0)}</span><div class="text-[10px] font-mono font-normal"><span class="text-gray-400">${fmt(totalNa,0)}</span> <span class="text-gray-600">/</span> <span class="text-orange-400">${fmt(totalAmp,0)}</span></div></td><td></td><td></td></tr></tfoot></table>`;
             c.innerHTML=html;
         }
         
@@ -927,7 +821,13 @@
             const noteEl = document.getElementById('position-note');
             const cardEl = document.getElementById('position-card');
             
-            if (!aprAvailable) {
+            const tw = document.getElementById('tokens-window'); if (tw) tw.textContent = breakdown.baselineDate ? 'since ' + breakdown.baselineDate : '';
+            if (breakdown.tokenPct != null) {   // Rev 2.5: the tile IS the token-terms number
+                const tp = breakdown.tokenPct, up = tp >= 0;
+                statusEl.textContent = (up ? '+' : '−') + Math.abs(tp).toFixed(2) + '%'; statusEl.className = 'text-lg font-bold ' + (Math.abs(tp) < 0.005 ? 'text-gray-300' : up ? 'text-green-400' : 'text-red-400');
+                noteEl.textContent = 'in tokens · ' + fmtChg(breakdown.positionChange) + ' at today\'s prices · ' + breakdown.covered + '/' + breakdown.total + ' priced';
+                cardEl.className = 'stat-card rounded-lg p-2 border-l-2 ' + (Math.abs(tp) < 0.005 ? 'border-gray-600' : up ? 'border-green-500' : 'border-red-500');
+            } else if (!aprAvailable) {
                 if (breakdown.positionChange > 0) {
                     statusEl.textContent = 'Growing'; statusEl.className = 'text-lg font-bold text-green-400';
                     noteEl.textContent = 'tokens up'; cardEl.className = 'stat-card rounded-lg p-2 border-l-2 border-green-500';
@@ -956,6 +856,11 @@
             }
         }
         
+        // Rev 2.5: Index mode (default) — tokens and dollars both rebased to 100 at the first visible
+        // point. Tokens only move when deposits/rewards change amounts (up and to the right in a
+        // healthy book); dollars carry the market. The gap IS the price effect.
+        let chartMode = 'index';
+        function setChartMode(m, btn){ chartMode = m; if (btn) { btn.parentElement.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); } renderChart(); }
         function renderChart(){
             const ctx=document.getElementById('value-chart');
             if(!ctx||history.length<1)return;
@@ -988,6 +893,22 @@
                 normalizedData.push({x: ts, y: normalizedValue || h.usd, epoch: h.epoch, tlaProps, hasDaoAction, migrated: !!h.migrated, date: h.date || null});
             });
             
+            if (chartMode === 'index') {   // rebase both series to 100 at the first point with a value
+                const base = (arr) => (arr.find(d => d.y > 0) || {}).y || null;
+                const bT = base(normalizedData), bU = base(actualData);
+                if (bT) normalizedData.forEach(d => { d.usdRaw = d.y; d.y = d.y / bT * 100; });
+                if (bU) actualData.forEach(d => { d.usdRaw = d.y; d.y = d.y / bU * 100; });
+                const lastT = normalizedData[normalizedData.length - 1], lastU = actualData[actualData.length - 1];
+                const since = new Date(history[0].ts).toISOString().slice(0, 10);
+                const sp = document.getElementById('vc-span'); if (sp && lastT && lastU) sp.textContent = '· since ' + since;
+                if (lastT && lastU) {
+                    const tp = lastT.y - 100, up = lastU.y - 100, pf = (v) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1) + '%';
+                    const ht = document.getElementById('hero-tokens'), hd = document.getElementById('hero-dollars'), hs = document.getElementById('hero-sentence');
+                    if (ht) { ht.textContent = pf(tp); ht.className = 'text-2xl font-bold font-mono ' + (tp >= 0 ? 'text-green-400' : 'text-red-400'); }
+                    if (hd) { hd.textContent = pf(up); hd.className = 'text-2xl font-bold font-mono ' + (up >= 0 ? 'text-gray-200' : 'text-red-300'); }
+                    if (hs) hs.textContent = `Since ${since} the deposits grew ${pf(tp)} in tokens (rewards, compounding and DAO top-ups, measured at today's prices). In dollars they moved ${pf(up)} — the difference is what token prices did. ${tp > up ? 'The book is growing faster than the market is taking away.' : 'Prices are currently adding more than the yield is.'}`;
+                }
+            } else { const sp = document.getElementById('vc-span'); if (sp) sp.textContent = ''; }
             if(chart)chart.destroy();
             
             // Dynamic scale
@@ -1010,7 +931,7 @@
                 data:{
                     datasets:[
                         {
-                            label: 'Token Growth',
+                            label: chartMode === 'index' ? 'Tokens (index, at today\'s prices)' : 'Tokens at today\'s prices',
                             data: normalizedData,
                             borderColor: '#22c55e',
                             backgroundColor: '#22c55e20',
@@ -1023,7 +944,7 @@
                             borderWidth: 2
                         },
                         {
-                            label: 'Actual Value',
+                            label: chartMode === 'index' ? 'Dollars (index)' : 'Dollar value',
                             data: actualData,
                             borderColor: '#64748b',
                             backgroundColor: '#64748b20',
@@ -1060,7 +981,7 @@
                                     if (d.hasDaoAction) title += ' ⚡DAO Action';
                                     return title;
                                 },
-                                label: c => `${c.dataset.label}: ${fmt(c.raw.y)}`,
+                                label: c => chartMode === 'index' ? `${c.dataset.label}: ${c.raw.y.toFixed(1)}` + (c.raw.usdRaw != null ? ` (${fmt(c.raw.usdRaw)})` : '') : `${c.dataset.label}: ${fmt(c.raw.y)}`,
                                 afterBody: function(items) {
                                     const d = items[0].raw;
                                     if (d.tlaProps && d.tlaProps.length > 0) {
@@ -1073,7 +994,7 @@
                     },
                     scales:{
                         x:{type:'time',time:{unit:'day'},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#666',font:{size:9}}},
-                        y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#666',font:{size:9},callback:v=>'$'+(v/1000).toFixed(1)+'K'},min:yMin,max:yMax}
+                        y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#666',font:{size:9},callback:v=>chartMode==='index'?v.toFixed(0):'$'+(v/1000).toFixed(1)+'K'},min:chartMode==='index'?undefined:yMin,max:chartMode==='index'?undefined:yMax}
                     }
                 }
             });
@@ -1169,10 +1090,12 @@
                     if (live && (live.source === 'live' || live.source === 'cron')) {
                         liveSource = live.source;
                         liveCapturedAt = live.capturedAt;
-                        // Take a deep copy of currentData BEFORE we mutate it — this
-                        // becomes our new "compare against" baseline (the most recent
-                        // snapshot, untouched by live overlay).
-                        compareData = JSON.parse(JSON.stringify(currentData));
+                        // Rev 2.5 FIX (owner 2026-08-22: "0.0% price / 0.0% amt / $0 everywhere"):
+                        // Rev 1.2 repointed compareData to a copy of the HOURLY snapshot here, so every
+                        // change on the page was "live now vs one hour ago" — prices identical, amounts
+                        // identical — whatever period was selected. The baseline is the archive the
+                        // period picked (yesterday / 7d / 30d) and the overlay must not touch it.
+                        window.__snapshotBeforeLive = JSON.parse(JSON.stringify(currentData));
                         // Update the dashboard.adao_deposits fields the rest of init() reads
                         if (!currentData.liquidity) currentData.liquidity = {};
                         if (!currentData.liquidity.adao_deposits) currentData.liquidity.adao_deposits = {};
@@ -1208,7 +1131,7 @@
                         if (!currentData.dashboard.unclaimed_rewards) currentData.dashboard.unclaimed_rewards = {};
                         currentData.dashboard.unclaimed_rewards.deposit_rewards_usd = live.pendingRewardsUsd || 0;
                         currentData.dashboard.unclaimed_rewards.zAssets = live.zlunaUsd || 0;
-                        console.log(`[dao_tla_deposits] overlaid LIVE data — total $${live.totalTlaUsd.toFixed(2)} across ${live.positionCount} positions (source: ${live.source}). compareData re-anchored to E${compareData.meta?.epoch} (the snapshot we overlaid on).`);
+                        console.log(`[dao_tla_deposits] overlaid LIVE data — total $${live.totalTlaUsd.toFixed(2)} across ${live.positionCount} positions (source: ${live.source}). baseline stays the ${window.__compareDays||1}d archive (${compareData?.meta?.generated_at?String(compareData.meta.generated_at).slice(0,10):'n/a'}).`);
                     }
                 }
             } catch (e) {
@@ -1266,8 +1189,14 @@
             document.getElementById('total-value').textContent=fmt(dep.total_usd,0);
             document.getElementById('total-non-amp').textContent=fmt(na,0);
             document.getElementById('total-amp').textContent=fmt(am,0);
-            document.getElementById('avg-apr').textContent = feeAprInfo ? (feeAprInfo.apr*100).toFixed(2)+'%' : '—';
-            document.getElementById('weekly-rate').textContent = feeAprInfo ? `fees only · ${feeAprInfo.coveredCount}/${lpPositions.length} pools` : 'no APR data';
+            (() => { const t = na + am; const a = document.getElementById('split-na'), b = document.getElementById('split-amp'); if (a && b && t > 0) { a.style.width = (na / t * 100).toFixed(1) + '%'; b.style.width = (am / t * 100).toFixed(1) + '%'; } const n = document.getElementById('split-note'); if (n && t > 0) n.textContent = `${(am / t * 100).toFixed(0)}% amplified (auto-compounds, gets the bucket amplification) · ${(na / t * 100).toFixed(0)}% non-amplified (base incentive, claim to compound)`; })();
+            (() => {   // Rev 2.5: deposit-weighted incentive APR (non-amp white / amp orange ≥)
+                const m = window.__poolIncentiveApr || {}; let wN = 0, aN = 0, wA = 0, aA = 0;
+                for (const p of lpPositions) { const r = m[p.name]; if (r == null) continue; if (p.nonAmp > 0) { wN += p.nonAmp; aN += p.nonAmp * r; } if (p.amp > 0) { wA += p.amp; aA += p.amp * r; } }
+                const el = document.getElementById('avg-apr');
+                if (wN || wA) el.innerHTML = '<span class="text-gray-200">' + (wN ? (aN / wN).toFixed(1) + '%' : '—') + '</span><span class="text-gray-600"> / </span><span class="text-orange-400">' + (wA ? '≥' + (aA / wA).toFixed(1) + '%' : '—') + '</span>';
+                document.getElementById('weekly-rate').textContent = (wN || wA) ? 'incentive APR · deposit-weighted' + (feeAprInfo ? ` · fees +${(feeAprInfo.apr*100).toFixed(2)}%` : '') : 'no APR data';
+            })();
             
             renderAll();
             console.log('✓ Initialized');
@@ -1451,6 +1380,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '2.5', revDate: '2026-08-22', page: 'dao_tla_deposits' });</script>
+<script>SiteFooter.mount({ rev: '3.0', revDate: '2026-08-22', page: 'dao_tla_deposits' });</script>
 </body>
 </html>
