@@ -151,9 +151,9 @@
                 </div>
                 <div class="flex items-center gap-3">
                     <div class="flex gap-1">
-                        <button class="period-btn active" onclick="setPeriod('last',this)">vs Last</button>
-                        <button class="period-btn" onclick="setPeriod('30d',this)" disabled title="Need more data">30d</button>
-                        <button class="period-btn" onclick="setPeriod('90d',this)" disabled title="Need more data">90d</button>
+                        <button class="period-btn active" onclick="setPeriod(1,this)">vs yesterday</button>
+                        <button class="period-btn" onclick="setPeriod(7,this)">7d</button>
+                        <button class="period-btn" onclick="setPeriod(30,this)" title="daily archive starts 2026-08-12 — earlier windows fall back to the oldest capture">30d</button>
                     </div>
                     <span id="epoch-badge" class="text-xs bg-gray-800 px-2 py-1 rounded text-gray-400">Loading...</span>
                 </div>
@@ -197,7 +197,7 @@
         <div id="value-breakdown" class="stat-card rounded-lg p-4 mb-4 hidden">
             <div class="flex items-center gap-2 mb-3">
                 <i class="fas fa-book-open text-cyan-400"></i>
-                <span class="text-sm font-medium text-white">What Happened This Week</span>
+                <span class="text-sm font-medium text-white">What Happened <span id="wh-window" class="text-gray-400">since yesterday</span></span>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -357,7 +357,10 @@
     </main>
     
     <script>
-        const TLA_URL = 'https://raw.githubusercontent.com/defipatriot/tla_json_storage/main';
+        // Rev 2.5: legacy repo retired. Its surviving epoch snapshots were migrated ONCE into
+        // member-data/tla-deposits/history-legacy.json (frozen); forward history is the daily archive.
+        const LEGACY_HISTORY_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-deposits/history-legacy.json';
+        const POSITIONS_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/current.json';
         const PROPS_URL = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/proposals.json';
         
         // Dynamically compute the list of epochs to probe.
@@ -558,10 +561,14 @@
             }
         }
         
-        async function fetchEpoch(e){
-            try{const r=await fetch(`${TLA_URL}/tla-data-epoch-${e}-end.json`);if(r.ok){console.log(`✓ E${e}`);return await r.json();}}catch(err){}
-            return null;
+        // Rev 2.5: migrated legacy rows → the page's legacy "liquidity" shape (read-only product).
+        let legacyRows = null;
+        async function fetchLegacyHistory(){
+            if (legacyRows) return legacyRows;
+            try { const r = await fetch(LEGACY_HISTORY_URL); if (!r.ok) return (legacyRows = []); const d = await r.json(); legacyRows = (d.rows || []).map(row => ({ epoch: row.epoch, ts: row.generated_at, usd: row.total_usd || 0, tokens: row.tokens || [], prices: row.token_prices || {}, migrated: true,
+                asLiquidity: { meta: { epoch: row.epoch, generated_at: row.generated_at }, token_prices: row.token_prices || {}, liquidity: { adao_deposits: { total_usd: row.total_usd, tokens: row.tokens || [] }, active_pools: (row.pools || []).map(p => ({ name: p.name, dex: p.dex, type: (p.bucket || '').toLowerCase(), apr: { non_amp: p.apr_non_amp, amplified: p.apr_amplified }, tla_staked: p.tla_staked_usd, adao_deposit: { non_amp: p.adao_non_amp_usd, amplified: p.adao_amplified_usd } })) } } })); return legacyRows; } catch (_) { return (legacyRows = []); }
         }
+        async function fetchEpoch(e){ const rows = await fetchLegacyHistory(); const r = rows.find(x => x.epoch === e); return r ? r.asLiquidity : null; }
         
         // dao-dashboard.json / its daily archives → legacy "liquidity" shape adapter.
         // The page consumes d.liquidity.adao_deposits.{total_usd,tokens} and
@@ -671,54 +678,34 @@
                 }
             }catch(e){/* legacy path below */}
 
-            // Step 1 (fallback): find the most recent legacy epoch snapshot
-            if(!currentData) for(let i=AVAILABLE_EPOCHS.length-1;i>=0;i--){const d=await fetchEpoch(AVAILABLE_EPOCHS[i]);if(d){currentData=d;break;}}
             if(!currentData)return false;
             const curr=currentData.meta?.epoch;
-            // Step 2: pick compareData = the MOST RECENT prior epoch with data.
-            // Was: walked from highest looking for any < curr — but since we already
-            // picked the latest in step 1, ANY remaining epoch matches "< curr", so the
-            // first iteration of the same descending loop trivially returns the next-newest.
-            // Result was correct in principle but produced E182 → E185 when really we want
-            // "last week → this week" to be the default compare. So: explicitly pick the
-            // epoch immediately below curr that has a snapshot, not the first match found.
-            const priorEpochs = AVAILABLE_EPOCHS.filter(e => e < curr).sort((a,b)=>b-a);
-            for(const e of priorEpochs){
-                const d = await fetchEpoch(e);
-                if(d){ compareData = d; break; }
-            }
-            history=[];
-            for(const e of AVAILABLE_EPOCHS){const d=await fetchEpoch(e);if(d)history.push({epoch:d.meta?.epoch||e,ts:d.meta?.generated_at,usd:d.liquidity?.adao_deposits?.total_usd||0,tokens:d.liquidity?.adao_deposits?.tokens||[],prices:d.token_prices||{}});}
-
-            // History continuation: dao-dashboard daily archives (since 2026-06-12),
-            // one entry per epoch (latest archive inside the epoch week).
+            // Rev 2.5: per-pool incentive APR from the positions product (pool_apr_pct, chain distributions)
+            try { const r = await fetch(POSITIONS_URL); if (r.ok) { const pj = await r.json(); const m = {}; for (const lp of ((pj.treasury && pj.treasury.lp_positions) || [])) if (lp.pool_name && typeof lp.pool_apr_pct === 'number' && lp.pool_apr_pct > 0) m[lp.pool_name] = lp.pool_apr_pct; window.__poolIncentiveApr = m; window.__positionsDoc = pj; } } catch (_) {}
+            // Rev 2.5 history: migrated legacy rows (frozen product) + the daily archive, one point per DAY.
+            history = (await fetchLegacyHistory()).map(r => ({ epoch: r.epoch, ts: r.ts, usd: r.usd, tokens: r.tokens, prices: r.prices, migrated: true }));
             try{
                 const REF=new Date('2025-12-01T00:00:00Z'),REFN=162,WK=7*24*3600e3;
-                const nowEp = REFN + Math.floor((Date.now()-REF.getTime())/WK);
-                const have = new Set(history.map(h=>h.epoch));
-                for(let ep=186; ep<=nowEp; ep++){
-                    if(have.has(ep)) continue;
-                    const epochEnd = new Date(REF.getTime()+(ep-REFN+1)*WK);
-                    for(let d2=1; d2<=7; d2++){
-                        const probe = new Date(Math.min(epochEnd.getTime()-d2*86400000, Date.now()));
-                        if(probe < new Date('2026-06-12')) break;
-                        const key = probe.toISOString().slice(0,10);
-                        try{
-                            const r = await fetch(DD_DAILY + key + '.json');
-                            if(!r.ok) continue;
-                            const a = adaptDaoDashboard(await r.json());
-                            if(!a) break;
-                            history.push({epoch:ep, ts:a.meta?.generated_at, usd:a.liquidity.adao_deposits.total_usd||0, tokens:a.liquidity.adao_deposits.tokens||[], prices:a.token_prices});
-                            // Newest archived epoch below current also becomes the default compare baseline
-                            const curr = currentData?.meta?.epoch;
-                            if(curr!=null && ep<curr && (!compareData || (compareData.meta?.epoch??0)<ep)) compareData = a;
-                            console.log(`✓ archive E${ep} (${key})`);
-                            break;
-                        }catch(_){/* try earlier date */}
-                    }
+                const DD_EARLIEST='2026-08-12';   // first daily archive in the org tree (measured 2026-08-22)
+                const keys=[]; for(let d=new Date(); d.toISOString().slice(0,10)>=DD_EARLIEST && keys.length<180; d=new Date(d.getTime()-864e5)) keys.push(d.toISOString().slice(0,10));
+                const docs = await Promise.all(keys.map(k => fetch(DD_DAILY+k+'.json').then(r=>r.ok?r.json():null).catch(()=>null)));
+                const byKey = {};
+                keys.forEach((k,i)=>{ const a = docs[i] ? adaptDaoDashboard(docs[i]) : null; if(a) byKey[k]=a; });
+                for(const k of Object.keys(byKey).sort()){
+                    const a=byKey[k]; const ep = REFN + Math.floor((Date.parse(k+'T00:00:00Z')-REF.getTime())/WK);
+                    history.push({epoch:ep, date:k, ts:a.meta?.generated_at, usd:a.liquidity.adao_deposits.total_usd||0, tokens:a.liquidity.adao_deposits.tokens||[], prices:a.token_prices});
                 }
+                // compare baseline = the archive at the selected window start (default: yesterday / previous archive)
+                window.__dailyArchives = byKey;
+                const sortedKeys = Object.keys(byKey).sort();
+                // baseline = nearest archive at-or-before (today − days), and never today's own archive
+                const todayKey = new Date().toISOString().slice(0,10);
+                const pick = (daysBack) => { const target = new Date(Date.now()-daysBack*864e5).toISOString().slice(0,10); const k = [...sortedKeys].reverse().find(x => x <= target && x < todayKey) || sortedKeys.find(x => x < todayKey) || null; return k ? byKey[k] : null; };
+                window.__pickArchive = pick;
+                compareData = pick(window.__compareDays || 1) || compareData;
                 history.sort((x,y)=>x.epoch-y.epoch);
             }catch(e){console.warn('archive history skipped:',e);}
+            window.__depHistory = history;   // Rev 2.5 gate hook
             return true;
         }
         
@@ -765,13 +752,15 @@
             document.getElementById('tab-'+name).classList.remove('hidden');
         }
         
-        function setPeriod(p,btn){if(btn.disabled)return;document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
+        // Rev 2.5: the period picks the compare baseline from the DAILY archive (nearest capture
+        // at-or-before the window start) and re-renders everything that compares.
+        function setPeriod(days,btn){document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');window.__compareDays=days;const wh=document.getElementById('wh-window');if(wh)wh.textContent=days===1?'since yesterday':'over '+days+'d';if(window.__pickArchive){const a=window.__pickArchive(days);if(a){compareData=a;try{renderAll();}catch(e){console.warn('re-render failed',e);}}}}
         
         function renderPositions(){
             const c=document.getElementById('positions-table');
             if(!lpPositions.length){c.innerHTML='<div class="text-center py-4 text-gray-500">No positions</div>';return;}
             const oldPos=compareData?extractPos(compareData):[];
-            let html='<table class="w-full"><thead class="text-gray-500 border-b border-gray-800"><tr><th class="text-left py-1 pl-1">Pool</th><th class="text-right py-1">Non-Amp</th><th class="text-right py-1">Amp</th><th class="text-right py-1">Total</th><th class="text-right py-1" title="Swap-fee APR only — excludes incentives &amp; compounding">Fee APR</th><th class="text-right py-1 pr-1">Δ</th></tr></thead><tbody>';
+            let html='<table class="w-full"><thead class="text-gray-500 border-b border-gray-800"><tr><th class="text-left py-1 pl-1">Pool</th><th class="text-right py-1">Non-Amp</th><th class="text-right py-1">Amp</th><th class="text-right py-1">Total</th><th class="text-right py-1" title="non-amp / amplified incentive APR (chain distributions). Amplified shown as ≥ non-amp until captured.">non / amp APR</th><th class="text-right py-1 pr-1">Δ</th></tr></thead><tbody>';
             let totalNa=0,totalAmp=0;
             lpPositions.forEach(p=>{
                 totalNa+=p.nonAmp;totalAmp+=p.amp;
@@ -779,12 +768,13 @@
                 const chg=old?(p.total-old.total):null;
                 const chgPct=old&&old.total>0?(chg/old.total*100):null;
                 const feeApr=getPoolFeeApr(p.dex,p.name);
+                const inc = window.__poolIncentiveApr ? window.__poolIncentiveApr[p.name] : null;   // Rev 2.5
                 html+=`<tr class="pool-row border-b border-gray-800/50">
                     <td class="py-1.5 pl-1"><span class="text-white">${p.name}</span>${p.type==='single'?'<span class="badge-single ml-1">S</span>':''}</td>
                     <td class="py-1.5 text-right font-mono ${p.nonAmp>0?'text-gray-300':'text-gray-700'}">${p.nonAmp>0?fmt(p.nonAmp,0):'--'}</td>
                     <td class="py-1.5 text-right font-mono ${p.amp>0?'text-orange-400':'text-gray-700'}">${p.amp>0?fmt(p.amp,0):'--'}</td>
                     <td class="py-1.5 text-right font-mono font-bold text-white">${fmt(p.total,0)}</td>
-                    <td class="py-1.5 text-right font-mono ${feeApr!=null?'text-teal-300':'text-gray-700'}">${feeApr!=null?(feeApr*100).toFixed(2)+'%':'--'}</td>
+                    <td class="py-1.5 text-right font-mono" title="Incentive APR from chain distributions (non-amp, white). Amplified (orange) is shown as ≥ non-amp: Eris compounds and amplifies it, and that figure is not yet captured — a lower bound, not a guess. Fee APR (swap fees only): ${feeApr!=null?(feeApr*100).toFixed(2)+'%':'n/a'}">${inc!=null?`<span class="text-gray-200">${inc.toFixed(1)}%</span><span class="text-gray-600"> / </span><span class="text-orange-400">≥${inc.toFixed(1)}%</span>`:(feeApr!=null?`<span class="text-teal-300">${(feeApr*100).toFixed(2)}%</span><span class="text-gray-600 text-[10px]"> fee</span>`:'<span class="text-gray-700">--</span>')}</td>
                     <td class="py-1.5 text-right pr-1 ${chg!==null?(chg>=0?'text-green-400':'text-red-400'):'text-gray-600'}">${chgPct!==null?fmtPct(chgPct):'--'}</td>
                 </tr>`;
             });
@@ -991,7 +981,7 @@
                 const hasDaoAction = tlaProps.length > 0;
                 
                 // Actual value at that time
-                actualData.push({x: ts, y: h.usd, epoch: h.epoch, tlaProps, hasDaoAction});
+                actualData.push({x: ts, y: h.usd, epoch: h.epoch, tlaProps, hasDaoAction, migrated: !!h.migrated, date: h.date || null});
                 
                 // Token amounts at current prices (removes price effect)
                 let normalizedValue = 0;
@@ -999,7 +989,7 @@
                     const currentPrice = getPrice(tok.symbol, currentPrices);
                     normalizedValue += tok.amount * currentPrice;
                 });
-                normalizedData.push({x: ts, y: normalizedValue || h.usd, epoch: h.epoch, tlaProps, hasDaoAction});
+                normalizedData.push({x: ts, y: normalizedValue || h.usd, epoch: h.epoch, tlaProps, hasDaoAction, migrated: !!h.migrated, date: h.date || null});
             });
             
             if(chart)chart.destroy();
@@ -1283,18 +1273,23 @@
             document.getElementById('avg-apr').textContent = feeAprInfo ? (feeAprInfo.apr*100).toFixed(2)+'%' : '—';
             document.getElementById('weekly-rate').textContent = feeAprInfo ? `fees only · ${feeAprInfo.coveredCount}/${lpPositions.length} pools` : 'no APR data';
             
+            renderAll();
+            console.log('✓ Initialized');
+        }
+        // Rev 2.5: everything that depends on compareData, so the period buttons can re-run it
+        function renderAll(){
+            const dep=currentData.liquidity?.adao_deposits||{};
             if(compareData){
                 const oldUsd=compareData.liquidity?.adao_deposits?.total_usd||0;
                 const chg=(dep.total_usd||0)-oldUsd;
                 const chgPct=oldUsd>0?(chg/oldUsd*100):0;
                 const chgEl=document.getElementById('total-change');
-                chgEl.textContent=`${fmtChg(chg)} (${fmtPct(chgPct)})`;
+                const cd = compareData.meta?.generated_at ? String(compareData.meta.generated_at).slice(0,10) : '';
+                chgEl.textContent=`${fmtChg(chg)} (${fmtPct(chgPct)})${cd?' vs '+cd:''}`;
                 chgEl.className=`text-[10px] ${chg>=0?'text-green-400':'text-red-400'}`;
             }
-            
             const u=currentData.dashboard?.unclaimed_rewards||{};
             document.getElementById('pending-rewards').textContent=fmt((u.deposit_rewards_usd||0)+(u.zAssets||0),0);
-            
             renderPositions();
             renderTokenBalances();
             renderValueBreakdown();
@@ -1303,8 +1298,6 @@
             renderPriceChanges();
             renderRewards();
             renderLocks();
-            
-            console.log('✓ Initialized');
         }
         
         init();
@@ -1462,6 +1455,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '2.4', revDate: '2026-08-12', page: 'dao_tla_deposits' });</script>
+<script>SiteFooter.mount({ rev: '2.5', revDate: '2026-08-22', page: 'dao_tla_deposits' });</script>
 </body>
 </html>
