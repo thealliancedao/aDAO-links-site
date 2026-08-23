@@ -2939,13 +2939,13 @@ const showPreviewTile = (event, traitType, value) => {
     const placeholder = `https://placehold.co/128x128/374151/9ca3af?text=N/A`;
     
     if (sample1) {
-        image1.src = getImageUrl(sample1.id) || convertIpfsUrl(sample1.thumbnail_image || sample1.image) || placeholder;
+        { const _pv = getImageUrl(sample1.id) || convertIpfsUrl(sample1.thumbnail_image || sample1.image) || placeholder; if (image1.src !== _pv) image1.src = _pv; }   // hover-churn guard (HAR: same PNG fetched up to 5x)
         name1.textContent = sample1.attributes?.find(a => a.trait_type === traitType)?.value || value;
         container1.classList.remove('hidden');
     } else { container1.classList.add('hidden'); image1.src=''; name1.textContent=''; }
     
     if (sample2) {
-        image2.src = getImageUrl(sample2.id) || convertIpfsUrl(sample2.thumbnail_image || sample2.image) || placeholder;
+        { const _pv = getImageUrl(sample2.id) || convertIpfsUrl(sample2.thumbnail_image || sample2.image) || placeholder; if (image2.src !== _pv) image2.src = _pv; }   // hover-churn guard (HAR: same PNG fetched up to 5x)
         name2.textContent = sample2.attributes?.find(a => a.trait_type === traitType)?.value || value;
         container2.classList.remove('hidden');
     } else { container2.classList.add('hidden'); image2.src=''; name2.textContent=''; }
