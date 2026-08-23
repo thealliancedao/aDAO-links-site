@@ -33,9 +33,12 @@ const bodyFor = (url) => {
   return null;
 };
 
-const dom = new JSDOM(`<!doctype html><html><body>
-  <div id="analytics-view"></div><div id="gallery"></div><div id="loading-state"></div>
-</body></html>`, { url: 'https://thealliancedao.com/nft-explorer-index.html?view=analytics', runScripts: 'outside-only', pretendToBeVisual: true });
+// Parse the REAL page markup (script tags stripped — we eval app.js ourselves),
+// so initializeExplorer finds every element and builds the page end-to-end.
+const rawHtml = fs.readFileSync(path.join(here, 'nft-explorer-index.html'), 'utf8')
+  .replace(/<script[^>]*src=[^>]*><\/script>/g, '')
+  .replace(/<script>[\s\S]*?<\/script>/g, '');
+const dom = new JSDOM(rawHtml, { url: 'https://thealliancedao.com/nft-explorer-index.html?view=analytics', runScripts: 'outside-only', pretendToBeVisual: true });
 const w = dom.window;
 w.fetch = async (url) => {
   const body = bodyFor(String(url));
@@ -131,5 +134,30 @@ check('volume chart: rendered with nonzero bars', vol && /title>.*\$/.test(vol.i
 // 9) spread colouring: deep-negative spread renders red, not green
 check('spread: deep-negative → red', /spread == null[^]*?text-red-400[^]*?text-green-400/.test(src));
 
+
+// ---------- Wallet tab (Rev 4.22): UNCLAIMED + VP% columns, backing line -----
+{
+  // the boot path built the leaderboard itself (summary fetch stubbed → VP wiring real)
+  const lb = w.document.getElementById('leaderboard-table');
+  const html2 = lb ? lb.innerHTML : '';
+  check('wallet: Unclaimed + VP % headers present', html2.includes('Unclaimed') && html2.includes('VP %'));
+  // let-scoped state isn't reachable — drive the page like a user: sort by the
+  // new columns via header clicks and read page 1 rows.
+  const clickSort = (key) => { const h = lb.querySelector(`[data-sort-by="${key}"]`); h.dispatchEvent(new w.Event('click', { bubbles: true })); };
+  clickSort('unclaimed');   // toggles to desc on first click? ensure desc:
+  const firstVal = () => Number(lb.querySelector('.leaderboard-row:not(.dao-pinned-row)')?.dataset.unclaimed || 0);
+  if (firstVal() === 0) clickSort('unclaimed');
+  const expected = (S.daodao_pending_claim_count ?? 0);   // the 2 contract-held unattributed stay off the board by design
+  const pageUnclaimed = [...lb.querySelectorAll('.leaderboard-row:not(.dao-pinned-row)')].reduce((s, r) => s + Number(r.dataset.unclaimed || 0), 0);
+  check('wallet: unclaimed column carries the pending 17 (top page after sort)', pageUnclaimed === expected, `${pageUnclaimed} vs ${expected}`);
+  clickSort('vpPct'); if (!(Number(lb.querySelector('.leaderboard-row:not(.dao-pinned-row)')?.dataset.vp || 0) > 1)) clickSort('vpPct');
+  const top = S.daodao_stakers.slice().sort((a, b) => b.voting_power_pct - a.voting_power_pct)[0];
+  const topRow = lb.querySelector('.leaderboard-row:not(.dao-pinned-row)');
+  check('wallet: VP% sort puts the top staker first with the right pct',
+    topRow && topRow.dataset.address === top.address && Math.abs(Number(topRow.dataset.vp) - top.voting_power_pct) < 0.01,
+    topRow ? `${topRow.dataset.vp}% @ …${topRow.dataset.address.slice(-4)}` : 'no row');
+  const bl = w.walletBackingLine([{ broken: false }, { broken: false }, { broken: true }]);
+  check('wallet: backing line = 2 × per-NFT (broken excluded)', bl.includes(`${Math.round(2 * S.backing.per_nft_ampluna).toLocaleString('en-US')} ampLUNA`) && bl.includes('2 unbroken'), bl.replace(/<[^>]+>/g, '').trim());
+}
 console.log(fails === 0 ? '\nGATE PASS' : `\nGATE FAIL (${fails})`);
 process.exit(fails === 0 ? 0 : 1);

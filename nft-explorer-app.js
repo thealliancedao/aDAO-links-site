@@ -247,6 +247,18 @@ let inhabitantCounts = {};
 let planetCounts = {};
 let ownerAddresses = [];
 let allHolderStats = [];
+let walletVpByAddress = {};     // address → voting_power_pct (summary.daodao_stakers)
+let walletBackingInfo = null;   // summary.backing — per-NFT ampLUNA + live prices
+// Backing line for the wallet gallery title: unbroken NFTs still carry their
+// ampLUNA share; broken ones already redeemed it. Blank until summary arrives.
+function walletBackingLine(nfts) {
+    if (!walletBackingInfo || !walletBackingInfo.per_nft_ampluna) return '';
+    const unbroken = nfts.filter(n => !n.broken).length;
+    if (!unbroken) return '';
+    const amp = unbroken * walletBackingInfo.per_nft_ampluna;
+    const usd = walletBackingInfo.per_nft_value_usd != null ? unbroken * walletBackingInfo.per_nft_value_usd : null;   // product-computed per-NFT USD — no price re-derivation
+    return ` <span class="block text-sm font-normal text-gray-400 mt-1">Backing: <span class="text-cyan-300">${Math.round(amp).toLocaleString()} ampLUNA</span>${usd != null ? ` (~$${Math.round(usd).toLocaleString()})` : ''} across ${unbroken} unbroken</span>`;
+}
 let daoPinnedStats = []; // DAO custody wallets — pinned informational leaderboard rows (unranked)
 let holderCurrentPage = 1;
 const holdersPerPage = 10;
@@ -462,7 +474,15 @@ const initializeExplorer = async () => {
             fetch(STATUS_DATA_URL),
             fetch(RARITY_INTENDED_URL),
             fetch(RARITY_BBL_URL),
-            fetchAndParseMembers() // Load DAO members (non-blocking)
+            fetchAndParseMembers(), // Load DAO members (non-blocking)
+            // VP% + backing enrichment for the Wallet tab (non-blocking: a summary
+            // failure never blocks the page — those columns just show blanks)
+            fetch(ANALYTICS_SUMMARY_URL).then(r => r.ok ? r.json() : null).then(s => {
+                if (!s) return;
+                walletVpByAddress = {};
+                for (const st of (s.daodao_stakers || [])) walletVpByAddress[st.address] = st.voting_power_pct;
+                walletBackingInfo = s.backing || null;
+            }).catch(() => {})
         ]);
 
         if (!metaResponse.ok) throw new Error(`Metadata network response was not ok: ${metaResponse.status}`);
@@ -4047,7 +4067,7 @@ const calculateAndDisplayLeaderboard = () => {
         if (isSystemAddress(nft.owner) && !isDaoRow) return; // escrow/staking contracts stay hidden
         const bucket = isDaoRow ? daoOwnerStats : ownerStats;
         if (!bucket[nft.owner]) {
-             bucket[nft.owner] = { address: nft.owner, total: 0, liquid: 0, daodaoStaked: 0, enterpriseStaked: 0, broken: 0, unbroken: 0, bblListed: 0, boostListed: 0, atriumListed: 0 };
+             bucket[nft.owner] = { address: nft.owner, total: 0, liquid: 0, daodaoStaked: 0, enterpriseStaked: 0, unclaimed: 0, broken: 0, unbroken: 0, bblListed: 0, boostListed: 0, atriumListed: 0, vpPct: (typeof walletVpByAddress === 'object' && walletVpByAddress[nft.owner] != null) ? walletVpByAddress[nft.owner] : null };
         }
         const stats = bucket[nft.owner];
         stats.total++;
@@ -4057,6 +4077,7 @@ const calculateAndDisplayLeaderboard = () => {
         if (nft.bbl_market) stats.bblListed++;
         if (nft.boost_market) stats.boostListed++;
         if (nft.atrium_market) stats.atriumListed++;
+        if (nft.daodao_pending_claim || nft.daodao_custody_unattributed) stats.unclaimed++;  // unstaked, never claimed — attributed to the unstaker
         if (nft.broken) stats.broken++;
         else stats.unbroken++; // Count unbroken
     });
@@ -4091,7 +4112,7 @@ const displayHolderPage = (page) => {
     const header = document.createElement('div');
     header.className = 'leaderboard-header';
     // Updated grid columns for new fields
-    header.style.gridTemplateColumns = 'minmax(60px, 1fr) 2.5fr repeat(9, 1fr)'; 
+    header.style.gridTemplateColumns = 'minmax(60px, 1fr) 2.2fr repeat(11, 1fr)'; 
     
     const createHeaderCell = (label, columnKey, isCentered = true) => {
         const isSortCol = holderSort.column === columnKey;
@@ -4106,12 +4127,14 @@ const displayHolderPage = (page) => {
                          createHeaderCell('Liquid', 'liquid') +
                          createHeaderCell('DAODAO', 'daodaoStaked') +
                          createHeaderCell('Enterprise', 'enterpriseStaked') +
+                         createHeaderCell('Unclaimed', 'unclaimed') +
                          createHeaderCell('Broken', 'broken') +
                          createHeaderCell('Unbroken', 'unbroken') +
                          createHeaderCell('BBL', 'bblListed') + // Shorter name
                          createHeaderCell('Boost', 'boostListed') + // Shorter name
                          createHeaderCell('Atrium', 'atriumListed') +
-                         createHeaderCell('Total', 'total');
+                         createHeaderCell('Total', 'total') +
+                         createHeaderCell('VP %', 'vpPct');
 
     leaderboardTable.appendChild(header);
 
@@ -4119,7 +4142,7 @@ const displayHolderPage = (page) => {
     const buildHolderRow = ({ address, ...stats }, rankCellHtml, isPinned) => {
         const item = document.createElement('div');
         item.className = 'leaderboard-row' + (isPinned ? ' dao-pinned-row' : '');
-        item.style.gridTemplateColumns = 'minmax(60px, 1fr) 2.5fr repeat(9, 1fr)';
+        item.style.gridTemplateColumns = 'minmax(60px, 1fr) 2.2fr repeat(11, 1fr)';
         if (isPinned) item.style.background = 'rgba(34,211,238,.06)';
         item.dataset.address = address;
         const shortAddress = address ? `terra...${address.substring(address.length - 4)}` : 'N/A';
@@ -4140,7 +4163,9 @@ const displayHolderPage = (page) => {
         item.dataset.bbl = stats.bblListed || 0;
         item.dataset.boost = stats.boostListed || 0;
         item.dataset.atrium = stats.atriumListed || 0;
+        item.dataset.unclaimed = stats.unclaimed || 0;
         item.dataset.total = stats.total || 0;
+        item.dataset.vp = stats.vpPct != null ? stats.vpPct.toFixed(2) : '';
 
         item.innerHTML = `
             ${rankCellHtml}
@@ -4148,12 +4173,14 @@ const displayHolderPage = (page) => {
             <span class="text-center">${stats.liquid || 0}</span>
             <span class="text-center ${stats.daodaoStaked > 0 ? 'text-cyan-400' : ''}">${stats.daodaoStaked || 0}</span>
             <span class="text-center ${stats.enterpriseStaked > 0 ? 'text-gray-400' : ''}">${stats.enterpriseStaked || 0}</span>
+            <span class="text-center ${stats.unclaimed > 0 ? 'text-amber-300' : ''}" title="Unstaked from DAODAO, claim never completed — still the owner's NFT">${stats.unclaimed || 0}</span>
             <span class="text-center ${stats.broken > 0 ? 'text-red-400' : ''}">${stats.broken || 0}</span>
             <span class="text-center ${stats.unbroken > 0 ? 'text-green-400' : ''}">${stats.unbroken || 0}</span>
             <span class="text-center ${stats.bblListed > 0 ? 'text-green-400' : ''}">${stats.bblListed || 0}</span>
             <span class="text-center ${stats.boostListed > 0 ? 'text-purple-400' : ''}">${stats.boostListed || 0}</span>
             <span class="text-center ${stats.atriumListed > 0 ? 'text-pink-400' : ''}">${stats.atriumListed || 0}</span>
             <span class="font-bold text-center leaderboard-total">${stats.total || 0}</span>
+            <span class="text-center ${stats.vpPct != null && stats.vpPct >= 1 ? 'text-cyan-300' : 'text-gray-400'}" title="Share of DAODAO-staked voting power">${stats.vpPct != null ? stats.vpPct.toFixed(2) + '%' : '—'}</span>
         `;
         item.addEventListener('click', (e) => {
             e.preventDefault();
@@ -5531,7 +5558,7 @@ const searchWallet = () => {
             const memberName = getMemberName(address);
             const shortAddr = `terra...${address.slice(-4)}`;
             const displayName = memberName ? `${memberName} (${shortAddr})` : shortAddr;
-            walletGalleryTitle.innerHTML = `Showing ${walletNfts.length} of ${totalForWallet} NFTs for: ${memberName ? `<span class="text-yellow-400">${memberName}</span> <span class="text-gray-400">(${shortAddr})</span>` : shortAddr}`;
+            walletGalleryTitle.innerHTML = `Showing ${walletNfts.length} of ${totalForWallet} NFTs for: ${memberName ? `<span class="text-yellow-400">${memberName}</span> <span class="text-gray-400">(${shortAddr})</span>` : shortAddr}${walletBackingLine(walletNfts)}`;
         } else {
             const memberName = getMemberName(address);
             const sysLabel = getSystemWalletLabel(address) || (isSystemAddress(address) ? 'DAO / system wallet' : null);
@@ -5539,7 +5566,7 @@ const searchWallet = () => {
             if (sysLabel) {
                 walletGalleryTitle.innerHTML = `<span class="text-amber-400">${sysLabel}</span> <span class="text-gray-400">(${shortAddr})</span> — ${walletNfts.length} NFTs <span class="text-xs text-gray-500">(not an individual holder)</span>`;
             } else {
-                walletGalleryTitle.innerHTML = `Found ${walletNfts.length} NFTs for: ${memberName ? `<span class="text-yellow-400">${memberName}</span> <span class="text-gray-400">(${shortAddr})</span>` : shortAddr}`;
+                walletGalleryTitle.innerHTML = `Found ${walletNfts.length} NFTs for: ${memberName ? `<span class="text-yellow-400">${memberName}</span> <span class="text-gray-400">(${shortAddr})</span>` : shortAddr}${walletBackingLine(walletNfts)}`;
             }
         }
         
