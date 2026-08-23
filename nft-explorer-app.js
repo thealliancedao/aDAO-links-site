@@ -2383,63 +2383,43 @@ const applyFiltersAndSort = () => {
     displayPage(1);
 };
 
-// --- Holders of the current filtered selection (Rev 4.23) ---------------------
-// The old Holders dropdown (hidden in Rev 4.16) reborn as a live panel: group
-// the FILTERED set by owner, show who holds how many. Hidden when no filter
-// narrows the set (the full-collection answer is the Wallet-tab leaderboard).
+// --- Holders dropdown (Rev 4.25) ----------------------------------------------
+// The holders-of-this-selection data, now a compact top-row dropdown: scroll
+// names + counts for the CURRENT filtered set (all holders when unfiltered).
 // Click a holder → select in the unified header (every page follows).
-let _fhExpanded = false;
 const renderFilteredHolders = () => {
-    const panel = document.getElementById('filtered-holders');
-    const list = document.getElementById('filtered-holders-list');
-    const summary = document.getElementById('filtered-holders-summary');
-    const moreBtn = document.getElementById('filtered-holders-more');
-    if (!panel || !list) return;
-    if (!Array.isArray(filteredNfts) || !allNfts.length || filteredNfts.length === allNfts.length || filteredNfts.length === 0) {
-        panel.classList.add('hidden'); _fhExpanded = false; return;
-    }
+    const btn = document.getElementById('holders-dd-btn');
+    const label = document.getElementById('holders-dd-label');
+    const menu = document.getElementById('holders-dd-menu');
+    if (!btn || !menu || !label) return;
+    const src = (Array.isArray(filteredNfts) && filteredNfts.length) ? filteredNfts : allNfts;
     const byOwner = {};
-    let owned = 0;
-    for (const n of filteredNfts) {
-        if (!n.owner) continue;
-        owned++;
-        byOwner[n.owner] = (byOwner[n.owner] || 0) + 1;
-    }
+    for (const n of src) if (n.owner) byOwner[n.owner] = (byOwner[n.owner] || 0) + 1;
     const rows = Object.entries(byOwner).sort((x, y) => y[1] - x[1]);
-    if (!rows.length) { panel.classList.add('hidden'); return; }
-    const LIMIT = 12;
-    const shown = _fhExpanded ? rows : rows.slice(0, LIMIT);
-    const chip = ([addr, count]) => {
-        const label = getSystemWalletLabel(addr) || getMemberName(addr) || `terra…${addr.slice(-4)}`;
-        const sys = !!getSystemWalletLabel(addr);
-        return `<button class="fh-chip px-2.5 py-1 rounded-full text-xs border ${sys ? 'border-cyan-700 text-cyan-300' : 'border-gray-600 text-gray-200 hover:border-cyan-400'} bg-gray-800/70" data-addr="${addr}" title="${addr}">${label} <span class="font-bold ${sys ? 'text-cyan-200' : 'text-white'}">${count}</span></button>`;
-    };
-    list.innerHTML = shown.map(chip).join('');
-    if (summary) summary.textContent = `${owned.toLocaleString()} NFTs across ${rows.length.toLocaleString()} holders`;
-    if (moreBtn) {
-        if (rows.length > LIMIT) {
-            moreBtn.classList.remove('hidden');
-            moreBtn.textContent = _fhExpanded ? 'show fewer' : `+ ${rows.length - LIMIT} more holders`;
-            moreBtn.onclick = () => { _fhExpanded = !_fhExpanded; renderFilteredHolders(); };
-        } else { moreBtn.classList.add('hidden'); _fhExpanded = false; }
-    }
-    list.querySelectorAll('.fh-chip').forEach(b => b.addEventListener('click', () => {
-        const w = b.dataset.addr;
-        if (window.AddressPicker) AddressPicker.select(w);
-        else if (walletSearchAddressInput) { walletSearchAddressInput.value = w; }
+    const narrowed = src.length !== allNfts.length;
+    label.textContent = narrowed ? `${rows.length.toLocaleString()} holders of selection` : `All holders (${rows.length.toLocaleString()})`;
+    menu.innerHTML = rows.map(([addr, count]) => {
+        const name = getSystemWalletLabel(addr) || getMemberName(addr);
+        const disp = name ? `<span class="text-yellow-400">${name}</span>` : `<span class="font-mono text-gray-300">terra…${addr.slice(-4)}</span>`;
+        return `<button class="hdd-row w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-gray-800 text-left" data-addr="${addr}" title="${addr}">${disp}<span class="font-bold text-white ml-3">${count.toLocaleString()}</span></button>`;
+    }).join('');
+    menu.querySelectorAll('.hdd-row').forEach(b => b.addEventListener('click', () => {
+        const wAddr = b.dataset.addr;
+        if (window.AddressPicker) AddressPicker.select(wAddr);
+        else if (walletSearchAddressInput) walletSearchAddressInput.value = wAddr;
+        menu.classList.add('hidden');
         showCopyToast('Selected in header — open the Wallet tab to browse');
     }));
-    panel.classList.remove('hidden');
 };
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('holders-dd-btn');
+    const menu = document.getElementById('holders-dd-menu');
+    if (!btn || !menu) return;
+    btn.addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('hidden'); });
+    document.addEventListener('click', (e) => { if (!menu.contains(e.target) && e.target !== btn) menu.classList.add('hidden'); });
+});
 
 const handleFilterChange = () => { applyFiltersAndSort(); updateUrlState(); };
-// Share view (Rev 4.23): the URL already carries the whole filter state — the
-// button just makes that shareable-by-design URL discoverable (sales flyers,
-// "look at these" links). Copies AFTER refreshing so the link is never stale.
-document.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('share-filters');
-    if (btn) btn.addEventListener('click', () => { updateUrlState(); copyToClipboard(window.location.href, 'Link'); });
-});
 
 const updateUrlState = () => {
     const params = new URLSearchParams();
