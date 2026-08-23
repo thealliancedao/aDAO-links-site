@@ -186,5 +186,19 @@ check('spread: deep-negative → red', /spread == null[^]*?text-red-400[^]*?text
   check('features: URL carries staked filter', w.location.search.includes('staked=true') && w.location.search.includes('staked_pos=2'), w.location.search);
 }
 
+// ---------- Task 6 (Rev 4.24): hero sentence + labeled filter counts ---------
+{
+  const av = w.document.getElementById('analytics-view').innerHTML;
+  const E2 = JSON.parse(fs.readFileSync(SNAP('sales-enriched.json')));
+  const last = E2.sales[E2.sales.length - 1];
+  const days = Math.floor((Date.now() - Date.parse(last.timestamp)) / 86400000);
+  check('hero: sales count + minted + listed present',
+    av.includes(`${A.volume.sales_count.toLocaleString('en-US')}</b> sales all-time`) && av.includes('of 10,000 minted') && av.includes('listed now'));
+  check('hero: last-sale recency is honest', days <= 1 ? av.includes('last sale <b class="text-white">today') : av.includes(`last sale <b class="text-white">${days}d ago`), `${days}d`);
+  // labeled counts: the staked filter is active from the features block above
+  const cs = w.document.querySelector('.status-count[data-count-key="staked"]');
+  check('counts: labeled "N match", not a bare integer', cs && /match$/.test(cs.textContent.trim()) && cs.textContent.includes('1,631'), cs ? cs.textContent : 'missing');
+}
+
 console.log(fails === 0 ? '\nGATE PASS' : `\nGATE FAIL (${fails})`);
 process.exit(fails === 0 ? 0 : 1);

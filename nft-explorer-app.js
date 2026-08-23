@@ -782,7 +782,7 @@ const fmtListingPrice = (listing) => {
     
     const sliderContainer = document.createElement('div');
     sliderContainer.className = 'flex flex-col items-center';
-    sliderContainer.innerHTML = `<span class="text-xs text-gray-400 h-4 ${config.countClass || ''}" data-count-key="${config.key}">${config.initialCount || ''}</span><div class="direction-slider-container"><span class="text-xs text-gray-400">${config.left}</span><input type="range" min="${sliderMin}" max="${sliderMax}" value="${sliderDefault}" class="direction-slider ${config.sliderClass}" data-slider-key="${config.key}" disabled><span class="text-xs text-gray-400">${config.right}</span></div>`;
+    sliderContainer.innerHTML = `<span class="text-[10px] text-gray-500 h-4 ${config.countClass || ''}" data-count-key="${config.key}" title="NFTs matching this slider position within the current filters"></span><div class="direction-slider-container"><span class="text-xs text-gray-400">${config.left}</span><input type="range" min="${sliderMin}" max="${sliderMax}" value="${sliderDefault}" class="direction-slider ${config.sliderClass}" data-slider-key="${config.key}" disabled><span class="text-xs text-gray-400">${config.right}</span></div>`;
     
     container.appendChild(toggleLabel);
     // MARKETPLACE CHIPS (2026-08-12): a 3-position slider can express
@@ -793,7 +793,7 @@ const fmtListingPrice = (listing) => {
     if (config.chips) {
         const chipWrap = document.createElement('div');
         chipWrap.className = 'flex flex-col items-end';
-        chipWrap.innerHTML = `<span class="text-xs text-gray-400 h-4 ${config.countClass || ''}" data-count-key="${config.key}">${config.initialCount || ''}</span>`
+        chipWrap.innerHTML = `<span class="text-[10px] text-gray-500 h-4 ${config.countClass || ''}" data-count-key="${config.key}" title="NFTs matching this slider position within the current filters"></span>`
             + `<div class="marketplace-chips flex flex-wrap gap-1 justify-end" id="marketplace-chips"></div>`;
         container.appendChild(chipWrap);
         return container;
@@ -1843,7 +1843,29 @@ function buildAnalyticsHtml(A, S, E) {
     let askUsd = 0, listed = 0;
     if (S && S.marketplaces) for (const mk of Object.values(S.marketplaces)) { listed += mk.count || 0; for (const t of Object.values(mk.by_token || {})) askUsd += t.total_usd || 0; }
     const tile = (label, big, sub, xkey) => `<div class="${card} ${xkey ? "cursor-pointer" : ""}" ${xkey ? `data-explain="${xkey}" title="Click: how this is computed"` : ""}><div class="text-xs uppercase tracking-wider text-gray-400">${label}${xkey ? ' <span class="text-gray-600">&#9432;</span>' : ""}</div><div class="text-2xl font-bold text-white mt-1">${big}</div><div class="text-xs text-gray-500 mt-0.5">${sub}</div></div>`;
-    const tiles = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+    // Hero sentence (Rev 4.24): one line that reads the whole tab, written FROM
+    // the products — never a static caption. Honest about quiet markets: when
+    // the last sale is old, it says so instead of implying activity.
+    const heroSentence = (() => {
+        try {
+            const sales = (E && Array.isArray(E.sales)) ? E.sales : [];
+            const last = sales.length ? sales[sales.length - 1] : null;
+            const lastDays = last ? Math.floor((Date.now() - Date.parse(last.timestamp)) / 86400000) : null;
+            const lastBit = last
+                ? (lastDays <= 1 ? `last sale <b class="text-white">today</b>`
+                  : `last sale <b class="text-white">${lastDays}d ago</b> (#${last.token_id} \u00b7 ${fmtNum(last.amount)} ${last.denom_symbol || ''})`)
+                : '';
+            const minted = S ? (S.total_tokens - S.unminted_count) : null;
+            const parts = [];
+            if (vol.sales_count) parts.push(`<b class="text-white">${fmtNum(vol.sales_count)}</b> sales all-time (${fmtUsd(vol.usd_at_sale)} at sale)`);
+            if (minted != null) parts.push(`<b class="text-white">${fmtNum(minted)}</b> of ${fmtNum(S.total_tokens)} minted`);
+            if (listed) parts.push(`<b class="text-white">${fmtNum(listed)}</b> listed now (${fmtUsd(askUsd)} ask-side)`);
+            if (lastBit) parts.push(lastBit);
+            if (!parts.length) return '';
+            return `<p class="text-sm text-gray-300 mb-4 leading-relaxed">${parts.join(' \u00b7 ')}.</p>`;
+        } catch (e) { return ''; }
+    })();
+    const tiles = heroSentence + `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
       ${tile("Backing / NFT", `${(+bk.per_nft_ampluna || 0).toFixed(2)} <span class='text-base text-cyan-300'>ampLUNA</span>`, `${fmtUsd(bk.per_nft_value_usd)} · ${fmtNum(bk.unbroken_count)} unbroken`, "backing_nft")}
       ${tile("Total backing", fmtUsdFull(bk.treasury_value_usd), `${fmtNum(bk.ampluna_balance)} ampLUNA in vault`, "total_backing")}
       ${tile("Royalties → DAO", roy.royalty_luna != null ? `${fmtNum(Math.round(roy.royalty_luna))} <span class="text-base text-cyan-300">LUNA</span>` : "—", roy.royalty_luna != null ? `${fmtUsd(roy.royalty_usd_today)} at today’s price · ${fmtNum(roy.sales_with_royalty)} royalty-paying sales` : "awaiting next warm capture")}
@@ -2891,7 +2913,7 @@ const updateFilterCounts = (currentNfts) => { // Pass in the list to count
             const strictLevel = parseInt(slider.value);
             count = list.filter(nft => hasMatchingTraits(nft, strictLevel)).length;
         }
-        countSpan.textContent = count;
+        countSpan.textContent = count > 0 ? `${count.toLocaleString()} match` : '';   // labeled (Rev 4.24) — a bare integer floating over a slider reads as noise
     });
 };
 
