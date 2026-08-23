@@ -221,44 +221,24 @@
             <!-- Rev 3.0 — Summary tiles (display only, no tab switching).
                  Previously these were clickable tabs that hid 3 of 4 content sections.
                  Now all sections are shown together below, so these are pure summaries. -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                <div id="card-treasury" class="stat-card rounded-xl p-4">
-                    <p class="text-sm text-gray-400">DAO Treasury</p>
-                    <p id="dao-treasury-total" class="text-2xl font-bold text-white mt-1">
-                        <i class="fas fa-spinner fa-spin text-cyan-400"></i>
-                    </p>
-                    <p class="text-xs text-green-400 mt-1"><i class="fas fa-circle text-[8px] mr-1"></i>Live</p>
+            <!-- Rev 3.0 (2026-08-22) — HERO: the treasury in one breath. Total, where it comes from,
+                 how the ampLUNA stack is growing in tokens vs dollars, and what is pending. -->
+            <section class="stat-card rounded-2xl p-4 md:p-5 mb-4">
+                <div class="flex items-start justify-between gap-4 flex-wrap">
+                    <div>
+                        <p class="text-[11px] uppercase tracking-widest text-gray-500">aDAO · treasury</p>
+                        <div class="flex items-baseline gap-3 flex-wrap"><p id="combined-total" class="text-4xl md:text-5xl font-bold text-cyan-400 tracking-tight"><i class="fas fa-spinner fa-spin"></i></p><span class="text-xs text-gray-500">DAO treasury + staked + council</span></div>
+                        <p id="treasury-sentence" class="text-sm text-gray-300 mt-1 max-w-3xl">Loading…</p>
+                    </div>
+                    <a href="dao_tla_deposits.html" class="text-xs text-cyan-400 hover:underline mt-1">TLA deposits (liquid staking) →</a>
                 </div>
-                <div id="card-staked" class="stat-card rounded-xl p-4">
-                    <p class="text-sm text-gray-400">DAO Staked</p>
-                    <p id="dao-staked-total" class="text-2xl font-bold text-white mt-1">
-                        <i class="fas fa-spinner fa-spin text-cyan-400"></i>
-                    </p>
-                    <p class="text-xs text-yellow-400 mt-1"><i class="fas fa-lock text-[8px] mr-1"></i>Alliance Positions</p>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                    <div class="rounded-xl bg-white/[0.03] border border-white/5 p-3"><p class="text-[10px] uppercase tracking-wider text-gray-500">DAO treasury</p><p id="dao-treasury-total" class="text-2xl font-bold text-white font-mono">--</p><p class="text-[10px] text-green-400"><i class="fas fa-circle text-[7px] mr-1"></i>live from chain</p></div>
+                    <div class="rounded-xl bg-white/[0.03] border border-white/5 p-3"><p class="text-[10px] uppercase tracking-wider text-gray-500">Staked with allies</p><p id="dao-staked-total" class="text-2xl font-bold text-white font-mono">--</p><p class="text-[10px] text-gray-500">Lion DAO validator, ROAR, pixeLions</p></div>
+                    <div class="rounded-xl bg-white/[0.03] border border-white/5 p-3"><p class="text-[10px] uppercase tracking-wider text-gray-500">Council treasury</p><p id="council-treasury-total" class="text-2xl font-bold text-white font-mono">--</p><p class="text-[10px] text-gray-500">operations multisig</p></div>
+                    <div class="rounded-xl bg-white/[0.03] border border-white/5 p-3"><p class="text-[10px] uppercase tracking-wider text-gray-500">Income · last 7 days</p><p id="hero-income" class="text-2xl font-bold text-emerald-300 font-mono">--</p><p id="hero-income-s" class="text-[10px] text-gray-500">10% of every daily alliance claim</p></div>
                 </div>
-                <div id="card-council" class="stat-card rounded-xl p-4">
-                    <p class="text-sm text-gray-400">Council Treasury</p>
-                    <p id="council-treasury-total" class="text-2xl font-bold text-white mt-1">
-                        <i class="fas fa-spinner fa-spin text-cyan-400"></i>
-                    </p>
-                    <p class="text-xs text-green-400 mt-1"><i class="fas fa-circle text-[8px] mr-1"></i>Live</p>
-                </div>
-                <div id="card-total" class="stat-card rounded-xl p-4 border-cyan-600/50">
-                    <p class="text-sm text-gray-400">Combined Total</p>
-                    <p id="combined-total" class="text-2xl font-bold text-cyan-400 mt-1">
-                        <i class="fas fa-spinner fa-spin text-cyan-400"></i>
-                    </p>
-                    <a href="dao_tla_deposits.html" class="text-xs text-cyan-400 mt-1 flex items-center hover:text-cyan-300">
-                        + TLA Deposits <i class="fas fa-arrow-right ml-1 text-[10px]"></i>
-                    </a>
-                </div>
-            </div>
-        
-        <!-- Rev 2.5 — PROTOCOL INCOME: the daily alliance_claim_rewards tx on the NFT contract.
-             Chain facts from nfts/adao/claims/history.json (one row per claim tx): LUNA claimed
-             from the alliance validators → bonded → ampLUNA minted → 90% to NFT backing, 10% to
-             this treasury. Windows are sums of captured claims; "at current rate" lines are
-             labelled projections, never reported as income. -->
+            </section>
         <div id="protocol-income" class="stat-card rounded-xl p-4 mb-8">
             <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <div class="flex items-center gap-2"><i class="fas fa-droplet text-emerald-400"></i><span class="text-sm font-medium text-white">Protocol Income · daily alliance claim</span><span class="text-[10px] text-gray-500">10% of every claim → treasury · 90% → NFT backing</span></div>
@@ -372,7 +352,8 @@
                 <div class="flex items-center gap-3 flex-wrap">
                     <!-- Amount vs USD toggle -->
                     <div id="chart-value-toggle" class="flex items-center bg-gray-800 rounded p-0.5">
-                        <button data-mode="amount" class="value-mode-btn px-3 py-1 text-xs rounded bg-cyan-600 text-white transition-colors" title="Show token amount over time">Amount</button>
+                        <button data-mode="index" class="value-mode-btn px-3 py-1 text-xs rounded bg-cyan-600 text-white transition-colors" title="Tokens vs dollars, both from 100 at the first point — the gap is price">Index</button>
+                        <button data-mode="amount" class="value-mode-btn px-3 py-1 text-xs rounded bg-transparent text-gray-400 hover:text-white transition-colors" title="Show token amount over time">Amount</button>
                         <button data-mode="usd"    class="value-mode-btn px-3 py-1 text-xs rounded bg-transparent text-gray-400 hover:text-white transition-colors" title="Show USD value over time">USD</button>
                     </div>
                     <!-- Time range -->
@@ -1469,6 +1450,7 @@
                 const last = d.last; const w7 = d.windows && d.windows.d7, w30 = d.windows && d.windows.d30, wa = d.windows && d.windows.all;
                 if (last) { $('pi-last').textContent = amp(last.ampluna_to_treasury); $('pi-last-s').textContent = last.date + ' · ' + Number(last.luna_claimed).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' LUNA claimed → ' + Number(last.ampluna_minted).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' ampLUNA minted' + (last.take_rate != null ? ' · take ' + (last.take_rate * 100).toFixed(0) + '%' : ''); $('pi-last-tx').href = 'https://chainsco.pe/terra2/tx/' + last.tx_hash; }
                 if (w7) { $('pi-7d').textContent = amp(w7.ampluna_to_treasury); $('pi-7d-s').textContent = w7.claims + ' claim' + (w7.claims === 1 ? '' : 's') + usd(w7.ampluna_to_treasury); } else $('pi-7d-s').textContent = 'no claims captured in window';
+                if (w7) { const h = document.getElementById('hero-income'), hs = document.getElementById('hero-income-s'); if (h) h.textContent = amp(w7.ampluna_to_treasury); if (hs) hs.textContent = (w7.claims + ' claims' + usd(w7.ampluna_to_treasury) + ' · 10% of every daily alliance claim'); }
                 if (w30) { $('pi-30d').textContent = amp(w30.ampluna_to_treasury); $('pi-30d-s').textContent = w30.claims + ' claim' + (w30.claims === 1 ? '' : 's') + usd(w30.ampluna_to_treasury) + (w30.claims < 28 ? ' · ledger covers ' + w30.claims + ' of 30 days' : ''); }
                 if (w7) { $('pi-backing').textContent = amp(w7.ampluna_to_backing); $('pi-backing-s').textContent = 'per day ' + Number(w7.per_day_to_backing).toLocaleString(undefined, { maximumFractionDigits: 2 }) + usd(w7.ampluna_to_backing); }
                 if (w7 && w7.per_day_to_treasury) { const pd = w7.per_day_to_treasury; $('pi-rate').textContent = 'at the last-7-day rate (projection, not income): ' + pd.toFixed(2) + ' ampLUNA/day · ' + (pd * 7).toFixed(1) + '/week · ' + (pd * 30).toFixed(0) + '/month · ' + (pd * 365).toFixed(0) + '/year' + (px ? ' ≈ $' + (pd * 365 * px).toLocaleString(undefined, { maximumFractionDigits: 0 }) + '/year at today\'s price' : ''); }
@@ -2033,7 +2015,7 @@
                     },
                     plugins: {
                         legend: {
-                            display: false
+                            display: chartValueMode === 'index', labels: { color: '#aaa', boxWidth: 10, font: { size: 10 } }
                         },
                         tooltip: {
                             backgroundColor: 'rgba(26, 26, 26, 0.95)',
@@ -2258,7 +2240,7 @@
         // Chart value mode: 'amount' (token amount over time) or 'usd' (USD value over time).
         // The amount view reveals positions growing even when USD is flat — the core insight
         // about treasury health that gets lost in pure USD charts.
-        let chartValueMode = 'amount';
+        let chartValueMode = 'index';   // Rev 3.0: tokens-vs-dollars is the default story
 
         function selectToken(tokenName, walletType) {
             // Update token-row selection in tables (existing behavior)
@@ -2298,9 +2280,14 @@
             // Rev 3.0 — helper to price a token amount at a given snapshot, using
             // that snapshot's token_prices. Falls back to current price if missing.
             function priceAt(snapshot, name, amount) {
-                const prices = snapshot?.tokenPrices || {};
+                // Rev 3.0 fix: snapshots store `prices` (priceAt read `tokenPrices`, which never existed —
+                // every historical USD point silently used TODAY's CoinGecko price). Day-of price first;
+                // the live point falls back to current prices; otherwise null — never today's price for
+                // a past day.
+                const prices = snapshot?.prices || snapshot?.tokenPrices || {};
                 const p = prices[name]?.price ?? prices[name];
                 if (typeof p === 'number' && p > 0) return amount * p;
+                if (snapshot && snapshot.epoch !== 'Live' && snapshot.timestamp) return null;
                 // Fall back to current CoinGecko price via geckoIdPrices + denomMap
                 for (const [denom, info] of Object.entries(denomMap)) {
                     if (info.name === name && info.geckoId) {
@@ -2397,9 +2384,11 @@
             chartWrapper.classList.remove('hidden');
             noHistoryMsg.classList.add('hidden');
             
-            // Calculate stats over filtered range
-            const currentBalance = filteredPoints[filteredPoints.length - 1].y;
-            const oldestBalance = filteredPoints.length > 1 ? filteredPoints[0].y : currentBalance;
+            // Calculate stats over filtered range (index mode: stats stay in TOKEN terms — the
+            // index is a chart device, the tiles show real amounts)
+            const yOf = (p) => chartValueMode === 'index' ? (p.amount || 0) : p.y;
+            const currentBalance = yOf(filteredPoints[filteredPoints.length - 1]);
+            const oldestBalance = filteredPoints.length > 1 ? yOf(filteredPoints[0]) : currentBalance;
             const change = currentBalance - oldestBalance;
             const changePercent = oldestBalance > 0 ? (change / oldestBalance * 100) : 0;
             const avgWeeklyGain = filteredPoints.length > 1 ? change / (filteredPoints.length - 1) : 0;
@@ -2433,10 +2422,20 @@
                 balanceChart.destroy();
             }
             
+            // Rev 3.0 Index mode: the token's amount and its dollar value, both rebased to 100 at the
+            // first visible point — the same "tokens vs dollars" view as the TLA deposits page.
+            let indexSets = null;
+            if (chartValueMode === 'index') {
+                const a0 = (filteredPoints.find(p => p.amount > 0) || {}).amount, u0 = (filteredPoints.find(p => typeof p.usd === 'number' && p.usd > 0) || {}).usd;
+                if (a0) indexSets = [
+                    { label: 'Tokens (index)', data: filteredPoints.map(p => ({ ...p, y: p.amount / a0 * 100 })), borderColor: '#22c55e', backgroundColor: '#22c55e15', fill: false, tension: 0.3, pointRadius: 3, borderWidth: 2 },
+                    { label: u0 ? 'Dollars (index)' : 'Dollars (no day-of prices captured)', data: filteredPoints.map(p => ({ ...p, y: (u0 && typeof p.usd === 'number' ? p.usd / u0 * 100 : null) })), borderColor: '#64748b', backgroundColor: '#64748b15', fill: false, tension: 0.3, pointRadius: 3, borderWidth: 2, borderDash: [4, 3], spanGaps: true },
+                ];
+            }
             balanceChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    datasets: [{
+                    datasets: indexSets || [{
                         label: tokenName + ' Balance',
                         data: filteredPoints,
                         borderColor: color,
@@ -2480,6 +2479,7 @@
                                     const value = context.raw.y;
                                     const idx = context.dataIndex;
                                     // Format value with $ prefix when in USD mode
+                                    if (chartValueMode === 'index') return `${context.dataset.label}: ${value == null ? '—' : value.toFixed(1)}` + (context.raw.amount != null ? ` · ${Number(context.raw.amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${tokenName}` : '') + (typeof context.raw.usd === 'number' ? ` · $${context.raw.usd.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '');
                                     const valueStr = chartValueMode === 'usd'
                                         ? '$' + value.toLocaleString(undefined, { maximumFractionDigits: 2 })
                                         : value.toLocaleString(undefined, { maximumFractionDigits: 4 });
@@ -2540,6 +2540,7 @@
                             ticks: {
                                 color: '#888',
                                 callback: function(value) {
+                                    if (chartValueMode === 'index') return value.toFixed(0);
                                     const prefix = chartValueMode === 'usd' ? '$' : '';
                                     if (value >= 1000000) return prefix + (value/1000000).toFixed(1) + 'M';
                                     if (value >= 1000) return prefix + (value/1000).toFixed(1) + 'K';
@@ -2676,6 +2677,11 @@
             // Combined total (DAO Treasury + DAO Staked + Council)
             const combinedTotal = daoTotal + stakedTotal + councilTotal;
             document.getElementById('combined-total').textContent = '$' + combinedTotal.toLocaleString(undefined, { maximumFractionDigits: 0 });
+            (() => {   // Rev 3.0 hero sentence
+                const el = document.getElementById('treasury-sentence'); if (!el) return;
+                const pct = (a, b) => b > 0 ? ((a / b) * 100).toFixed(0) + '%' : '—';
+                el.textContent = `Of $${combinedTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}, ${pct(daoTotal, combinedTotal)} sits in the DAO treasury (mostly ampLUNA that grows by the daily 10% take from the NFT contract's alliance rewards), ${pct(stakedTotal, combinedTotal)} is staked with alliance partners, and ${pct(councilTotal, combinedTotal)} is the council's operations wallet. Click a token below to see its balance over time — Index mode shows tokens vs dollars.`;
+            })();
             
             // Populate epoch range selectors for "What Changed" section
             populateEpochSelectors();
@@ -2910,6 +2916,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '2.5', revDate: '2026-08-22', page: 'dao_treasury' });</script>
+<script>SiteFooter.mount({ rev: '3.0', revDate: '2026-08-22', page: 'dao_treasury' });</script>
 </body>
 </html>

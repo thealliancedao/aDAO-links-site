@@ -631,7 +631,12 @@
             });
             const tokenPct = oldAtToday > 0 ? (newAtToday / oldAtToday - 1) * 100 : null;
             const baselineDate = compareData.meta?.generated_at ? String(compareData.meta.generated_at).slice(0,10) : null;
-            return { priceImpact, positionChange, netChange: priceImpact + positionChange, tokenPct, covered, total, baselineDate };
+            // Rev 3.0 reconciliation (owner screenshot: hero −$126 vs net −$293): the net MUST equal the
+            // headline change. Tokens earned is exact (priced amounts); price effect is the residual,
+            // so unpriced tokens and live-vs-archive differences land in "price/other", disclosed.
+            const headline = (currentData.liquidity?.adao_deposits?.total_usd || 0) - (compareData.liquidity?.adao_deposits?.total_usd || 0);
+            const residual = headline - positionChange;
+            return { priceImpact: residual, priceImpactPriced: priceImpact, positionChange, netChange: headline, tokenPct, covered, total, baselineDate, unpriced: total - covered };
         }
         
         function showTab(){ /* Rev 3.0: tabs retired — everything is on the page */ }
@@ -730,9 +735,9 @@
             marketEl.textContent = fmtChg(breakdown.priceImpact);
             marketEl.className = `text-lg font-mono font-bold ${breakdown.priceImpact >= 0 ? 'text-green-400' : 'text-red-400'}`;
             document.getElementById('story-market').querySelector('.text-2xl').textContent = breakdown.priceImpact >= 0 ? '📈' : '📉';
-            document.getElementById('market-explain').textContent = breakdown.priceImpact >= 0 
+            document.getElementById('market-explain').textContent = (breakdown.unpriced ? `prices (incl. ${breakdown.unpriced} unpriced token${breakdown.unpriced===1?'':'s'}) · ` : '') + (breakdown.priceImpact >= 0 
                 ? 'Token prices went up' 
-                : 'Token prices went down';
+                : 'Token prices went down');
             
             // Token growth
             const growthEl = document.getElementById('growth-value');
