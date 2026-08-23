@@ -419,6 +419,7 @@ const mergeNftData = (metadata, statusData) => {
             mergedNft.enterprise_dao_broken = !!status.enterprise_dao_broken;
             mergedNft.listing = status.listing || null; // listing object incl. price_usd when an active listing exists
             mergedNft.daodao_pending_claim = !!status.daodao_pending_claim; // unstaked, in claim window
+            mergedNft.daodao_custody_unattributed = !!status.daodao_custody_unattributed; // in custody, claim not attributable (legacy/expired)
 
             // --- Derived ---
             // "Owned by DAO" = unminted main-wallet supply + treasury contract + small locked wallet.
@@ -433,6 +434,8 @@ const mergeNftData = (metadata, statusData) => {
             mergedNft.broken = false;
             mergedNft.staked_daodao = false;
             mergedNft.staked_enterprise_legacy = false;
+            mergedNft.daodao_pending_claim = false;
+            mergedNft.daodao_custody_unattributed = false;
             mergedNft.bbl_market = false;
             mergedNft.boost_market = false;
             mergedNft.atrium_market = false;
@@ -1490,7 +1493,7 @@ function hBar(value, max, accent = "#22d3ee") {
 function renderVolChart() {
     const el = document.getElementById("av-vol-chart");
     if (!el) return;
-    el.innerHTML = svgBars(_avMonths.map(m => ({ label: m.month, value: m.notional_usd, sub: `${m.count} sales` })), { h: 180, scale: _avScale });
+    el.innerHTML = svgBars(_avMonths.map(m => ({ label: m.month, value: m.usd, sub: `${m.sales} sales` })), { h: 180, scale: _avScale });
     const lin = document.getElementById("av-scale-lin"), log = document.getElementById("av-scale-log");
     if (lin && log) {
         lin.className = `av-scale-btn ${_avScale === "linear" ? "active" : ""}`;
@@ -1804,7 +1807,7 @@ function buildAnalyticsHtml(A, S, E) {
     const tiles = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
       ${tile("Backing / NFT", `${(+bk.per_nft_ampluna || 0).toFixed(2)} <span class='text-base text-cyan-300'>ampLUNA</span>`, `${fmtUsd(bk.per_nft_value_usd)} · ${fmtNum(bk.unbroken_count)} unbroken`, "backing_nft")}
       ${tile("Total backing", fmtUsdFull(bk.treasury_value_usd), `${fmtNum(bk.ampluna_balance)} ampLUNA in vault`, "total_backing")}
-      ${tile("Royalties → DAO", fmtUsd(roy.to_dao_usd_today), `${fmtUsd(roy.to_dao_usd_when_earned)} if sold when received`)}
+      ${tile("Royalties → DAO", roy.royalty_luna != null ? `${fmtNum(Math.round(roy.royalty_luna))} <span class="text-base text-cyan-300">LUNA</span>` : "—", roy.royalty_luna != null ? `${fmtUsd(roy.royalty_usd_today)} at today’s price · ${fmtNum(roy.sales_with_royalty)} royalty-paying sales` : "awaiting next warm capture")}
       ${tile("Listed now", fmtNum(listed), `${fmtUsd(askUsd)} ask-side liquidity`)}
     </div>`;
 
@@ -1819,7 +1822,7 @@ function buildAnalyticsHtml(A, S, E) {
         if (n.unminted) { sup.unminted++; return; }
         sup.minted++;
         if (n.staked_daodao || n.staked_enterprise_legacy) sup.staked++;
-        else if (n.daodao_pending_claim) sup.pending++;
+        else if (n.daodao_pending_claim || n.daodao_custody_unattributed) sup.pending++;   // unclaimed custody — never counted as free float
         else if (n.treasury_held || n.dao_wallet_8ywv_held || n.enterprise_dao_broken) sup.daoBroken++;
         else if (n.listing && n.listing.price_usd != null) sup.listedN++;
         else sup.float++;
@@ -1838,7 +1841,7 @@ function buildAnalyticsHtml(A, S, E) {
         ${srow("Free float", fmtNum(sup.float + sup.listedN), `${fmtNum(sup.listedN)} of it listed`)}
         <div class="mt-3">${segBar([
             { l: "Staked", v: sup.staked, c: "#22d3ee" },
-            { l: "Pending claim", v: sup.pending, c: "#67e8f9" },
+            { l: "Unclaimed (custody)", v: sup.pending, c: "#67e8f9" },
             { l: "DAO broken", v: sup.daoBroken, c: "#f59e0b" },
             { l: "Float", v: sup.float, c: "#34d399" },
             { l: "Listed", v: sup.listedN, c: "#a78bfa" },
@@ -1869,7 +1872,7 @@ function buildAnalyticsHtml(A, S, E) {
                 </div>
                 <div class="flex justify-between text-[9px] text-gray-600 mt-0.5"><span>1</span><span>4</span><span>8</span><span>16</span><span>20+</span></div>
               </div></div>
-            <div class="text-sm text-gray-400">${fmtNum(stakers.length)} stakers · ${fmtNum(sup.staked)} NFTs staked</div>
+            <div class="text-sm text-gray-400">${fmtNum(stakers.length)} stakers · ${fmtNum(stakers.reduce((s, x) => s + (x.count || 0), 0))} NFTs staked · DAODAO only (Enterprise stakes carry no vote)</div>
           </div>
           ${[["Top 1", top1], ["Top 5", top5], ["Top 10", top10]].map(([l, v]) => `<div class="flex items-center gap-3 py-1 text-sm"><span class="w-14 text-gray-400">${l}</span><div class="flex-1">${hBar(v, 100)}</div><span class="w-14 text-right text-gray-300">${v.toFixed(1)}%</span></div>`).join("")}
           <div class="text-[11px] text-gray-600 mt-2">1 staked NFT = 1 vote (broken NFTs keep their voting power)</div></div>`;
@@ -1895,14 +1898,16 @@ function buildAnalyticsHtml(A, S, E) {
     };
     const lastSales = (tier, k) => { const out = []; for (const x of salesDesc) { if (tierOfSale(x.token_id, x.timestamp) === tier) { out.push(x.notional_usd); if (out.length === k) break; } } return out; };
     const median = (a) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
-    // Mark price per tier = midpoint of sales floor (what trades) and listing floor (the ask),
-    // like a market-maker mid. Falls back to whichever side exists.
+    // Mark price per tier = the LOWER of sales floor (what trades) and listing
+    // floor (the ask) — the conservative mark adopted site-wide 2026-08-03
+    // (index.html); the midpoint overstated whenever live asks sat above sales.
+    // Falls back to whichever side exists.
     const tierMark = {};
     const tierStats = {};
     [["broken", 5], ["base", 10], ["phoenix", 3]].forEach(([tier, k]) => {
         const t = tierData[tier]; const sf = median(lastSales(tier, k));
         const lf = t.listed.length ? t.listed[0] : null;
-        tierMark[tier] = (sf && lf != null) ? (sf + lf) / 2 : (sf || lf || null);
+        tierMark[tier] = (sf && lf != null) ? Math.min(sf, lf) : (sf || lf || null);
         tierStats[tier] = { sf, lf };
     });
     const tierRow = (label, tier) => {
@@ -1914,7 +1919,7 @@ function buildAnalyticsHtml(A, S, E) {
           <span class="text-center font-semibold ${lf != null ? "text-cyan-300" : "text-gray-600"}">${lf != null ? fmtUsd(lf) : "none"}</span>
           <span class="text-center font-semibold ${sf ? "text-amber-300" : "text-gray-600"}">${sf ? fmtUsd(sf) : "—"}</span>
           <span class="text-center font-semibold ${mk ? "text-gray-100" : "text-gray-600"}">${mk ? fmtUsd(mk) : "—"}</span>
-          <span class="text-center ${spread == null ? "text-gray-600" : spread < -15 ? "text-green-400" : spread > 15 ? "text-red-400" : "text-gray-300"}">${spread == null ? "—" : (spread > 0 ? "+" : "") + spread.toFixed(0) + "%"}</span></div>`;
+          <span class="text-center ${spread == null ? "text-gray-600" : spread < -15 ? "text-red-400" : spread > 15 ? "text-green-400" : "text-gray-300"}">${spread == null ? "—" : (spread > 0 ? "+" : "") + spread.toFixed(0) + "%"}</span></div>`;
     };
     // Market cap = Σ tier mark × tier supply. Circulating uses minted only; FDV uses all 10,000.
     const tierCounts = { circ: { broken: 0, base: 0, phoenix: 0 }, all: { broken: 0, base: 0, phoenix: 0 } };
@@ -1930,7 +1935,7 @@ function buildAnalyticsHtml(A, S, E) {
             <div class="text-xs text-gray-500 mt-1">circulating (minted) · FDV ${fdv ? fmtUsdFull(fdv) : "—"} all 10,000</div></div>
           <div data-explain="mark" class="cursor-pointer" title="Click: how this is computed"><div class="text-xs uppercase tracking-wider text-gray-400">Mark price (base) <span class="text-gray-600">&#9432;</span></div>
             <div class="text-2xl font-bold text-gray-100 mt-1">${tierMark.base ? fmtUsd(tierMark.base) : "—"}</div>
-            <div class="text-[11px] text-gray-500 mt-0.5">mid of sales floor &amp; ask</div></div>
+            <div class="text-[11px] text-gray-500 mt-0.5">lower of sales floor &amp; ask (conservative)</div></div>
           <div data-explain="volume" class="cursor-pointer" title="Click: how this is computed"><div class="text-xs uppercase tracking-wider text-gray-400">All-time volume <span class="text-gray-600">&#9432;</span></div>
             <div class="text-2xl font-bold text-cyan-300 mt-1">${fmtUsdFull(vol.usd_at_sale)}</div>
             <div class="text-[11px] text-gray-500 mt-0.5">${fmtNum(vol.sales_count)} sales · USD at sale</div></div>
@@ -2023,8 +2028,8 @@ function buildAnalyticsHtml(A, S, E) {
         </div>
         <div class="hidden md:flex items-center justify-center flex-shrink-0" style="width:170px">${trendSvg(x.address)}</div>
         <div class="text-right flex-shrink-0">
-          <div class="text-sm font-semibold text-cyan-300">${fmtUsd(x.notional_usd)}</div>
-          <div class="text-xs text-gray-400">${fmtNum(x.count)}×</div>
+          <div class="text-sm font-semibold text-cyan-300">${fmtUsd(x.usd)}</div>
+          <div class="text-xs text-gray-400">${fmtNum(x.sales)}×</div>
         </div></div>`;
     const leaderboards = `<div class="grid md:grid-cols-2 gap-3 mb-4">
       <div class="${card}">${h("Top buyers", "spend · what they did with them")}${clean(lb.top_buyers).map(lbRow).join("")}</div>
@@ -2040,7 +2045,7 @@ function buildAnalyticsHtml(A, S, E) {
         const imgFallback = getIpfsFallbackUrl(t.token_id, n.thumbnail_image || n.image);
         return `<div class="flex flex-col items-center text-center">
           <div class="w-full aspect-square rounded-lg overflow-hidden bg-gray-900 border border-gray-700"><img src="${imgSrc}" data-fallback="${imgFallback}" loading="lazy" class="w-full h-full object-cover" onerror="if(this.dataset.fallback && this.src !== this.dataset.fallback) { this.src = this.dataset.fallback; } else { this.onerror=null; this.style.display='none'; }"></div>
-          <div class="text-xs text-gray-200 mt-1">#${t.token_id}</div><div class="text-[11px] text-cyan-300">${t.sales}× · ${fmtUsd(t.notional_usd)}</div>
+          <div class="text-xs text-gray-200 mt-1">#${t.token_id}</div><div class="text-[11px] text-cyan-300">${t.sales}× · ${fmtNum(t.luna)} LUNA</div>
           ${n.rank ? `<div class="text-[10px] text-gray-500">rank ${n.rank}</div>` : ""}</div>`;
     }).join("");
     const mostTraded = `<div class="${card} mb-4">${h("Most-traded NFTs", "by sale count")}<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">${traded}</div></div>`;
@@ -2069,7 +2074,7 @@ function buildAnalyticsHtml(A, S, E) {
     const fl = A.flips || {}; const ht = A.hold_time_days || {};
     const flipLine = `<div class="${card} mb-4 text-sm text-gray-400">
       <span class="text-gray-500 uppercase text-xs tracking-wider mr-2">Trading character</span>
-      ${fmtNum(fl.flip_count)} flips · realized P&L <span class="${fl.realized_pnl_usd >= 0 ? "text-green-400" : "text-red-400"} font-semibold">${fl.realized_pnl_usd >= 0 ? "+" : ""}${fmtUsd(fl.realized_pnl_usd)}</span> · median hold ${(+ht.median || 0).toFixed(1)}d
+      ${fmtNum(fl.count)} flips (held ≤${fl.threshold_days ?? 30}d) · ${(+fl.pct_of_sales || 0).toFixed(1)}% of all sales · median hold ${(+ht.median || 0).toFixed(1)}d
       <span class="text-gray-600">— a per-wallet cost-basis view is coming to the Wallet tab</span></div>`;
 
     const footer = `<div class="text-center text-[11px] text-gray-600 pb-6">Chain-of-truth analytics · built ${A.builtAt ? new Date(A.builtAt).toLocaleString() : ""}</div>`;
