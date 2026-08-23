@@ -386,6 +386,7 @@
                     </div>
                     <div class="flex items-end">
                         <button id="reset-filters" class="h-10 w-full px-4 py-2 rounded-lg font-medium transition-colors bg-red-600 hover:bg-red-500 text-white border border-red-500">Reset</button>
+                        <button id="share-filters" class="h-10 w-full px-4 py-2 mt-2 rounded-lg font-medium transition-colors bg-cyan-700 hover:bg-cyan-600 text-white border border-cyan-500" title="Copy a link that reopens this exact filtered view">Share view</button>
                     </div>
                 </div>
                 <p id="bbl-rank-disclaimer" class="hidden text-xs italic text-gray-500 mt-2"></p>
@@ -421,6 +422,24 @@
                     <label class="filter-section-title">Display Options</label>
                     <div id="trait-toggles-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-2"></div>
                 </div>
+            </div>
+            
+            <!-- Holders of the current filtered selection (Rev 4.23) — hidden until a filter narrows the set -->
+            
+            <div id="filtered-holders" class="hidden mb-6 bg-gray-900/60 border border-gray-700 rounded-xl p-4">
+            
+                <div class="flex items-center justify-between mb-2">
+            
+                    <h3 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">Holders of this selection</h3>
+            
+                    <span id="filtered-holders-summary" class="text-xs text-gray-400"></span>
+            
+                </div>
+            
+                <div id="filtered-holders-list" class="flex flex-wrap gap-2"></div>
+            
+                <button id="filtered-holders-more" class="hidden mt-2 text-xs text-cyan-400 hover:text-cyan-300 underline"></button>
+            
             </div>
             
             <div id="nft-gallery" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 min-h-[500px] mt-8"></div>
@@ -762,6 +781,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '4.22', revDate: '2026-08-23', page: 'nft-explorer' });</script>
+<script>SiteFooter.mount({ rev: '4.23', revDate: '2026-08-23', page: 'nft-explorer' });</script>
 </body>
 </html>

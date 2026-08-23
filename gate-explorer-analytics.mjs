@@ -159,5 +159,32 @@ check('spread: deep-negative → red', /spread == null[^]*?text-red-400[^]*?text
   const bl = w.walletBackingLine([{ broken: false }, { broken: false }, { broken: true }]);
   check('wallet: backing line = 2 × per-NFT (broken excluded)', bl.includes(`${Math.round(2 * S.backing.per_nft_ampluna).toLocaleString('en-US')} ampLUNA`) && bl.includes('2 unbroken'), bl.replace(/<[^>]+>/g, '').trim());
 }
+// ---------- Features (Rev 4.23): filtered-holders panel + share link ---------
+{
+  const d = w.document;
+  check('features: Share view button present', !!d.getElementById('share-filters'));
+  // no filter → panel hidden
+  check('features: holders panel hidden with no filter', d.getElementById('filtered-holders').classList.contains('hidden'));
+  // apply the Staked→DAO filter exactly as the UI does: toggle + slider, then the handler
+  const tog = d.querySelector('.status-toggle-cb[data-key="staked"]');
+  const sld = d.querySelector('.direction-slider[data-slider-key="staked"]');
+  tog.checked = true; sld.disabled = false; sld.value = '2';
+  tog.dispatchEvent(new w.Event('change', { bubbles: true }));
+  const panel = d.getElementById('filtered-holders');
+  check('features: panel appears for a narrowed set', !panel.classList.contains('hidden'));
+  const sum = d.getElementById('filtered-holders-summary').textContent;
+  const dd = S.daodao_staked_count;
+  check('features: summary counts the DAODAO-staked set', sum.startsWith(`${dd.toLocaleString('en-US')} NFTs`), sum);
+  const chipTotal = [...d.querySelectorAll('#filtered-holders-list .fh-chip')].reduce((s, b) => s + Number(b.textContent.trim().split(/\s+/).pop()), 0);
+  check('features: top chips carry real counts (top-12 ≤ total, > 0)', chipTotal > 0 && chipTotal <= dd, `${chipTotal}`);
+  const moreBtn = d.getElementById('filtered-holders-more');
+  check('features: "+N more holders" reveals the rest', !moreBtn.classList.contains('hidden'));
+  moreBtn.dispatchEvent(new w.Event('click', { bubbles: true }));
+  const allChips = [...d.querySelectorAll('#filtered-holders-list .fh-chip')].reduce((s, b) => s + Number(b.textContent.trim().split(/\s+/).pop()), 0);
+  check('features: expanded chips sum to the full filtered set', allChips === dd, `${allChips} vs ${dd}`);
+  // URL carries the filter state
+  check('features: URL carries staked filter', w.location.search.includes('staked=true') && w.location.search.includes('staked_pos=2'), w.location.search);
+}
+
 console.log(fails === 0 ? '\nGATE PASS' : `\nGATE FAIL (${fails})`);
 process.exit(fails === 0 ? 0 : 1);
