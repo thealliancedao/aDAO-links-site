@@ -26,8 +26,13 @@ const FILES = {
   'nfts/adao/snapshots/listing-history.json': SNAP('listing-history.json'),
   'nfts/adao/snapshots/luna-usd-daily.json': SNAP('luna-usd-daily.json'),
   'nfts/adao/snapshots/bluna-usd-daily.json': SNAP('bluna-usd-daily.json'),
+  'nfts/adao/snapshots/explorer-bundle.json': SNAP('explorer-bundle.json'),
   'governance/members.csv': null,   // 404 — page tolerates
 };
+// Perf part 2: hold the 16MB products behind a latch so the test can PROVE the
+// page painted from the 442KB bundle before hydration ran.
+let releaseFull; const fullLatch = new Promise(r => { releaseFull = r; });
+const DEFERRED = ['nfts/adao/snapshots/nfts.json', '/assets/nft-metadata/all_nfts_metadata.json', '/assets/nft-metadata/adao-rarity-intended.json'];
 const bodyFor = (url) => {
   for (const [k, p] of Object.entries(FILES)) if (url.includes(k)) return p && fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null;
   return null;
@@ -41,6 +46,7 @@ const rawHtml = fs.readFileSync(path.join(here, 'nft-explorer-index.html'), 'utf
 const dom = new JSDOM(rawHtml, { url: 'https://thealliancedao.com/nft-explorer-index.html?view=analytics', runScripts: 'outside-only', pretendToBeVisual: true });
 const w = dom.window;
 w.fetch = async (url) => {
+  if (DEFERRED.some(k => String(url).includes(k))) await fullLatch;
   const body = bodyFor(String(url));
   if (body == null) return { ok: false, status: 404, json: async () => { throw new Error('404'); }, text: async () => '' };
   return { ok: true, status: 200, json: async () => JSON.parse(body), text: async () => body };
@@ -55,6 +61,23 @@ w.eval(src);
 
 let fails = 0;
 const check = (n, ok, d) => { console.log(`${ok ? '✓' : '✗'} ${n}${d ? ' — ' + d : ''}`); if (!ok) fails++; };
+
+// ---------- Perf part 2: bundle-first paint, then hydration ------------------
+{
+  // jsdom fires DOMContentLoaded itself after eval — dispatching again double-boots the page
+  const until = async (fn, ms = 5000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (fn()) return true; await new Promise(r => setTimeout(r, 40)); } return fn(); };
+  const painted = await until(() => w.document.querySelectorAll('#nft-gallery > div').length > 0);
+  check('perf: gallery painted from the bundle ALONE (full products latched)', painted, `${w.document.querySelectorAll('#nft-gallery > div').length} cards`);
+  const anyOwner = () => w.document.querySelectorAll('#leaderboard-table .leaderboard-row').length > 0;
+  check('perf: leaderboard NOT yet built (owners hydrate later)', !anyOwner());
+  check('perf: holders dropdown says loading, not 0 holders', w.document.getElementById('holders-dd-label').textContent.includes('loading'));
+  const rc = w.document.getElementById('results-count');
+  check('perf: amount counter live from the bundle', rc && rc.textContent.replace(/,/g, '') === '10000', rc && rc.textContent);
+  releaseFull();
+  const hydrated = await until(() => anyOwner(), 10000);
+  check('perf: hydration built the leaderboard in the background', hydrated);
+  check('perf: holders dropdown recovered after hydration', !w.document.getElementById('holders-dd-label').textContent.includes('loading'));
+}
 
 // minimal state the analytics builder consumes from the boot path: allNfts
 const meta = JSON.parse(fs.readFileSync(FILES['/assets/nft-metadata/all_nfts_metadata.json']));
@@ -198,6 +221,27 @@ check('spread: deep-negative → red', /spread == null[^]*?text-red-400[^]*?text
   // labeled counts: the staked filter is active from the features block above
   const cs = w.document.querySelector('.status-count[data-count-key="staked"]');
   check('counts: labeled "N match", not a bare integer', cs && /match$/.test(cs.textContent.trim()) && cs.textContent.includes('1,631'), cs ? cs.textContent : 'missing');
+}
+
+// ---------- Perf part 2b: FALLBACK — bundle missing, old boot carries --------
+{
+  const dom2 = new JSDOM(rawHtml, { url: 'https://thealliancedao.com/nft-explorer-index.html', runScripts: 'outside-only', pretendToBeVisual: true });
+  const w2 = dom2.window;
+  w2.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes('explorer-bundle.json')) return { ok: false, status: 404, json: async () => { throw new Error('404'); }, text: async () => '' };
+    const body = bodyFor(u);
+    if (body == null) return { ok: false, status: 404, json: async () => { throw new Error('404'); }, text: async () => '' };
+    return { ok: true, status: 200, json: async () => JSON.parse(body), text: async () => body };
+  };
+  w2.matchMedia = w2.matchMedia || (() => ({ matches: false, addListener() {}, removeListener() {} }));
+  w2.scrollTo = () => {};
+  w2.SiteHeader = { subnav() {}, onPick() {} };
+  w2.eval(src);
+  const until2 = async (fn, ms = 10000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (fn()) return true; await new Promise(r => setTimeout(r, 50)); } return fn(); };
+  const ok2 = await until2(() => w2.document.querySelectorAll('#nft-gallery > div').length > 0 && w2.document.querySelectorAll('#leaderboard-table .leaderboard-row').length > 0);
+  check('fallback: bundle 404 -> full boot renders gallery AND leaderboard', ok2,
+    `${w2.document.querySelectorAll('#nft-gallery > div').length} cards, ${w2.document.querySelectorAll('#leaderboard-table .leaderboard-row').length} rows`);
 }
 
 console.log(fails === 0 ? '\nGATE PASS' : `\nGATE FAIL (${fails})`);

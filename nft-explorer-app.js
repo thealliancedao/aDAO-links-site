@@ -115,6 +115,7 @@ let walletMobileSearchMode = 'full';
 // --- Config ---
 const METADATA_URL = "/assets/nft-metadata/all_nfts_metadata.json";  // served from this repo (Vercel edge-cached); was jsDelivr → defipatriot/nft-metadata
 const STATUS_DATA_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json";
+const BUNDLE_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/explorer-bundle.json"; // 442KB first-paint product (perf part 2)
 
 // Canonical rarity files (/assets/nft-metadata/, migrated from defipatriot 2026-08-09) — ranks come ONLY from these.
 const RARITY_INTENDED_URL = "/assets/nft-metadata/adao-rarity-intended.json";
@@ -463,26 +464,19 @@ const mergeNftData = (metadata, statusData) => {
     });
 };
 
-const initializeExplorer = async () => {
-    showLoading(gallery, 'Loading collection metadata...');
-    showLoading(leaderboardTable, 'Loading holder data...');
-    showLoading(walletGallery, 'Search for or select a wallet to see owned NFTs.');
-    try {
+// --- Full data load (perf part 2) --------------------------------------------
+// The original 16MB path, verbatim: metadata + nfts.json + both rarity files,
+// merged with every integrity gate intact. Used two ways: as the boot path when
+// the bundle is unavailable (parallel-run fallback), and as the BACKGROUND
+// hydration that fills owners/listings/grades in after a bundle boot.
+async function loadFullData() {
         // Fetch all data in parallel (members CSV is non-critical, won't block on error)
         const [metaResponse, statusResponse, rarityIntendedResponse, rarityBblResponse] = await Promise.all([
             fetch(METADATA_URL),
             fetch(STATUS_DATA_URL),
             fetch(RARITY_INTENDED_URL),
             fetch(RARITY_BBL_URL),
-            fetchAndParseMembers(), // Load DAO members (non-blocking)
-            // VP% + backing enrichment for the Wallet tab (non-blocking: a summary
-            // failure never blocks the page — those columns just show blanks)
-            fetch(ANALYTICS_SUMMARY_URL).then(r => r.ok ? r.json() : null).then(s => {
-                if (!s) return;
-                walletVpByAddress = {};
-                for (const st of (s.daodao_stakers || [])) walletVpByAddress[st.address] = st.voting_power_pct;
-                walletBackingInfo = s.backing || null;
-            }).catch(() => {})
+            fetchAndParseMembers() // Load DAO members (non-blocking)
         ]);
 
         if (!metaResponse.ok) throw new Error(`Metadata network response was not ok: ${metaResponse.status}`);
@@ -537,6 +531,100 @@ const initializeExplorer = async () => {
             throw new Error(`Status merge incomplete: only ${resolvedCount}/${EXPECTED_TOTAL_NFTS} NFTs resolved to an owner.`);
         }
         ownerAddresses = [...new Set(allNfts.map(nft => nft.owner).filter(Boolean))]; // Populate master list
+}
+
+// Decode the 442KB explorer-bundle into records shaped exactly like
+// mergeNftData's output. Owners are null until hydration — everything the
+// FIRST RENDER needs (traits, ranks, status, listing price) is here.
+function decodeBundle(b) {
+    if (!b || b.schemaVersion !== 1 || !Array.isArray(b.rows) || b.rows.length !== EXPECTED_TOTAL_NFTS) {
+        throw new Error(`bundle integrity: schema ${b && b.schemaVersion}, rows ${b && b.rows && b.rows.length}`);
+    }
+    const F = Object.fromEntries(b.fields.map((f, i) => [f, i]));
+    const BIT = b.flagBits;
+    const dict = b.dict;
+    const T = [['Planet', 'planet'], ['Inhabitant', 'inhabitant'], ['Object', 'object'], ['Weather', 'weather'], ['Light', 'light'], ['Rarity', 'rarity']];
+    return b.rows.map(r => {
+        const flags = r[F.flags];
+        const attributes = [];
+        for (const [trait, field] of T) {
+            const vi = r[F[field]];
+            if (vi >= 0) attributes.push({ trait_type: trait, value: dict[trait][vi] });
+        }
+        const listedUsd = r[F.listing_usd];
+        return {
+            id: r[F.id],
+            name: `The AllianceDAO NFT #${r[F.id]}`,
+            attributes,
+            // ownership hydrates from nfts.json in the background
+            owner: null, custody_owner: null, real_owner: null,
+            broken: !!(flags & BIT.broken),
+            staked_daodao: !!(flags & BIT.daodao_staked),
+            staked_enterprise_legacy: !!(flags & BIT.enterprise_staked),
+            bbl_market: !!(flags & BIT.bbl_listed),
+            boost_market: !!(flags & BIT.boost_listed),
+            atrium_market: !!(flags & BIT.atrium_listed),
+            unminted: !!(flags & BIT.unminted),
+            treasury_held: !!(flags & BIT.treasury_held),
+            dao_wallet_8ywv_held: !!(flags & BIT.dao_wallet_8ywv_held),
+            enterprise_dao_broken: !!(flags & BIT.enterprise_dao_broken),
+            daodao_pending_claim: !!(flags & BIT.daodao_pending_claim),
+            daodao_custody_unattributed: !!(flags & BIT.daodao_custody_unattributed),
+            owned_by_alliance_dao: !!(flags & (BIT.unminted | BIT.treasury_held | BIT.dao_wallet_8ywv_held)),
+            liquid: !!(flags & BIT.user_held),
+            listing: listedUsd != null ? { price_usd: listedUsd } : null,
+            intended_rank: r[F.intended_rank], intended_grade: null,
+            bbl_rank: r[F.bbl_rank], bbl_top_percent: null,
+            _bundleOnly: true,   // cleared by hydration
+        };
+    });
+}
+
+// After a bundle boot: pull the full products quietly and swap them in.
+// One-time UI init (listeners, dropdown DOM) is NOT repeated — only the data-
+// dependent pieces refresh, and the user's current filters/page survive.
+async function hydrateFromFull() {
+    try {
+        await loadFullData();                      // sets allNfts + ownerAddresses, all gates enforced
+        updateAddressDropdown(allNfts);
+        applyFiltersAndSort();                     // re-renders the current view on full records
+        calculateAndDisplayLeaderboard();
+        console.log(`hydrated: full records live (owners, listings, grades)`);
+    } catch (e) {
+        console.error('background hydration failed — page continues on the bundle (owners/leaderboard unavailable):', e);
+        showError(leaderboardTable, 'Holder data unavailable right now — the gallery is unaffected. Retry by refreshing.');
+    }
+}
+
+const initializeExplorer = async () => {
+    showLoading(gallery, 'Loading collection metadata...');
+    showLoading(leaderboardTable, 'Loading holder data...');
+    showLoading(walletGallery, 'Search for or select a wallet to see owned NFTs.');
+    try {
+        // VP% + backing enrichment for the Wallet tab (both boot paths; non-blocking)
+        fetch(ANALYTICS_SUMMARY_URL).then(r => r.ok ? r.json() : null).then(s => {
+            if (!s) return;
+            walletVpByAddress = {};
+            for (const st of (s.daodao_stakers || [])) walletVpByAddress[st.address] = st.voting_power_pct;
+            walletBackingInfo = s.backing || null;
+        }).catch(() => {});
+        // --- Perf part 2: bundle-first boot, full path as fallback ---------------
+        // 442KB paints the page; the 16MB products hydrate in the background.
+        // ANY bundle problem (missing, schema drift, thin join) falls through to
+        // the original full boot — parallel-run until the bundle has history.
+        let bundleBooted = false;
+        try {
+            const br = await fetch(BUNDLE_URL);
+            if (!br.ok) throw new Error(`HTTP ${br.status}`);
+            allNfts = decodeBundle(await br.json());
+            bundleBooted = true;
+            console.log(`bundle boot: ${allNfts.length} records from explorer-bundle.json — hydrating full data in background`);
+        } catch (e) {
+            console.warn('bundle unavailable — full boot:', e.message);
+        }
+        if (!bundleBooted) {
+            await loadFullData();
+        }
 
         calculateRanks();
         populateTraitFilters();
@@ -559,6 +647,7 @@ const initializeExplorer = async () => {
         
         handleHashChange(); // Check hash on initial load
         isInitialLoad = false; // Mark initial load complete
+        if (bundleBooted) hydrateFromFull();   // background — never blocks first paint
 
     } catch (error) {
         console.error("Failed to initialize explorer:", error);
@@ -2396,6 +2485,8 @@ const renderFilteredHolders = () => {
     const byOwner = {};
     for (const n of src) if (n.owner) byOwner[n.owner] = (byOwner[n.owner] || 0) + 1;
     const rows = Object.entries(byOwner).sort((x, y) => y[1] - x[1]);
+    // Bundle-boot window: owners hydrate in the background — say so instead of "0 holders"
+    if (!rows.length) { label.textContent = 'holders loading…'; menu.innerHTML = ''; return; }
     const narrowed = src.length !== allNfts.length;
     label.textContent = narrowed ? `${rows.length.toLocaleString()} holders of selection` : `All holders (${rows.length.toLocaleString()})`;
     menu.innerHTML = rows.map(([addr, count]) => {
