@@ -357,9 +357,10 @@
     </main>
     
     <script>
-        // Rev 2.5: legacy repo retired. Its surviving epoch snapshots were migrated ONCE into
-        // member-data/tla-deposits/history-legacy.json (frozen); forward history is the daily archive.
-        const LEGACY_HISTORY_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-deposits/history-legacy.json';
+        // Rev 2.5: legacy repo retired. Its surviving epoch-end snapshots were migrated ONCE into
+        // the SAME daily-archive path (member-data/dao-dashboard/daily/<date>.json, meta.migrated=true)
+        // so one reader, one path, deeper history. daily/index.json lists the dates that exist.
+        const DD_INDEX = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/dao-dashboard/daily/index.json';
         const POSITIONS_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/current.json';
         const PROPS_URL = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/proposals.json';
         
@@ -561,14 +562,7 @@
             }
         }
         
-        // Rev 2.5: migrated legacy rows → the page's legacy "liquidity" shape (read-only product).
-        let legacyRows = null;
-        async function fetchLegacyHistory(){
-            if (legacyRows) return legacyRows;
-            try { const r = await fetch(LEGACY_HISTORY_URL); if (!r.ok) return (legacyRows = []); const d = await r.json(); legacyRows = (d.rows || []).map(row => ({ epoch: row.epoch, ts: row.generated_at, usd: row.total_usd || 0, tokens: row.tokens || [], prices: row.token_prices || {}, migrated: true,
-                asLiquidity: { meta: { epoch: row.epoch, generated_at: row.generated_at }, token_prices: row.token_prices || {}, liquidity: { adao_deposits: { total_usd: row.total_usd, tokens: row.tokens || [] }, active_pools: (row.pools || []).map(p => ({ name: p.name, dex: p.dex, type: (p.bucket || '').toLowerCase(), apr: { non_amp: p.apr_non_amp, amplified: p.apr_amplified }, tla_staked: p.tla_staked_usd, adao_deposit: { non_amp: p.adao_non_amp_usd, amplified: p.adao_amplified_usd } })) } } })); return legacyRows; } catch (_) { return (legacyRows = []); }
-        }
-        async function fetchEpoch(e){ const rows = await fetchLegacyHistory(); const r = rows.find(x => x.epoch === e); return r ? r.asLiquidity : null; }
+        async function fetchEpoch(){ return null; }   // Rev 2.5: legacy epoch files retired (history is the daily archive)
         
         // dao-dashboard.json / its daily archives → legacy "liquidity" shape adapter.
         // The page consumes d.liquidity.adao_deposits.{total_usd,tokens} and
@@ -682,18 +676,20 @@
             const curr=currentData.meta?.epoch;
             // Rev 2.5: per-pool incentive APR from the positions product (pool_apr_pct, chain distributions)
             try { const r = await fetch(POSITIONS_URL); if (r.ok) { const pj = await r.json(); const m = {}; for (const lp of ((pj.treasury && pj.treasury.lp_positions) || [])) if (lp.pool_name && typeof lp.pool_apr_pct === 'number' && lp.pool_apr_pct > 0) m[lp.pool_name] = lp.pool_apr_pct; window.__poolIncentiveApr = m; window.__positionsDoc = pj; } } catch (_) {}
-            // Rev 2.5 history: migrated legacy rows (frozen product) + the daily archive, one point per DAY.
-            history = (await fetchLegacyHistory()).map(r => ({ epoch: r.epoch, ts: r.ts, usd: r.usd, tokens: r.tokens, prices: r.prices, migrated: true }));
+            // Rev 2.5 history: the daily archive, one point per archived day — index-driven (no probing).
+            // Migrated epoch-end rows (Dec 2025–May 2026) live in the same folder, flagged meta.migrated.
+            history = [];
             try{
                 const REF=new Date('2025-12-01T00:00:00Z'),REFN=162,WK=7*24*3600e3;
-                const DD_EARLIEST='2026-08-12';   // first daily archive in the org tree (measured 2026-08-22)
-                const keys=[]; for(let d=new Date(); d.toISOString().slice(0,10)>=DD_EARLIEST && keys.length<180; d=new Date(d.getTime()-864e5)) keys.push(d.toISOString().slice(0,10));
+                let keys = [];
+                try { const ir = await fetch(DD_INDEX + '?t=' + Math.floor(Date.now()/900000)); if (ir.ok) keys = ((await ir.json()).dates || []).slice(); } catch(_){}
+                if (!keys.length) { for(let d=new Date(); d.toISOString().slice(0,10)>='2026-08-12' && keys.length<60; d=new Date(d.getTime()-864e5)) keys.push(d.toISOString().slice(0,10)); }   // index missing: fall back to the known org range only
                 const docs = await Promise.all(keys.map(k => fetch(DD_DAILY+k+'.json').then(r=>r.ok?r.json():null).catch(()=>null)));
                 const byKey = {};
-                keys.forEach((k,i)=>{ const a = docs[i] ? adaptDaoDashboard(docs[i]) : null; if(a) byKey[k]=a; });
+                keys.forEach((k,i)=>{ const a = docs[i] ? adaptDaoDashboard(docs[i]) : null; if(a){ a.migrated = !!(docs[i].meta && docs[i].meta.migrated); byKey[k]=a; } });
                 for(const k of Object.keys(byKey).sort()){
-                    const a=byKey[k]; const ep = REFN + Math.floor((Date.parse(k+'T00:00:00Z')-REF.getTime())/WK);
-                    history.push({epoch:ep, date:k, ts:a.meta?.generated_at, usd:a.liquidity.adao_deposits.total_usd||0, tokens:a.liquidity.adao_deposits.tokens||[], prices:a.token_prices});
+                    const a=byKey[k]; const ep = a.meta?.epoch ?? (REFN + Math.floor((Date.parse(k+'T00:00:00Z')-REF.getTime())/WK));
+                    history.push({epoch:ep, date:k, ts:a.meta?.generated_at, usd:a.liquidity.adao_deposits.total_usd||0, tokens:a.liquidity.adao_deposits.tokens||[], prices:a.token_prices, migrated:a.migrated});
                 }
                 // compare baseline = the archive at the selected window start (default: yesterday / previous archive)
                 window.__dailyArchives = byKey;
