@@ -359,8 +359,8 @@
     <script>
         // Rev 2.5: legacy repo retired. Its surviving epoch-end snapshots were migrated ONCE into
         // the SAME daily-archive path (member-data/dao-dashboard/daily/<date>.json, meta.migrated=true)
-        // so one reader, one path, deeper history. daily/index.json lists the dates that exist.
-        const DD_INDEX = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/dao-dashboard/daily/index.json';
+        // so one reader, one path, deeper history. daily-index.json (next to current.json) lists the dates that exist.
+        const DD_INDEX = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/dao-dashboard/daily-index.json';
         const POSITIONS_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/current.json';
         const PROPS_URL = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/proposals.json';
         

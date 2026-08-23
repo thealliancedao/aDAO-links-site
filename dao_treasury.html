@@ -1527,10 +1527,10 @@
                 const have = new Set(snapshots.map(s => s.epoch));
                 const REF = new Date('2025-12-01T00:00:00Z'), REFN = 162, WK = 7 * 24 * 3600e3;
                 const DD = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/dao-dashboard/daily/';
-                // daily/index.json lists the archived dates (cron-maintained; migrated epoch-end rows Dec 2025–May 2026
+                // daily-index.json (next to current.json) lists the archived dates (cron-maintained; migrated epoch-end rows Dec 2025–May 2026
                 // sit in the same folder flagged meta.migrated). Fetch exactly those files — no calendar probing.
                 let dayList = [];
-                try { const ir = await fetch(DD + 'index.json?t=' + Math.floor(Date.now() / 900000)); if (ir.ok) dayList = ((await ir.json()).dates || []).slice().reverse(); } catch (_) {}
+                try { const ir = await fetch(DD.replace(/daily\/$/, 'daily-index.json') + '?t=' + Math.floor(Date.now() / 900000)); if (ir.ok) dayList = ((await ir.json()).dates || []).slice().reverse(); } catch (_) {}
                 if (!dayList.length) for (let d = new Date(); d.toISOString().slice(0, 10) >= '2026-08-12' && dayList.length < 60; d = new Date(d.getTime() - 86400000)) dayList.push(d.toISOString().slice(0, 10));
                 const daily = await Promise.all(dayList.map(key => fetch(DD + key + '.json').then(r => r.ok ? r.json() : null).catch(() => null)));
                 for (let di = 0; di < dayList.length; di++) {
