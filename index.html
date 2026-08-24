@@ -1717,7 +1717,7 @@
                         pixeLions
                     </button>
                     <button id="collection-tab-tla" class="collection-tab flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-all" data-collection="tla_locks">
-                        <img src="https://www.theliquidityalliance.com/favicon.ico" class="w-4 h-4 rounded" onerror="this.innerHTML='<i class=\'fas fa-lock text-xs\'></i>'">
+                        <img src="/assets/images/logo_eris_48.svg" class="w-4 h-4 rounded" onerror="this.innerHTML='<i class=\'fas fa-lock text-xs\'></i>'">
                         TLA Locks
                     </button>
                 </div>
@@ -2593,12 +2593,12 @@
                     <h4 class="text-sm font-bold text-gray-400 mb-3"><i class="fas fa-store mr-2"></i>Find Floor Prices</h4>
                     <div class="flex flex-wrap gap-3">
                         <a href="https://app.backbonelabs.io/nfts/marketplace/collections/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors">
-                            <img src="https://app.backbonelabs.io/favicon.ico" alt="Backbone" class="w-5 h-5 rounded" onerror="this.style.display='none'">
+                            <img src="/assets/images/BBL No Background.png" alt="Backbone" class="w-5 h-5 rounded" onerror="this.style.display='none'">
                             <span>Backbone Labs</span>
                             <i class="fas fa-external-link-alt text-xs text-gray-400"></i>
                         </a>
                         <a href="https://www.boostdao.io/ignite/permissionless-terra" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors">
-                            <img src="https://www.boostdao.io/favicon.ico" alt="Boost" class="w-5 h-5 rounded" onerror="this.style.display='none'">
+                            <img src="/assets/images/Boost Logo.png" alt="Boost" class="w-5 h-5 rounded" onerror="this.style.display='none'">
                             <span>Boost DAO</span>
                         </a>
                         <a href="https://atriumdao.zone/collections" target="_blank" rel="noopener" class="flex items-center gap-2 text-purple-300 hover:text-purple-200 text-sm">
@@ -7242,7 +7242,7 @@
                 "ampLUNA": "/assets/images/ampLuna.webp?raw=true",
                 "ASTRO": "/assets/token-logos/Astro.webp?raw=true",
                 "wBTC": "/assets/token-logos/wBTC.png?raw=true",
-                "ATOM": "/assets/images/atom.png?raw=true",
+                "ATOM": "/assets/token-logos/atom.svg",
                 "CAPA": "/assets/token-logos/capa.svg?raw=true",
                 "xASTRO": "/assets/images/astro.png?raw=true",
                 "ROAR": "/assets/token-logos/ROAR_LOGO.png?raw=true",
@@ -11841,7 +11841,7 @@
                     'tla_locks': {
                         name: 'TLA Locks',
                         contract: 'terra1uqhj8agyeaz8fu6mdggfuwr3lp32jlrx5hqag4jxexde92rzkamq3l62zg',
-                        icon: 'https://www.theliquidityalliance.com/favicon.ico',
+                        icon: '/assets/images/logo_eris_48.svg',   // Rev 4.02: remote favicons blocked window.load (boostdao.io hung 31 s in the owner HAR)
                         hasBroken: false,
                         bblSupported: false,  // TLA Locks only on Boost
                         boostSupported: true
@@ -12366,7 +12366,7 @@
                             <a href="${nftUrl}" target="_blank" class="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg hover:bg-gray-700 transition-colors border border-gray-700/50">
                                 <div class="relative flex-shrink-0">
                                     ${brokenBadge}
-                                    <img src="${imageUrl}" alt="#${nft.nft_token_id}" class="w-14 h-14 rounded-lg object-cover"
+                                    <img src="${imageUrl}" alt="#${nft.nft_token_id}" loading="lazy" decoding="async" class="w-14 h-14 rounded-lg object-cover"
                                          onerror="this.src='https://placehold.co/56x56/1f2937/666?text=${nft.nft_token_id}'">
                                 </div>
                                 <div class="flex-1 min-w-0">
@@ -12849,7 +12849,7 @@
                             <a href="${nftUrl}" target="_blank" class="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg hover:bg-gray-700 transition-colors border border-gray-700/50">
                                 <div class="relative flex-shrink-0">
                                     ${brokenBadge}
-                                    <img src="${imageUrl}" alt="#${tokenId}" class="w-14 h-14 rounded-lg object-cover"
+                                    <img src="${imageUrl}" alt="#${tokenId}" loading="lazy" decoding="async" class="w-14 h-14 rounded-lg object-cover"
                                          onerror="this.src='https://placehold.co/56x56/1f2937/666?text=${tokenId}'">
                                 </div>
                                 <div class="flex-1 min-w-0">
@@ -13261,7 +13261,7 @@
                             // ADDED 2026-08-12: the LIVE inventory. CURRENT listings must
                             // come from here — listing-history is a frozen backfill whose
                             // "active" flags went stale (see the Atrium block below).
-                            get(V2_BASE + 'nfts.json').catch(() => null)
+                            window.__jsonOnce(V2_BASE + 'nfts.json').catch(() => null)   // Rev 4.02: shared fetch — this was the second 7 MB download per load
                         ]);
                         const invRecords = (() => {
                             const r = inv && inv.records;
@@ -15453,7 +15453,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '4.01', REV_DATE = '2026-08-23';
+        const REV = '4.02', REV_DATE = '2026-08-24';
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16454,7 +16454,11 @@
                 const days = Math.round((new Date(latest) - new Date(usedFrom)) / 86400000);
                 return days === state.windowDays ? '' : ' <span class="text-[9px] text-amber-400/80" title="Window start had no capture; nearest real capture used — actual measured span shown. Never interpolated.">Δ' + days + 'd</span>';
             };
-            const [aL, sL, vL, mL] = await Promise.all([daily.astro(latest), daily.ss(latest), daily.votion(latest), daily.member(latest)]);
+            const [aL, sL, vL0, mL] = await Promise.all([daily.astro(latest), daily.ss(latest), daily.votion(latest), daily.member(latest)]);
+            // Rev 4.02 (owner console 2026-08-24: Votion rows dashed out): votion/daily is
+            // written later in the day than astro/daily, so `latest` 404s until then. Same
+            // nearest-capture fallback the member feed got in Rev 3.99.
+            const vL = (vL0 && Array.isArray(vL0.vaults)) ? vL0 : (await nearest(daily.votion, latest, 3))[1];
             // member daily publishes late in the day — today 404s until then; fall back
             // to the freshest capture so VP Locked / VP potential never dash out (Rev 3.99)
             const mL2 = (mL && Array.isArray(mL.wallets)) ? mL : (await nearest(daily.member, latest, 3))[1];
@@ -16704,6 +16708,6 @@
      but its System Health dot is lit from lib/cron-registry.js — the same
      source every other page uses, so they can never disagree. -->
 <script src="/lib/site-footer.js"></script>
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: '4.01', revDate: '2026-08-23', page: 'index', appInfo: true });</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: '4.02', revDate: '2026-08-24', page: 'index', appInfo: true });</script>
 </body>
 </html>
