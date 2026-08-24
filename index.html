@@ -13945,8 +13945,16 @@
                     const getBblBadge = () => '<img src="/assets/images/BBL%20No%20Background.png" class="w-4 h-4" alt="BBL" title="BBL Marketplace">';
                     const getBoostBadge = () => '<img src="/assets/images/Boost%20Logo.png" class="w-4 h-4" alt="Boost" title="Boost Marketplace">';
                     
-                    // Show ALL listings (container is scrollable)
-                    const html = allListings.map((listing, idx) => {
+                    // Rev 4.06 (owner): 10 at a time, "Load 10 more" — every card carries an NFT image,
+                    // so 63 cards was 63 image fetches at first paint. Filters/collection switches reset to 10.
+                    const LIST_PAGE = 10;
+                    const filterKey = [JSON.stringify(collectionFilters), listingConditionFilter, listingMarketplaceFilter].join('|');
+                    if (window.__listingsFilterKey !== filterKey) { window.__listingsFilterKey = filterKey; window.__listingsShown = LIST_PAGE; }
+                    window.__listingsShown = window.__listingsShown || LIST_PAGE;
+                    window.loadMoreListings = function () { window.__listingsShown += LIST_PAGE; renderCombinedListings(); };
+                    const shownListings = allListings.slice(0, window.__listingsShown);
+                    if (totalCountEl) totalCountEl.textContent = `(${shownListings.length} of ${allListings.length})`;
+                    const html = shownListings.map((listing, idx) => {
                         const collectionConfig = BBL_COLLECTIONS[listing.collection];
                         const collectionBadge = getCollectionBadge(listing.collection, listing.lockType);
                         const getAtriumBadge = () => '<span class="text-[8px] bg-pink-500/20 text-pink-400 px-1 py-0.5 rounded font-bold" title="Atrium Marketplace">ATRIUM</span>';
@@ -14072,7 +14080,9 @@
                                 </div>
                             </a>
                         `;
-                    }).join('');
+                    }).join('') + (allListings.length > shownListings.length
+                        ? `<div class="col-span-full text-center py-2"><button type="button" onclick="window.loadMoreListings()" class="text-[11px] px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 hover:text-cyan-300">Load ${Math.min(LIST_PAGE, allListings.length - shownListings.length)} more <span class="text-gray-500">(${allListings.length - shownListings.length} left)</span></button></div>`
+                        : '');
                     
                     container.innerHTML = html;
                     
@@ -15480,7 +15490,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '4.05', REV_DATE = '2026-08-24';   // 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
+        const REV = '4.06', REV_DATE = '2026-08-24';   // 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16775,6 +16785,6 @@
      but its System Health dot is lit from lib/cron-registry.js — the same
      source every other page uses, so they can never disagree. -->
 <script src="/lib/site-footer.js"></script>
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: '4.05', revDate: '2026-08-24', page: 'index', appInfo: true });</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: '4.06', revDate: '2026-08-24', page: 'index', appInfo: true });</script>
 </body>
 </html>
