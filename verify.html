@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Alliance DAO — contracts, code, audits, data</title>
+    <link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png">
+    <meta name="description" content="Every contract Alliance DAO runs on or reads from, the source code and audit, the governance that created it, and the raw data behind every number on this site — so you can verify it yourself.">
+    <meta property="og:title" content="Verify Alliance DAO">
+    <meta property="og:description" content="Contracts, code, audits, governance and re-derivable data. Nothing to trust, everything to check.">
+    <meta property="og:image" content="/assets/images/android-chrome-512x512.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+    <script src="/_vercel/insights/script.js" defer></script>
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0D0D0D; color: #EAEAEA; }
+        .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+        .card { background: #141414; border: 1px solid #262626; border-radius: 0.9rem; }
+        .row { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,1.6fr) auto; gap: .75rem; align-items: center; padding: .6rem .9rem; border-top: 1px solid #1f1f1f; }
+        .row:first-child { border-top: 0; }
+        .row .name { font-weight: 600; font-size: .9rem; }
+        .row .role { font-size: .72rem; color: #8a8a8a; }
+        .row .addr { font-size: .74rem; color: #a3a3a3; word-break: break-all; }
+        .row .acts { display: flex; gap: .4rem; white-space: nowrap; }
+        .btn { font-size: .7rem; padding: .25rem .55rem; border-radius: 999px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); color: #c9c9c9; cursor: pointer; text-decoration: none; }
+        .btn:hover { color: #22d3ee; border-color: rgba(34,211,238,.45); }
+        .tag { font-size: .62rem; padding: .1rem .4rem; border-radius: .3rem; background: rgba(34,211,238,.12); color: #67e8f9; margin-left: .35rem; vertical-align: middle; }
+        .tag.dim { background: rgba(255,255,255,.06); color: #9a9a9a; }
+        .tag.warn { background: rgba(245,158,11,.14); color: #fbbf24; }
+        h2 { font-size: 1.25rem; font-weight: 700; margin: 0 0 .25rem; }
+        .lead { color: #9a9a9a; font-size: .85rem; margin-bottom: .9rem; }
+        @media (max-width: 640px) { .row { grid-template-columns: 1fr; } .row .acts { justify-content: flex-start; } }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/site-header.js"></script>
+    <script src="/lib/address-picker.js"></script>
+    <script>SiteHeader.mount({ page: 'verify' }); if (window.AddressPicker) AddressPicker.mount({});</script>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
+        <div class="text-center">
+            <h1 class="text-3xl md:text-4xl font-extrabold"><i class="fas fa-fingerprint text-cyan-400 mr-2"></i>Verify us</h1>
+            <p class="text-gray-400 mt-3 max-w-2xl mx-auto text-sm">Every contract Alliance DAO runs on or reads from, the code and its audit, the governance that created it, and the raw data behind every number on this site. Nothing here asks for trust; each row is a thing you can open on chain or on GitHub.</p>
+        </div>
+
+        <!-- 1. aDAO core -->
+        <section class="card">
+            <div class="p-5 pb-3">
+                <h2><i class="fas fa-cube text-cyan-400 mr-2"></i>Alliance DAO — the contracts</h2>
+                <p class="lead">The canonical set. Addresses are copied from chain products, not typed.</p>
+            </div>
+            <div id="core-rows"></div>
+        </section>
+
+        <!-- 2. code + audits -->
+        <section class="card">
+            <div class="p-5 pb-3">
+                <h2><i class="fab fa-github text-cyan-400 mr-2"></i>Code and audits</h2>
+                <p class="lead">Everything that runs is public. The NFT contracts are TFL's original repo; this site, its capture jobs and its data are the DAO's own.</p>
+            </div>
+            <div id="code-rows"></div>
+        </section>
+
+        <!-- 3. governance -->
+        <section class="card">
+            <div class="p-5 pb-3">
+                <h2><i class="fas fa-landmark text-cyan-400 mr-2"></i>Governance that made it</h2>
+                <p class="lead">The on-chain decisions behind the collection, its rewards and its treasury.</p>
+            </div>
+            <div id="gov-rows"></div>
+        </section>
+
+        <!-- 4. data -->
+        <section class="card">
+            <div class="p-5 pb-3">
+                <h2><i class="fas fa-database text-cyan-400 mr-2"></i>Data you can re-derive</h2>
+                <p class="lead">The committed products every page reads. Each is a plain JSON file in a public repo, written by a public cron, with the guard that protects it named next to it.</p>
+            </div>
+            <div id="data-rows"></div>
+        </section>
+
+        <!-- 5. ecosystem register -->
+        <section class="card">
+            <div class="p-5 pb-3">
+                <h2><i class="fas fa-diagram-project text-cyan-400 mr-2"></i>Every contract this platform reads <span id="reg-count" class="tag dim"></span></h2>
+                <p class="lead">From the org's curated contract register (<code class="mono text-xs">tla-core/docs/curated/known_contracts.json</code>) — loaded live, grouped by protocol. If a number on this site came from a contract, it is in this list.</p>
+            </div>
+            <div id="register" class="px-2 pb-3"><div class="text-sm text-gray-500 px-3 py-4">Loading the register…</div></div>
+        </section>
+
+        <p class="text-center text-[11px] text-gray-600">Explorer links open <a href="https://chainsco.pe/terra2" target="_blank" rel="noopener" class="text-gray-500 hover:text-cyan-400">chainsco.pe</a>. Copy buttons copy the full address. Nothing on this page can sign anything. <span class="mono" id="page-rev"></span></p>
+    </main>
+
+    <script>
+    (() => {
+        'use strict';
+        const REV = '1.0', REV_DATE = '2026-08-24';
+        const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
+        const GH = 'https://github.com/thealliancedao/tla-core/blob/main';
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const explorer = (a) => a.startsWith('neutron1') ? `https://www.mintscan.io/neutron/address/${a}` : `https://chainsco.pe/terra2/address/${a}`;
+
+        // Canonical Alliance DAO set. Sources: alliance-dao.facts.json, nfts/adao/provenance/summary.json, known_contracts.json.
+        const CORE_CONTRACTS = [
+            { name: 'NFT collection (CW721)', addr: 'terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9', role: 'The 10,000 NFTs, the Ally denom, the backing, break()', tags: ['code 2322', 'audited'] },
+            { name: 'NFT minter', addr: 'terra1m3ye6dl6s25el4xd8adg9lnquz88az9lur2ujztj9pfmzdyfz3xsm699r3', role: 'Game of Alliance claims, Dec 12 2023 – Jan 12 2024', tags: ['code 2325'] },
+            { name: 'Ally alliance asset', addr: 'factory/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9/AllianceNFT', role: 'Held only by the collection contract; reward_weight 0.008, take rate 0 (gov #4801)', tags: ['denom'], noExplorer: true },
+            { name: 'DAO core (DAODAO)', addr: 'terra1csp8gsjk2yyxzqewza6lkjvwkspn7zs2jvamk9uf05crtcakf6gszk2g8y', role: 'Governance of the DAO', tags: ['DAODAO'] },
+            { name: 'Proposal module', addr: 'terra1va3tny5252fca04wqzf7gqh5naa8599nzxqq2vptycgv077zhmjqetanj2', role: 'Where proposals are created and voted', tags: ['DAODAO'] },
+            { name: 'NFT voting module', addr: 'terra1c57ur376szdv8rtes6sa9nst4k536dynunksu8tx5zu4z5u3am6qmvqx47', role: 'Staked NFTs = voting power; holds staked + unbonding NFTs', tags: ['DAODAO'] },
+            { name: 'DAO treasury (main wallet)', addr: 'terra1sffd4efk2jpdt894r04qwmtjqrrjfc52tmj6vkzjxqhd8qqu2drs3m5vzm', role: 'Holds the 5,828 unminted NFTs, TLA locks, protocol positions', tags: ['DAODAO'] },
+            { name: 'Council multisig', addr: 'terra1yqv0af22675wlcmgflxk4ve07vt8qlm999gk0cuw5l64r5xxgadsyg8ywv', role: 'Council; governance-security allocations', tags: ['DAODAO'] },
+            { name: 'NFT-holder treasury (broken security stock)', addr: 'terra1h8psjgcsg9fef7w2yv0j6262sfcaszj8vs4tsy3uwla6zwtaspvqrp4l7v', role: 'Holds the 898 broken security NFTs (462 Feb 2024 + 538 Jun 2024)', tags: [] },
+            { name: 'Mint-era treasury (Enterprise DAO)', addr: 'terra1g0mfrpswewteaf9ky4rlj09wh5njp6u9xxk94uszplw4qz2f9mzq3k27fm', role: 'Received the 8,809 unclaimed NFTs on Jan 12 2024; the sale-era DAO', tags: ['legacy'] },
+            { name: 'Candy machine · 50 LUNA (Phase 1b)', addr: 'terra182fvr6f2vamqvk4qxyeun0d893aje78l93r8ac67g6cyu7y2v22sp0g98h', role: '352 loaded · 127 sold · 225 returned', tags: ['mint'] },
+            { name: 'Candy machine · 75 LUNA (Phase 2a)', addr: 'terra17tg0lk3l9luhata3h03zcp2ecave5n4l5x8akpdzu5lrydegwdzqxyj09c', role: '1,000 loaded · 525 sold · 473 returned · 2 gov moves', tags: ['mint'] },
+            { name: 'Candy machine · 100/115/130 LUNA (Phase 2b)', addr: 'terra1jw84ef5qye2zykelyenchnfzkmrznguy5ym9aa4kxte7h0c5m4ysxfte89', role: '1,300 loaded · 1,300 sold (197 / 459 / 644)', tags: ['mint'] },
+            { name: 'Enterprise NFT staking (legacy)', addr: 'terra1e54tcdyulrtslvf79htx4zntqntd4r550cg22sj24r6gfm0anrvq0y8tdv', role: 'Pre-DAODAO staking; still holds 403 staked NFTs (100 broken)', tags: ['legacy'] },
+            { name: 'ampLUNA hub (Eris)', addr: 'terra10788fkzah89xrdm27zkj5yvhj9x3494lxawzm5qq3vvxcqz2yzaqyd3enk', role: 'Where every claimed LUNA reward is bonded — the backing is ampLUNA', tags: ['Eris'] },
+        ];
+        const CODE = [
+            { name: 'terra-money/alliance-nft-collection', href: 'https://github.com/terra-money/alliance-nft-collection', role: 'The NFT collection + minter contracts (Rust/CosmWasm), frontend, and the audit report in the repo' },
+            { name: 'SCV Security audit — NFT Collection Contract v1.0', href: 'https://github.com/SCV-Security/PublicReports/blob/b819ec669f81e603caca261931e2a4aaca1cddf7/Alliance/Alliance%20DAO%20-%20NFT%20Collection%20Contract%20-%20Audit%20Report%20v1.0.pdf', role: 'Independent audit of the collection contract' },
+            { name: 'thealliancedao/tla-core', href: 'https://github.com/thealliancedao/tla-core', role: 'The data store: every product this site reads, the specs, the doctrine, the changelogs, the one-off Actions' },
+            { name: 'thealliancedao/platform-crons', href: 'https://github.com/thealliancedao/platform-crons', role: 'The capture jobs (Render) that write tla-core — every guard and every mock gate is in here' },
+            { name: 'thealliancedao/aDAO-links-site', href: 'https://github.com/thealliancedao/aDAO-links-site', role: 'This website, including the page gates that assert specific numbers in specific cells' },
+            { name: 'DAODAO', href: 'https://daodao.zone/dao/terra1csp8gsjk2yyxzqewza6lkjvwkspn7zs2jvamk9uf05crtcakf6gszk2g8y', role: 'The DAO as DAODAO renders it — proposals, treasury, members' },
+        ];
+        const GOV = [
+            { name: 'Terra gov #4801 — ALLY Alliance Asset Proposal', href: 'https://commonwealth.im/terra/discussion/15252-ally-alliance-asset-proposal-updated', role: 'Passed 2024-02-23: reward_weight 0.008 (draft was 0.003), take rate 0, pinned. The forum thread shows the community raising it.' },
+            { name: 'AllianceDAO Growth Proposal (Notion)', href: 'https://alliance-dao.notion.site/AllianceDAO-Growth-Proposal-ba2c8efd98314b5e9043df6820680f5d', role: 'The release plan: 462 security NFTs, 385 staker mints, 900 for Terra NFT communities, 1,300 open. What happened on chain is on the NFT Releases page.' },
+            { name: 'Mission prop (Enterprise #10) · Council prop (#11) · Growth prop (#14)', href: 'https://dao.enterprise.money/dao/proposal?address=terra1g0mfrpswewteaf9ky4rlj09wh5njp6u9xxk94uszplw4qz2f9mzq3k27fm&id=10', role: 'January–February 2024, the Enterprise era: mission, council, and the growth plan' },
+            { name: 'Current proposals (DAODAO)', href: 'https://daodao.zone/dao/terra1csp8gsjk2yyxzqewza6lkjvwkspn7zs2jvamk9uf05crtcakf6gszk2g8y/proposals', role: 'Everything since the move to DAODAO' },
+        ];
+        const DATA = [
+            { name: 'nfts/adao/provenance', path: 'nfts/adao/provenance/summary.json', role: 'Every mint, sale, break and transfer from genesis to 2025-01-07 (FCD archive). Candy machines reconciled: loaded = sold + returned + gov moves.', guard: 'reconciliation per machine' },
+            { name: 'nfts/adao/snapshots', path: 'nfts/adao/snapshots/summary.json', role: 'Live custody of all 10,000: who holds what, broken/unbroken, staked, listed, backing per NFT.', guard: 'counts sum to 10,000' },
+            { name: 'token-catalog/supply/capa', path: 'token-catalog/supply/capa/current.json', role: 'Where every CAPA sits (13 custody forms) and per-wallet rows.', guard: '13 sum guards vs each contract\'s own total' },
+            { name: 'token-catalog/supply/fuel', path: 'token-catalog/supply/fuel/current.json', role: 'FUEL on Neutron (Boost DAO stakers, treasury, escrow) and Terra IBC holders.', guard: '5 guards incl. cross-chain escrow' },
+            { name: 'member-data/positions', path: 'member-data/positions/current.json', role: 'Every member\'s TLA positions as captured from chain.', guard: 'never-shrink, org-wins' },
+            { name: 'catalog/trusted', path: 'catalog/trusted/current.json', role: 'The address register: which wallets carry a verified label and how it was verified. Pattern is never identity.', guard: 'verification method per entry' },
+            { name: 'Intended rank + BBL rank (rarity)', path: null, href: '/assets/nft-metadata/adao-rarity-intended.json', role: 'All 10,000 tokens: object, grade, planned/actual counts, intended rank — reproducible from the public metadata.', guard: 'derived from adao-rarity spec' },
+            { name: 'system-health', path: 'system-health/current.json', role: 'Every product\'s freshness and every invariant, checked on its own cron.', guard: 'a violation is the system working' },
+        ];
+
+        const rowHtml = (name, role, addr, tags = [], opts = {}) => `
+            <div class="row" data-addr="${esc(addr || '')}">
+                <div><div class="name">${esc(name)}${tags.map(t => `<span class="tag ${/legacy|denom/.test(t) ? 'dim' : ''}">${esc(t)}</span>`).join('')}</div><div class="role">${esc(role)}</div></div>
+                <div class="addr mono">${addr ? esc(addr) : ''}</div>
+                <div class="acts">${addr ? `<button class="btn copy" data-copy="${esc(addr)}"><i class="fas fa-copy mr-1"></i>copy</button>` : ''}${addr && !opts.noExplorer ? `<a class="btn" href="${explorer(addr)}" target="_blank" rel="noopener"><i class="fas fa-magnifying-glass mr-1"></i>chain</a>` : ''}${opts.href ? `<a class="btn" href="${esc(opts.href)}" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square mr-1"></i>open</a>` : ''}</div>
+            </div>`;
+
+        document.getElementById('core-rows').innerHTML = CORE_CONTRACTS.map(c => rowHtml(c.name, c.role, c.addr, c.tags, { noExplorer: c.noExplorer })).join('');
+        document.getElementById('code-rows').innerHTML = CODE.map(c => rowHtml(c.name, c.role, null, [], { href: c.href })).join('');
+        document.getElementById('gov-rows').innerHTML = GOV.map(c => rowHtml(c.name, c.role, null, [], { href: c.href })).join('');
+        document.getElementById('data-rows').innerHTML = DATA.map(c => rowHtml(c.name, c.role + ' Guard: ' + c.guard + '.', null, [], { href: c.path ? `${GH}/${c.path}` : c.href })).join('');
+        document.getElementById('page-rev').textContent = `Rev ${REV} · ${REV_DATE}`;
+
+        // live register
+        fetch(`${CORE}/docs/curated/known_contracts.json?t=${Date.now()}`).then(r => r.ok ? r.json() : null).then(d => {
+            const reg = document.getElementById('register');
+            if (!d || !d.contracts) { reg.innerHTML = '<div class="text-sm text-red-400 px-3 py-4">Register unavailable right now — refresh to retry.</div>'; return; }
+            const groups = {};
+            for (const [addr, c] of Object.entries(d.contracts)) (groups[c.protocol || 'Other'] ||= []).push({ addr, ...c });
+            const order = Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length || a.localeCompare(b));
+            document.getElementById('reg-count').textContent = `${Object.keys(d.contracts).length} contracts`;
+            reg.innerHTML = order.map(p => `
+                <div class="mt-3"><div class="text-[11px] uppercase tracking-wider text-gray-500 px-3 mb-1">${esc(p)} <span class="text-gray-600">· ${groups[p].length}</span></div>
+                ${groups[p].sort((a, b) => (a.type || '').localeCompare(b.type || '') || (a.name || '').localeCompare(b.name || '')).map(c => rowHtml(c.name || c.addr, (c.type || '').replace(/_/g, ' ') + (c.validActions ? ' · ' + c.validActions.join(', ') : ''), c.addr, c.type === 'unverified' ? ['unverified'] : [])).join('')}</div>`).join('');
+            wireCopy();
+        }).catch(() => { document.getElementById('register').innerHTML = '<div class="text-sm text-red-400 px-3 py-4">Register unavailable right now — refresh to retry.</div>'; });
+
+        function wireCopy() {
+            document.querySelectorAll('.btn.copy').forEach(b => { if (b.dataset.wired) return; b.dataset.wired = '1'; b.addEventListener('click', () => {
+                const t = b.dataset.copy; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => { b.innerHTML = '<i class="fas fa-check mr-1"></i>copied'; setTimeout(() => { b.innerHTML = '<i class="fas fa-copy mr-1"></i>copy'; }, 1200); }, () => { b.textContent = 'select & copy'; });
+            }); });
+        }
+        wireCopy();
+        window.__verifyTest = { CORE_CONTRACTS, CODE, GOV, DATA, REV };
+    })();
+    </script>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>SiteFooter.mount({ rev: '1.0', revDate: '2026-08-24', page: 'verify' });</script>
+</body>
+</html>
