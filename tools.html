@@ -162,10 +162,9 @@
     </div>
 
     <!-- Tiles -->
+    <h2 style="margin:6px 0 12px;font-size:13px;letter-spacing:.14em;color:#67e8f9;font-weight:700">LIVE TOOLS</h2>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-        <!-- 1. ampCAPA -->
-        <a href="ampcapa-tool.html" class="tool-tile tool-tile-purple" style="text-decoration:none">
+<a href="ampcapa-tool.html" class="tool-tile tool-tile-purple" style="text-decoration:none">
             <div class="flex items-center gap-3 w-full">
                 <div class="tile-icon-wrap icon-purple"><i class="fas fa-exchange-alt"></i></div>
                 <div>
@@ -176,9 +175,7 @@
             <div class="tile-desc">Convert your DAODAO ampLP balance to underlying CAPA using live on-chain rates. Track DAO member positions and voting power over time.</div>
             <div class="tile-cta" style="color:#c084fc"><i class="fas fa-arrow-right text-xs"></i> Open Tool</div>
         </a>
-
-        <!-- 2. FUEL -->
-        <a href="fuel-tool.html" class="tool-tile tool-tile-blue" style="text-decoration:none">
+<a href="fuel-tool.html" class="tool-tile tool-tile-blue" style="text-decoration:none">
             <div class="flex items-center gap-3 w-full">
                 <div class="tile-icon-wrap icon-blue"><i class="fas fa-gas-pump"></i></div>
                 <div>
@@ -189,9 +186,7 @@
             <div class="tile-desc">Live FUEL token price, pool liquidity and volume from Astroport. Historical price chart built from epoch snapshots and hourly cron data.</div>
             <div class="tile-cta" style="color:#38bdf8"><i class="fas fa-arrow-right text-xs"></i> Open Tool</div>
         </a>
-
-        <!-- Trade Cost Simulator -->
-        <a href="slippage.html" class="tool-tile tool-tile-teal" style="text-decoration:none">
+<a href="slippage.html" class="tool-tile tool-tile-teal" style="text-decoration:none">
             <div class="flex items-center gap-3 w-full">
                 <div class="tile-icon-wrap icon-teal"><i class="fas fa-water"></i></div>
                 <div>
@@ -202,12 +197,10 @@
             <div class="tile-desc">How much will your trade really cost? Pick a token, slide the amount, and instantly see the price impact in every pool — ranked cheapest first, from live on-chain reserves. No wallet needed.</div>
             <div class="tile-cta" style="color:#2dd4bf"><i class="fas fa-arrow-right text-xs"></i> Open Tool</div>
         </a>
-
-        <!-- 3. TLA Tool (admin) -->
-
-
-        <!-- 5. TLA Catalog (browser) -->
-        <a href="tla-catalog.html" class="tool-tile tool-tile-cyan" style="text-decoration:none">
+    </div>
+    <h2 style="margin:28px 0 12px;font-size:13px;letter-spacing:.14em;color:#94a3b8;font-weight:700">TOOLS IN DEVELOPMENT</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5" style="opacity:.9">
+<a href="tla-catalog.html" class="tool-tile tool-tile-cyan" style="text-decoration:none">
             <div class="flex items-center gap-3 w-full">
                 <div class="tile-icon-wrap icon-cyan"><i class="fas fa-book"></i></div>
                 <div>
@@ -218,9 +211,7 @@
             <div class="tile-desc">Browse every catalogued token, contract, wallet, and LP in the Terra ecosystem. Search by name or address. See cross-source naming, bridge metadata, CoinGecko mappings, and variant warnings (e.g. wBTC.atom vs wBTC.axl).</div>
             <div class="tile-cta" style="color:#22d3ee"><i class="fas fa-arrow-right text-xs"></i> Open Tool</div>
         </a>
-
-        <!-- 6. TLA Chain Queries -->
-        <a href="tla-chain-queries.html" class="tool-tile tool-tile-green" style="text-decoration:none">
+<a href="tla-chain-queries.html" class="tool-tile tool-tile-green" style="text-decoration:none">
             <div class="flex items-center gap-3 w-full">
                 <div class="tile-icon-wrap icon-green"><i class="fas fa-terminal"></i></div>
                 <div>
@@ -231,9 +222,7 @@
             <div class="tile-desc">Pre-built smart-contract queries against the Eris ve3 stack. Pick a query, fill in an address from the catalog, get a one-click chainscope.io permalink or copy the JSON message. ~30 queries across global-config, asset-gauge, voting-escrow, bribe-manager, and asset-compounder.</div>
             <div class="tile-cta" style="color:#4ade80"><i class="fas fa-arrow-right text-xs"></i> Open Tool</div>
         </a>
-
-        <!-- 7. TLA Catalog Edit -->
-        <a href="tla-catalog-edit.html" class="tool-tile tool-tile-rose" style="text-decoration:none">
+<a href="tla-catalog-edit.html" class="tool-tile tool-tile-rose" style="text-decoration:none">
             <div class="flex items-center gap-3 w-full">
                 <div class="tile-icon-wrap icon-rose"><i class="fas fa-pen-to-square"></i></div>
                 <div>
@@ -250,7 +239,6 @@
              description is read from a <meta name="test-desc"> tag inside it (or a
              default). Populated by the script at the bottom of this page. -->
         <div id="test-tiles" style="display:contents"></div>
-
     </div>
 </main>
 
@@ -307,7 +295,7 @@
     <div id="site-footer"></div>
     <script src="/lib/cron-registry.js"></script>
     <script src="/lib/site-footer.js"></script>
-    <script>SiteFooter.mount({ rev: '1.5', revDate: '2026-08-23', page: 'tools' });</script>
+    <script>SiteFooter.mount({ rev: '1.6', revDate: '2026-08-24', page: 'tools' });</script>
     
 
 

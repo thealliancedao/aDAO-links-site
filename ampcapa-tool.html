@@ -339,6 +339,33 @@
     <span style="cursor:pointer;color:#6b6557;padding:4px 10px;border:1px solid #1e2028;border-radius:4px;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.5px;"
           onclick="document.getElementById('addr-lookup-overlay').style.display='flex'">🔍 Address Lookup</span>
   </div>
+  <!-- Rev 2.0: the org supply map (token-catalog/supply/capa, guard-checked cron product) -->
+  <div id="supply-map-panel" style="margin:14px 0;padding:14px;border:1px solid rgba(148,163,184,.25);border-radius:10px;background:rgba(15,17,23,.6)">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap"><b style="letter-spacing:.08em">CAPA SUPPLY MAP</b><span id="sm-status" style="font-size:10px;opacity:.6"></span></div>
+    <div id="sm-l1" style="display:flex;height:26px;border-radius:6px;overflow:hidden;margin:10px 0 4px"></div>
+    <div id="sm-l1-legend" style="font-size:10px;display:flex;flex-wrap:wrap;gap:10px"></div>
+    <div style="margin-top:10px;font-size:10px;opacity:.75">Inside the hub (ampCAPA):</div>
+    <div id="sm-l2" style="display:flex;height:16px;border-radius:6px;overflow:hidden;margin:6px 0 4px"></div>
+    <div id="sm-l2-legend" style="font-size:10px;display:flex;flex-wrap:wrap;gap:10px"></div>
+    <div id="sm-note" style="font-size:10px;opacity:.55;margin-top:8px"></div>
+  </div>
+  <script>
+  (async () => {
+    try {
+      const d = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/token-catalog/supply/capa/current.json?t=' + Date.now()).then(r => r.json());
+      const c = d.capa, m = d.ampcapa, F = (v) => (v/1e6).toFixed(1) + 'M';
+      document.getElementById('sm-status').textContent = 'cron ' + d.status + ' \u00b7 ' + d.capturedAt.slice(0,16) + 'Z \u00b7 guards ' + (d.guard_failures.length ? 'FAILED: ' + d.guard_failures.join(',') : 'green');
+      const l1 = [['Liquid', c.liquid_derived, '#334155'], ['Gov (direct)', c.gov_staked_direct, '#a78bfa'], ['Hub (ampCAPA)', c.in_hub, '#67e8f9'], ['Astro LP', c.in_lp.astro.capa, '#f472b6'], ['SS LP', c.in_lp.ss.capa, '#fbbf24']];
+      const tot = c.total_supply;
+      document.getElementById('sm-l1').innerHTML = l1.map(function(x){ return '<div title="' + x[0] + ': ' + F(x[1]) + ' CAPA" style="width:' + (x[1]/tot*100) + '%;background:' + x[2] + '"></div>'; }).join('');
+      document.getElementById('sm-l1-legend').innerHTML = l1.map(function(x){ return '<span><i style="display:inline-block;width:8px;height:8px;background:' + x[2] + ';border-radius:2px"></i> ' + x[0] + ' ' + F(x[1]) + ' (' + (x[1]/tot*100).toFixed(1) + '%)</span>'; }).join('');
+      const l2 = [['Liquid', m.liquid, '#334155'], ['TLA plain', m.tla_nonamp, '#67e8f9'], ['TLA amplified', m.tla_amp_via_compounder, '#a78bfa']];
+      document.getElementById('sm-l2').innerHTML = l2.map(function(x){ return '<div title="' + x[0] + ': ' + F(x[1]) + ' ampCAPA" style="width:' + (x[1]/m.total_supply*100) + '%;background:' + x[2] + '"></div>'; }).join('');
+      document.getElementById('sm-l2-legend').innerHTML = l2.map(function(x){ return '<span><i style="display:inline-block;width:8px;height:8px;background:' + x[2] + ';border-radius:2px"></i> ' + x[0] + ' ' + F(x[1]) + '</span>'; }).join('') + '<span style="opacity:.7">\u00b7 of amplified receipts: ' + F(m.receipt_in_dao) + ' staked in DAO, ' + F(m.receipt_outside_dao_or_unbonding) + ' held or unbonding</span>';
+      document.getElementById('sm-note').textContent = 'The hub itself stakes its CAPA in Solid governance (' + F(c.gov_hub_portion) + ' of the gov contract\u2019s ' + F(c.gov_contract_balance) + '). Buckets sum to total supply by guard. A big negative 24h move below can be a pending 3-day gov/DAO unbond, not a sale.';
+    } catch (e) { document.getElementById('sm-note').textContent = 'Supply map unavailable: ' + e.message; }
+  })();
+  </script>
   <div class="tabs">
     <div class="tab active" onclick="switchTab('members')">DAO Members</div>
     <div class="tab" onclick="switchTab('gov')">CAPA Governance</div>

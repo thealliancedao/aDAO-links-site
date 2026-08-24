@@ -302,7 +302,7 @@
     <div class="stat-card">
       <div class="stat-label"><span class="dot dot-loading" id="dot-price"></span>Current Price</div>
       <div class="stat-value" id="price-usd">—</div>
-      <div class="stat-sub">USD · Astroport API</div>
+      <div class="stat-sub">USD &middot; Astroport live &middot; history from tla-core</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">24h Change</div>
@@ -326,15 +326,29 @@
     <div class="chart-header">
       <div class="chart-title" id="chart-title">FUEL/USD Price History</div>
       <div class="chart-tabs">
-        <button class="chart-tab active" onclick="switchChart('price7d',this)">PRICE 7D</button>
-        <button class="chart-tab" onclick="switchChart('priceAll',this)" id="tab-all">PRICE ALL</button>
-        <button class="chart-tab" onclick="switchChart('liquidity',this)">LIQUIDITY</button>
-        <button class="chart-tab" onclick="switchChart('volume',this)">VOLUME</button>
+        <button class="chart-tab active" onclick="setRange(7,this)">7D</button>
+        <button class="chart-tab" onclick="setRange(30,this)">30D</button>
+        <button class="chart-tab" onclick="setRange(90,this)">90D</button>
+        <button class="chart-tab" onclick="setRange(0,this)">ALL</button>
       </div>
     </div>
     <div class="chart-wrap"><canvas id="price-chart"></canvas></div>
+    <div class="chart-wrap" style="height:90px;margin-top:4px"><canvas id="vol-chart"></canvas></div>
+    <div class="stat-sub" id="chart-note" style="margin-top:6px"></div>
   </div>
 
+  <!-- TVL / governance strip (Rev 2.0: org-sourced) -->
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-label">DEX TVL</div><div class="stat-value" id="dex-tvl"></div><div class="stat-sub">LUNA-FUEL pool &middot; dex-data</div></div>
+    <div class="stat-card"><div class="stat-label">Staked in TLA</div><div class="stat-value" id="tla-tvl"></div><div class="stat-sub" id="tla-vp-sub">of pool TVL, in the gauge</div></div>
+    <div class="stat-card"><div class="stat-label">Live Bribes &middot; this epoch</div><div class="stat-value" id="bribe-now"></div><div class="stat-sub" id="bribe-sub">settle at epoch rollover</div></div>
+    <div class="stat-card"><div class="stat-label">Votion &middot; next epoch</div><div class="stat-value" id="votion-plan"></div><div class="stat-sub" id="votion-sub">optimizer plan for this pool</div></div>
+  </div>
+  <div class="info-grid"><div class="info-card" style="grid-column:1/-1">
+    <div class="info-card-title">FUEL Whales &mdash; Terra (IBC balances)</div>
+    <div id="whale-rows" class="stat-sub">Loading holders&hellip;</div>
+    <div class="stat-sub" style="margin-top:8px;opacity:.7">Boost DAO staking lives on Neutron and is not yet captured &mdash; Terra balances only. Names from the address catalog where known.</div>
+  </div></div>
   <!-- Token Info + Pool Info -->
   <div class="info-grid">
     <div class="info-card">
@@ -399,7 +413,7 @@
     Live price from <a href="https://app.astroport.fi" target="_blank">Astroport</a>
     (<code>tokens.byChain</code> API, phoenix-1).
     7-day chart from Astroport <code>token.getTokens</code> series.
-    Daily confirmed history from <a href="https://github.com/defipatriot/tla-core/tree/main/fuel" target="_blank">tla-core/fuel</a> (hourly cron job).
+    Daily confirmed price history from <a href="https://github.com/thealliancedao/tla-core/tree/main/price-history" target="_blank">tla-core/fuel</a> (hourly cron job).
     <br><br>
     <strong>Epoch estimates (amber dashed line):</strong> Historical prices are approximated using
     the current LUNA/FUEL pool reserve ratio from the Terra LCD, multiplied by the LUNA price
@@ -415,48 +429,12 @@ const BYCHAIN_URL  = 'https://app.astroport.fi/api/trpc/tokens.byChain?input=' +
     encodeURIComponent(JSON.stringify({ json: { chainId: 'phoenix-1' } }));
 const GETTOK_URL   = 'https://app.astroport.fi/api/trpc/token.getTokens?input=' +
     encodeURIComponent(JSON.stringify({ "0": { "json": { "chainIds": ["phoenix-1"] } } }));
-const SNAP_BASE    = 'https://raw.githubusercontent.com/defipatriot/tla-core/main/fuel/snapshots';
-const FUEL_POOL    = 'terra10yfnsqn20rzlnlzkeva5255q27zp6ws9te9uuql9e0lacfcze7zsffjct5';
-const LCD          = 'https://terra-lcd.publicnode.com';
-const EPOCH_BASE   = 'https://raw.githubusercontent.com/defipatriot/tla-ext_json_storage/main';
-const EPOCH_NUMS   = [165, 166, 167, 169, 177, 178];  // available epoch snapshot files
-
-function astroChartUrl(type, dateRange) {
-    return 'https://app.astroport.fi/api/trpc/charts.' + type + '?input=' +
-        encodeURIComponent(JSON.stringify({
-            json: { pools: [FUEL_POOL], dateRange, chainId: 'phoenix-1' }
-        }));
-}
-
-let priceChart  = null;
-let seriesData  = [];   // 7-day price series from getTokens
-let historyData = [];   // daily cron history from GitHub
-let liqSeries       = [];   // 24h liquidity series
-let epochHistoryData = [];   // estimated historical prices from epoch files
-let volSeries   = [];   // 24h volume series
-
-// ── Format helpers ──────────────────────────────────────────────────────────
-
-function fmtPrice(p) {
-    if (p === null || p === undefined) return '—';
-    if (p < 0.0001) return '$' + p.toFixed(8);
-    if (p < 0.01)   return '$' + p.toFixed(6);
-    return '$' + p.toFixed(4);
-}
-
-function fmtPct(v) {
-    if (v === null || v === undefined) return { text: '—', cls: 'neutral' };
-    const pct = (v * 100).toFixed(2);
-    return { text: (v >= 0 ? '+' : '') + pct + '%', cls: v >= 0 ? 'up' : 'down' };
-}
-
-function fmtTvl(v) {
-    if (!v) return '—';
-    return '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 });
-}
-
-// ── Chart builder ────────────────────────────────────────────────────────────
-
+const ORG = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
+const FUEL_IBC = 'ibc/4B44179AC2F0BEE50C16A673B3B886398988692885B2848A1C8AEF27148B3961';
+const FUEL_LP_CW20 = 'terra1e6k3u9uwysataqnysfdn7y5v254pawm0gcuflumugtd7l4w74slq0qww44';
+const LCD = 'https://terra-lcd.publicnode.com';
+const EPOCH_GENESIS = Date.UTC(2022,9,31);
+let priceRows = [], dexRows = [], rangeDays = 7, volChartObj = null;
 function buildChart(labels, prices, titleSuffix, chartType = 'price') {
     const ctx = document.getElementById('price-chart').getContext('2d');
     if (priceChart) priceChart.destroy();
@@ -530,246 +508,156 @@ function buildChart(labels, prices, titleSuffix, chartType = 'price') {
 
 // ── Dual-dataset chart (epoch estimates + live/cron data) ────────────────────
 
-function buildChartDual(estPts, realPts) {
-    const ctx = document.getElementById('price-chart').getContext('2d');
-    if (priceChart) priceChart.destroy();
 
-    document.getElementById('chart-title').textContent =
-        'FUEL/USD · All History (epoch est. + live)';
-
-    // Merge all labels sorted
-    const allDates = [...new Set([
-        ...estPts.map(p => p.date),
-        ...realPts.map(p => p.date)
-    ])].sort();
-
-    const estMap  = Object.fromEntries(estPts.map(p => [p.date, p.avgPrice]));
-    const realMap = Object.fromEntries(realPts.map(p => [p.date, p.avgPrice ?? p.priceUsd ?? null]));
-
-    const estData  = allDates.map(d => estMap[d]  ?? null);
-    const realData = allDates.map(d => realMap[d] ?? null);
-
-    const opts = {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-            legend: { display: true, position: 'top',
-                labels: { color: '#6b6557', font: { family: 'Space Mono', size: 10 } } },
-            tooltip: {
-                backgroundColor: '#111318', borderColor: '#1e2028', borderWidth: 1,
-                titleColor: '#38bdf8', bodyColor: '#b0a898',
-                callbacks: {
-                    title: items => {
-                        const d = allDates[items[0].dataIndex];
-                        const ep = estPts.find(p => p.date === d);
-                        return ep ? `${d}  (Epoch ${ep.epoch})` : d;
-                    },
-                    label: c => {
-                        const v = c.parsed.y;
-                        if (v === null) return null;
-                        const suffix = c.datasetIndex === 0 ? ' (estimated)' : ' (confirmed)';
-                        return ' ' + fmtPrice(v) + suffix;
-                    }
-                }
-            }
-        },
-        scales: {
-            x: { ticks: { color: '#4a4840', font: { size: 9 }, maxTicksLimit: 10 }, grid: { color: '#111318' } },
-            y: { ticks: { color: '#4a4840', font: { size: 10 }, callback: v => fmtPrice(v) }, grid: { color: '#1e2028' } }
-        }
-    };
-
-    priceChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: allDates,
-            datasets: [
-                {
-                    label: 'Epoch estimates',
-                    data: estData,
-                    borderColor: '#f59e0b',
-                    backgroundColor: 'rgba(245,158,11,0.06)',
-                    borderWidth: 1.5,
-                    borderDash: [4, 3],
-                    pointRadius: 5,
-                    pointBackgroundColor: '#f59e0b',
-                    pointHoverRadius: 7,
-                    fill: false,
-                    tension: 0.2,
-                    spanGaps: true
-                },
-                {
-                    label: 'Live / cron',
-                    data: realData,
-                    borderColor: '#38bdf8',
-                    backgroundColor: 'rgba(56,189,248,0.07)',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 5,
-                    fill: true,
-                    tension: 0.3,
-                    spanGaps: false
-                }
-            ]
-        },
-        options: opts
-    });
+const jget = (u) => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
+function astroChartUrl(type, dateRange) {
+    return 'https://app.astroport.fi/api/trpc/charts.' + type + '?input=' +
+        encodeURIComponent(JSON.stringify({
+            json: { pools: [FUEL_POOL], dateRange, chainId: 'phoenix-1' }
+        }));
 }
 
-// ── Chart switcher ───────────────────────────────────────────────────────────
+let priceChart  = null;
+let seriesData  = [];   // 7-day price series from getTokens
+let historyData = [];   // daily cron history from GitHub
+let liqSeries       = [];   // 24h liquidity series
+let epochHistoryData = [];   // estimated historical prices from epoch files
+let volSeries   = [];   // 24h volume series
 
-function switchChart(mode, el) {
-    document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
-    el.classList.add('active');
+// ── Format helpers ──────────────────────────────────────────────────────────
 
-    if (mode === 'price7d') {
-        // Prefer captured daily history (reliable); fall back to live intraday series
-        if (historyData.length) {
-            const last7 = historyData.slice(-7);
-            buildChart(last7.map(h => h.date), last7.map(h => h.closePrice), '7 Days', 'price');
-        } else if (seriesData.length) {
-            const labels = seriesData.map(p => {
-                const d = new Date(p.time * 1000);
-                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
-            });
-            buildChart(labels, seriesData.map(p => p.value), '7 Days', 'price');
-        }
-
-    } else if (mode === 'priceAll') {
-        const combined = [
-            ...epochHistoryData,
-            ...historyData.map(h => ({ ...h, estimated: false }))
-        ].sort((a, b) => a.date.localeCompare(b.date));
-
-        if (!combined.length) {
-            switchChart('price7d', document.querySelector('.chart-tab'));
-            return;
-        }
-
-        const estPts  = combined.filter(p => p.estimated);
-        const realPts = combined.filter(p => !p.estimated);
-        buildChartDual(estPts, realPts);
-
-    } else if (mode === 'liquidity') {
-        if (!historyData.length) {
-            document.getElementById('chart-title').textContent = 'Liquidity — loading...';
-            return;
-        }
-        const labels = historyData.map(h => h.date);
-        buildChart(labels, historyData.map(h => h.avgTvlUsd), `Pool TVL · Daily ($, ${historyData.length}d)`, 'tvl');
-
-    } else if (mode === 'volume') {
-        if (!historyData.length) {
-            document.getElementById('chart-title').textContent = 'Volume — loading...';
-            return;
-        }
-        const labels = historyData.map(h => h.date);
-        buildChart(labels, historyData.map(h => h.dailyVolumeLuna), `Daily Volume · LUNA (${historyData.length}d)`, 'volume');
-    }
+function fmtPrice(p) {
+    if (p === null || p === undefined) return '—';
+    if (p < 0.0001) return '$' + p.toFixed(8);
+    if (p < 0.01)   return '$' + p.toFixed(6);
+    return '$' + p.toFixed(4);
 }
 
-// ── Load cron history ────────────────────────────────────────────────────────
-
-// ── Pool ratio from Terra LCD ────────────────────────────────────────────────
-async function fetchPoolRatio() {
-    const query = btoa(JSON.stringify({ pool: {} }));
-    const url   = `${LCD}/cosmwasm/wasm/v1/contract/${FUEL_POOL}/smart/${query}`;
-    const r = await fetch(url, { headers: { Accept: 'application/json' } });
-    const d = await r.json();
-    const assets = d.data?.assets || [];
-    let luna = null, fuel = null;
-    for (const a of assets) {
-        const denom = a.info?.native_token?.denom || '';
-        if (denom === 'uluna') luna = parseFloat(a.amount);
-        else if (denom.includes('4B44') || denom.toLowerCase().includes('fuel')) fuel = parseFloat(a.amount);
-    }
-    if (!luna || !fuel) throw new Error('Pool assets not found in LCD response');
-    // For xyk pool: FUEL price in LUNA = luna_reserve / fuel_reserve
-    return luna / fuel;
+function fmtPct(v) {
+    if (v === null || v === undefined) return { text: '—', cls: 'neutral' };
+    const pct = (v * 100).toFixed(2);
+    return { text: (v >= 0 ? '+' : '') + pct + '%', cls: v >= 0 ? 'up' : 'down' };
 }
 
-// ── Fetch one epoch file ──────────────────────────────────────────────────────
-async function fetchEpochFile(epochNum) {
-    const url = `${EPOCH_BASE}/tla-ext-epoch-${epochNum}-end.json`;
-    try {
-        const r = await fetch(url);
-        if (!r.ok) return null;
-        const d = await r.json();
-        const fuelPoolKey = 'terra10yfnsqn20rzlnlzkeva5255q27zp6ws9te9uuql9e0lacfcze7zsffjct5';
-        return {
-            epoch:     d.meta?.epoch,
-            date:      d.meta?.generated_at?.slice(0, 10),
-            lunaPrice: d.token_prices?.LUNA?.price ?? null,
-            spotTvl:   d.astroport_data?.[fuelPoolKey]?.spotLiquidity ?? null
-        };
-    } catch (e) {
-        console.warn(`Epoch ${epochNum} fetch failed:`, e.message);
-        return null;
-    }
+function fmtTvl(v) {
+    if (!v) return '—';
+    return '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 });
 }
 
-// ── Build historical price estimates from epoch files ─────────────────────────
-async function loadEpochHistory() {
-    // Step 1: get current pool ratio from LCD
-    let fuelInLunaRatio = null;
-    try {
-        fuelInLunaRatio = await fetchPoolRatio();
-        console.log(`Pool ratio (FUEL/LUNA): ${fuelInLunaRatio.toFixed(6)} LUNA per FUEL`);
-    } catch (e) {
-        console.warn('Pool ratio fetch failed — skipping epoch history:', e.message);
-        return;
-    }
+function setText(id, v) { const el = document.getElementById(id); if (el != null && v != null) el.textContent = v; }
 
-    // Step 2: fetch all epoch files in parallel
-    const results = await Promise.allSettled(EPOCH_NUMS.map(n => fetchEpochFile(n)));
-    const points  = [];
-
-    for (const r of results) {
-        if (r.status !== 'fulfilled' || !r.value) continue;
-        const ep = r.value;
-        if (!ep.date || !ep.lunaPrice) continue;
-
-        // Estimated FUEL price = (LUNA per FUEL) × (LUNA price at epoch)
-        const estimatedPrice = fuelInLunaRatio * ep.lunaPrice;
-        points.push({
-            date:      ep.date,
-            epoch:     ep.epoch,
-            avgPrice:  parseFloat(estimatedPrice.toFixed(8)),
-            tvlUsd:    ep.spotTvl,
-            estimated: true
-        });
-        console.log(`Epoch ${ep.epoch} (${ep.date}): ~$${estimatedPrice.toFixed(6)}`);
-    }
-
-    epochHistoryData = points.sort((a, b) => a.date.localeCompare(b.date));
-    console.log(`Loaded ${epochHistoryData.length} epoch history estimates`);
-
-    // Update the ALL tab label
-    const tabAll = document.getElementById('tab-all');
-    if (epochHistoryData.length) {
-        tabAll.textContent = `PRICE ALL (${epochHistoryData.length} ep)`;
-    }
+// Rev 2.0 (2026-08-24): the personal-repo hourly feed (defipatriot/tla-core) is
+// gone — org price-history IS the history (confirmed daily closes; sparse early,
+// daily once token-catalog began pricing FUEL). No epoch estimates: an estimated
+// line dressed as history is a phantom.
+async function loadPriceHistory() {
+  const now = new Date(); const months = [];
+  for (let d = new Date(Date.UTC(2025,11,1)); d <= now; d.setUTCMonth(d.getUTCMonth()+1))
+    months.push(d.getUTCFullYear() + '/' + String(d.getUTCMonth()+1).padStart(2,'0'));
+  const docs = await Promise.all(months.map(m => jget(ORG + '/price-history/' + m + '.json')));
+  priceRows = [];
+  for (const doc of docs) if (doc && doc.days)
+    for (const [date, day] of Object.entries(doc.days))
+      if (day.FUEL && day.FUEL.usd != null) priceRows.push({ date, usd: day.FUEL.usd });
+  priceRows.sort((a,b) => a.date < b.date ? -1 : 1);
+  populateStatsFromHistory();
 }
-
-async function loadCronHistory() {
-    try {
-        const r = await fetch(`${SNAP_BASE}/index.json`);
-        if (!r.ok) return;
-        const idx = await r.json();
-        if (idx.history && idx.history.length > 0) {
-            historyData = idx.history;
-            const tabAll = document.getElementById('tab-all');
-            tabAll.textContent = `ALL (${historyData.length}d)`;
-            console.log(`Loaded ${historyData.length} daily history points from cron`);
-        }
-    } catch (e) {
-        // Repo doesn't exist yet — no cron data, that's fine
-        console.log('No cron history available yet:', e.message);
-    }
+async function loadDexDaily() {
+  const days = [];
+  for (let i = 1; i <= 30; i++) days.push(new Date(Date.now() - i*86400000).toISOString().slice(0,10));
+  const docs = await Promise.all(days.map(d => jget(ORG + '/dex-data/astroport/snapshots/daily/' + d + '.json')));
+  dexRows = [];
+  docs.forEach((doc, i) => {
+    const pools = doc && (Array.isArray(doc.pools) ? doc.pools : Object.values(doc.pools || {}));
+    const p = pools && pools.find(x => (x.pool_name || '').includes('FUEL'));
+    if (p) dexRows.push({ date: days[i], tvl: p.tvl_usd, vol24: p.volume_24h_usd });
+  });
+  dexRows.sort((a,b) => a.date < b.date ? -1 : 1);
 }
-
-// ── Main load ────────────────────────────────────────────────────────────────
-
+function renderRange() {
+  const rows = rangeDays ? priceRows.filter(r => (Date.now() - Date.parse(r.date)) <= rangeDays*86400000) : priceRows;
+  buildChart(rows.map(r => r.date), rows.map(r => r.usd), rangeDays ? rangeDays + ' Days' : 'All (' + rows.length + ' captured days)', 'price');
+  const vrows = rangeDays ? dexRows.filter(r => (Date.now() - Date.parse(r.date)) <= rangeDays*86400000) : dexRows;
+  buildVolBars(vrows);
+  setText('chart-note', rows.length + ' confirmed price captures in range \u00b7 volume bars + TVL line from committed daily dex captures (' + vrows.length + 'd, max 30) \u00b7 gaps are real gaps, never interpolated');
+}
+function buildVolBars(rows) {
+  const el = document.getElementById('vol-chart'); if (!el || !window.Chart) return;
+  if (volChartObj) volChartObj.destroy();
+  volChartObj = new Chart(el.getContext('2d'), { type: 'bar',
+    data: { labels: rows.map(r => r.date), datasets: [
+      { label: 'Volume 24h ($)', data: rows.map(r => r.vol24), backgroundColor: 'rgba(103,232,249,.35)', yAxisID: 'y' },
+      { label: 'TVL ($)', data: rows.map(r => r.tvl), type: 'line', borderColor: 'rgba(244,114,182,.8)', pointRadius: 0, borderWidth: 1.5, yAxisID: 'y1' } ] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: { boxWidth: 8, font: { size: 9 } } } },
+      scales: { x: { display: false }, y: { ticks: { font: { size: 8 } } }, y1: { position: 'right', grid: { display: false }, ticks: { font: { size: 8 } } } } } });
+}
+function setRange(d, el) {
+  rangeDays = d;
+  document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  renderRange();
+}
+function currentEpoch() { return Math.floor((Date.now() - EPOCH_GENESIS) / (7*86400000)) + 1; }
+function epochEndsIn() { const end = EPOCH_GENESIS + currentEpoch()*7*86400000; const ms = end - Date.now();
+  return Math.floor(ms/86400000) + 'd ' + Math.floor(ms%86400000/3600000) + 'h'; }
+async function loadGovPanels() {
+  const [snap, opt] = await Promise.all([jget(ORG + '/member-data/tla-snapshot/current.json'), jget(ORG + '/votion/optimization/current.json')]);
+  const pool = snap && (snap.pools || []).find(p => (p.name || '').includes('FUEL'));
+  if (pool) {
+    setText('dex-tvl', fmtTvl(pool.depth_usd)); setText('tla-tvl', fmtTvl(pool.staked_in_tla_usd));
+    const vp = pool.voting_power || {};
+    setText('tla-vp-sub', Math.round(pool.staked_in_tla_usd/pool.depth_usd*100) + '% of pool \u00b7 ' + (vp.vp_human||0).toLocaleString(undefined,{maximumFractionDigits:0}) + ' VP (' + (vp.pct_of_bucket||0).toFixed(1) + '% of bucket)');
+  }
+  const m = new Date().toISOString().slice(0,7).replace('-','/');
+  const bs = await jget(ORG + '/tla-voting/bribe-state/' + m + '.json');
+  let bribeTxt = '\u2014', subTxt = 'epoch #' + currentEpoch() + ' settles in ' + epochEndsIn();
+  if (bs) {
+    const list = Array.isArray(bs) ? bs : (bs.entries || bs.bribes || bs.rows || []);
+    const rows = list.filter(x => { const j = JSON.stringify(x); return j.includes(FUEL_LP_CW20) || j.includes('FUEL'); });
+    bribeTxt = rows.length ? rows.length + ' posting' + (rows.length>1?'s':'') : 'none live';
+    if (rows.length) { const tot = rows.reduce((a,x) => a + (Number(x.amount_human ?? x.amount ?? 0) || 0), 0);
+      if (tot) subTxt = '~' + tot.toLocaleString(undefined,{maximumFractionDigits:0}) + ' tokens \u00b7 settle in ' + epochEndsIn(); }
+  } else subTxt = 'bribe-state unavailable';
+  setText('bribe-now', bribeTxt); setText('bribe-sub', subTxt);
+  let vpTxt = '\u2014', vs = 'no optimizer plan touching this pool';
+  if (opt) { let hit = null;
+    const scan = (o) => { if (hit || !o || typeof o !== 'object') return;
+      if ((o.title||'').includes('FUEL') && (o.planned_vp != null || o.current_vp != null)) { hit = o; return; }
+      Object.values(o).forEach(scan); };
+    scan(opt);
+    if (hit) { vpTxt = (hit.planned_vp||0).toLocaleString() + ' VP'; vs = 'now ' + (hit.current_vp||0).toLocaleString() + ' \u2192 planned (' + (hit.delta_pct>0?'+':'') + hit.delta_pct + '%)'; } }
+  setText('votion-plan', vpTxt); setText('votion-sub', vs);
+}
+async function loadWhales() {
+  const el = document.getElementById('whale-rows'); if (!el) return;
+  try {
+    let owners = [], key = null;
+    for (let i = 0; i < 5; i++) {
+      const u = LCD + '/cosmos/bank/v1beta1/denom_owners/' + encodeURIComponent(FUEL_IBC) + '?pagination.limit=500' + (key ? '&pagination.key=' + encodeURIComponent(key) : '');
+      const r = await jget(u); if (!r) break;
+      owners.push.apply(owners, r.denom_owners || []); key = r.pagination && r.pagination.next_key; if (!key) break;
+    }
+    const cat = await jget(ORG + '/catalog/trusted/current.json');
+    const names = {}; ((cat && cat.addresses) || []).forEach(a => { names[a.address] = a.label; });
+    owners = owners.map(o => ({ a: o.address, amt: Number(o.balance.amount)/1e6 })).sort((x,y) => y.amt - x.amt).slice(0, 15);
+    el.innerHTML = '<table style="width:100%;font-size:11px">' + owners.map((o,i) =>
+      '<tr><td style="opacity:.5">' + (i+1) + '</td><td class="mono">' + (names[o.a] ? names[o.a] + ' \u00b7 ' : '') + o.a.slice(0,12) + '\u2026' + o.a.slice(-6) + '</td><td style="text-align:right">' + o.amt.toLocaleString(undefined,{maximumFractionDigits:0}) + ' FUEL</td></tr>').join('') + '</table>';
+  } catch (e) { el.textContent = 'Holder scan unavailable (LCD busy) \u2014 refresh to retry.'; }
+}
+function populateStatsFromHistory() {
+  if (priceRows.length >= 2) {
+    const last = priceRows[priceRows.length-1];
+    const back = (days) => { const cut = Date.parse(last.date) - days*86400000; const c = priceRows.filter(r => Date.parse(r.date) <= cut); return c.length ? c[c.length-1] : null; };
+    const d1 = back(1), d7 = back(7);
+    if (d1) setText('change-24h', fmtPct((last.usd/d1.usd-1)*100));
+    if (d7) setText('change-7d', fmtPct((last.usd/d7.usd-1)*100));
+  }
+}
 async function loadAll() {
+    loadPriceHistory().then(renderRange);
+    loadDexDaily().then(renderRange);
+    loadGovPanels();
+    loadWhales();
 
     // 1. Fast price from tokens.byChain
     try {
@@ -863,39 +751,18 @@ async function loadAll() {
     } catch (e) { console.error('Volume series error:', e); }
 
     // 5. Load cron history (async, non-blocking)
-    await loadCronHistory();
     populateStatsFromHistory();   // captured daily history → TVL, 24h/7d change, 24h volume (reliable; overrides flaky live APIs)
 
     // 6. Load epoch historical estimates from LCD + epoch files
-    await loadEpochHistory();
 }
 
-// Derive the stat cards + change %s from captured daily history (reliable),
-// instead of the external token API which returns nothing for an obscure token
-// like FUEL (that's why 24h/7d change + the 7-day chart were blank).
-function populateStatsFromHistory() {
-    if (!historyData.length) return;
-    const last = historyData[historyData.length - 1];
-    if (last.dailyVolumeLuna != null) document.getElementById('vol-24h').textContent = last.dailyVolumeLuna.toFixed(2) + ' LUNA';
-    if (last.avgTvlUsd != null) document.getElementById('pool-tvl').textContent = fmtTvl(Math.round(last.avgTvlUsd));
-    if (historyData.length >= 2) {
-        const p = historyData[historyData.length - 2];
-        const c = fmtPct((last.closePrice - p.closePrice) / p.closePrice);
-        const e = document.getElementById('change-24h'); e.textContent = c.text; e.className = 'stat-value ' + c.cls;
-    }
-    if (historyData.length >= 8) {
-        const p = historyData[historyData.length - 8];
-        const c = fmtPct((last.closePrice - p.closePrice) / p.closePrice);
-        const e = document.getElementById('change-7d'); e.textContent = c.text; e.className = 'stat-value ' + c.cls;
-    }
-}
+// (Rev 2.0: stat cards derive from priceRows in the new data layer above)
 
 // Boot
 loadAll().then(() => {
     // Render the default (7-day) chart from captured history once it's loaded —
     // the live external series is empty for FUEL, so without this the default tab was blank.
     const active = document.querySelector('.chart-tab.active') || document.querySelector('.chart-tab');
-    if (active) switchChart('price7d', active);
 });
 </script>
     <!-- ============================================================
@@ -916,7 +783,7 @@ loadAll().then(() => {
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 1.3</span>
+                    <span class="font-mono">Rev 2.0 · 2026-08-24</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>
