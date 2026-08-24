@@ -67,6 +67,15 @@
       line-height: 1; margin-bottom: 4px;
     }
     .stat-sub { color: #4a4840; font-size: 10px; }
+    /* Rev 2.2: the whale table is DATA, not a caption — it was inheriting the footnote colour */
+    #whale-rows { color: #e8e4d9; font-size: 11px; }
+    #whale-rows table { width: 100%; border-collapse: collapse; }
+    #whale-rows td { padding: 3px 4px; border-bottom: 1px solid rgba(255,255,255,.05); }
+    #whale-rows td.rank { color: #6b6557; width: 28px; }
+    #whale-rows td.who { font-family: 'Space Mono', monospace; }
+    #whale-rows td.who .name { color: #38bdf8; }
+    #whale-rows td.who .addr { color: #9a9488; }
+    #whale-rows td.amt { text-align: right; font-weight: 700; color: #f59e0b; white-space: nowrap; }
 
     /* ── Dot indicators ── */
     .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -346,7 +355,7 @@
   </div>
   <div class="info-grid"><div class="info-card" style="grid-column:1/-1">
     <div class="info-card-title">FUEL Whales &mdash; Terra (IBC balances)</div>
-    <div id="whale-rows" class="stat-sub">Loading holders&hellip;</div>
+    <div id="whale-rows">Loading holders&hellip;</div>
     <div class="stat-sub" style="margin-top:8px;opacity:.7">Boost DAO staking lives on Neutron and is not yet captured &mdash; Terra balances only. Names from the address catalog where known.</div>
   </div></div>
   <!-- Token Info + Pool Info -->
@@ -644,7 +653,7 @@ async function loadWhales() {
     const names = {}; ((cat && cat.addresses) || []).forEach(a => { names[a.address] = a.label; });
     owners = owners.map(o => ({ a: o.address, amt: Number(o.balance.amount)/1e6 })).sort((x,y) => y.amt - x.amt).slice(0, 15);
     el.innerHTML = '<table style="width:100%;font-size:11px">' + owners.map((o,i) =>
-      '<tr><td style="opacity:.5">' + (i+1) + '</td><td class="mono">' + (names[o.a] ? names[o.a] + ' \u00b7 ' : '') + o.a.slice(0,12) + '\u2026' + o.a.slice(-6) + '</td><td style="text-align:right">' + o.amt.toLocaleString(undefined,{maximumFractionDigits:0}) + ' FUEL</td></tr>').join('') + '</table>';
+      '<tr><td class="rank">' + (i+1) + '</td><td class="who">' + (names[o.a] ? '<span class="name">' + names[o.a] + '</span> \u00b7 ' : '') + '<span class="addr">' + o.a.slice(0,12) + '\u2026' + o.a.slice(-6) + '</span></td><td class="amt">' + o.amt.toLocaleString(undefined,{maximumFractionDigits:0}) + ' FUEL</td></tr>').join('') + '</table>';
   } catch (e) { el.textContent = 'Holder scan unavailable (LCD busy) \u2014 refresh to retry.'; }
 }
 function populateStatsFromHistory() {
@@ -787,7 +796,7 @@ loadAll().then(() => {
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 2.1 · 2026-08-24</span>
+                    <span class="font-mono">Rev 2.2 · 2026-08-24</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>

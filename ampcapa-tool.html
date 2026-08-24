@@ -609,32 +609,37 @@
           style="width:13px;height:13px;cursor:pointer;accent-color:#818cf8;" />
         <label for="tla-show-protocols" style="font-size:10px;color:#6b6557;cursor:pointer;">Show Protocol Contracts</label>
       </div>
-      <button class="btn btn-outline" id="tla-lp-refresh-btn" onclick="loadTlaLpHolders();loadVe3LpStakers()" style="display:none">↻ REFRESH</button>
+      <button class="btn btn-outline" id="tla-lp-refresh-btn" onclick="loadTlaLpFromProduct(true)" style="display:none">↻ RELOAD</button>
+      <button class="btn btn-outline" id="tla-lp-live-btn" onclick="tlaLpLiveScan()" title="Browser-side scan of the Astroport LP only (liquid + TLA plain). Use only if the cron product is unavailable." style="font-size:10px;padding:6px 14px;">⛏ LIVE (Astro only)</button>
       <button class="btn btn-outline" id="tla-lp-export-btn" onclick="unifiedLpExportCSV()" style="display:none">EXPORT CSV</button>
     </div>
+    <div id="tla-lp-source" style="display:none;font-size:10px;color:#6b6557;margin:6px 0 8px;line-height:1.6"></div>
 
     <div class="members-summary" id="tla-lp-summary" style="display:none">
-      <div><div class="summary-item-label">Total Wallets</div><div class="summary-item-val" id="tla-lp-count">—</div></div>
-      <div><div class="summary-item-label">Pool CAPA</div><div class="summary-item-val" id="tla-lp-pool-capa">—</div></div>
-      <div><div class="summary-item-label">CAPA/LP Rate</div><div class="summary-item-val" id="tla-lp-rate">—</div></div>
-      <div><div class="summary-item-label">Direct + Incentivized</div><div class="summary-item-val" id="inc-status" style="color:#f59e0b">—</div></div>
+      <div><div class="summary-item-label">Wallets</div><div class="summary-item-val" id="tla-lp-count">—</div></div>
+      <div><div class="summary-item-label">Pool CAPA (Astro + SS)</div><div class="summary-item-val" id="tla-lp-pool-capa">—</div></div>
+      <div><div class="summary-item-label">CAPA/LP Rate (Astro)</div><div class="summary-item-val" id="tla-lp-rate">—</div></div>
+      <div><div class="summary-item-label">Forms</div><div class="summary-item-val" id="inc-status" style="color:#f59e0b">—</div></div>
     </div>
 
     <div class="members-table-wrap">
       <div class="progress-msg" id="tla-lp-placeholder">Loading LP holder data…</div>
       <table id="tla-unified-table" style="display:none;table-layout:fixed;width:100%">
         <colgroup>
-          <col style="width:36px"><col style="width:18%">
-          <col style="width:14%"><col style="width:14%">
-          <col style="width:14%"><col style="width:10%"><col style="width:12%">
+          <col style="width:32px"><col style="width:17%">
+          <col style="width:12%"><col style="width:12%"><col style="width:12%">
+          <col style="width:12%"><col style="width:12%">
+          <col style="width:11%"><col style="width:10%">
         </colgroup>
         <thead><tr>
           <th onclick="unifiedSortBy('rank')">#</th>
           <th onclick="unifiedSortBy('address')">Address</th>
-          <th onclick="unifiedSortBy('direct')" title="LP tokens held directly in wallet">Direct LP CAPA</th>
-          <th onclick="unifiedSortBy('incentivized')" title="LP staked via ve3 → Astroport Incentives">Incentivized LP CAPA</th>
+          <th onclick="unifiedSortBy('direct')" title="LUNA-CAPA LP tokens held in wallet — DEX liquidity NOT staked in TLA (Astro + SS; hover cell)">LP · not in TLA</th>
+          <th onclick="unifiedSortBy('lpamp')" class="v3-col" title="LUNA-CAPA LP staked in TLA through the compounder — amplified (Astro + SS receipts; hover cell)">LP · TLA amplified</th>
+          <th onclick="unifiedSortBy('incentivized')" title="LUNA-CAPA LP staked plain in the TLA project bucket, post-take (Astro + SS; hover cell)">LP · TLA plain</th>
+          <th onclick="unifiedSortBy('amptla')" class="v3-col" title="ampCAPA staked plain in the TLA single bucket, post-take">ampCAPA · TLA plain</th>
+          <th onclick="unifiedSortBy('ampamp')" class="v3-col" title="ampCAPA staked amplified via the compounder, receipt HELD or in the DAO unbonding queue — not staked in the ampCAPA DAO (that is the DAO Members tab; hover cell)">ampCAPA · amplified, not in DAO</th>
           <th onclick="unifiedSortBy('total')">Total ↓</th>
-          <th onclick="unifiedSortBy('pct')">Pool %</th>
           <th>Also In</th>
         </tr></thead>
         <tbody id="tla-unified-body"></tbody>
@@ -759,11 +764,9 @@
       buildInfluenceMap();
 
     } else if (name === 'tla-lp') {
-      // Start LP scans immediately — DAODAO/gov load in parallel for cross-ref tags
-      if (allMembers.length === 0) fetchAllMembers();
-      if (govStakers.length === 0) fetchGovStakers();
-      if (tlaLpData.length === 0)  loadTlaLpHolders();
-      if (incStakerData.length === 0) loadVe3LpStakers();
+      // Rev 2.3: the cron product (all five TLA-side forms, sum-guarded) is the
+      // source; the Astro-only browser scan is a labeled fallback.
+      if (unifiedLpData.length === 0) loadTlaLpFromProduct();
 
     } else if (name === 'whales') {
       // Rev 2.1: the cron product (all 13 forms, sum-guarded) is the primary
@@ -2235,7 +2238,84 @@
     renderUnifiedLpTable();
   }
 
+  // ── Rev 2.3: TLA-side positions from the org product (supply/capa/wallets.json) ──
+  let tlaLpSource = null;   // 'product' | 'live'
+  async function fetchWalletsProduct(force) {
+    if (whaleProduct && !force) return whaleProduct;
+    const res = await fetch(WHALES_PRODUCT_URL + '?t=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    if (!Array.isArray(d.rows)) throw new Error('no rows');
+    whaleProduct = d; return d;
+  }
+  async function loadTlaLpFromProduct(force) {
+    const statusEl = document.getElementById('tla-lp-status'), phEl = document.getElementById('tla-lp-placeholder'), srcEl = document.getElementById('tla-lp-source');
+    document.getElementById('tla-unified-table').style.display = 'none';
+    phEl.style.display = 'block'; phEl.textContent = 'Loading TLA-side CAPA positions (cron product)…';
+    statusEl.textContent = 'Loading product…';
+    try {
+      const d = await fetchWalletsProduct(force);
+      const names = await loadTrustLabels();
+      const F = (r, k) => (r.capa_equiv || {})[k];
+      const sum = (r, keys) => keys.some(k => F(r, k) === null) ? null : keys.reduce((s, k) => s + nz(F(r, k)), 0);
+      unifiedLpData = d.rows.map(r => {
+        const direct = sum(r, ['astro_lp_liquid', 'ss_lp_liquid']);
+        const lpamp = sum(r, ['astro_lp_amp', 'ss_lp_amp']);
+        const incentivized = sum(r, ['astro_lp_tla_nonamp', 'ss_lp_tla_nonamp']);
+        const amptla = sum(r, ['ampcapa_tla_nonamp']);
+        const ampamp = sum(r, ['receipt_held', 'receipt_unbonding']);
+        const parts = [direct, lpamp, incentivized, amptla, ampamp];
+        return { address: r.address, direct, lpamp, incentivized, amptla, ampamp, total: parts.reduce((s, v) => s + nz(v), 0), unknown: parts.some(v => v === null),
+          poolPct: 0, protocol: r.role === 'bucket' ? (r.label || 'bucket') : null, isContract: r.kind === 'contract' && r.role !== 'bucket', trustLabel: r.role !== 'bucket' ? (names[r.address] || null) : null,
+          inDaodao: nz(F(r, 'receipt_dao')) > 0, inGov: nz(F(r, 'gov_direct')) > 0, daodaoCapa: nz(F(r, 'receipt_dao')), govCapa: nz(F(r, 'gov_direct')), forms: r.capa_equiv };
+      }).filter(w => w.protocol || w.total > 0 || w.unknown);
+      tlaLpSource = 'product';
+      // pool totals come from the same product's guards (each = the owning contract's own total) × its rates
+      const astroCapa = (d.sum_guards.astro_lp_cw20_sums_to_supply.expected || 0) * (d.rates.capa_per_astro_lp || 0);
+      const ssCapa = (d.sum_guards.ss_lp_owners_sum_to_supply.expected || 0) * (d.rates.capa_per_ss_lp || 0);
+      document.getElementById('tla-lp-pool-capa').textContent = fmt(astroCapa + ssCapa, 0);
+      document.getElementById('tla-lp-rate').textContent = (d.rates.capa_per_astro_lp || 0).toFixed(4) + ' CAPA';
+      const guards = d.sum_guards || {}; const bad = Object.entries(guards).filter(([, g]) => g.ok !== true).map(([k]) => k);
+      const unattr = d.unattributed && d.unattributed.astro_lp_in_incentives_not_tla;
+      srcEl.innerHTML = 'Source: <strong>cron product</strong> · captured ' + String(d.capturedAt).slice(0, 16) + 'Z · status <strong>' + d.status + '</strong> · sum guards ' + (bad.length ? '<span style="color:#f87171">' + bad.join(', ') + '</span>' : '<span style="color:#4ade80">' + Object.keys(guards).length + '/' + Object.keys(guards).length + ' green</span>')
+        + ' · rows ≥ ' + (d.floor_capa_equiv || 0).toLocaleString('en-US') + ' CAPA-equiv (any form)'
+        + (unattr > 0 ? ' · <span style="color:#f59e0b">' + fmt(unattr * (d.rates.capa_per_astro_lp || 0), 0) + ' CAPA of Astro LP is staked directly on Astroport Incentives (not through TLA) — no per-wallet read exists, so it is not attributed</span>' : '');
+      srcEl.style.display = '';
+      document.getElementById('tla-lp-refresh-btn').style.display = '';
+      document.querySelectorAll('#tla-unified-table .v3-col').forEach(el => el.style.display = '');
+      finishUnifiedLp();
+      statusEl.textContent = 'Product loaded';
+    } catch (e) {
+      tlaLpSource = null;
+      srcEl.innerHTML = '<span style="color:#f87171">Cron product unavailable (' + e.message + ').</span> Use ⛏ LIVE (Astro only) for a partial browser scan.';
+      srcEl.style.display = '';
+      phEl.textContent = 'Cron product unavailable — ' + e.message + '.';
+      statusEl.textContent = 'Product unavailable';
+    }
+  }
+  function tlaLpLiveScan() {
+    tlaLpSource = 'live';
+    document.getElementById('tla-lp-source').innerHTML = 'Source: <strong style="color:#f59e0b">browser live scan — Astroport LP only</strong> (liquid + TLA plain). Amplified LP, SS LP and the ampCAPA columns are not read here.';
+    document.getElementById('tla-lp-source').style.display = '';
+    document.querySelectorAll('#tla-unified-table .v3-col').forEach(el => el.style.display = 'none');
+    if (allMembers.length === 0) fetchAllMembers();
+    if (govStakers.length === 0) fetchGovStakers();
+    loadTlaLpHolders(); loadVe3LpStakers();
+  }
+  function finishUnifiedLp() {
+    const showProtocols = document.getElementById('tla-show-protocols')?.checked;
+    const shown = unifiedLpData.filter(w => w.protocol ? showProtocols : true);
+    document.getElementById('tla-lp-count').textContent = shown.filter(w => !w.protocol).length;
+    const st = document.getElementById('inc-status');
+    if (st) { const n = (k) => shown.filter(w => !w.protocol && nz(w[k]) > 0).length; st.textContent = `${n('direct')} LP liquid · ${n('lpamp')} LP amp · ${n('incentivized')} LP plain · ${n('amptla')} ampCAPA plain · ${n('ampamp')} ampCAPA amp`; }
+    document.getElementById('tla-lp-summary').style.display = '';
+    document.getElementById('tla-lp-export-btn').style.display = '';
+    document.getElementById('tla-lp-placeholder').style.display = 'none';
+    renderUnifiedLpTable();
+  }
+
   function buildUnifiedLpTable() {
+    if (tlaLpSource === 'product') { finishUnifiedLp(); return; }
     const showProtocols = document.getElementById('tla-show-protocols')?.checked;
     const daodaoMap = {};
     for (const m of allMembers)  daodaoMap[m.address] = (daodaoMap[m.address]||0) + m.capa;
@@ -2300,34 +2380,40 @@
     const table = document.getElementById('tla-unified-table');
     if (!tbody || !table) return;
 
-    const sorted = [...unifiedLpData].sort((a, b) => {
+    const showProtocols = document.getElementById('tla-show-protocols')?.checked;
+    const v3 = tlaLpSource === 'product';
+    const base = v3 ? unifiedLpData.filter(w => w.protocol ? showProtocols : true) : unifiedLpData;
+    const sorted = [...base].sort((a, b) => {
       const key = { rank:'total', total:'total', direct:'direct',
-                    incentivized:'incentivized', pct:'poolPct' }[unifiedSortCol] || 'total';
+                    incentivized:'incentivized', pct:'poolPct', lpamp:'lpamp', amptla:'amptla', ampamp:'ampamp' }[unifiedSortCol] || 'total';
       if (unifiedSortCol === 'address')
         return unifiedSortAsc ? a.address.localeCompare(b.address) : b.address.localeCompare(a.address);
-      return unifiedSortAsc ? a[key]-b[key] : b[key]-a[key];
+      return unifiedSortAsc ? nz(a[key])-nz(b[key]) : nz(b[key])-nz(a[key]);
     });
 
     tbody.innerHTML = sorted.map((w, i) => {
       const tags = [];
+      if (w.isContract) tags.push('<span style="font-size:8px;color:#818cf8;border:1px solid rgba(99,102,241,0.3);border-radius:3px;padding:0 4px" title="32-byte contract address (a DAO, multisig or vesting contract) — a real custody endpoint">contract</span>');
       if (w.inDaodao) tags.push(`<span style="font-size:8px;background:rgba(168,85,247,0.12);color:#a855f7;border:1px solid rgba(168,85,247,0.25);border-radius:3px;padding:1px 4px;" title="${fmt(w.daodaoCapa,0)} in DAODAO">DAODAO</span>`);
       if (w.inGov)    tags.push(`<span style="font-size:8px;background:rgba(56,189,248,0.12);color:#38bdf8;border:1px solid rgba(56,189,248,0.25);border-radius:3px;padding:1px 4px;" title="${fmt(w.govCapa,0)} in Gov">Gov</span>`);
       if (!tags.length && !w.protocol) tags.push('<span style="font-size:8px;color:#4a4840;">LP only</span>');
 
-      const directCell = w.direct > 0
-        ? `<span style="color:#38bdf8">${fmt(w.direct,0)}</span>`
-        : `<span style="color:#2a2522">0</span>`;
-      const incCell = w.incentivized > 0
-        ? `<span style="color:#f59e0b">${fmt(w.incentivized,0)}</span>`
-        : `<span style="color:#2a2522">0</span>`;
+      const f = w.forms || {};
+      const tip = (keys) => keys.map(k => V2_LABEL[k] + ': ' + (f[k] === null ? '?' : fmt(nz(f[k]), 0))).join(' · ');
+      const cell = (v, color, keys, cls) => v === null
+        ? `<td${cls ? ` class="${cls}"` : ''} style="color:#f59e0b" title="enumeration incomplete this run">?</td>`
+        : `<td${cls ? ` class="${cls}"` : ''}${keys && keys.length > 1 ? ` title="${tip(keys)}"` : ''}>${v > 0 ? `<span style="color:${color}">${fmt(v, 0)}</span>` : '<span style="color:#2a2522">0</span>'}</td>`;
+      const hidden = (cls) => `<td class="${cls}" style="display:none"></td>`;
 
-      return `<tr>
+      return `<tr data-addr="${w.address}">
         <td>${i+1}</td>
-        <td>${makeAddrCell(w.address, w.protocol)}</td>
-        <td>${directCell}</td>
-        <td>${incCell}</td>
-        <td style="color:#e8e4d9;font-weight:700">${fmt(w.total,0)}</td>
-        <td style="color:#4a4840">${w.poolPct.toFixed(3)}%</td>
+        <td>${makeAddrCell(w.address, w.protocol || w.trustLabel || null)}</td>
+        ${cell(w.direct, '#38bdf8', v3 ? ['astro_lp_liquid', 'ss_lp_liquid'] : [])}
+        ${v3 ? cell(w.lpamp, '#a855f7', ['astro_lp_amp', 'ss_lp_amp'], 'v3-col') : hidden('v3-col')}
+        ${cell(w.incentivized, '#f59e0b', v3 ? ['astro_lp_tla_nonamp', 'ss_lp_tla_nonamp'] : [])}
+        ${v3 ? cell(w.amptla, '#67e8f9', ['ampcapa_tla_nonamp'], 'v3-col') : hidden('v3-col')}
+        ${v3 ? cell(w.ampamp, '#a855f7', ['receipt_held', 'receipt_unbonding'], 'v3-col') : hidden('v3-col')}
+        <td style="color:#e8e4d9;font-weight:700"${w.unknown ? ' title="total excludes unknown form(s)"' : ''}>${fmt(w.total,0)}${w.unknown ? '<span style="color:#f59e0b">+?</span>' : ''}</td>
         <td style="display:flex;gap:3px;flex-wrap:wrap">${tags.join('')}</td>
       </tr>`;
     }).join('');
@@ -2336,9 +2422,14 @@
   }
 
   function unifiedLpExportCSV() {
-    const rows = [['Address','Protocol','Direct LP CAPA','Incentivized LP CAPA','Total CAPA','Pool %','In DAODAO','In Gov']];
+    const v3 = tlaLpSource === 'product';
+    const rows = v3
+      ? [['Address','Kind','Label','LP not in TLA','LP TLA amplified','LP TLA plain','ampCAPA TLA plain','ampCAPA amplified not in DAO','Total CAPA-equiv','In DAO','In Gov']]
+      : [['Address','Protocol','Direct LP CAPA','Incentivized LP CAPA','Total CAPA','Pool %','In DAODAO','In Gov']];
+    const x = (v) => v === null ? '' : nz(v).toFixed(2);
     for (const w of unifiedLpData) {
-      rows.push([w.address, w.protocol||'', w.direct.toFixed(2), w.incentivized.toFixed(2),
+      if (v3) rows.push([w.address, w.protocol ? 'bucket' : (w.isContract ? 'contract' : 'wallet'), w.protocol || w.trustLabel || '', x(w.direct), x(w.lpamp), x(w.incentivized), x(w.amptla), x(w.ampamp), w.total.toFixed(2), w.inDaodao, w.inGov]);
+      else rows.push([w.address, w.protocol||'', w.direct.toFixed(2), w.incentivized.toFixed(2),
                  w.total.toFixed(2), w.poolPct.toFixed(4), w.inDaodao, w.inGov]);
     }
     const csv = rows.map(r => r.join(',')).join('\n');
@@ -2656,7 +2747,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 2.2</span>
+                    <span class="font-mono">Rev 2.3</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>

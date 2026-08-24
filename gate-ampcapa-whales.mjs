@@ -92,7 +92,7 @@ console.log('=== ampcapa-tool Rev 2.1 — whale tab from the product ===');
 {
   const w = await boot(wallets);
   const d = w.document;
-  check('P1 footer rev reads 2.2', /Rev 2\.2/.test(d.querySelector('#changelog-trigger').textContent));
+  check('P1 footer rev reads 2.3', /Rev 2\.3/.test(d.querySelector('#changelog-trigger').textContent));
   check('P2 source line: cron product · status ok · 13/13 guards green', /cron product/.test(d.getElementById('whale-source').textContent) && /status ok/.test(d.getElementById('whale-source').textContent) && /13\/13 green/.test(d.getElementById('whale-source').textContent), d.getElementById('whale-source').textContent);
   check('P3 table visible, placeholder hidden', d.getElementById('whale-table').style.display !== 'none' && d.getElementById('whale-placeholder').style.display === 'none');
   const heads = [...d.querySelectorAll('#whale-table thead th')].map(th => th.textContent.trim());
@@ -168,7 +168,36 @@ console.log('\n=== Rev 2.2: members tab change periods from wallets-daily (dead 
   d.getElementById('whale-threshold').value = '10000'; d.getElementById('whale-threshold').dispatchEvent(new w.Event('change'));
   const w2 = d.querySelector(`#whale-body tr[data-addr="${G.W(2)}"]`);
   check('M7 whale row shows the VERIFIED trust-register label (W2), unlabeled rows stay bare', w2 && /Gov Whale Two/.test(w2.textContent) && !/verified\)/.test(d.querySelector(`#whale-body tr[data-addr="${G.W(1)}"]`).textContent), w2 && w2.textContent.slice(0, 80));
-  check('M8 footer rev reads 2.2', /Rev 2\.2/.test(d.querySelector('#changelog-trigger').textContent));
+  check('M8 footer rev reads 2.3', /Rev 2\.3/.test(d.querySelector('#changelog-trigger').textContent));
+}
+
+console.log('\n=== Rev 2.3: CAPA in TLA LP tab — five TLA-side forms from the product ===');
+{
+  const w = await boot(wallets);
+  const d = w.document;
+  await w.switchTab('tla-lp'); await new Promise(r => setTimeout(r, 250));
+  const rowOf = (a) => d.querySelector(`#tla-unified-body tr[data-addr="${a}"]`);
+  const cells = (tr) => [...tr.querySelectorAll('td')].map(td => td.textContent.trim());
+  // columns: # · addr · LP not in TLA · LP TLA amp · LP TLA plain · ampCAPA TLA plain · ampCAPA amp not in DAO · total · also-in
+  const heads = [...d.querySelectorAll('#tla-unified-table thead th')].map(th => th.textContent.trim());
+  check('T1 header = the five forms', heads[2] === 'LP · not in TLA' && heads[3] === 'LP · TLA amplified' && heads[4] === 'LP · TLA plain' && heads[5] === 'ampCAPA · TLA plain' && heads[6] === 'ampCAPA · amplified, not in DAO', heads);
+  check('T2 source line: cron product, 13/13 green, unattributed Astro-direct LP named in CAPA', /cron product/.test(d.getElementById('tla-lp-source').textContent) && /13\/13 green/.test(d.getElementById('tla-lp-source').textContent) && /staked directly on Astroport/.test(d.getElementById('tla-lp-source').textContent));
+  const t = rowOf(G.TREAS); const tc = t ? cells(t) : [];
+  check('T3 treasury: LP amp = 3,821 rcpt × LP/rcpt × CAPA/LP; LP plain = 18,411 LP × CAPA/LP; LP-not-in-TLA 0', t && tc[3] === fmt0(3821.188 * G.R.astroRcpt * doc.rates.capa_per_astro_lp) && tc[4] === fmt0(18411.23 * doc.rates.capa_per_astro_lp) && tc[2] === '0', tc);
+  check('T4 treasury: ampCAPA amplified not in DAO = receipt held 198,310.643 × comp × hub; ampCAPA plain 0', t && tc[6] === fmt0(198310.643 * G.R.comp * G.R.hub) && tc[5] === '0', tc);
+  const o = rowOf(G.OWNER); const oc = o ? cells(o) : [];
+  check('T5 owner: only the unbonding receipt shows (amplified, not in DAO) + DAO/Gov tags; receipt IN DAO is not on this tab', o && oc[6] === fmt0(357205.9996 * G.R.comp * G.R.hub) && oc[5] === '0' && /DAODAO/.test(oc[8]) && /Gov/.test(oc[8]), oc);
+  const w5 = rowOf(G.W(5)); const w6 = rowOf(G.W(6)); const w7 = rowOf(G.W(7));
+  check('T6 W5 plain single-bucket stake lands in ampCAPA · TLA plain only', w5 && Number(cells(w5)[5].replace(/,/g, '')) > 30000000 && cells(w5)[6] === '0', w5 && cells(w5));
+  check('T7 W6 liquid Astro LP lands in LP · not in TLA (+ its TLA-plain share)', w6 && Number(cells(w6)[2].replace(/,/g, '')) > 0 && Number(cells(w6)[4].replace(/,/g, '')) > 0, w6 && cells(w6));
+  check('T8 W7 SS LP forms fold into the LP columns with an Astro/SS tooltip', w7 && Number(cells(w7)[4].replace(/,/g, '')) > 0 && /SS LP in TLA/.test(w7.querySelectorAll('td')[4].getAttribute('title') || ''), w7 && cells(w7));
+  check('T9 buckets hidden by default; toggle shows the compounder with every amplified position as ONE plain-stake row', !rowOf(S.CAPA_CONTRACTS.VE3_COMPOUNDER) && (() => { d.getElementById('tla-show-protocols').checked = true; w.buildUnifiedLpTable(); const c = rowOf(S.CAPA_CONTRACTS.VE3_COMPOUNDER); const ok = !!c && /ve3 compounder/.test(c.textContent) && Number(cells(c)[5].replace(/,/g, '')) > 50000000; d.getElementById('tla-show-protocols').checked = false; w.buildUnifiedLpTable(); return ok; })());
+  w.unifiedSortBy('amptla');
+  check('T10 sort by ampCAPA · TLA plain puts W5 first', d.querySelector('#tla-unified-body tr').getAttribute('data-addr') === G.W(5));
+  let href = null; w.HTMLAnchorElement.prototype.click = function () { href = this.href; };
+  w.unifiedLpExportCSV();
+  check('T11 CSV header carries the five forms + kind/label', /LP TLA amplified,LP TLA plain,ampCAPA TLA plain,ampCAPA amplified not in DAO/.test(decodeURIComponent(href.split(',')[1]).split('\n')[0]));
+  check('T12 footer rev reads 2.3', /Rev 2\.3/.test(d.querySelector('#changelog-trigger').textContent));
 }
 
 console.log('\n=== scenario B: enumeration incomplete → "?" cells, never 0 ===');
