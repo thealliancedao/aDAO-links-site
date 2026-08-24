@@ -6,6 +6,9 @@
 // platform-crons/token-catalog/mock-run-capa-supply.js — same truth as the
 // cron gate, so a schema drift between cron and page fails HERE.
 // Asserts SPECIFIC VALUES IN SPECIFIC CELLS (owner + treasury fixture rows).
+// Rev 2.2 adds the members-tab scenario (change periods from supply/capa/
+// wallets-daily; fixture dailies derived from the fold script's real output
+// shape) and the trust-register label join.
 // Usage: PLATFORM_CRONS_DIR=/path/to/platform-crons node gate-ampcapa-whales.mjs
 import { JSDOM } from 'jsdom';
 import fs from 'fs';
@@ -31,6 +34,23 @@ const worldB = G.makeWorld({ stateFailAt: { addr: S.CAPA_CONTRACTS.CAPA_TOKEN, p
 const docB = await S.captureCapaSupply(worldB);
 const { wallets: walletsB } = await S.captureCapaWallets(worldB, docB);
 
+// ---- wallets-daily fixtures (shape = cron capture + fold-legacy output) ----
+const TODAY = new Date().toISOString().slice(0, 10);
+const daysAgo = (n) => { const d = new Date(); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+const OWNER_DAO_TODAY = wallets.rows.find(r => r.address === G.OWNER).capa_equiv.receipt_dao;   // live math on the page uses ve3×hub rates below
+const daily = (date, src, ownerVal, extra = {}) => ({ schemaVersion: 2, product: 'supply/capa/wallets-daily', date, capturedAt: date + 'T12:00:00.000Z', src, status: src === 'capture' ? 'ok' : 'legacy_fold',
+  rates: { hub_capa_per_ampcapa: G.R.hub, compounder_ampcapa_per_receipt: G.R.comp }, columns: ['total_capa_equiv', 'receipt_dao_capa'],
+  rows: { [G.OWNER]: [src === 'capture' ? 9224672 : null, ownerVal], ...extra }, row_count: 1 + Object.keys(extra).length });
+const DAILIES = {
+  [daysAgo(1)]:  daily(daysAgo(1), 'capture', OWNER_DAO_TODAY - 1000),                       // 24h → +1,000
+  [daysAgo(8)]:  daily(daysAgo(8), 'legacy_fold ampcapa-data_2026 epoch-197', OWNER_DAO_TODAY - 25000, { [G.W(9)]: [null, null] }),   // 7d → +25,000, W9 unknown that day
+  [daysAgo(31)]: daily(daysAgo(31), 'legacy_fold ampcapa-data_2026 epoch-194', OWNER_DAO_TODAY + 40000),                              // 30d → −40,000
+};
+const DAILY_INDEX = { schemaVersion: 2, days: Object.keys(DAILIES).sort().map(d => ({ date: d, src: DAILIES[d].src })) };
+const TRUSTED = { addresses: [{ address: G.W(2), label: 'Gov Whale Two (verified)' }, { address: G.OWNER, label: 'DeFi_Patriot' }] };
+// DAO stakers the page enumerates live: owner + W9 (balances in receipt micro-units)
+const DAO_STAKERS = [G.OWNER, G.W(9)].map(a => ({ address: a, balance: String(Math.round((wallets.rows.find(r => r.address === a).raw.dao_power) * 1e6)) })).sort((x, y) => x.address < y.address ? -1 : 1);
+
 async function boot(fixture, { productDown = false } = {}) {
   const rawHtml = fs.readFileSync(path.join(here, 'ampcapa-tool.html'), 'utf8')
     .replace(/<script[^>]*src=[^>]*><\/script>/g, '');
@@ -42,7 +62,18 @@ async function boot(fixture, { productDown = false } = {}) {
         const nope = { ok: false, status: 404, json: async () => { throw new Error('404'); }, text: async () => '' };
         if (u.includes('supply/capa/wallets.json')) return productDown ? nope : okJson(fixture);
         if (u.includes('supply/capa/current.json')) return okJson(current);
-        if (u.includes('/cosmwasm/') || u.includes('/cosmos/')) return okJson({ data: { exchange_rate: '1.1', total_supply: '1' } });   // rates probe on load — never reached the whale path
+        if (u.includes('wallets-daily/index.json')) return okJson(DAILY_INDEX);
+        const dm = /wallets-daily\/(\d{4}-\d{2}-\d{2})\.json/.exec(u); if (dm) return DAILIES[dm[1]] ? okJson(DAILIES[dm[1]]) : nope;
+        if (u.includes('catalog/trusted/current.json')) return okJson(TRUSTED);
+        if (u.includes('ampcapa-data_2026')) { throw new Error('DEAD FEED FETCHED: ' + u); }
+        if (u.includes('/cosmwasm/')) {
+          const q = JSON.parse(Buffer.from(decodeURIComponent(u.split('/smart/')[1]), 'base64').toString('utf8'));
+          if (q.state) return okJson({ data: { exchange_rate: String(G.R.hub) } });
+          if (q.exchange_rates) return okJson({ data: [{ exchange_rates: [[1, { exchange_rate: String(G.R.comp) }]] }] });
+          if (q.list_stakers) { const s = q.list_stakers.start_after; const i = s ? DAO_STAKERS.findIndex(x => x.address === s) + 1 : 0; return okJson({ data: { stakers: DAO_STAKERS.slice(i, i + q.list_stakers.limit) } }); }
+          return nope;
+        }
+        if (u.includes('/cosmos/')) return nope;
         return nope;
       };
       w.TextEncoder = TextEncoder; w.TextDecoder = TextDecoder;   // browser globals jsdom lacks (page builds a state-key suffix at load)
@@ -61,7 +92,7 @@ console.log('=== ampcapa-tool Rev 2.1 — whale tab from the product ===');
 {
   const w = await boot(wallets);
   const d = w.document;
-  check('P1 footer rev reads 2.1', /Rev 2\.1/.test(d.querySelector('#changelog-trigger').textContent));
+  check('P1 footer rev reads 2.2', /Rev 2\.2/.test(d.querySelector('#changelog-trigger').textContent));
   check('P2 source line: cron product · status ok · 13/13 guards green', /cron product/.test(d.getElementById('whale-source').textContent) && /status ok/.test(d.getElementById('whale-source').textContent) && /13\/13 green/.test(d.getElementById('whale-source').textContent), d.getElementById('whale-source').textContent);
   check('P3 table visible, placeholder hidden', d.getElementById('whale-table').style.display !== 'none' && d.getElementById('whale-placeholder').style.display === 'none');
   const heads = [...d.querySelectorAll('#whale-table thead th')].map(th => th.textContent.trim());
@@ -114,6 +145,30 @@ console.log('=== ampcapa-tool Rev 2.1 — whale tab from the product ===');
   const csv = decodeURIComponent(href.split(',')[1]);
   check('P24 CSV export carries all 13 form columns + kind/label', csv.split('\n')[0].split(',').length === 3 + 13 + 2 && /receipt_unbonding/.test(csv.split('\n')[0]));
   check('P25 legacy dead-repo snapshot base is not fetched by the whale path', true);   // (SNAP_BASE is the members tab's concern — walk item recorded in CHANGES_PENDING)
+}
+
+console.log('\n=== Rev 2.2: members tab change periods from wallets-daily (dead feed gone) ===');
+{
+  const w = await boot(wallets);
+  const d = w.document;
+  await w.switchTab('members'); await new Promise(r => setTimeout(r, 250));
+  const memberRow = () => [...d.querySelectorAll('#members-body tr')].find(tr => tr.textContent.includes(G.OWNER.slice(0, 10)));
+  const deltaOf = () => memberRow().querySelectorAll('td')[5].textContent.trim();
+  check('M1 members tab rendered from the live DAO enumeration (owner row present)', !!memberRow());
+  check('M2 24H: badge names the comparison day (captured), delta = +1,000', /vs / .test(d.getElementById('snap-badge').textContent) && !/legacy/.test(d.getElementById('snap-badge').textContent) && deltaOf() === '+1,000', [d.getElementById('snap-badge').textContent, deltaOf()]);
+  await w.setPeriod('7d'); await new Promise(r => setTimeout(r, 150));
+  check('M3 7D: picks the legacy weekly day, badge says (legacy weekly), delta = +25,000', /legacy weekly/.test(d.getElementById('snap-badge').textContent) && deltaOf() === '+25,000', [d.getElementById('snap-badge').textContent, deltaOf()]);
+  const w9row = [...d.querySelectorAll('#members-body tr')].find(tr => tr.textContent.includes(G.W(9).slice(0, 10)));
+  check('M4 7D: W9 had null that day → NEW/no delta, never a fabricated number', w9row && /NEW|—/.test(w9row.querySelectorAll('td')[5].textContent), w9row && w9row.querySelectorAll('td')[5].textContent);
+  await w.setPeriod('30d'); await new Promise(r => setTimeout(r, 150));
+  check('M5 30D: delta = −40,000 against the 31-days-ago legacy monthly', deltaOf() === '-40,000', deltaOf());
+  check('M6 no fetch ever hit the dead ampcapa-data_2026 feed (would have thrown)', true);
+  // trust labels on the whale tab
+  await w.switchTab('whales'); await new Promise(r => setTimeout(r, 150));
+  d.getElementById('whale-threshold').value = '10000'; d.getElementById('whale-threshold').dispatchEvent(new w.Event('change'));
+  const w2 = d.querySelector(`#whale-body tr[data-addr="${G.W(2)}"]`);
+  check('M7 whale row shows the VERIFIED trust-register label (W2), unlabeled rows stay bare', w2 && /Gov Whale Two/.test(w2.textContent) && !/verified\)/.test(d.querySelector(`#whale-body tr[data-addr="${G.W(1)}"]`).textContent), w2 && w2.textContent.slice(0, 80));
+  check('M8 footer rev reads 2.2', /Rev 2\.2/.test(d.querySelector('#changelog-trigger').textContent));
 }
 
 console.log('\n=== scenario B: enumeration incomplete → "?" cells, never 0 ===');

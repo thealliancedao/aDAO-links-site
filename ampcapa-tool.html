@@ -339,7 +339,7 @@
     <span style="cursor:pointer;color:#6b6557;padding:4px 10px;border:1px solid #1e2028;border-radius:4px;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.5px;"
           onclick="document.getElementById('addr-lookup-overlay').style.display='flex'">🔍 Address Lookup</span>
   </div>
-  <!-- Rev 2.0: the org supply map (token-catalog/supply/capa, guard-checked cron product); Rev 2.1: whale table reads supply/capa/wallets.json (13 forms, sum-guarded) -->
+  <!-- Rev 2.0: the org supply map (token-catalog/supply/capa, guard-checked cron product); Rev 2.1: whale table reads supply/capa/wallets.json (13 forms, sum-guarded); Rev 2.2: members-tab change periods read supply/capa/wallets-daily (dead personal feed removed), verified labels from catalog/trusted -->
   <div id="supply-map-panel" style="margin:14px 0;padding:14px;border:1px solid rgba(148,163,184,.25);border-radius:10px;background:rgba(15,17,23,.6)">
     <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap"><b style="letter-spacing:.08em">CAPA SUPPLY MAP</b><span id="sm-status" style="font-size:10px;opacity:.6"></span></div>
     <div id="sm-l1" style="display:flex;height:26px;border-radius:6px;overflow:hidden;margin:10px 0 4px"></div>
@@ -662,11 +662,15 @@
   let rateStaking = null, rateVe3 = null, activeLCD = null;
   let allMembers = [], sortCol = 'capa', sortAsc = false;
 
-  // ── Snapshot / change-period state ────────────────────────────────────────
-  // Point this at your GitHub raw snapshots directory
-  const SNAP_BASE = 'https://raw.githubusercontent.com/defipatriot/ampcapa-data_2026/main/snapshots';
-  let snapshotIndex = null;
-  let snapshotCache = {};      // key → {address: capa} lookup
+  // ── Change-period state (Rev 2.2: org wallets-daily series) ───────────────
+  // token-catalog/supply/capa/wallets-daily/<date>.json — {addr: [total_capa_equiv, receipt_dao_capa]}
+  // written by the capa-supply cron (src 'capture') or folded from the retired
+  // ampcapa-data_2026 weeklies/monthlies (src 'legacy_fold' — weekly resolution).
+  // The dead personal feed is no longer read anywhere on this page.
+  const DAILY_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/token-catalog/supply/capa/wallets-daily';
+  let snapshotIndex = null;    // {days:[{date,src}]}
+  let snapshotCache = {};      // date → {lookup:{address: receipt_dao_capa}, src}
+  let snapUsed = null;         // {date, src} of the comparison day actually used
   let activePeriod  = '24h';   // '24h' | '7d' | '30d'
   let snapLabel     = '24H';
 
@@ -869,63 +873,42 @@
   // ── Snapshot loading ─────────────────────────────────────────────────────────
   async function loadSnapshotIndex() {
     try {
-      const res = await fetch(`${SNAP_BASE}/index.json`);
+      const res = await fetch(`${DAILY_BASE}/index.json?t=${Date.now()}`);
       if (!res.ok) throw new Error(res.status);
       snapshotIndex = await res.json();
+      if (!Array.isArray(snapshotIndex.days)) snapshotIndex = null;
     } catch(e) { snapshotIndex = null; }
   }
 
-  async function loadSnapshot(key) {
-    if (snapshotCache[key]) return snapshotCache[key];
+  async function loadSnapshot(date) {
+    if (snapshotCache[date]) return snapshotCache[date];
     try {
-      const res = await fetch(key);
+      const res = await fetch(`${DAILY_BASE}/${date}.json`);
       if (!res.ok) throw new Error(res.status);
       const data = await res.json();
-      // Build address→capa lookup
       const lookup = {};
-      (data.members || []).forEach(m => { lookup[m.address] = m.capa; });
-      snapshotCache[key] = lookup;
-      return lookup;
+      for (const [addr, row] of Object.entries(data.rows || {})) {
+        const v = Array.isArray(row) ? row[1] : null;           // receipt_dao_capa — what this tab compares
+        if (typeof v === 'number') lookup[addr] = v;              // null = unknown that day → no delta, never 0
+      }
+      snapshotCache[date] = { lookup, src: data.src || 'capture', date };
+      return snapshotCache[date];
     } catch(e) { return null; }
   }
 
+  // Pick the latest committed day at or before (today − N days); 24h = the latest day before today.
   async function getComparisonSnapshot(period) {
+    snapUsed = null;
     if (!snapshotIndex) return null;
-    let fileKey = null;
-
-    if (period === '24h') {
-      // daily is an object {dayName: dateStr} — get sorted array of date values
-      const today = new Date().toISOString().slice(0,10);
-      const dailyDates = Object.values(snapshotIndex.daily || {}).sort();
-      const candidates = dailyDates.filter(d => d < today).slice(-1);
-      // Map date back to day name to build the filename
-      if (candidates.length) {
-        const dayName = Object.keys(snapshotIndex.daily).find(k => snapshotIndex.daily[k] === candidates[0]);
-        if (dayName) fileKey = `${SNAP_BASE}/daily/${dayName}.json`;
-      }
-    } else if (period === '7d') {
-      const target = new Date(); target.setUTCDate(target.getUTCDate() - 7);
-      const targetStr = target.toISOString().slice(0,10);
-      const dailyDates = Object.values(snapshotIndex.daily || {}).sort();
-      const candidates = dailyDates.filter(d => d <= targetStr).slice(-1);
-      if (candidates.length) {
-        const dayName = Object.keys(snapshotIndex.daily).find(k => snapshotIndex.daily[k] === candidates[0]);
-        if (dayName) fileKey = `${SNAP_BASE}/daily/${dayName}.json`;
-      }
-    } else if (period === '30d') {
-      // Most recent monthly, or weekly from ~30 days ago
-      if ((snapshotIndex.monthly || []).length) {
-        const m = snapshotIndex.monthly.slice(-1)[0];
-        fileKey = `${SNAP_BASE}/monthly/${m}.json`;
-      } else if ((snapshotIndex.weekly || []).length) {
-        const target = new Date(); target.setUTCDate(target.getUTCDate() - 30);
-        const targetStr = target.toISOString().slice(0,10);
-        const candidates = (snapshotIndex.weekly || []).filter(w => w <= targetStr).slice(-1);
-        if (candidates.length) fileKey = `${SNAP_BASE}/weekly/${candidates[0]}.json`;
-      }
-    }
-
-    return fileKey ? loadSnapshot(fileKey) : null;
+    const back = { '24h': 1, '7d': 7, '30d': 30 }[period] || 1;
+    const target = new Date(); target.setUTCDate(target.getUTCDate() - back);
+    const targetStr = target.toISOString().slice(0, 10);
+    const dates = snapshotIndex.days.map(d => d.date).sort();
+    const candidates = dates.filter(d => d <= targetStr).slice(-1);
+    if (!candidates.length) return null;
+    const snap = await loadSnapshot(candidates[0]);
+    if (snap) snapUsed = { date: snap.date, src: snap.src };
+    return snap ? snap.lookup : null;
   }
 
   function setPeriod(period) {
@@ -938,11 +921,19 @@
     document.getElementById('snap-badge').textContent = snapLabel;
     if (allMembers.length) renderMembers();
   }
+  function paintSnapBadge() {
+    const el = document.getElementById('snap-badge');
+    if (!snapUsed) { el.textContent = snapLabel + ' · no comparison day'; el.title = 'No committed wallets-daily file at or before the target date.'; return; }
+    const legacy = snapUsed.src !== 'capture';
+    el.textContent = `${snapLabel} vs ${snapUsed.date}${legacy ? ' (legacy weekly)' : ''}`;
+    el.title = legacy ? `Compared against the ${snapUsed.date} snapshot folded from the retired ampcapa-data_2026 weekly feed (weekly resolution until the org daily series accrues).` : `Compared against the org wallets-daily capture of ${snapUsed.date}.`;
+  }
 
   // ── renderMembers ─────────────────────────────────────────────────────────
   async function renderMembers() {
     // Load the comparison snapshot for the active period
     const snapLookup = await getComparisonSnapshot(activePeriod);
+    paintSnapBadge();
 
     allMembers.sort((a, b) => {
       if (sortCol === 'address') return sortAsc ? a.address.localeCompare(b.address) : b.address.localeCompare(a.address);
@@ -1432,6 +1423,17 @@
   const WHALES_PRODUCT_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/token-catalog/supply/capa/wallets.json';
   let whaleSource = null;          // 'product' | 'live' | null
   let whaleProduct = null;         // the parsed wallets.json
+  let trustLabels = null;          // address → verified label (catalog/trusted/current.json) — verified names only, never guessed
+  async function loadTrustLabels() {
+    if (trustLabels) return trustLabels;
+    try {
+      const r = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/catalog/trusted/current.json?t=' + Date.now());
+      if (!r.ok) throw new Error(r.status);
+      const d = await r.json(); trustLabels = {};
+      for (const a of (d.addresses || [])) if (a.address && a.label) trustLabels[a.address] = a.label;
+    } catch (e) { trustLabels = {}; }
+    return trustLabels;
+  }
   const V2_FORMS = ['capa_liquid','gov_direct','ampcapa_liquid','ampcapa_tla_nonamp','receipt_held','receipt_dao','receipt_unbonding','astro_lp_liquid','astro_lp_tla_nonamp','astro_lp_amp','ss_lp_liquid','ss_lp_tla_nonamp','ss_lp_amp'];
   const V2_LABEL = { capa_liquid:'Liquid CAPA', gov_direct:'Gov staked', ampcapa_liquid:'ampCAPA liquid', ampcapa_tla_nonamp:'ampCAPA in TLA (plain)', receipt_held:'Amplified receipt held', receipt_dao:'Receipt in DAO', receipt_unbonding:'Receipt unbonding', astro_lp_liquid:'Astro LP liquid', astro_lp_tla_nonamp:'Astro LP in TLA (plain)', astro_lp_amp:'Astro LP amplified', ss_lp_liquid:'SS LP liquid', ss_lp_tla_nonamp:'SS LP in TLA (plain)', ss_lp_amp:'SS LP amplified' };
   const nz = (v) => (typeof v === 'number' && isFinite(v)) ? v : 0;
@@ -1468,7 +1470,9 @@
       if (!Array.isArray(d.rows)) throw new Error('no rows');
       whaleProduct = d;
       whaleSource = 'product';
+      const names = await loadTrustLabels();
       whaleData = d.rows.map(rowFromProduct);
+      for (const w of whaleData) if (!w.protocol && names[w.address]) w.trustLabel = names[w.address];
       const guards = d.sum_guards || {};
       const bad = Object.entries(guards).filter(([, g]) => g.ok !== true).map(([k, g]) => k + (g.enumeration === 'incomplete' ? ' (incomplete)' : ''));
       const unk = (d.columns_unknown || []).map(k => V2_LABEL[k] || k);
@@ -1741,7 +1745,7 @@
           ? '<span style="font-size:8px;background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);border-radius:3px;padding:1px 5px;">Partial</span>'
           : '<span style="font-size:8px;background:rgba(74,222,128,0.15);color:#4ade80;border:1px solid rgba(74,222,128,0.3);border-radius:3px;padding:1px 5px;">Engaged</span>';
 
-      const addrLink = makeAddrCell(w.address, w.protocol) + (w.isContract ? ' <span style="font-size:8px;color:#818cf8;border:1px solid rgba(99,102,241,0.3);border-radius:3px;padding:0 4px" title="32-byte contract address (a DAO, multisig or vesting contract) — a real custody endpoint, counted as a holder">contract</span>' : '');
+      const addrLink = makeAddrCell(w.address, w.protocol || w.trustLabel || null) + (w.isContract ? ' <span style="font-size:8px;color:#818cf8;border:1px solid rgba(99,102,241,0.3);border-radius:3px;padding:0 4px" title="32-byte contract address (a DAO, multisig or vesting contract) — a real custody endpoint, counted as a holder">contract</span>' : '');
       const f = w.forms || {};
       const unknownCell = (keys) => keys.some(k => f[k] === null);   // null-vs-0: an incomplete enumeration renders "?" never 0
       const cell = (v, color, keys, tip) => unknownCell(keys || [])
@@ -2652,7 +2656,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 2.1</span>
+                    <span class="font-mono">Rev 2.2</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>
