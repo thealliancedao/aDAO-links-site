@@ -339,7 +339,7 @@
     <span style="cursor:pointer;color:#6b6557;padding:4px 10px;border:1px solid #1e2028;border-radius:4px;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.5px;"
           onclick="document.getElementById('addr-lookup-overlay').style.display='flex'">🔍 Address Lookup</span>
   </div>
-  <!-- Rev 2.0: the org supply map (token-catalog/supply/capa, guard-checked cron product) -->
+  <!-- Rev 2.0: the org supply map (token-catalog/supply/capa, guard-checked cron product); Rev 2.1: whale table reads supply/capa/wallets.json (13 forms, sum-guarded) -->
   <div id="supply-map-panel" style="margin:14px 0;padding:14px;border:1px solid rgba(148,163,184,.25);border-radius:10px;background:rgba(15,17,23,.6)">
     <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap"><b style="letter-spacing:.08em">CAPA SUPPLY MAP</b><span id="sm-status" style="font-size:10px;opacity:.6"></span></div>
     <div id="sm-l1" style="display:flex;height:26px;border-radius:6px;overflow:hidden;margin:10px 0 4px"></div>
@@ -533,11 +533,13 @@
           style="width:13px;height:13px;cursor:pointer;accent-color:#f59e0b;" />
         <label for="whale-show-protocols" style="font-size:10px;color:#6b6557;cursor:pointer;">Include Protocol Contracts</label>
       </div>
-      <button class="btn" id="whale-scan-btn" onclick="scanCapaWhales()" style="font-size:10px;padding:6px 14px;">⛏ SCAN</button>
+      <button class="btn" id="whale-scan-btn" onclick="loadWhalesFromProduct()" style="font-size:10px;padding:6px 14px;">⟳ RELOAD</button>
+      <button class="btn btn-outline" id="whale-live-btn" onclick="scanCapaWhales()" style="font-size:10px;padding:6px 14px;" title="Browser-side scan of 4 of the 13 custody forms (liquid CAPA, gov, DAO receipts, Astro LP). Use only if the cron product is unavailable.">⛏ LIVE (4 forms)</button>
       <button class="btn btn-outline" id="whale-export-btn" onclick="whaleExportCSV()" style="display:none;font-size:10px;padding:6px 14px;">EXPORT CSV</button>
       <span id="whale-status" style="font-size:10px;color:#6b6557;margin-left:4px;"></span>
     </div>
 
+    <div id="whale-source" style="display:none;font-size:10px;color:#6b6557;margin:6px 0 8px;line-height:1.6"></div>
     <div class="members-summary" id="whale-summary" style="display:none">
       <div><div class="summary-item-label">Wallets Found</div><div class="summary-item-val" id="wh-sum-wallets">—</div></div>
       <div><div class="summary-item-label">Unengaged Whales</div><div class="summary-item-val" id="wh-sum-unengaged" style="color:#f87171">—</div></div>
@@ -547,7 +549,8 @@
 
     <div id="whale-note" style="display:none;background:#0d0f14;border:1px solid #1e2028;border-radius:8px;
          padding:12px 14px;font-size:10px;color:#6b6557;line-height:1.7;margin-bottom:14px;">
-      Showing wallets holding ≥ threshold CAPA in any form, excluding known protocol contracts.
+      <span id="whale-note-v2">Showing wallets holding ≥ threshold CAPA-equivalent across <strong>all 13 custody forms</strong> (liquid CAPA · gov · ampCAPA liquid · ampCAPA in TLA · amplified receipt held / in DAO / unbonding · Astro LP liquid / TLA / amplified · SS LP liquid / TLA / amplified), converted at the live rates the cron captured. Hover a cell for the breakdown. Structural bucket contracts (gov, hub, pair, compounder, DAO module) are hidden unless toggled — their holdings are the other rows. Other contract addresses (DAOs such as the aDAO treasury, multisigs, vesting) are real holders and carry a <em>contract</em> chip.</span>
+      <span id="whale-note-live" style="display:none">Showing wallets holding ≥ threshold CAPA in <strong>4 of 13 forms</strong> (browser live scan — liquid ampCAPA, unbonding queues, SS LP and liquid LP are NOT counted), excluding known protocol contracts.</span>
       <span style="color:#f87171;font-weight:700;">Red = unengaged</span> (liquid only) ·
       <span style="color:#f59e0b;font-weight:700;">Amber = partial</span> (some staking) ·
       <span style="color:#4ade80;font-weight:700;">Green = engaged</span> (fully staked).
@@ -564,11 +567,14 @@
           <tr>
             <th onclick="whaleSortBy('rank')" style="width:40px">#</th>
             <th onclick="whaleSortBy('address')" style="min-width:160px">Address</th>
-            <th onclick="whaleSortBy('liquid')" style="min-width:120px">Liquid CAPA</th>
-            <th onclick="whaleSortBy('daodao')" style="min-width:120px" title="CAPA equivalent from ampLP staked in DAODAO">ampCAPA LP</th>
-            <th onclick="whaleSortBy('gov')" style="min-width:100px" title="CAPA staked directly in governance">Gov Staked</th>
-            <th onclick="whaleSortBy('lp')" style="min-width:120px" title="Underlying CAPA from CAPA/LUNA Astroport LP tokens">CAPA/LUNA LP</th>
-            <th onclick="whaleSortBy('total')" style="min-width:120px">Total ↓</th>
+            <th onclick="whaleSortBy('liquid')" style="min-width:110px">Liquid CAPA</th>
+            <th onclick="whaleSortBy('gov')" style="min-width:100px" title="CAPA staked directly in Solid governance (share × live rate)">Gov Staked</th>
+            <th onclick="whaleSortBy('ampliquid')" class="v2-col" style="min-width:100px" title="ampCAPA held in wallet, × hub rate">ampCAPA</th>
+            <th onclick="whaleSortBy('amptla')" class="v2-col" style="min-width:100px" title="ampCAPA staked plain in the TLA single bucket (post-take)">ampCAPA in TLA</th>
+            <th onclick="whaleSortBy('daodao')" style="min-width:110px" title="Amplified receipt staked in the ampCAPA DAO voting module (CAPA-equivalent)">Receipt in DAO</th>
+            <th onclick="whaleSortBy('rcpt')" class="v2-col" style="min-width:110px" title="Amplified receipt held in wallet + in the DAO unbonding queue (hover cell)">Receipt held / unbonding</th>
+            <th onclick="whaleSortBy('lp')" style="min-width:110px" title="Underlying CAPA in CAPA-LUNA LP — Astroport + SkeletonSwap, liquid + TLA-staked + amplified (hover cell)">CAPA/LUNA LP</th>
+            <th onclick="whaleSortBy('total')" style="min-width:110px">Total ↓</th>
             <th style="min-width:100px">Status</th>
           </tr>
         </thead>
@@ -578,8 +584,11 @@
             <td style="color:#4a4840;font-size:9px;padding:6px 4px;">TOTAL</td>
             <td></td>
             <td id="wt-liquid" style="color:#e8e4d9;font-weight:700;font-size:10px;"></td>
-            <td id="wt-daodao" style="color:#a855f7;font-weight:700;font-size:10px;"></td>
             <td id="wt-gov"    style="color:#38bdf8;font-weight:700;font-size:10px;"></td>
+            <td id="wt-ampliquid" class="v2-col" style="color:#67e8f9;font-weight:700;font-size:10px;"></td>
+            <td id="wt-amptla" class="v2-col" style="color:#67e8f9;font-weight:700;font-size:10px;"></td>
+            <td id="wt-daodao" style="color:#a855f7;font-weight:700;font-size:10px;"></td>
+            <td id="wt-rcpt" class="v2-col" style="color:#a855f7;font-weight:700;font-size:10px;"></td>
             <td id="wt-lp"    style="color:#f59e0b;font-weight:700;font-size:10px;"></td>
             <td id="wt-total"  style="color:#e8e4d9;font-weight:700;font-size:10px;"></td>
             <td></td>
@@ -753,23 +762,10 @@
       if (incStakerData.length === 0) loadVe3LpStakers();
 
     } else if (name === 'whales') {
-      // Load ALL data sources, then auto-scan at 1M threshold
-      const whStatus = document.getElementById('whale-status');
+      // Rev 2.1: the cron product (all 13 forms, sum-guarded) is the primary
+      // source; the browser live scan (4 forms) is a labeled fallback only.
       if (whaleData.length > 0) return; // already loaded
-      whStatus.textContent = 'Loading all data sources…';
-      const fetches = [];
-      if (allMembers.length === 0)   fetches.push(fetchAllMembers());
-      if (govStakers.length === 0)   fetches.push(fetchGovStakers());
-      if (tlaLpData.length === 0)    fetches.push(loadTlaLpHolders());
-      if (incStakerData.length === 0) fetches.push(loadVe3LpStakers());
-      if (fetches.length > 0) {
-        Promise.all(fetches).then(() => {
-          whStatus.textContent = 'All data loaded — scanning…';
-          scanCapaWhales();
-        });
-      } else {
-        scanCapaWhales();
-      }
+      loadWhalesFromProduct();
     }
   }
 
@@ -1432,10 +1428,96 @@
     renderWhaleTable();
   }
 
+  // ── Rev 2.1: whale table from the org product (token-catalog/supply/capa/wallets.json) ──
+  const WHALES_PRODUCT_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/token-catalog/supply/capa/wallets.json';
+  let whaleSource = null;          // 'product' | 'live' | null
+  let whaleProduct = null;         // the parsed wallets.json
+  const V2_FORMS = ['capa_liquid','gov_direct','ampcapa_liquid','ampcapa_tla_nonamp','receipt_held','receipt_dao','receipt_unbonding','astro_lp_liquid','astro_lp_tla_nonamp','astro_lp_amp','ss_lp_liquid','ss_lp_tla_nonamp','ss_lp_amp'];
+  const V2_LABEL = { capa_liquid:'Liquid CAPA', gov_direct:'Gov staked', ampcapa_liquid:'ampCAPA liquid', ampcapa_tla_nonamp:'ampCAPA in TLA (plain)', receipt_held:'Amplified receipt held', receipt_dao:'Receipt in DAO', receipt_unbonding:'Receipt unbonding', astro_lp_liquid:'Astro LP liquid', astro_lp_tla_nonamp:'Astro LP in TLA (plain)', astro_lp_amp:'Astro LP amplified', ss_lp_liquid:'SS LP liquid', ss_lp_tla_nonamp:'SS LP in TLA (plain)', ss_lp_amp:'SS LP amplified' };
+  const nz = (v) => (typeof v === 'number' && isFinite(v)) ? v : 0;
+
+  function rowFromProduct(r) {
+    const c = r.capa_equiv || {};
+    const liquid = nz(c.capa_liquid), gov = nz(c.gov_direct), ampliquid = nz(c.ampcapa_liquid), amptla = nz(c.ampcapa_tla_nonamp);
+    const daodao = nz(c.receipt_dao), rcpt = nz(c.receipt_held) + nz(c.receipt_unbonding);
+    const lp = nz(c.astro_lp_liquid) + nz(c.astro_lp_tla_nonamp) + nz(c.astro_lp_amp) + nz(c.ss_lp_liquid) + nz(c.ss_lp_tla_nonamp) + nz(c.ss_lp_amp);
+    const total = liquid + gov + ampliquid + amptla + daodao + rcpt + lp;
+    const staked = total - liquid;                           // everything except plain liquid CAPA is a position (bonded, staked, LP'd or queued)
+    // role:'bucket' = the structural contracts whose holdings ARE the other rows (hidden unless toggled — showing them double-counts).
+    // Any other 32-byte address (DAODAO cores like the aDAO treasury, multisigs, vesting) is a real custody endpoint: shown as a holder with a "contract" chip.
+    const isBucket = r.role === 'bucket';
+    const status = isBucket ? 'protocol' : staked === 0 ? 'unengaged' : (staked / total) >= 0.8 ? 'engaged' : 'partial';
+    return { address: r.address, liquid, gov, ampliquid, amptla, daodao, rcpt, lp, total, status, protocol: isBucket ? (r.label || 'bucket') : null, isContract: r.kind === 'contract' && !isBucket, forms: c, unknown: Object.keys(c).filter(k => c[k] === null) };
+  }
+
+  async function loadWhalesFromProduct() {
+    const statusEl = document.getElementById('whale-status');
+    const srcEl    = document.getElementById('whale-source');
+    const btn      = document.getElementById('whale-scan-btn');
+    btn.disabled = true;
+    document.getElementById('whale-table').style.display = 'none';
+    document.getElementById('whale-placeholder').style.display = 'block';
+    document.getElementById('whale-placeholder').textContent = 'Loading the CAPA custody rows (cron product)…';
+    document.getElementById('whale-summary').style.display = 'none';
+    document.getElementById('whale-note').style.display = 'none';
+    document.getElementById('whale-export-btn').style.display = 'none';
+    try {
+      const res = await fetch(WHALES_PRODUCT_URL + '?t=' + Date.now());
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const d = await res.json();
+      if (!Array.isArray(d.rows)) throw new Error('no rows');
+      whaleProduct = d;
+      whaleSource = 'product';
+      whaleData = d.rows.map(rowFromProduct);
+      const guards = d.sum_guards || {};
+      const bad = Object.entries(guards).filter(([, g]) => g.ok !== true).map(([k, g]) => k + (g.enumeration === 'incomplete' ? ' (incomplete)' : ''));
+      const unk = (d.columns_unknown || []).map(k => V2_LABEL[k] || k);
+      srcEl.innerHTML = 'Source: <strong>cron product</strong> · captured ' + String(d.capturedAt).slice(0, 16) + 'Z · status <strong>' + d.status + '</strong>'
+        + ' · sum guards ' + (bad.length ? '<span style="color:#f87171">' + (Object.keys(guards).length - bad.length) + '/' + Object.keys(guards).length + ' — ' + bad.join(', ') + '</span>' : '<span style="color:#4ade80">' + Object.keys(guards).length + '/' + Object.keys(guards).length + ' green</span>')
+        + ' · ' + (d.counts ? d.counts.wallets_enumerated.toLocaleString('en-US') + ' wallets enumerated, ' + d.counts.rows_published.toLocaleString('en-US') + ' ≥ ' + (d.floor_capa_equiv || 0).toLocaleString('en-US') + ' CAPA published' : '')
+        + (unk.length ? ' · <span style="color:#f59e0b">unknown this run: ' + unk.join(', ') + ' (enumeration incomplete — shown as ?)</span>' : '')
+        + (d.unattributed && d.unattributed.astro_lp_in_incentives_not_tla > 0 ? ' · ' + (d.unattributed.astro_lp_in_incentives_not_tla).toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' Astro LP staked directly on Astroport (not TLA) is unattributable to wallets' : '');
+      srcEl.style.display = '';
+      document.getElementById('whale-note-v2').style.display = '';
+      document.getElementById('whale-note-live').style.display = 'none';
+      document.querySelectorAll('.v2-col').forEach(el => el.style.display = '');
+      finishWhales('product');
+      statusEl.textContent = 'Product loaded — ' + whaleData.filter(w => w.status !== 'protocol').length + ' wallets in file';
+    } catch (e) {
+      whaleSource = null; whaleProduct = null;
+      srcEl.innerHTML = '<span style="color:#f87171">Cron product unavailable (' + e.message + ').</span> Use ⛏ LIVE (4 forms) for a partial browser scan.';
+      srcEl.style.display = '';
+      document.getElementById('whale-placeholder').textContent = 'Cron product unavailable — ' + e.message + '. The LIVE button runs a partial (4-form) browser scan.';
+      statusEl.textContent = 'Product unavailable';
+    } finally { btn.disabled = false; }
+  }
+
+  // summary + render shared by product + live paths (threshold applied at render)
+  function finishWhales(source) {
+    const threshold = parseFloat(document.getElementById('whale-threshold').value) || 1000000;
+    const users = whaleData.filter(w => w.status !== 'protocol' && w.total >= threshold);
+    document.getElementById('wh-sum-wallets').textContent   = users.length;
+    document.getElementById('wh-sum-unengaged').textContent = users.filter(w => w.status === 'unengaged').length;
+    document.getElementById('wh-sum-partial').textContent   = users.filter(w => w.status === 'partial').length;
+    document.getElementById('wh-sum-engaged').textContent   = users.filter(w => w.status === 'engaged').length;
+    document.getElementById('whale-summary').style.display  = '';
+    document.getElementById('whale-note').style.display     = '';
+    document.getElementById('whale-placeholder').style.display = 'none';
+    document.getElementById('whale-export-btn').style.display = whaleData.length ? '' : 'none';
+    renderWhaleTable();
+  }
+  document.getElementById('whale-threshold').addEventListener('change', () => { if (whaleData.length) finishWhales(whaleSource); });
+
   async function scanCapaWhales() {
+    whaleSource = 'live'; whaleProduct = null;
+    document.getElementById('whale-source').innerHTML = 'Source: <strong style="color:#f59e0b">browser live scan — 4 of 13 forms</strong> (liquid CAPA · gov · receipt in DAO · Astro LP). ampCAPA, unbonding, SS LP and amplified-LP columns are not read here.';
+    document.getElementById('whale-source').style.display = '';
+    document.getElementById('whale-note-v2').style.display = 'none';
+    document.getElementById('whale-note-live').style.display = '';
+    document.querySelectorAll('.v2-col').forEach(el => el.style.display = 'none');
     const threshold = parseFloat(document.getElementById('whale-threshold').value) || 1000000;
     const statusEl  = document.getElementById('whale-status');
-    const btn       = document.getElementById('whale-scan-btn');
+    const btn       = document.getElementById('whale-live-btn');
 
     btn.disabled = true;
     btn.textContent = '⏳ Scanning…';
@@ -1601,7 +1683,7 @@
       document.getElementById('whale-placeholder').textContent = 'Scan failed — ' + e.message;
     } finally {
       btn.disabled = false;
-      btn.textContent = '⛏ SCAN';
+      btn.textContent = '⛏ LIVE (4 forms)';
     }
   }
 
@@ -1611,8 +1693,11 @@
     const showProtocols = document.getElementById('whale-show-protocols')?.checked;
 
     // Build display data: user wallets + optionally protocol contracts
-    let displayData = [...whaleData];
-    if (showProtocols) {
+    const thr = parseFloat(document.getElementById('whale-threshold').value) || 1000000;
+    let displayData = whaleSource === 'product'
+      ? whaleData.filter(w => w.status === 'protocol' ? showProtocols : w.total >= thr)   // product rows carry contracts already (kind:contract)
+      : [...whaleData];
+    if (showProtocols && whaleSource !== 'product') {
       const existing = new Set(whaleData.map(w => w.address));
       // Build LP lookup from both sources
       const allLpMap = {};
@@ -1638,12 +1723,7 @@
     }
 
     const sorted = [...displayData].sort((a, b) => {
-      const key = whaleSortCol === 'rank'    ? 'total'
-                : whaleSortCol === 'total'   ? 'total'
-                : whaleSortCol === 'liquid'  ? 'liquid'
-                : whaleSortCol === 'daodao'  ? 'daodao'
-                : whaleSortCol === 'gov'     ? 'gov'
-                : whaleSortCol === 'lp'      ? 'lp'
+      const key = ['liquid','daodao','gov','lp','ampliquid','amptla','rcpt'].includes(whaleSortCol) ? whaleSortCol
                 : whaleSortCol === 'address' ? null : 'total';
       if (whaleSortCol === 'address') {
         return whaleSortAsc ? a.address.localeCompare(b.address) : b.address.localeCompare(a.address);
@@ -1661,16 +1741,26 @@
           ? '<span style="font-size:8px;background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);border-radius:3px;padding:1px 5px;">Partial</span>'
           : '<span style="font-size:8px;background:rgba(74,222,128,0.15);color:#4ade80;border:1px solid rgba(74,222,128,0.3);border-radius:3px;padding:1px 5px;">Engaged</span>';
 
-      const addrLink = makeAddrCell(w.address, w.protocol);
+      const addrLink = makeAddrCell(w.address, w.protocol) + (w.isContract ? ' <span style="font-size:8px;color:#818cf8;border:1px solid rgba(99,102,241,0.3);border-radius:3px;padding:0 4px" title="32-byte contract address (a DAO, multisig or vesting contract) — a real custody endpoint, counted as a holder">contract</span>' : '');
+      const f = w.forms || {};
+      const unknownCell = (keys) => keys.some(k => f[k] === null);   // null-vs-0: an incomplete enumeration renders "?" never 0
+      const cell = (v, color, keys, tip) => unknownCell(keys || [])
+        ? `<td style="color:#f59e0b" title="enumeration incomplete this run">?</td>`
+        : `<td style="color:${color}"${tip ? ` title="${tip}"` : ''}>${v > 0 ? fmt(v, 0) : '<span style="color:#2a2522">0</span>'}</td>`;
+      const tip = (keys) => keys.map(k => V2_LABEL[k] + ': ' + (f[k] === null ? '?' : fmt(nz(f[k]), 0))).join(' · ');
+      const v2 = whaleSource === 'product';
 
-      return `<tr>
+      return `<tr data-addr="${w.address}">
         <td>${i + 1}</td>
         <td>${addrLink}</td>
-        <td style="color:#e8e4d9;font-weight:600">${w.liquid > 0 ? fmt(w.liquid, 0) : '<span style="color:#2a2522">0</span>'}</td>
-        <td style="color:#a855f7">${w.daodao > 0 ? fmt(w.daodao, 0) : '<span style="color:#2a2522">0</span>'}</td>
-        <td style="color:#38bdf8">${w.gov > 0 ? fmt(w.gov, 0) : '<span style="color:#2a2522">0</span>'}</td>
-        <td style="color:#f59e0b">${(w.lp||0) > 0 ? fmt(w.lp, 0) : '<span style="color:#2a2522">0</span>'}</td>
-        <td style="color:#b0a898;font-weight:700">${fmt(w.total, 0)}</td>
+        ${cell(w.liquid, '#e8e4d9', v2 ? ['capa_liquid'] : [])}
+        ${cell(w.gov, '#38bdf8', v2 ? ['gov_direct'] : [])}
+        ${v2 ? cell(w.ampliquid, '#67e8f9', ['ampcapa_liquid']) : '<td class="v2-col" style="display:none"></td>'}
+        ${v2 ? cell(w.amptla, '#67e8f9', ['ampcapa_tla_nonamp']) : '<td class="v2-col" style="display:none"></td>'}
+        ${cell(w.daodao, '#a855f7', v2 ? ['receipt_dao'] : [])}
+        ${v2 ? cell(w.rcpt, '#a855f7', ['receipt_held','receipt_unbonding'], tip(['receipt_held','receipt_unbonding'])) : '<td class="v2-col" style="display:none"></td>'}
+        ${cell(w.lp||0, '#f59e0b', v2 ? ['astro_lp_liquid','astro_lp_tla_nonamp','astro_lp_amp','ss_lp_liquid','ss_lp_tla_nonamp','ss_lp_amp'] : [], v2 ? tip(['astro_lp_liquid','astro_lp_tla_nonamp','astro_lp_amp','ss_lp_liquid','ss_lp_tla_nonamp','ss_lp_amp']) : '')}
+        <td style="color:#b0a898;font-weight:700"${v2 && w.unknown.length ? ' title="total excludes ' + w.unknown.length + ' unknown form(s)"' : ''}>${fmt(w.total, 0)}${v2 && w.unknown.length ? '<span style="color:#f59e0b">+?</span>' : ''}</td>
         <td>${statusBadge}</td>
       </tr>`;
     }).join('');
@@ -1681,9 +1771,12 @@
   }
 
   function whaleExportCSV() {
-    const rows = [['Address','Liquid CAPA','DAODAO CAPA','Gov Staked','Total','Status']];
+    const rows = whaleSource === 'product'
+      ? [['Address','Kind','Label', ...V2_FORMS, 'Total CAPA-equiv','Status']]
+      : [['Address','Liquid CAPA','DAODAO CAPA','Gov Staked','Total','Status']];
     for (const w of whaleData) {
-      rows.push([w.address, w.liquid.toFixed(2), w.daodao.toFixed(2), w.gov.toFixed(2), w.total.toFixed(2), w.status]);
+      if (whaleSource === 'product') rows.push([w.address, w.protocol ? 'bucket' : (w.isContract ? 'contract' : 'wallet'), w.protocol || '', ...V2_FORMS.map(k => w.forms[k] === null ? '' : nz(w.forms[k]).toFixed(2)), w.total.toFixed(2), w.status]);
+      else rows.push([w.address, w.liquid.toFixed(2), w.daodao.toFixed(2), w.gov.toFixed(2), w.total.toFixed(2), w.status]);
     }
     const csv = rows.map(r => r.join(',')).join('\n');
     const a = document.createElement('a');
@@ -2278,13 +2371,19 @@
         daodao: acc.daodao + (w.daodao||0),
         gov:    acc.gov    + (w.gov||0),
         lp:     acc.lp     + (w.lp||0),
+        ampliquid: acc.ampliquid + (w.ampliquid||0),
+        amptla: acc.amptla + (w.amptla||0),
+        rcpt:   acc.rcpt   + (w.rcpt||0),
         total:  acc.total  + (w.total||0),
-      }), { liquid:0, daodao:0, gov:0, lp:0, total:0 });
+      }), { liquid:0, daodao:0, gov:0, lp:0, ampliquid:0, amptla:0, rcpt:0, total:0 });
 
     document.getElementById('wt-liquid').textContent = fmt(totals.liquid, 0);
     document.getElementById('wt-daodao').textContent = fmt(totals.daodao, 0);
     document.getElementById('wt-gov').textContent    = fmt(totals.gov, 0);
     document.getElementById('wt-lp').textContent     = fmt(totals.lp, 0);
+    document.getElementById('wt-ampliquid').textContent = fmt(totals.ampliquid, 0);
+    document.getElementById('wt-amptla').textContent = fmt(totals.amptla, 0);
+    document.getElementById('wt-rcpt').textContent   = fmt(totals.rcpt, 0);
     document.getElementById('wt-total').textContent  = fmt(totals.total, 0);
     tfoot.style.display = '';
   }
@@ -2553,7 +2652,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 1.3</span>
+                    <span class="font-mono">Rev 2.1</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>
