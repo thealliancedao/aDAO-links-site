@@ -605,6 +605,7 @@ async function loadGovPanels() {
   const pool = snap && (snap.pools || []).find(p => (p.name || '').includes('FUEL'));
   if (pool) {
     setText('dex-tvl', fmtTvl(pool.depth_usd)); setText('tla-tvl', fmtTvl(pool.staked_in_tla_usd));
+    setText('pool-tvl', fmtTvl(pool.depth_usd));   // top strip tile (was orphaned in 2.0)
     const vp = pool.voting_power || {};
     setText('tla-vp-sub', Math.round(pool.staked_in_tla_usd/pool.depth_usd*100) + '% of pool \u00b7 ' + (vp.vp_human||0).toLocaleString(undefined,{maximumFractionDigits:0}) + ' VP (' + (vp.pct_of_bucket||0).toFixed(1) + '% of bucket)');
   }
@@ -633,8 +634,10 @@ async function loadWhales() {
   try {
     let owners = [], key = null;
     for (let i = 0; i < 5; i++) {
-      const u = LCD + '/cosmos/bank/v1beta1/denom_owners/' + encodeURIComponent(FUEL_IBC) + '?pagination.limit=500' + (key ? '&pagination.key=' + encodeURIComponent(key) : '');
-      const r = await jget(u); if (!r) break;
+      const pag = '&pagination.limit=500' + (key ? '&pagination.key=' + encodeURIComponent(key) : '');
+      let r = await jget(LCD + '/cosmos/bank/v1beta1/denom_owners_by_query?denom=' + encodeURIComponent(FUEL_IBC) + pag);
+      if (!r) r = await jget(LCD + '/cosmos/bank/v1beta1/denom_owners/' + encodeURIComponent(FUEL_IBC) + '?' + pag.slice(1));
+      if (!r) { if (!owners.length) el.textContent = 'Holder scan unavailable (LCD rejected the query) \u2014 refresh to retry.'; break; }
       owners.push.apply(owners, r.denom_owners || []); key = r.pagination && r.pagination.next_key; if (!key) break;
     }
     const cat = await jget(ORG + '/catalog/trusted/current.json');
@@ -649,8 +652,9 @@ function populateStatsFromHistory() {
     const last = priceRows[priceRows.length-1];
     const back = (days) => { const cut = Date.parse(last.date) - days*86400000; const c = priceRows.filter(r => Date.parse(r.date) <= cut); return c.length ? c[c.length-1] : null; };
     const d1 = back(1), d7 = back(7);
-    if (d1) setText('change-24h', fmtPct((last.usd/d1.usd-1)*100));
-    if (d7) setText('change-7d', fmtPct((last.usd/d7.usd-1)*100));
+    const put = (id, from) => { if (!from) return; const r = fmtPct(last.usd/from.usd - 1);   // fmtPct takes a FRACTION and returns {text, cls}
+      const el = document.getElementById(id); if (el) { el.textContent = r.text; el.className = 'stat-value ' + r.cls; } };
+    put('change-24h', d1); put('change-7d', d7);
   }
 }
 async function loadAll() {
@@ -783,7 +787,7 @@ loadAll().then(() => {
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 2.0 · 2026-08-24</span>
+                    <span class="font-mono">Rev 2.1 · 2026-08-24</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>
