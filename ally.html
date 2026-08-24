@@ -73,93 +73,6 @@
          SHARED CHROME CSS (header/nav/footer/changelog modal)
          Keep in sync with index.html. Eventually move to shared file.
          ============================================================ -->
-    <style id="shared-chrome-css">
-        /* Top Nav Tab */
-        .top-nav-tab {
-            min-width: 110px;
-        }
-        @media (min-width: 768px) {
-            .top-nav-tab { min-width: 140px; }
-        }
-        .top-nav-tab.active {
-            background: rgba(34, 211, 238, 0.15) !important;
-            color: #67e8f9 !important;
-            border-color: rgba(34, 211, 238, 0.6) !important;
-        }
-        .top-nav-tab.active:hover { background: rgba(34, 211, 238, 0.2) !important; }
-        
-        /* Mobile bottom tab bar */
-        .mobile-bottom-nav { display: none; }
-        @media (max-width: 767px) {
-            .mobile-bottom-nav {
-                display: grid;
-                grid-template-columns: repeat(5, 1fr);
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                z-index: 50;
-                background: rgba(10, 11, 15, 0.92);
-                backdrop-filter: blur(16px);
-                -webkit-backdrop-filter: blur(16px);
-                border-top: 1px solid rgba(34, 211, 238, 0.2);
-                padding: 0.4rem 0.25rem calc(0.4rem + env(safe-area-inset-bottom)) 0.25rem;
-                gap: 0.15rem;
-            }
-            .mobile-bottom-nav-tab {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                gap: 0.15rem;
-                padding: 0.4rem 0.2rem;
-                color: #9ca3af;
-                text-decoration: none;
-                font-size: 0.65rem;
-                font-weight: 600;
-                line-height: 1;
-                border-radius: 0.5rem;
-                transition: all 0.15s ease;
-                min-height: 48px;
-            }
-            .mobile-bottom-nav-tab i { font-size: 1.1rem; color: #6b7280; transition: color 0.15s; }
-            .mobile-bottom-nav-tab:hover, .mobile-bottom-nav-tab:active { color: #d1d5db; }
-            .mobile-bottom-nav-tab:hover i, .mobile-bottom-nav-tab:active i { color: #9ca3af; }
-            .mobile-bottom-nav-tab.active { color: #67e8f9; }
-            .mobile-bottom-nav-tab.active i { color: #22d3ee; }
-            body { padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important; }
-        }
-        
-        /* Changelog modal */
-        .changelog-body h2 {
-            font-size: 1.05rem; font-weight: 700; color: #67e8f9;
-            margin-top: 1.5rem; margin-bottom: 0.5rem;
-            padding-bottom: 0.35rem;
-            border-bottom: 1px solid rgba(34, 211, 238, 0.2);
-        }
-        .changelog-body h2:first-child { margin-top: 0; }
-        .changelog-body h3 { font-size: 0.9rem; font-weight: 600; color: #d1d5db; margin-top: 1rem; margin-bottom: 0.4rem; }
-        .changelog-body h4 { font-size: 0.85rem; font-weight: 600; color: #9ca3af; margin-top: 0.75rem; margin-bottom: 0.25rem; }
-        .changelog-body p { color: #d1d5db; margin-bottom: 0.65rem; line-height: 1.5; }
-        .changelog-body ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.75rem; }
-        .changelog-body li { color: #d1d5db; margin-bottom: 0.3rem; line-height: 1.5; }
-        .changelog-body strong { color: #fff; font-weight: 600; }
-        .changelog-body em { color: #a5f3fc; font-style: italic; }
-        .changelog-body code {
-            background: rgba(34, 211, 238, 0.1); color: #67e8f9;
-            padding: 0.1rem 0.35rem; border-radius: 0.25rem;
-            font-size: 0.85em; font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
-        }
-        .changelog-body .rev-date { color: #6b7280; font-size: 0.8rem; font-weight: 400; margin-left: 0.5rem; }
-        
-        /* Generic modal styles (in case page doesn't already have them) */
-        #changelogModal.modal {
-            transition: opacity 0.2s;
-        }
-        #changelogModal .modal-content {
-            transition: opacity 0.2s, transform 0.2s;
-        }
-    </style>
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon-16x16.png">
@@ -188,17 +101,20 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 text-center">
             <div class="stat-card p-6 rounded-xl">
-                <p id="staking-share-pct" class="text-3xl font-bold text-cyan-400">~0.72%</p>
-                <p class="text-gray-400 mt-2">of Total LUNA Staking Rewards</p>
+                <p id="staking-share-pct" class="text-3xl font-bold text-cyan-400"><i class="fas fa-spinner fa-spin text-xl"></i></p>
+                <p class="text-gray-400 mt-2">of all bonded LUNA is backing aDAO NFTs</p>
+                <p class="text-[11px] text-gray-600 mt-1">contract LUNA backing ÷ total bonded LUNA, live</p>
             </div>
             <div class="stat-card p-6 rounded-xl">
-                <p class="text-3xl font-bold text-cyan-400">+40%</p>
-                <p class="text-gray-400 mt-2">Yield Boost via Eris Protocol</p>
+                <p id="amp-yield-pct" class="text-3xl font-bold text-cyan-400"><i class="fas fa-spinner fa-spin text-xl"></i></p>
+                <p class="text-gray-400 mt-2">Rewards compound as ampLUNA</p>
+                <p id="amp-yield-sub" class="text-[11px] text-gray-600 mt-1">ampLUNA yield, from the backing series</p>
             </div>
-            <div class="stat-card p-6 rounded-xl">
+            <button type="button" id="treasury-cut-open" class="stat-card p-6 rounded-xl text-center hover:border-cyan-500/60 transition-colors cursor-pointer" title="How the 10% works">
                 <p class="text-3xl font-bold text-cyan-400">10%</p>
                 <p class="text-gray-400 mt-2">of Rewards Grow The DAO Treasury</p>
-            </div>
+                <p class="text-[11px] text-cyan-600 mt-1"><i class="fas fa-circle-info"></i> how it works</p>
+            </button>
         </div>
         
          <!-- Stats Section - Now with Spinners -->
@@ -297,9 +213,15 @@
                 </p>
                 <div class="text-center">
                     <a href="https://www.youtube.com/watch?v=VNZnRxbEaQg&t=9s" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline mb-4 block">Watch the Video Guide on How to Break an NFT</a>
-                    <a href="https://www.boostdao.io/ignite/permissionless-terra" target="_blank" rel="noopener noreferrer" class="link-button font-bold py-3 px-6 rounded-lg inline-block">
-                        Claim Rewards on BoostDAO.io Ignite
-                    </a>
+                    <div class="flex flex-wrap justify-center gap-3">
+                        <a href="https://www.boostdao.io/ignite/permissionless-terra" target="_blank" rel="noopener noreferrer" class="link-button font-bold py-3 px-6 rounded-lg inline-block">
+                            Break &amp; claim on BoostDAO.io Ignite
+                        </a>
+                        <a href="https://atrium.markets/collection/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9" target="_blank" rel="noopener noreferrer" class="link-button font-bold py-3 px-6 rounded-lg inline-block">
+                            Break &amp; claim on Atrium
+                        </a>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-3">Both venues support breaking. The video guide above walks through Boost; the Atrium flow is the same idea — select your NFT, break, receive the ampLUNA.</p>
                 </div>
             </div>
 
@@ -318,14 +240,43 @@
             </div>
         </div>
     </main>
-    
+
+    <!-- Rev 3.5: the 10% treasury cut, explained from the decoded claim tx (this is the only page that shows it) -->
+    <div id="treasury-cut-modal" class="fixed inset-0 bg-black/70 hidden items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="treasury-cut-title">
+        <div class="bg-[#0f1117] border border-cyan-700/40 rounded-xl shadow-xl w-full max-w-xl p-6 relative">
+            <button type="button" id="treasury-cut-close" class="absolute top-3 right-4 text-gray-400 hover:text-white text-2xl leading-none" aria-label="Close">&times;</button>
+            <h3 id="treasury-cut-title" class="text-xl font-bold text-white mb-3">Where the 10% goes</h3>
+            <ol class="text-sm text-gray-300 space-y-2 list-decimal list-inside leading-relaxed">
+                <li>The NFT contract keeps its LUNA staked through the Terra <strong>Alliance module</strong> across ~49 validators.</li>
+                <li>Once a day (~00:50 UTC) Eris's auto-compound bot calls <code class="text-cyan-300">alliance_claim_rewards</code> on the contract; all accrued LUNA rewards are claimed in one go.</li>
+                <li>Every claimed LUNA is bonded straight into the Eris hub → <strong>ampLUNA</strong>.</li>
+                <li><strong>90%</strong> of the new ampLUNA stays in the NFT contract — that is the backing every unbroken NFT shares.</li>
+                <li><strong>10%</strong> is sent to the DAO main wallet as operating funds. That is the treasury cut.</li>
+            </ol>
+            <p class="text-xs text-gray-500 mt-4 leading-relaxed">Decoded from a real claim (2026-04-25): 1,874 LUNA claimed → 899 ampLUNA minted → 809 to the holders pool + 89 to the DAO wallet. Tx <a href="https://chainsco.pe/terra2/tx/70757515D0FEBE07DABC2013CAC9217514C16AE252AA54BF5E395A9885215B18" target="_blank" rel="noopener noreferrer" class="text-cyan-400 hover:underline font-mono">7075…215B18</a>.</p>
+            <p class="text-xs text-gray-500 mt-2">Broken NFTs no longer accrue backing; the daily claim is unchanged, so the same 90% is spread over fewer unbroken NFTs — the calculator below shows that effect.</p>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // 10% popup
+            (function () {
+                const m = document.getElementById('treasury-cut-modal'), o = document.getElementById('treasury-cut-open'), c = document.getElementById('treasury-cut-close');
+                if (!m || !o) return;
+                const show = () => { m.classList.remove('hidden'); m.classList.add('flex'); };
+                const hide = () => { m.classList.add('hidden'); m.classList.remove('flex'); };
+                o.addEventListener('click', show); if (c) c.addEventListener('click', hide);
+                m.addEventListener('click', e => { if (e.target === m) hide(); });
+                document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+            })();
             
             // --- CONSTANTS ---
-            // Fallback only — the live value comes from the backing cron's daily history
-            // (backing-data_2026/snapshots/index.json), same source as the dashboard tile.
-            const FALLBACK_AVG_DAILY_GAIN_PER_NFT = 0.21;
+            // Rev 3.5 (2026-08-23): daily gain comes ONLY from the org backing series —
+            // the same file and the same latest-two-rows math as the index tile. The old
+            // 0.21 fallback constant is gone: if the series is unreadable the tiles say
+            // so (blank beats phantom). Series migrated to {rows:[…]} on 2026-08-11; this
+            // page still read the legacy {history:[…]} key and had been on the fallback since.
             const BACKING_INDEX_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/backing-history.json';
             const V2_SUMMARY_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/summary.json';
 
@@ -343,7 +294,7 @@
 
             // --- API Fetch Function ---
             async function fetchLiveData() {
-                // Unbroken count: chain-of-truth v2 pipeline (replaces dead deving.zone feed)
+                // Unbroken count: org NFT pipeline summary
                 const onChainStatsUrl = V2_SUMMARY_URL;
                 // Contract query for rewards (using a known valid NFT ID like 9068)
                 const contractRewardsQuery = btoa(JSON.stringify({ all_nft_info: { token_id: "9068" } }));
@@ -377,11 +328,11 @@
                         || (statsData?.counts?.broken != null ? 10000 - statsData.counts.broken : 0);
 
                     // --- Live avg daily gain per NFT from the backing cron history (dashboard's source) ---
-                    let gainPerNft = FALLBACK_AVG_DAILY_GAIN_PER_NFT;
-                    let gainIsLive = false, gainWindow = '';
+                    let gainPerNft = null;
+                    let gainIsLive = false, gainWindow = '', ampYield30d = null, hist = [];
                     try {
                         const gainIdx = (gainResponse && gainResponse.ok) ? await gainResponse.json() : null;
-                        const hist = gainIdx?.history || [];
+                        hist = gainIdx?.rows || gainIdx?.history || [];   // org shape first; legacy key tolerated
                         if (hist.length >= 2) {
                             const latest = hist[hist.length - 1], prev = hist[hist.length - 2];
                             const days = (new Date(latest.date) - new Date(prev.date)) / 86400000;
@@ -390,8 +341,18 @@
                                 gainIsLive = true;
                                 gainWindow = `${prev.date} → ${latest.date}`;
                             }
+                            // ampLUNA yield, 30-day window, annualised (simple): growth of the hub
+                            // exchange rate recorded in the same series. Replaces the hardcoded
+                            // "+40%" proposal-era estimate (Rev 3.5).
+                            const back = hist.slice(-31);
+                            const r0 = back[0], r1 = back[back.length - 1];
+                            const span = (new Date(r1.date) - new Date(r0.date)) / 86400000;
+                            if (span >= 7 && r0.ampLunaRate > 0 && r1.ampLunaRate > 0) {
+                                ampYield30d = { apr: (r1.ampLunaRate / r0.ampLunaRate - 1) / span * 365 * 100, from: r0.date, to: r1.date, days: span };
+                            }
                         }
-                    } catch (e) { console.warn('Gain history parse failed, using fallback:', e); }
+                    } catch (e) { console.error('Backing series unreadable:', e); }
+                    if (!gainIsLive) console.error('Daily gain unavailable: backing-history.json has <2 readable rows');
 
                     // --- Live share of total LUNA staking rewards ---
                     try {
@@ -424,7 +385,7 @@
                     const totalLunaInContractLive = backingInLunaLive * unbrokenNfts;
                     
                     // --- Calculate using SNAPSHOT daily gain ---
-                    const totalDailyGain = gainPerNft * unbrokenNfts;
+                    const totalDailyGain = gainIsLive ? gainPerNft * unbrokenNfts : null;
 
                     // --- Update UI ---
                     updateUI({
@@ -435,6 +396,7 @@
                         gainPerNft: gainPerNft,
                         gainIsLive: gainIsLive,
                         gainWindow: gainWindow,
+                        ampYield30d: ampYield30d,
                         ampLunaToLunaRate: ampLunaToLunaRate // Pass rate for display if needed
                     });
 
@@ -460,16 +422,34 @@
 
                 // Update the two main stat cards
                 if (totalLunaEl) totalLunaEl.textContent = `${liveData.totalLunaInContractLive.toLocaleString('en-US', {maximumFractionDigits: 0})} LUNA`;
-                if (totalDailyEl) totalDailyEl.textContent = `+${liveData.totalDailyGain.toLocaleString('en-US', {maximumFractionDigits: 2})} LUNA Daily Gain`;
                 if (perNftBackingEl) perNftBackingEl.textContent = `${liveData.backingInLunaLive.toFixed(2)} LUNA`;
-                if (perNftDailyEl) perNftDailyEl.textContent = `+${liveData.gainPerNft.toFixed(4)} LUNA Daily Gain`;
+                if (liveData.gainIsLive) {
+                    if (totalDailyEl) { totalDailyEl.textContent = `${liveData.totalDailyGain >= 0 ? '+' : ''}${liveData.totalDailyGain.toLocaleString('en-US', {maximumFractionDigits: 2})} LUNA Daily Gain`; totalDailyEl.classList.remove('text-red-400'); }
+                    if (perNftDailyEl) { perNftDailyEl.textContent = `${liveData.gainPerNft >= 0 ? '+' : ''}${liveData.gainPerNft.toFixed(4)} LUNA Daily Gain`; perNftDailyEl.classList.remove('text-red-400'); }
+                } else {
+                    // No fallback number — say what's wrong.
+                    if (totalDailyEl) { totalDailyEl.textContent = 'Daily gain unavailable'; totalDailyEl.classList.add('text-red-400'); }
+                    if (perNftDailyEl) { perNftDailyEl.textContent = 'Daily gain unavailable'; perNftDailyEl.classList.add('text-red-400'); }
+                }
 
                 // Update status text
                 const statusText = liveData.gainIsLive
-                    ? `Live Backing / Live Gain (${liveData.gainWindow})`
-                    : "Live Backing / Fallback Gain (history unavailable)";
+                    ? `Live backing (chain) · gain from backing-history ${liveData.gainWindow}`
+                    : 'Live backing (chain) · backing-history.json unreadable — gain withheld';
                 if (dateEl1) dateEl1.textContent = statusText;
                 if (dateEl2) dateEl2.textContent = statusText;
+
+                // ampLUNA yield tile (replaces the hardcoded +40%)
+                const yEl = document.getElementById('amp-yield-pct'), ySub = document.getElementById('amp-yield-sub');
+                if (yEl) {
+                    if (liveData.ampYield30d) {
+                        yEl.textContent = liveData.ampYield30d.apr.toFixed(1) + '%';
+                        if (ySub) ySub.textContent = `ampLUNA yield · ${Math.round(liveData.ampYield30d.days)}-day window ${liveData.ampYield30d.from} → ${liveData.ampYield30d.to}, annualised`;
+                    } else {
+                        yEl.textContent = '—';
+                        if (ySub) ySub.textContent = 'ampLUNA yield unavailable (backing series too short)';
+                    }
+                }
 
                 // Setup Slider using live unbroken count
                 if (!slider || !maxLabel || !valueDisplay || !projectedGainDisplay) {
@@ -488,6 +468,7 @@
                 // Define calculation function locally or pass necessary data
                 function calculateProjection() {
                     const currentSliderValue = parseInt(slider.value) || 1; // Default to 1
+                    if (!liveData.gainIsLive) { projectedGainDisplay.textContent = 'unavailable'; return; }
                     // Use the total daily gain calculated with the live unbroken count
                     const projectedGain = liveData.totalDailyGain / currentSliderValue;
 
@@ -517,146 +498,7 @@
     <div id="site-footer"></div>
     <script src="/lib/cron-registry.js"></script>
     <script src="/lib/site-footer.js"></script>
-    <script>SiteFooter.mount({ rev: '3.4', revDate: '2026-08-21', page: 'ally' });</script>
-    
-    <!-- Changelog Modal -->
-    <div id="changelogModal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden opacity-0">
-        <div class="modal-content bg-[#0f1117] border border-cyan-700/40 rounded-xl shadow-xl w-full max-w-2xl relative text-white opacity-0 scale-95 p-6 max-h-[85vh] overflow-y-auto">
-            <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
-            <h3 class="text-2xl font-bold text-cyan-400 mb-1 flex items-center gap-3">
-                <i class="fas fa-clock-rotate-left"></i>
-                Changelog
-            </h3>
-            <p class="text-gray-500 text-xs mb-5">Page revisions, newest first</p>
-            <div id="changelog-content" class="changelog-body text-sm">
-                <div class="text-gray-500 text-center py-8">
-                    <i class="fas fa-spinner fa-spin mr-2"></i>Loading changelog...
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
-    <nav class="mobile-bottom-nav" aria-label="Main navigation">
-        <a href="index.html" class="mobile-bottom-nav-tab" data-page="index">
-            <i class="fas fa-house"></i>
-            <span>Home</span>
-        </a>
-        <a href="nft-explorer-index.html" class="mobile-bottom-nav-tab" data-page="nft-explorer-index">
-            <i class="fas fa-images"></i>
-            <span>NFTs</span>
-        </a>
-        <a href="adao-lore.html" class="mobile-bottom-nav-tab" data-page="adao-lore">
-            <i class="fas fa-globe"></i>
-            <span>Lore</span>
-        </a>
-        <a href="tla-stats.html" class="mobile-bottom-nav-tab" data-page="tla-stats">
-            <i class="fas fa-chart-line"></i>
-            <span>TLA</span>
-        </a>
-        <a href="dao.html" class="mobile-bottom-nav-tab" data-page="dao">
-            <i class="fas fa-landmark"></i>
-            <span>DAO</span>
-        </a>
-    </nav>
-
-    <script>
-        // ============================================================
-        // SHARED CHROME SCRIPT — active tab highlight + changelog modal
-        // Keep in sync with index.html
-        // ============================================================
-        (function() {
-            // Active tab in both navs
-            var path = window.location.pathname.split('/').pop().replace('.html', '');
-            if (!path || path === '') path = 'index';
-            var topActive = document.querySelector('.top-nav-tab[data-page="' + path + '"]');
-            if (topActive) topActive.classList.add('active');
-            var bottomActive = document.querySelector('.mobile-bottom-nav-tab[data-page="' + path + '"]');
-            if (bottomActive) bottomActive.classList.add('active');
-            
-            // Changelog modal
-            var changelogModal = document.getElementById('changelogModal');
-            var changelogTrigger = document.getElementById('changelog-trigger');
-            var changelogContent = document.getElementById('changelog-content');
-            var changelogClose = changelogModal ? changelogModal.querySelector('.modal-close') : null;
-            var changelogLoaded = false;
-            
-            function parseMarkdown(md) {
-                var escapeHtml = function(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
-                var lines = md.split(/\r?\n/);
-                var out = [];
-                var inList = false;
-                function applyInline(s) {
-                    return s
-                        .replace(/`([^`]+)`/g, '<code>$1</code>')
-                        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                        .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em>$2</em>');
-                }
-                for (var i = 0; i < lines.length; i++) {
-                    var line = lines[i];
-                    if (line.trim() === '') {
-                        if (inList) { out.push('</ul>'); inList = false; }
-                        continue;
-                    }
-                    var hm = line.match(/^(#{1,4})\s+(.+)$/);
-                    if (hm) {
-                        if (inList) { out.push('</ul>'); inList = false; }
-                        var level = hm[1].length;
-                        var tag = level <= 2 ? 'h2' : (level === 3 ? 'h3' : 'h4');
-                        var ht = hm[2];
-                        var rd = ht.match(/^(.+?)\s+[—–-]\s+(.+)$/);
-                        if (rd && tag === 'h2') {
-                            out.push('<' + tag + '>' + escapeHtml(rd[1]) + '<span class="rev-date">' + escapeHtml(rd[2]) + '</span></' + tag + '>');
-                        } else {
-                            out.push('<' + tag + '>' + escapeHtml(ht) + '</' + tag + '>');
-                        }
-                        continue;
-                    }
-                    var lm = line.match(/^\s*-\s+(.+)$/);
-                    if (lm) {
-                        if (!inList) { out.push('<ul>'); inList = true; }
-                        out.push('<li>' + applyInline(escapeHtml(lm[1])) + '</li>');
-                        continue;
-                    }
-                    if (inList) { out.push('</ul>'); inList = false; }
-                    out.push('<p>' + applyInline(escapeHtml(line)) + '</p>');
-                }
-                if (inList) out.push('</ul>');
-                return out.join('\n');
-            }
-            
-            if (changelogModal && changelogTrigger) {
-                var openCl = function() {
-                    changelogModal.classList.remove('hidden');
-                    requestAnimationFrame(function() {
-                        changelogModal.style.opacity = '1';
-                        var c = changelogModal.querySelector('.modal-content');
-                        if (c) { c.style.opacity = '1'; c.style.transform = 'scale(1)'; }
-                    });
-                    if (!changelogLoaded && changelogContent) {
-                        var url = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/changelogs/index-log.md';
-                        fetch(url, { cache: 'no-cache' })
-                            .then(function(r) { if (!r.ok) throw new Error('Network response not ok: ' + r.status); return r.text(); })
-                            .then(function(md) { changelogContent.innerHTML = parseMarkdown(md); changelogLoaded = true; })
-                            .catch(function(err) {
-                                console.error('Changelog fetch failed:', err);
-                                changelogContent.innerHTML = '<p class="text-gray-400">Could not load changelog. <a href="' + url + '" target="_blank" rel="noopener" class="text-cyan-400 hover:underline">View raw on GitHub</a></p>';
-                            });
-                    }
-                };
-                var closeCl = function() {
-                    changelogModal.style.opacity = '0';
-                    var c = changelogModal.querySelector('.modal-content');
-                    if (c) { c.style.opacity = '0'; c.style.transform = 'scale(0.95)'; }
-                    setTimeout(function() { changelogModal.classList.add('hidden'); }, 200);
-                };
-                if (changelogTrigger) changelogTrigger.addEventListener('click', openCl);
-                if (changelogClose) changelogClose.addEventListener('click', closeCl);
-                changelogModal.addEventListener('click', function(e) { if (e.target === changelogModal) closeCl(); });
-                document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && !changelogModal.classList.contains('hidden')) closeCl(); });
-            }
-        })();
-    </script>
+    <script>SiteFooter.mount({ rev: '3.5', revDate: '2026-08-23', page: 'ally' });</script>
 
 </body>
 </html>

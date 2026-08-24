@@ -1709,7 +1709,7 @@
                 <!-- Collection Tabs -->
                 <div class="flex gap-2 overflow-x-auto pb-1">
                     <button id="collection-tab-adao" class="collection-tab active flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-all" data-collection="alliance_dao">
-                        <img src="/assets/images/logo_stamp_primary.png" class="w-4 h-4 rounded" onerror="this.style.display='none'">
+                        <img src="/assets/images/aDAO Logo No Background.png" class="w-4 h-4 rounded" onerror="this.style.display='none'">
                         aDAO
                     </button>
                     <button id="collection-tab-pixelions" class="collection-tab flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-all" data-collection="pixelions">
@@ -11807,6 +11807,10 @@
                 console.log('DEBUG: Starting NFT Marketplace setup...');
                 
                 const CLOUDFLARE_CDN = 'https://imagedelivery.net/v_zOWVQCPb7Xpcbu-gQC1A/alliance_dao';
+                // Rev 4.01: pixeLions images resolve from the CID in nft-collections/pixel-lions/collection.json
+                // (public gateway; BBL's tokened realityflux gateway is never hardcoded). Replaces deving.zone CDN.
+                const PIXELIONS_IMG_CID = 'https://ipfs.io/ipfs/bafybeihgrne4vcqirlb26rs4y2gpaka32dqssidwvx2qui2kx5osc6oxie';
+                const pixelionsImageUrl = (id) => `${PIXELIONS_IMG_CID}/${id}.png`;
                 // Rev 3.53: deving.zone replaced with the v2 chain-of-truth inventory
                 const STATUS_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json';
                 const SALES_BASE_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/';  // ORG: sales-history.json (chain backfill, 1221 sales from 2023-12-27) replaces nft-sales-YYYY.json
@@ -11821,7 +11825,7 @@
                     'alliance_dao': {
                         name: 'Alliance DAO',
                         contract: BBL_CONTRACT,
-                        icon: '/assets/images/logo_stamp_primary.png',
+                        icon: '/assets/images/aDAO Logo No Background.png',
                         hasBroken: true,
                         bblSupported: true,
                         boostSupported: true
@@ -12022,11 +12026,11 @@
                     return proxyResponse;
                 }
                 
-                let nftStatusData = null;  // deving.zone data
+                let nftStatusData = null;  // nfts.json v2 (Rev 3.86)
                 let salesData = null;       // Sales history
                 let displayedSalesCount = 12;
                 let salesFilter = 'all';
-                let bblListedNfts = [];     // BBL listed NFTs from deving.zone
+                let bblListedNfts = [];     // BBL listed NFTs from nfts.json
                 
                 // Show loading state
                 const salesContainer = document.getElementById('recent-sales-container');
@@ -12039,7 +12043,7 @@
                     return `${CLOUDFLARE_CDN}/${nftId}.png/public`;
                 }
                 
-                // Load NFT status from deving.zone
+                // Load NFT status from the shared nfts.json snapshot
                 async function loadNftStatus() {
                     try {
                         const raw = await window.__jsonOnce(STATUS_URL);   // Rev 3.86: shared nfts.json
@@ -12057,7 +12061,7 @@
                     }
                 }
                 
-                // Process listings from deving.zone
+                // Process listings from nfts.json
                 function processListings() {
                     if (!nftStatusData?.nfts) return;
                     
@@ -12102,7 +12106,7 @@
                             document.getElementById('bbl-listed-count').textContent = data.pagination.totalResults;
                         }
                     } catch (err) {
-                        // Fallback to deving.zone count, show rate limit indicator if needed
+                        // Fallback to nfts.json count, show rate limit indicator if needed
                         const countEl = document.getElementById('bbl-listed-count');
                         if (err.code === 'RATE_LIMITED') {
                             countEl.textContent = bblListedNfts.length || '--';
@@ -12821,8 +12825,7 @@
                         if (collectionKey === 'alliance_dao') {
                             imageUrl = getNftImageUrl(tokenId);
                         } else {
-                            // pixeLions - use their CDN
-                            imageUrl = `https://www.deving.zone/pixelions/images/${tokenId}.png`;
+                            imageUrl = pixelionsImageUrl(tokenId);   // Rev 4.01: CID pattern, not deving.zone
                         }
                         
                         const nftUrl = `https://www.boostdao.io/ignite/permissionless-terra?launch_id=${launch.launch_id}`;
@@ -13643,7 +13646,7 @@
                                 let imageUrl;
                                 if (collectionKey === 'pixelions') {
                                     // BBL pixeLions: use realityflux gateway (more reliable for BBL)
-                                    imageUrl = `https://ipfs.realityflux.io/ipfs/bafybeihgrne4vcqirlb26rs4y2gpaka32dqssidwvx2qui2kx5osc6oxie/${nft.nft_token_id}.png?pinataGatewayToken=B9zzwsO_1qJRcH8Ki5NU0senaMF1a_De5Ib-PVeu9KUcY6Z0QhLgLkHq018_lF7e`;
+                                    imageUrl = pixelionsImageUrl(nft.nft_token_id);   // Rev 4.01: public CID gateway, tokened URL removed
                                 } else {
                                     imageUrl = (nft.cf_url ? nft.cf_url.replace(/\/(adaooriginal|msoriginal)$/, '/public') : null) || convertIpfsToHttp(nft.image_url) || getCollectionImageUrl(collectionKey, nft.nft_token_id);   // Rev 3.86: thumbnail variant
                                 }
@@ -13812,8 +13815,8 @@
                 function convertIpfsToHttp(ipfsUrl) {
                     if (!ipfsUrl) return null;
                     if (ipfsUrl.startsWith('ipfs://')) {
-                        // Use Cloudflare's IPFS gateway (more reliable than ipfs.io)
-                        return ipfsUrl.replace('ipfs://', 'https://cloudflare-ipfs.com/ipfs/');
+                        // Rev 4.01: cloudflare-ipfs.com is defunct; public ipfs.io gateway
+                        return ipfsUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
                     }
                     return ipfsUrl; // Return as-is if not IPFS
                 }
@@ -13824,8 +13827,7 @@
                         case 'alliance_dao':
                             return getNftImageUrl(tokenId);
                         case 'pixelions':
-                            // Use deving.zone CDN (reliable) - format: /pixelions/images/{id}.png
-                            return `https://www.deving.zone/pixelions/images/${tokenId}.png`;
+                            return pixelionsImageUrl(tokenId);   // Rev 4.01: CID pattern, not deving.zone
                         case 'tla_locks':
                             // TLA Locks use Eris Protocol imagery
                             return `https://www.theliquidityalliance.com/logo.svg`;
@@ -13962,8 +13964,8 @@
                                 // BBL primary is realityflux, fallback to b-cdn
                                 fallbackUrl = `https://nft-storage.b-cdn.net/ipfs/bafybeihgrne4vcqirlb26rs4y2gpaka32dqssidwvx2qui2kx5osc6oxie_${listing.tokenId}_160`;
                             } else {
-                                // Boost primary is b-cdn, fallback to realityflux
-                                fallbackUrl = `https://ipfs.realityflux.io/ipfs/bafybeihgrne4vcqirlb26rs4y2gpaka32dqssidwvx2qui2kx5osc6oxie/${listing.tokenId}.png?pinataGatewayToken=B9zzwsO_1qJRcH8Ki5NU0senaMF1a_De5Ib-PVeu9KUcY6Z0QhLgLkHq018_lF7e`;
+                                // Boost primary is b-cdn; fallback is the public CID gateway (Rev 4.01: tokened realityflux URL removed)
+                                fallbackUrl = pixelionsImageUrl(listing.tokenId);
                             }
                         }
                         
@@ -14541,7 +14543,7 @@
                     const date = new Date(sale.timestamp);
                     const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
                     
-                    // Check deving.zone data for CURRENT broken status
+                    // Check nfts.json for CURRENT broken status
                     const nftStatus = nftStatusData?.nfts?.find(n => n.id === sale.nft_id);
                     const isBroken = nftStatus?.broken || false;
                     
@@ -14668,8 +14670,7 @@
                     // Get appropriate image URL
                     let imageUrl;
                     if (collection === 'pixelions') {
-                        // Use deving.zone CDN (same as BBL listing cards)
-                        imageUrl = `https://www.deving.zone/pixelions/images/${sale.nft_id}.png`;
+                        imageUrl = pixelionsImageUrl(sale.nft_id);   // Rev 4.01: CID pattern (same as listing cards)
                     } else if (collection === 'tla_locks') {
                         // TLA Lock - use token logo
                         const tokenInfo = TLA_LOCK_TOKENS[sale.lockType] || TLA_LOCK_TOKENS['arbLUNA'];
@@ -15026,7 +15027,7 @@
                 setupFilterButtons();
                 setupCollectionTabs();    // Collection selector tabs
                 setupListingsFilters();   // Listings filter buttons
-                loadNftStatus();          // Load deving.zone for listing counts
+                loadNftStatus();          // nfts.json for listing counts
                 loadSalesHistory();       // Load sales history for volume/sales
                 setupActivityFeed();      // Load live activity feed
                 
@@ -15452,7 +15453,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '3.98', REV_DATE = '2026-08-22';
+        const REV = '4.01', REV_DATE = '2026-08-23';
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16703,6 +16704,6 @@
      but its System Health dot is lit from lib/cron-registry.js — the same
      source every other page uses, so they can never disagree. -->
 <script src="/lib/site-footer.js"></script>
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: '4.00', revDate: '2026-08-23', page: 'index', appInfo: true });</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: '4.01', revDate: '2026-08-23', page: 'index', appInfo: true });</script>
 </body>
 </html>
