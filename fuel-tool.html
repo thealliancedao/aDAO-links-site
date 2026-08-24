@@ -76,6 +76,13 @@
     #whale-rows td.who .name { color: #38bdf8; }
     #whale-rows td.who .addr { color: #9a9488; }
     #whale-rows td.amt { text-align: right; font-weight: 700; color: #f59e0b; white-space: nowrap; }
+    /* Rev 2.3: FUEL supply map strip + Boost DAO stakers */
+    #fuel-supply-bar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; margin: 8px 0 4px; }
+    #fuel-supply-legend { font-size: 10px; display: flex; flex-wrap: wrap; gap: 10px; color: #b0a898; }
+    #fuel-supply-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 3px; }
+    .whale-section { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: #6b6557; margin: 10px 0 4px; }
+    #whale-rows td.chip { text-align: right; white-space: nowrap; }
+    #whale-rows .tag { font-size: 8px; border: 1px solid rgba(99,102,241,.3); color: #818cf8; border-radius: 3px; padding: 0 4px; }
 
     /* ── Dot indicators ── */
     .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -354,9 +361,15 @@
     <div class="stat-card"><div class="stat-label">Votion &middot; next epoch</div><div class="stat-value" id="votion-plan"></div><div class="stat-sub" id="votion-sub">optimizer plan for this pool</div></div>
   </div>
   <div class="info-grid"><div class="info-card" style="grid-column:1/-1">
-    <div class="info-card-title">FUEL Whales &mdash; Terra (IBC balances)</div>
+    <div class="info-card-title">FUEL Supply Map &mdash; Neutron native supply <span id="fuel-supply-status" class="stat-sub" style="float:right"></span></div>
+    <div id="fuel-supply-bar"></div>
+    <div id="fuel-supply-legend"></div>
+    <div id="fuel-supply-note" class="stat-sub" style="margin-top:6px"></div>
+  </div></div>
+  <div class="info-grid"><div class="info-card" style="grid-column:1/-1">
+    <div class="info-card-title">FUEL Whales <span id="whale-source" class="stat-sub" style="float:right"></span></div>
     <div id="whale-rows">Loading holders&hellip;</div>
-    <div class="stat-sub" style="margin-top:8px;opacity:.7">Boost DAO staking lives on Neutron and is not yet captured &mdash; Terra balances only. Names from the address catalog where known.</div>
+    <div id="whale-note" class="stat-sub" style="margin-top:8px;opacity:.7">Names from the trust register where verified. Structural contracts (DAO treasury, voting module, IBC escrow, DEX pairs, bribe manager) carry their role; other 32-byte addresses are real holders with a <em>contract</em> chip.</div>
   </div></div>
   <!-- Token Info + Pool Info -->
   <div class="info-grid">
@@ -519,19 +532,11 @@ function buildChart(labels, prices, titleSuffix, chartType = 'price') {
 
 
 const jget = (u) => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
-function astroChartUrl(type, dateRange) {
-    return 'https://app.astroport.fi/api/trpc/charts.' + type + '?input=' +
-        encodeURIComponent(JSON.stringify({
-            json: { pools: [FUEL_POOL], dateRange, chainId: 'phoenix-1' }
-        }));
-}
 
 let priceChart  = null;
 let seriesData  = [];   // 7-day price series from getTokens
 let historyData = [];   // daily cron history from GitHub
-let liqSeries       = [];   // 24h liquidity series
 let epochHistoryData = [];   // estimated historical prices from epoch files
-let volSeries   = [];   // 24h volume series
 
 // ── Format helpers ──────────────────────────────────────────────────────────
 
@@ -638,8 +643,43 @@ async function loadGovPanels() {
     if (hit) { vpTxt = (hit.planned_vp||0).toLocaleString() + ' VP'; vs = 'now ' + (hit.current_vp||0).toLocaleString() + ' \u2192 planned (' + (hit.delta_pct>0?'+':'') + hit.delta_pct + '%)'; } }
   setText('votion-plan', vpTxt); setText('votion-sub', vs);
 }
+// Rev 2.3: product first (supply/fuel — Neutron native level + Boost DAO stakers + Terra IBC holders, sum-guarded);
+// the Terra-only live scan below stays as a labeled fallback.
+const F0 = (v) => v == null ? '?' : (v / 1e6).toFixed(2) + 'M';
+const FN = (v) => v == null ? '?' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
+async function loadFuelSupplyProduct() {
+  const el = document.getElementById('whale-rows'); if (!el) return false;
+  const cur = await jget(ORG + '/token-catalog/supply/fuel/current.json?t=' + Date.now());
+  const wal = await jget(ORG + '/token-catalog/supply/fuel/wallets.json?t=' + Date.now());
+  if (!cur || !wal || !Array.isArray(wal.rows)) return false;
+  const cat = await jget(ORG + '/catalog/trusted/current.json'); const names = {}; ((cat && cat.addresses) || []).forEach(a => { if (a.label) names[a.address] = a.label; });
+  const n = cur.neutron, g = cur.sum_guards || {}; const bad = Object.entries(g).filter(([, v]) => v.ok !== true).map(([k, v]) => k + (v.enumeration === 'incomplete' ? ' (incomplete)' : ''));
+  setText('fuel-supply-status', 'cron ' + cur.status + ' \u00b7 ' + String(cur.capturedAt).slice(0, 16) + 'Z \u00b7 guards ' + (bad.length ? 'NOT GREEN: ' + bad.join(', ') : Object.keys(g).length + '/' + Object.keys(g).length + ' green'));
+  const tot = n.native_supply;
+  const segs = [['Boost DAO staked', n.boost_staked, '#a855f7'], ['Boost unbonding', n.boost_unbonding, '#7c3aed'], ['Boost treasury', n.boost_treasury, '#38bdf8'], ['Bridged to Terra', n.bridged_to_terra, '#f59e0b'], ['Neutron liquid', n.liquid_derived, '#334155']];
+  document.getElementById('fuel-supply-bar').innerHTML = tot ? segs.map(x => '<div title="' + x[0] + ': ' + F0(x[1]) + ' FUEL" style="width:' + (x[1] == null ? 0 : x[1] / tot * 100) + '%;background:' + x[2] + '"></div>').join('') : '';
+  document.getElementById('fuel-supply-legend').innerHTML = '<span><strong>' + F0(tot) + ' FUEL</strong> native supply</span>' + segs.map(x => '<span><i style="background:' + x[2] + '"></i>' + x[0] + ' ' + F0(x[1]) + (tot && x[1] != null ? ' (' + (x[1] / tot * 100).toFixed(1) + '%)' : '') + '</span>').join('');
+  setText('fuel-supply-note', (n.boost_stakers != null ? n.boost_stakers + ' Boost DAO stakers hold ' + F0(n.boost_staked) + ' FUEL of governance power' : 'Boost stakers unknown this run') + ' \u00b7 Terra IBC supply ' + F0(cur.terra && cur.terra.ibc_supply) + ' = the bridged share, cross-checked against the Neutron escrow' + (n.liquid_derived == null ? ' \u00b7 Neutron liquid unknown (escrow read failed this run)' : '') + '. Buckets sum to native supply by guard.');
+  // whales: three sections from one file
+  const rows = wal.rows.filter(r => r.role !== 'bucket');
+  const who = (r) => (names[r.address] ? '<span class="name">' + names[r.address] + '</span> \u00b7 ' : '') + '<span class="addr">' + r.address.slice(0, 14) + '\u2026' + r.address.slice(-6) + '</span>' + (r.kind === 'contract' ? ' <span class="tag">contract</span>' : '');
+  const section = (title, list, amt, chip) => list.length ? '<div class="whale-section">' + title + '</div><table>' + list.map((r, i) => '<tr><td class="rank">' + (i + 1) + '</td><td class="who">' + who(r) + '</td>' + (chip ? '<td class="chip">' + chip(r) + '</td>' : '') + '<td class="amt">' + FN(amt(r)) + ' FUEL</td></tr>').join('') + '</table>' : '';
+  const stakers = rows.filter(r => r.chain === 'neutron' && (r.fuel.boost_staked > 0 || r.fuel.boost_unbonding > 0)).sort((a, b) => (b.fuel.boost_staked || 0) - (a.fuel.boost_staked || 0));
+  const neutron = rows.filter(r => r.chain === 'neutron' && r.fuel.liquid > 0).sort((a, b) => b.fuel.liquid - a.fuel.liquid).slice(0, 15);
+  const terra = rows.filter(r => r.chain === 'terra').sort((a, b) => b.fuel.liquid - a.fuel.liquid).slice(0, 15);
+  const buckets = wal.rows.filter(r => r.role === 'bucket').sort((a, b) => b.total_fuel - a.total_fuel);
+  el.innerHTML = section('Boost DAO stakers (Neutron) \u2014 governance power', stakers, r => r.fuel.boost_staked, r => r.fuel.boost_unbonding > 0 ? '<span class="tag" style="color:#f59e0b;border-color:rgba(245,158,11,.4)">unbonding ' + FN(r.fuel.boost_unbonding) + '</span>' : '')
+    + section('Neutron holders \u2014 liquid FUEL (top 15)', neutron, r => r.fuel.liquid)
+    + section('Terra holders \u2014 IBC FUEL (top 15)', terra, r => r.fuel.liquid)
+    + section('Structural contracts (their FUEL is the buckets above, not holders)', buckets, r => r.total_fuel, r => '<span class="tag">' + (r.label || 'bucket') + '</span>');
+  setText('whale-source', 'cron product \u00b7 ' + wal.counts.rows_published + ' holders \u2265 ' + FN(wal.floor_fuel) + ' FUEL published, ' + wal.counts.tail_below_floor + ' below floor (tail ' + FN(wal.tail_below_floor.total_fuel) + ')');
+  return true;
+}
 async function loadWhales() {
   const el = document.getElementById('whale-rows'); if (!el) return;
+  try { if (await loadFuelSupplyProduct()) return; } catch (e) { /* fall through to the labeled live scan */ }
+  setText('whale-source', 'product unavailable \u2014 browser live scan, Terra IBC balances only (Boost DAO stakers on Neutron not shown)');
+  setText('fuel-supply-status', 'product unavailable'); document.getElementById('fuel-supply-note').textContent = 'Supply map unavailable \u2014 refresh to retry.';
   try {
     let owners = [], key = null;
     for (let i = 0; i < 5; i++) {
@@ -734,34 +774,9 @@ async function loadAll() {
         console.error('getTokens fetch error:', e);
     }
 
-    // 3. Load 24h liquidity series
-    try {
-        const r = await fetch(astroChartUrl('liquidity', 'HR24'));
-        const d = await r.json();
-        const series = d?.result?.data?.json?.[0]?.series || [];
-        if (series.length) {
-            liqSeries = series;
-            // Update TVL stat card with latest series point
-            const latestTvl = series[series.length - 1].value;
-            if (latestTvl && latestTvl > 100) {
-                // Only override if we didn't already get it from getTokens
-                const tvlEl = document.getElementById('pool-tvl');
-                if (tvlEl.textContent === '—') tvlEl.textContent = '$' + latestTvl.toLocaleString('en-US', { maximumFractionDigits: 0 });
-            }
-        }
-    } catch (e) { console.error('Liquidity series error:', e); }
-
-    // 4. Load 24h volume series
-    try {
-        const r = await fetch(astroChartUrl('volume', 'HR24'));
-        const d = await r.json();
-        const series = d?.result?.data?.json?.[0]?.series || [];
-        if (series.length) {
-            volSeries = series;
-            const total = series.reduce((s, p) => s + p.value, 0);
-            document.getElementById('vol-24h').textContent = total.toFixed(3) + ' LUNA';
-        }
-    } catch (e) { console.error('Volume series error:', e); }
+    // (Rev 2.3: the legacy 24h Astroport liquidity/volume second pass was removed —
+    // it referenced an undefined FUEL_POOL and had been failing silently since 2.0;
+    // pool-tvl / vol-24h are already set from dex-data + getTokens above.)
 
     // 5. Load cron history (async, non-blocking)
     populateStatsFromHistory();   // captured daily history → TVL, 24h/7d change, 24h volume (reliable; overrides flaky live APIs)
@@ -796,7 +811,7 @@ loadAll().then(() => {
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 2.2 · 2026-08-24</span>
+                    <span class="font-mono">Rev 2.3 · 2026-08-24</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>
