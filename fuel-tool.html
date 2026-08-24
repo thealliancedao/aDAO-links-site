@@ -577,15 +577,23 @@ async function loadPriceHistory() {
   priceRows.sort((a,b) => a.date < b.date ? -1 : 1);
   populateStatsFromHistory();
 }
+// Rev 2.5 (page walk 2026-08-24): the 30 daily JSON snapshots were 276 KB each —
+// 8.1 MB of first paint for ONE pool's bars. The daily CSVs carry the same
+// tvl_usd / volume_24h_usd columns at ~19 KB. Same data, 14× lighter.
+function csvRows(txt) {
+  const lines = String(txt || '').trim().split('\n'); if (lines.length < 2) return [];
+  const split = (l) => { const out = []; let cur = '', q = false; for (const ch of l) { if (ch === '"') q = !q; else if (ch === ',' && !q) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out; };
+  const h = split(lines[0]); return lines.slice(1).map(l => Object.fromEntries(split(l).map((v, i) => [h[i], v])));
+}
 async function loadDexDaily() {
   const days = [];
   for (let i = 1; i <= 30; i++) days.push(new Date(Date.now() - i*86400000).toISOString().slice(0,10));
-  const docs = await Promise.all(days.map(d => jget(ORG + '/dex-data/astroport/snapshots/daily/' + d + '.json')));
+  const tget = (u) => fetch(u).then(r => r.ok ? r.text() : null).catch(() => null);
+  const docs = await Promise.all(days.map(d => tget(ORG + '/dex-data/astroport/daily-csv/' + d + '.csv')));
   dexRows = [];
-  docs.forEach((doc, i) => {
-    const pools = doc && (Array.isArray(doc.pools) ? doc.pools : Object.values(doc.pools || {}));
-    const p = pools && pools.find(x => (x.pool_name || '').includes('FUEL'));
-    if (p) dexRows.push({ date: days[i], tvl: p.tvl_usd, vol24: p.volume_24h_usd });
+  docs.forEach((txt, i) => {
+    const p = txt && csvRows(txt).find(x => (x.pool_name || '').includes('FUEL'));
+    if (p) dexRows.push({ date: days[i], tvl: Number(p.tvl_usd), vol24: Number(p.volume_24h_usd) });
   });
   dexRows.sort((a,b) => a.date < b.date ? -1 : 1);
 }
@@ -812,7 +820,7 @@ loadAll().then(() => {
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 2.4 · 2026-08-24</span>
+                    <span class="font-mono">Rev 2.5 · 2026-08-24</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>

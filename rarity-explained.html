@@ -264,15 +264,17 @@
                 </p>
                 <p><strong>1. It inverts the apex.</strong> Because the score ranks by realized count, the
                     6&ndash;mint Sindarin Fire Saber lands at BBL #1, while Phoenix Rising &mdash; the designed apex
-                    &mdash; drifts down to roughly #66.</p>
+                    &mdash; drifts down to BBL #48&ndash;#73: all 25 Phoenixes sit in one block, behind the
+                    Sabers and behind the tokens whose rare <em>sky</em> outranks their weapon.</p>
                 <p><strong>2. It scores the weather.</strong> Atmosphere counts the same as the weapon, so an
                     ultra-rare <em>sky</em> can rocket a common weapon up the board. The clearest example is the
                     six tokens BBL ranks #7&ndash;12: every one carries a common Object but the rare
                     <span class="mono">Weather = Lightning strike</span> (6 mints), which BBL treats as exactly as
                     rare as the rarest weapon.</p>
                 <p><strong>3. Broken-NFT handling differs.</strong> BBL leaves most broken NFTs
-                    unranked &mdash; though a small number still slip through with a rank, so the
-                    behavior isn't fully consistent. The Intended ranking, by contrast, ranks every
+                    unranked &mdash; though a small number still slip through with a rank (in the
+                    2026-06-10 capture, 22 of 433 broken tokens carried one), so the behavior isn't
+                    fully consistent. The Intended ranking, by contrast, ranks every
                     token the same way: the grade is set by the Object, so brokenness simply doesn't
                     change it.</p>
             </div>
@@ -436,7 +438,7 @@
 <tr><td>Ice reflection</td><td class="mono">1000</td><td class="mono">10.00%</td></tr>
 <tr><td>Ocean reflection</td><td class="mono">1000</td><td class="mono">10.00%</td></tr>
 <tr><td>Clear</td><td class="mono">1739</td><td class="mono">17.39%</td></tr></tbody></table></div>
-            <p class="text-gray-400 text-xs mt-2">16 distinct lights. The spread is narrower than Weather; <strong>Noonlight (237)</strong> is the scarcest, <strong>Sunlight</strong> the most common.</p>
+            <p class="text-gray-400 text-xs mt-2">16 distinct lights. The spread is narrower than Weather; <strong>Noonlight (237)</strong> is the scarcest, <strong>Clear (1,739)</strong> by far the most common, with three lights (Sindari heatwave, Ice reflection, Ocean reflection) at exactly 1,000 each.</p>
 
             <h3 class="mt-10 text-xl">Planet &mdash; setting (flat by design, 20 worlds &times; ~500 each)</h3>
             <div class="overflow-x-auto rounded-lg border border-gray-800 mt-3 max-h-96 overflow-y-auto"><table class="grade-table"><thead><tr><th>Trait</th><th>Actual</th><th>% of supply</th></tr></thead><tbody><tr><td>Lusa North</td><td class="mono">480</td><td class="mono">4.80%</td></tr>
@@ -509,7 +511,7 @@
                 <div class="layer-card !text-left">
                     <p class="eyebrow !text-cyan-300">Full home-system (P + I + O)</p>
                     <p class="text-4xl font-bold mt-1">80</p>
-                    <p class="text-sm text-gray-400 mt-2">0.80% of supply &mdash; native planet, native inhabitant, <em>and</em> the species's signature Object. The rarest cohesion in the collection.</p>
+                    <p class="text-sm text-gray-400 mt-2">0.80% of supply &mdash; native planet, native inhabitant, <em>and</em> an Object carrying the species' name (Sindarin Fire Saber, Royal Ozaran Bow, Staff of Zando&hellip;). The rarest cohesion in the collection.</p>
                 </div>
             </div>
             <p class="text-gray-400 text-sm mt-4 max-w-4xl">
@@ -546,7 +548,7 @@
                 Methodology summary: Intended Rank = the collection's <span class="mono">Rarity</span> grade (1&ndash;40,
                 set by the Object) laid out apex-first into a 1&ndash;10,000 ordinal; within a grade, tokens are
                 equal-rarity and ordered by token ID. Planet, Inhabitant, Light and Weather are scene/atmosphere layers
-                and do not affect the grade. BBL figures are observed from the marketplace; the marketplace computes its
+                and do not affect the grade. BBL figures were observed from the marketplace on 2026-06-10 (8,931 of 10,000 ranked at that capture; the broken count has grown since); the marketplace computes its
                 own all-trait score independently.
             </p>
 
@@ -560,7 +562,7 @@
     <div id="site-footer"></div>
     <script src="/lib/cron-registry.js"></script>
     <script src="/lib/site-footer.js"></script>
-    <script>SiteFooter.mount({ rev: '1.0', revDate: '2026-08-21', page: 'rarity-explained' });</script>
+    <script>SiteFooter.mount({ rev: '1.1', revDate: '2026-08-24', page: 'rarity-explained' });</script>
 
     <script>
         // Smooth-scroll for in-page TOC links

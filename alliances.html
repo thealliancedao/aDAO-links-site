@@ -203,7 +203,7 @@
                         <!-- New Lore Section -->
                         <div>
                             <h4 class="text-2xl font-bold text-teal-400 mb-3">The Story: A New Pride in the Canyons</h4>
-                            <img src="/assets/planets/Ozara%20North.png" alt="Artwork of the alliance on Ozara North" class="w-full h-auto rounded-lg mb-4">
+                            <img src="/assets/planets/ozara-north-story.webp" alt="Artwork of the alliance on Ozara North" loading="lazy" width="1500" height="1500" class="w-full h-auto rounded-lg mb-4">
                             <p class="text-gray-400 leading-relaxed">
                                 The historic alliance was forged in the rugged, cliff-lined desert plains of Ozara North, home to the traditional Canyon-Clans. This partnership welcomes a new and formidable pride to the Ozaran people, forever weaving the story of the Lion DAO and the Pixel Lions into our own.
                             </p>
@@ -300,6 +300,39 @@
                      <p class="mt-4 text-lg text-gray-400 max-w-xl mx-auto">
                          The AllianceDAO is actively seeking strategic partnerships with innovative projects that share our vision for a stronger, more collaborative ecosystem.
                      </p>
+
+                     <!-- Rev 1.5 (2026-08-24): the front door — three tracks, what each side brings, how past deals were shaped, and a structured proposal template -->
+                     <div class="mt-10 grid md:grid-cols-3 gap-4 text-left max-w-5xl mx-auto">
+                         <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-5">
+                             <div class="text-cyan-400 text-xs font-bold uppercase tracking-wider mb-2"><i class="fas fa-images mr-1"></i>NFT collection</div>
+                             <p class="text-sm text-gray-300">Collections on Terra or Cosmos that want a treasury partner, cross-holding, or a shared story.</p>
+                             <p class="text-xs text-gray-500 mt-3"><span class="text-gray-400">How it has looked:</span> the Pixel Lions alliance began as an OTC swap of 20 AllianceDAO NFTs, then grew into treasury positions approved by both DAOs.</p>
+                         </div>
+                         <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-5">
+                             <div class="text-cyan-400 text-xs font-bold uppercase tracking-wider mb-2"><i class="fas fa-coins mr-1"></i>Token or protocol</div>
+                             <p class="text-sm text-gray-300">Tokens and protocols that want long-term treasury alignment: governance staking, single-sided yield, or paired liquidity.</p>
+                             <p class="text-xs text-gray-500 mt-3"><span class="text-gray-400">How it has looked:</span> 3B $ROAR deployed three ways (governance, ampROAR, LUNA-paired liquidity); Eris ampLUNA powering the NFT backing.</p>
+                         </div>
+                         <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-5">
+                             <div class="text-cyan-400 text-xs font-bold uppercase tracking-wider mb-2"><i class="fas fa-link mr-1"></i>Projects on other chains</div>
+                             <p class="text-sm text-gray-300">Cosmos and beyond. If there is an IBC path or a bridge and a reason the two communities are better together, it is worth a conversation.</p>
+                             <p class="text-xs text-gray-500 mt-3"><span class="text-gray-400">What we bring:</span> a treasury that takes real positions, 10,000 NFT holders, and an analytics platform that will report the alliance honestly.</p>
+                         </div>
+                     </div>
+                     <div class="mt-6 max-w-3xl mx-auto text-left bg-gray-900/60 border border-gray-800 rounded-xl p-5">
+                         <div class="flex items-center justify-between flex-wrap gap-2">
+                             <div class="text-xs font-bold uppercase tracking-wider text-gray-400"><i class="fas fa-file-lines mr-1"></i>Start with a proposal</div>
+                             <button id="copy-proposal" class="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 hover:text-cyan-300">Copy template</button>
+                         </div>
+                         <pre id="proposal-template" class="text-xs text-gray-400 mt-3 whitespace-pre-wrap font-mono leading-relaxed">Project · chain · links (site, X, contract addresses)
+Who you are · how long you have been live · what your community is
+What you propose (NFT swap · treasury position · shared liquidity · co-marketing · other)
+What you would contribute · what you would want from AllianceDAO
+Why the two communities are better together
+Anything time-sensitive</pre>
+                         <p class="text-xs text-gray-500 mt-3">Every alliance so far went the same way: a conversation in Telegram, a community poll, then a proposal in <a href="https://daodao.zone/dao/terra1sffd4efk2jpdt894r04qwmtjqrrjfc52tmj6vkzjxqhd8qqu2drs3m5vzm" target="_blank" rel="noopener" class="text-cyan-400 hover:underline">both DAOs</a>. Nothing here is a commitment; the DAO decides on-chain.</p>
+                     </div>
+
                      <div class="mt-8 flex flex-wrap justify-center gap-4">
                           <a href="https://t.me/The_AllianceDAO" target="_blank" rel="noopener noreferrer" class="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition-transform transform hover:scale-105 flex items-center gap-2">
                             <i class="fab fa-telegram-plane"></i>
@@ -324,7 +357,13 @@
     <div id="site-footer"></div>
     <script src="/lib/cron-registry.js"></script>
     <script src="/lib/site-footer.js"></script>
-    <script>SiteFooter.mount({ rev: '1.4', revDate: '2026-08-21', page: 'alliances' });</script>
+    <script>
+    (function () {
+        var b = document.getElementById('copy-proposal'), t = document.getElementById('proposal-template');
+        if (b && t) b.addEventListener('click', function () { (navigator.clipboard ? navigator.clipboard.writeText(t.textContent) : Promise.reject()).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy template'; }, 1500); }, function () { b.textContent = 'Select & copy'; }); });
+    })();
+    </script>
+    <script>SiteFooter.mount({ rev: '1.5', revDate: '2026-08-24', page: 'alliances' });</script>
     
     <!-- Changelog Modal -->
     <div id="changelogModal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden opacity-0">
