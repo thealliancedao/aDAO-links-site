@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trade Cost Simulator | Alliance DAO</title>
-    <meta name="description" content="How much will your trade really cost? Live price-impact simulator for every Terra pool TLA tracks — pick a token, slide an amount, see the cheapest place to trade. Plus a per-wallet zap planner.">
+    <title>Trade Planner | Alliance DAO</title>
+    <meta name="description" content="Plan a trade on Terra: pick what you hold and what you want, see the cheapest route across every captured pool, how large you can go under your limit, and where each token sits against its own recent history. Live reserves, no wallet needed.">
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon-16x16.png">
@@ -48,14 +48,22 @@
 
 <main class="max-w-4xl mx-auto px-4 pb-10">
     <div class="text-center mt-6 mb-6">
-        <h1 class="text-3xl md:text-4xl font-bold"><i class="fas fa-water text-cyan-400 mr-2"></i>How much will your trade cost?</h1>
-        <p class="text-gray-500 text-sm mt-2 max-w-xl mx-auto">Every trade moves the price against you a little — bigger trade, thinner pool, bigger cost. Pick a token, slide the amount, and see the cheapest place on Terra to make the trade. Live reserves, no wallet needed.</p>
+        <h1 class="text-3xl md:text-4xl font-bold"><i class="fas fa-water text-cyan-400 mr-2"></i>Plan a trade on Terra</h1>
+        <p class="text-gray-500 text-sm mt-2 max-w-xl mx-auto">Pick what you hold and what you want. See the cheapest route across every captured pool, how large you can go before the cost crosses your limit, and where each token sits against its own recent history. Live reserves, nothing to sign — pick a wallet in the header to plan from what it holds.</p>
     </div>
 
     <!-- controls -->
-    <div class="glass-card p-5 mb-5">
-        <div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">I want to trade…</div>
-        <div id="tok-chips" class="flex flex-wrap gap-1.5 mb-5"><span class="loading-pulse text-gray-500 text-sm">Loading live pools…</span></div>
+    <div class="glass-card p-5 mb-5" id="planner-card">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">I want to trade… <span class="normal-case tracking-normal text-gray-600" id="from-hint"></span></div>
+            <span class="text-[10px] text-gray-600" id="wallet-hold-status"></span>
+        </div>
+        <div id="tok-chips" class="flex flex-wrap gap-1.5 mb-3"><span class="loading-pulse text-gray-500 text-sm">Loading live pools…</span></div>
+        <div class="flex items-center gap-2 mb-1">
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">…for</div>
+            <button id="swap-dir" class="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-gray-500 hover:text-cyan-300" title="Swap direction">⇄ reverse</button>
+        </div>
+        <div id="to-chips" class="flex flex-wrap gap-1.5 mb-5"></div>
 
         <div class="flex items-end justify-between gap-3 flex-wrap mb-2">
             <div>
@@ -72,6 +80,46 @@
         </div>
         <input type="range" id="amt-slider" min="0" max="1000" value="500" aria-label="Trade size">
         <div class="flex justify-between text-[9px] text-gray-600 mono mt-1"><span>$10</span><span>$1K</span><span>$100K</span><span>$1M</span></div>
+        <div class="flex items-center gap-1.5 flex-wrap mt-3" id="bal-row" style="display:none">
+            <span class="text-[10px] text-gray-500">of your balance:</span>
+            <button data-frac="0.25" class="bal-btn text-[11px] px-2.5 py-1 rounded-full bg-white/5 text-gray-400 hover:text-cyan-300 mono">25%</button>
+            <button data-frac="0.5" class="bal-btn text-[11px] px-2.5 py-1 rounded-full bg-white/5 text-gray-400 hover:text-cyan-300 mono">50%</button>
+            <button data-frac="1" class="bal-btn text-[11px] px-2.5 py-1 rounded-full bg-white/5 text-gray-400 hover:text-cyan-300 mono">100%</button>
+            <span class="text-[10px] text-gray-600 mono" id="bal-note"></span>
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap mt-3">
+            <span class="text-[10px] text-gray-500">my limit:</span>
+            <button data-tol="0.5" class="tol-btn text-[11px] px-2.5 py-1 rounded-full bg-white/5 text-gray-400 hover:text-cyan-300 mono">0.5%</button>
+            <button data-tol="1" class="tol-btn active text-[11px] px-2.5 py-1 rounded-full bg-white/5 text-gray-400 hover:text-cyan-300 mono">1%</button>
+            <button data-tol="3" class="tol-btn text-[11px] px-2.5 py-1 rounded-full bg-white/5 text-gray-400 hover:text-cyan-300 mono">3%</button>
+            <button data-tol="5" class="tol-btn text-[11px] px-2.5 py-1 rounded-full bg-white/5 text-gray-400 hover:text-cyan-300 mono">5%</button>
+            <span class="text-[10px] text-gray-600">the most I'll accept losing to price impact + fees</span>
+        </div>
+    </div>
+
+    <!-- Rev 3.0: the trade planner — routes, size ladder, context, warnings, recipe -->
+    <div class="glass-card p-5 mb-5" id="plan-card" style="display:none">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+            <h3 class="font-semibold" id="plan-title">Best route</h3>
+            <span class="text-[10px] text-gray-600" id="plan-meta"></span>
+        </div>
+        <p class="text-[11px] text-gray-500 mb-3">Every route through every captured pool (Astroport + SkeletonSwap), ranked by what you actually keep. <span class="text-cyan-400 cursor-pointer hover:underline" onclick="document.getElementById('plan-note').classList.toggle('open')">how it's estimated</span></p>
+        <div id="plan-note" class="desc-full mb-3"><span class="text-gray-300 font-semibold">The model:</span> price impact per leg = trade ÷ (the sold token's reserve + trade), the exact constant-product execution price on live reserves; routes are direct pools, two hops through any intermediate token, and a split across the two best paths (fractions searched in 5% steps). Fees: 0.3% per swap leg <i>assumed</i> for both DEXes — a round number, not a quote. "Net" = what remains after impact and fees, converted at TLA catalog prices; concentrated/stable legs carry "≤" (true impact is lower — the number is a bound). The ladder re-plans at each size; "largest under X%" solves the same model by bisection. "In N trades" assumes the pool fully recovers between trades — an assumption, not a promise. Same-block competition, gas and the Eris zapper's own routing are ignored. Context signals compare a token to its own committed history (price-history + dex-data dailies) and describe, never recommend.</div>
+        <div id="plan-warn" class="space-y-1 mb-3"></div>
+        <div id="plan-routes" class="space-y-1.5"></div>
+        <div class="mt-4">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Size ladder</div><span class="text-[10px] text-gray-600" id="ladder-tranche"></span></div>
+            <div class="overflow-x-auto"><table class="w-full text-[11px] mono" id="ladder"></table></div>
+            <div class="text-[11px] text-gray-400 mt-2" id="ladder-limits"></div>
+        </div>
+        <div class="mt-4" id="ctx-wrap">
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">Market context <span class="normal-case tracking-normal text-gray-600">— where each token sits against its own recent history · context, not advice</span></div>
+            <div id="plan-ctx" class="grid md:grid-cols-2 gap-2"></div>
+        </div>
+        <div class="mt-4" id="recipe-wrap">
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1">How to do it</div>
+            <div id="plan-recipe" class="text-[11px] text-gray-300 space-y-1"></div>
+        </div>
     </div>
 
     <!-- zap planner (Rev 2.0: ported from tla-stats T2.7, routed over this page's
@@ -105,10 +153,10 @@
     <!-- results -->
     <div class="glass-card p-5">
         <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-            <h3 class="font-semibold" id="results-title">Where to trade</h3>
+            <h3 class="font-semibold" id="results-title">Where to sell</h3>
             <span class="text-[10px] text-gray-600" id="results-count"></span>
         </div>
-        <p class="text-[11px] text-gray-500 mb-3">Ranked cheapest first — the crown marks your best pool. <span class="text-cyan-400 cursor-pointer hover:underline" onclick="document.getElementById('model-note').classList.toggle('open')">how it's estimated</span></p>
+        <p class="text-[11px] text-gray-500 mb-3">Single-pool view: every pool that takes your FROM token, ranked cheapest first — the crown marks your best pool. <span class="text-cyan-400 cursor-pointer hover:underline" onclick="document.getElementById('model-note').classList.toggle('open')">how it's estimated</span></p>
         <div id="model-note" class="desc-full mb-3"><span class="text-gray-300 font-semibold">The model:</span> for standard (xyk) pools, price impact = trade ÷ (the sold token's pool reserve + trade) — the exact constant-product execution-price formula on live reserves. Concentrated and stable pools bunch liquidity near the current price, so their true impact is <i>lower</i> than shown — those rows carry "≤" and grade on the bound. This ignores swap fees, multi-hop routing, and same-block competition: it's a planning number, not a quote. Grades: <span class="mono">A</span>&lt;0.5% · <span class="mono">B</span>&lt;1% · <span class="mono">C</span>&lt;3% · <span class="mono">D</span>&lt;8% · <span class="mono">F</span> above. SkeletonSwap reserves come from an unverified upstream and are labeled.</div>
         <div id="results" class="space-y-1.5"><div class="loading-pulse text-gray-500 text-sm py-4 text-center">Fetching live reserves…</div></div>
         <div class="text-[10px] text-gray-600 mt-4 pt-3 border-t border-white/5" id="freshness"></div>
@@ -123,7 +171,7 @@
     // Rev footer (DeFi_Patriot 2026-08-03): bump BOTH on every change; #page-rev renders
     // from these constants so the footer can never drift from the code.
     // Changelog: tla-core/docs/changelogs/slippage-log.md
-    const REV = '2.1', REV_DATE = '2026-08-21';
+    const REV = '3.0', REV_DATE = '2026-08-24';
 
     const DEX_URLS = [
         ['astroport', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/snapshots/current.json'],
@@ -138,12 +186,25 @@
         ['participants', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/current.json'],
     ];
     const MIN_TVL = 200;           // hide dust pools that would show absurd impacts
+    // Rev 3.0 context feeds: committed daily prices (90d) + dex-data rolling volume/TVL. Loaded once, after the market.
+    const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
+    const ROLLING_AVG_URL = CORE + '/dex-data/astroport/rolling/6-day-avg.csv';
+    const ROLLING_D7_URL = CORE + '/dex-data/astroport/rolling/day-7.csv';
+    const LCD = 'https://terra-lcd.publicnode.com';
+    const FEE_PER_LEG = 0.003;      // ASSUMED swap fee per leg (both DEXes) — labeled everywhere it is used
+    const THIN_LEG_USD = 5000;      // a leg whose sold-side reserve is under this is flagged thin
+    const LADDER = [20, 50, 100, 250, 500, 1000, 2500, 5000];
+    const TOLS = [0.5, 1, 3, 5];
     const $ = (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null);
     const fmt$ = (v) => '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: v < 100 ? 2 : 0 });
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     const store = {
         pools: [], prices: new Map(), token: null, amount: 1000, capturedAt: null, priceAt: null,
+        // Rev 3.0 planner state
+        to: null, tol: 1, symDenom: new Map(), symPrice: new Map(), symConf: new Map(), symDecimals: new Map(),
+        holdings: null, holdingsWallet: null, holdingsAt: null,
+        history: null, rolling: null, rollingD7: null,
         // Rev 2.0 zap-planner state
         members: null, membersLoading: false, membersAt: null, member: null,
         zapMode: 'out', zapFrac: 0.25, zapExtra: null, zapSource: 'LUNA', zapMult: null, zapInExpanded: false,
@@ -158,9 +219,12 @@
     // them real fixture files and exercise the exact production code paths.
     function ingestMarket(cat, dexPayloads) {
         store.pools = []; store.prices = new Map(); store.capturedAt = null;
+        store.symDenom = new Map(); store.symPrice = new Map(); store.symConf = new Map(); store.symDecimals = new Map();
         for (const t of (cat.tokens || [])) {
             const p = t.prices?.tla?.usd ?? t.prices?.coingecko?.usd ?? t.prices?.astroport?.usd ?? null;
             if (t.denom && p > 0) store.prices.set(t.denom, p);
+            const sym = t.effective?.symbol || t.discovered?.symbol;
+            if (t.denom && sym && p > 0 && !store.symDenom.has(sym)) { store.symDenom.set(sym, t.denom); store.symPrice.set(sym, p); store.symConf.set(sym, t.price_confidence || null); store.symDecimals.set(sym, t.effective?.decimals ?? t.discovered?.decimals ?? 6); }
         }
         store.priceAt = cat.meta?.captured_at || cat.meta?.capturedAt || null;
         for (let i = 0; i < dexPayloads.length; i++) {
@@ -180,6 +244,7 @@
                     name: p.pool_name, dex: dexName, type: p.pool_type || 'xyk',
                     tla: !!p.tla_relevant || !!p.bucket,
                     sides: [{ sym: a.symbol, usd: usdA }, { sym: b.symbol, usd: usdB }],
+                    address: p.pool_address || null, tvl: (p.tvl_usd != null ? Number(p.tvl_usd) : usdA + usdB), vol24: (p.volume_24h_usd != null ? Number(p.volume_24h_usd) : null),
                 });
             }
         }
@@ -206,19 +271,14 @@
             return;
         }
         ingestMarket(cat, dex);
-        // token list ordered by total liquidity behind it — the natural "popular first"
-        const liq = new Map();
-        for (const p of store.pools) for (const s of p.sides) liq.set(s.sym, (liq.get(s.sym) || 0) + s.usd);
-        const toks = [...liq.entries()].sort((x, y) => y[1] - x[1]).map(([sym]) => sym);
-        store.token = toks.includes('LUNA') ? 'LUNA' : toks[0];
-        $('tok-chips').innerHTML = toks.map(t =>
-            `<button class="tok-chip text-[12px] px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 font-medium${t === store.token ? ' active' : ''}" data-tok="${esc(t)}">${esc(t)}</button>`).join('');
-        $('tok-chips').querySelectorAll('.tok-chip').forEach(b => b.addEventListener('click', () => {
-            store.token = b.dataset.tok;
-            $('tok-chips').querySelectorAll('.tok-chip').forEach(x => x.classList.toggle('active', x === b));
-            render();
-        }));
+        // ?from=&to= deep links (Rev 3.0): fuel-tool and others can preset the planner
+        const qp = new URLSearchParams(location.search);
+        if (qp.get('from')) store.token = qp.get('from'); if (qp.get('to')) store.to = qp.get('to'); if (qp.get('token')) store.to = qp.get('token');
+        renderTokenChips();
         renderArbRadar();
+        renderPlanner();
+        loadContext();   // 90d prices + rolling volume/TVL, then re-render
+        if (store.holdingsWallet) loadHoldings(store.holdingsWallet);
         const cap = String(store.capturedAt || '').replace('T', ' ').slice(0, 16);
         $('freshness').innerHTML = `<i class="fas fa-satellite-dish text-gray-500 mr-1"></i>Live reserves captured ${esc(cap || 'recently')} UTC · prices from the TLA token catalog · pools under ${fmt$(MIN_TVL)} hidden · refreshes on page load`;
         render();
@@ -594,6 +654,208 @@
     const gradeStyle = { A: 'bg-emerald-500/20 text-emerald-300', B: 'bg-cyan-500/20 text-cyan-300', C: 'bg-yellow-500/20 text-yellow-300', D: 'bg-orange-500/20 text-orange-300', F: 'bg-red-500/20 text-red-300' };
     const barColor = { A: '#34d399', B: '#22d3ee', C: '#fde047', D: '#fb923c', F: '#f87171' };
 
+    // ---- Rev 3.0 TRADE PLANNER CORE -------------------------------------------
+    // Pure functions over store.pools (USD-denominated sides). No third copy of
+    // the impact formula: _swapImpact above is the one place it lives.
+    const isCurved = (p) => p.type === 'concentrated' || p.type === 'stable';
+    function _legCost(p, from, v) {            // one leg: impact + assumed fee, and what arrives (USD)
+        const r = _swapImpact(p, from, v); if (!r) return null;
+        const out = v * (1 - r.pct / 100) * (1 - FEE_PER_LEG);
+        return { pool: p, from, to: p.sides.find(x => x.sym !== from).sym, v, impactPct: r.pct, feePct: FEE_PER_LEG * 100, out, curved: r.curved, depth: _sideUsd(p, from) };
+    }
+    function _pathCost(pathPools, from, v) {   // legs in sequence; each leg's input is the previous leg's output
+        const legs = []; let cur = from, x = v;
+        for (const p of pathPools) { const l = _legCost(p, cur, x); if (!l) return null; legs.push(l); cur = l.to; x = l.out; }
+        return { legs, out: x, costPct: (1 - x / v) * 100, impactPct: (1 - legs.reduce((a, l) => a * (1 - l.impactPct / 100), 1)) * 100, feePct: (1 - legs.reduce((a, l) => a * (1 - l.feePct / 100), 1)) * 100, curvedAny: legs.some(l => l.curved), thin: legs.filter(l => l.depth < THIN_LEG_USD).map(l => l.pool.name), unverified: legs.some(l => l.pool.dex === 'skeletonswap') };
+    }
+    const _poolsWith = (a, b) => store.pools.filter(p => { const s = [p.sides[0].sym, p.sides[1].sym]; return s.includes(a) && s.includes(b); });
+    // Every candidate path from → to: direct pools, and two hops through ANY intermediate (best pool per leg at this size).
+    function _candidatePaths(from, to, v) {
+        const paths = [];
+        for (const p of _poolsWith(from, to)) paths.push({ kind: 'direct', pools: [p] });
+        const mids = new Set(); for (const p of store.pools) for (const s of p.sides) if (s.sym !== from && s.sym !== to) mids.add(s.sym);
+        for (const mid of mids) {
+            const l1 = _poolsWith(from, mid).map(p => _legCost(p, from, v)).filter(Boolean).sort((a, b) => a.impactPct - b.impactPct)[0];
+            if (!l1) continue;
+            const l2 = _poolsWith(mid, to).map(p => _legCost(p, mid, l1.out)).filter(Boolean).sort((a, b) => a.impactPct - b.impactPct)[0];
+            if (!l2) continue;
+            paths.push({ kind: 'via ' + mid, pools: [l1.pool, l2.pool] });
+        }
+        return paths;
+    }
+    // Ranked routes for $v of from → to. Adds a split of the two best paths when it beats either alone.
+    function planRoutes(from, to, v) {
+        if (!from || !to || from === to || !(v > 0)) return [];
+        const routes = _candidatePaths(from, to, v).map(c => { const r = _pathCost(c.pools, from, v); return r ? { ...r, kind: c.kind, pools: c.pools, split: null } : null; }).filter(Boolean);
+        routes.sort((a, b) => b.out - a.out);
+        if (routes.length >= 2) {
+            const [A, B] = routes; let best = null;
+            for (let f = 0.05; f < 1; f += 0.05) {
+                const ra = _pathCost(A.pools, from, v * f), rb = _pathCost(B.pools, from, v * (1 - f));
+                if (!ra || !rb) continue;
+                const out = ra.out + rb.out;
+                if (!best || out > best.out) best = { out, f, ra, rb };
+            }
+            if (best && best.out > A.out * 1.0005) routes.unshift({ kind: 'split', pools: [...A.pools, ...B.pools], split: { f: best.f, a: A, b: B, ra: best.ra, rb: best.rb }, legs: [...best.ra.legs, ...best.rb.legs], out: best.out, costPct: (1 - best.out / v) * 100, impactPct: null, feePct: A.feePct, curvedAny: A.curvedAny || B.curvedAny, thin: [...new Set([...A.thin, ...B.thin])], unverified: A.unverified || B.unverified });
+        }
+        return routes;
+    }
+    const bestCostPct = (from, to, v) => { const r = planRoutes(from, to, v)[0]; return r ? r.costPct : null; };
+    // Largest $ size whose best-route cost stays under tolPct (bisection; cost is monotone in size).
+    function maxSizeUnder(from, to, tolPct) {
+        const feeFloor = bestCostPct(from, to, 1); if (feeFloor == null || feeFloor >= tolPct) return 0;
+        let lo = 1, hi = 1e7;
+        for (let i = 0; i < 40; i++) { const mid = Math.sqrt(lo * hi); const c = bestCostPct(from, to, mid); if (c == null || c > tolPct) hi = mid; else lo = mid; }
+        return Math.floor(lo);   // floor, never round: the size we name must itself be under the limit
+    }
+    const gradeOfCost = (c) => c < 0.5 ? 'A' : c < 1 ? 'B' : c < 3 ? 'C' : c < 8 ? 'D' : 'F';
+
+    // ---- wallet liquid balances (LIVE reads; the picker's wallet) --------------
+    async function loadHoldings(wallet) {
+        if (!wallet) { store.holdings = null; store.holdingsWallet = null; renderPlanner(); return; }
+        const st = $('wallet-hold-status'); if (st) st.textContent = 'reading balances…';
+        const out = new Map(); const b64 = (o) => btoa(JSON.stringify(o));
+        try {
+            const bank = await fetch(`${LCD}/cosmos/bank/v1beta1/balances/${wallet}?pagination.limit=200`).then(r => r.ok ? r.json() : null);
+            for (const b of (bank && bank.balances) || []) for (const [sym, denom] of store.symDenom) if (denom === b.denom) out.set(sym, Number(b.amount) / 10 ** (store.symDecimals.get(sym) || 6));
+            const cw20s = [...store.symDenom].filter(([, d]) => d.startsWith('terra1'));
+            for (let i = 0; i < cw20s.length; i += 4) await Promise.all(cw20s.slice(i, i + 4).map(async ([sym, d]) => {
+                const r = await fetch(`${LCD}/cosmwasm/wasm/v1/contract/${d}/smart/${b64({ balance: { address: wallet } })}`).then(r => r.ok ? r.json() : null).catch(() => null);
+                const amt = r && r.data && Number(r.data.balance); if (amt > 0) out.set(sym, amt / 10 ** (store.symDecimals.get(sym) || 6));
+            }));
+            store.holdings = out; store.holdingsWallet = wallet; store.holdingsAt = new Date().toISOString();
+            const usd = [...out].reduce((a, [sym, amt]) => a + amt * (store.symPrice.get(sym) || 0), 0);
+            if (st) st.textContent = `${shortAddr(wallet)} holds ${out.size} priced tokens · ${fmt$(usd)} liquid · live`;
+        } catch (e) { store.holdings = null; if (st) st.textContent = 'balances unavailable (LCD) — planner works without them'; }
+        renderTokenChips(); renderPlanner();
+    }
+    const heldUsd = (sym) => store.holdings && store.holdings.has(sym) ? store.holdings.get(sym) * (store.symPrice.get(sym) || 0) : 0;
+
+    // ---- context feeds: 90d prices + rolling volume/TVL ------------------------
+    function parseCsv(txt) {
+        const lines = String(txt || '').trim().split('\n'); if (lines.length < 2) return [];
+        const split = (l) => { const out = []; let cur = '', q = false; for (const ch of l) { if (ch === '"') q = !q; else if (ch === ',' && !q) { out.push(cur); cur = ''; } else cur += ch; } out.push(cur); return out; };
+        const h = split(lines[0]); return lines.slice(1).map(l => Object.fromEntries(split(l).map((v, i) => [h[i], v])));
+    }
+    async function loadContext() {
+        const now = new Date(); const months = [];
+        for (let i = 0; i < 4; i++) { const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1)); months.push(`${CORE}/price-history/${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, '0')}.json`); }
+        const j = (u) => fetch(u + '?t=' + Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
+        const t = (u) => fetch(u + '?t=' + Date.now()).then(r => r.ok ? r.text() : null).catch(() => null);
+        const [avg, d7, ...ph] = await Promise.all([t(ROLLING_AVG_URL), t(ROLLING_D7_URL), ...months.map(j)]);
+        store.history = {}; for (const m of ph) for (const [day, row] of Object.entries((m && m.days) || {})) for (const [sym, v] of Object.entries(row)) if (v && v.usd > 0) (store.history[sym] || (store.history[sym] = {}))[day] = v.usd;
+        store.rolling = avg ? parseCsv(avg) : null; store.rollingD7 = d7 ? parseCsv(d7) : null;
+        renderPlanner();
+    }
+    function tokenContext(sym) {
+        const h = store.history && store.history[sym]; if (!h) return null;
+        const days = Object.keys(h).sort(); if (days.length < 2) return null;
+        const last = days[days.length - 1], nowP = h[last];
+        const at = (n) => { const cut = new Date(Date.parse(last) - n * 864e5).toISOString().slice(0, 10); const c = days.filter(d => d <= cut); return c.length ? h[c[c.length - 1]] : null; };
+        const p7 = at(7), p30 = at(30); const win = days.filter(d => d >= new Date(Date.parse(last) - 90 * 864e5).toISOString().slice(0, 10)).map(d => h[d]);
+        const lo = Math.min(...win), hi = Math.max(...win);
+        return { last, price: nowP, d7: p7 ? (nowP / p7 - 1) * 100 : null, d30: p30 ? (nowP / p30 - 1) * 100 : null, lo90: lo, hi90: hi, pos90: hi > lo ? (nowP - lo) / (hi - lo) * 100 : null, days: win.length };
+    }
+    function poolContext(p) {
+        if (!p.address) return null;
+        const avgRow = (store.rolling || []).find(r => r.pool_address === p.address), d7Row = (store.rollingD7 || []).find(r => r.pool_address === p.address);
+        const avgVol = avgRow && Number(avgRow.total_volume_usd) > 0 && Number(avgRow.snapshot_count) > 0 ? Number(avgRow.total_volume_usd) / Number(avgRow.snapshot_count) : null;
+        const tvl7 = d7Row ? Number(d7Row.tvl_usd) : null;
+        return { vol24: p.vol24, avgVol, volX: avgVol && p.vol24 != null ? p.vol24 / avgVol : null, tvl: p.tvl, tvl7, tvlD: tvl7 > 0 && p.tvl != null ? (p.tvl / tvl7 - 1) * 100 : null };
+    }
+    const STABLES = new Set(['USDC', 'USDT', 'USDt', 'SOLID', 'EURe', 'axlUSDC', 'axlUSDT']);
+    function pegContext(sym) {   // implied price of a stable in each xyk pool vs $1 (or vs its catalog price for EURe)
+        if (!STABLES.has(sym)) return null;
+        const rows = [];
+        for (const p of store.pools) { if (p.type !== 'xyk') continue; const i = p.sides.findIndex(s => s.sym === sym); if (i < 0) continue; const me = p.sides[i], o = p.sides[1 - i]; const pr = store.symPrice.get(sym) || 1; const implied = (o.usd / (me.usd / pr)); rows.push({ pool: p.name, dex: p.dex, implied, other: o.sym }); }
+        return rows.length ? rows : null;
+    }
+
+    // ---- planner render ---------------------------------------------------------
+    function renderTokenChips() {
+        const liq = new Map(); for (const p of store.pools) for (const s of p.sides) liq.set(s.sym, (liq.get(s.sym) || 0) + s.usd);
+        const toks = [...liq.entries()].sort((x, y) => y[1] - x[1]).map(([sym]) => sym);
+        const held = toks.filter(t => heldUsd(t) > 0.5).sort((a, b) => heldUsd(b) - heldUsd(a));
+        const ordered = [...held, ...toks.filter(t => !held.includes(t))];
+        if (!store.token || !toks.includes(store.token)) store.token = held[0] || (toks.includes('LUNA') ? 'LUNA' : toks[0]);
+        if (!store.to || !toks.includes(store.to) || store.to === store.token) store.to = toks.find(t => t !== store.token && t === 'USDC') || toks.find(t => t !== store.token);
+        const chip = (t, active, dataAttr) => `<button class="tok-chip text-[12px] px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 font-medium${active ? ' active' : ''}" data-${dataAttr}="${esc(t)}">${esc(t)}${heldUsd(t) > 0.5 ? `<span class="text-[9px] text-emerald-300/80 ml-1" title="in your wallet">${fmt$(heldUsd(t))}</span>` : ''}</button>`;
+        $('tok-chips').innerHTML = ordered.map(t => chip(t, t === store.token, 'tok')).join('');
+        $('to-chips').innerHTML = ordered.filter(t => t !== store.token).map(t => chip(t, t === store.to, 'to')).join('');
+        $('from-hint').textContent = held.length ? `— your wallet's tokens first` : '';
+        $('tok-chips').querySelectorAll('.tok-chip').forEach(b => b.addEventListener('click', () => { store.token = b.dataset.tok; if (store.to === store.token) store.to = null; renderTokenChips(); render(); renderPlanner(); }));
+        $('to-chips').querySelectorAll('.tok-chip').forEach(b => b.addEventListener('click', () => { store.to = b.dataset.to; renderTokenChips(); renderPlanner(); }));
+        const br = $('bal-row'); if (br) { const h = heldUsd(store.token); br.style.display = h > 0.5 ? '' : 'none'; if (h > 0.5) $('bal-note').textContent = `${Number(store.holdings.get(store.token)).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${store.token} ≈ ${fmt$(h)}`; }
+    }
+    const pct2 = (v, curved) => v == null ? '—' : (curved ? '≤' : '') + (v < 0.05 ? '<0.05' : v.toFixed(2)) + '%';
+    const tokAmt = (usd, sym) => { const p = store.symPrice.get(sym); return p ? `${(usd / p).toLocaleString(undefined, { maximumFractionDigits: usd / p < 10 ? 4 : 0 })} ${sym}` : ''; };
+    function renderPlanner() {
+        const card = $('plan-card'); if (!card) return;
+        const from = store.token, to = store.to, v = store.amount, tol = store.tol;
+        if (!from || !to || !store.pools.length) { card.style.display = 'none'; return; }
+        card.style.display = '';
+        const routes = planRoutes(from, to, v);
+        $('plan-title').innerHTML = `<span class="text-cyan-300">${esc(from)}</span> → <span class="text-cyan-300">${esc(to)}</span> · ${fmt$(v)}${tokAmt(v, from) ? ` <span class="text-[11px] font-normal text-gray-500 mono">(${esc(tokAmt(v, from))})</span>` : ''}`;
+        $('plan-meta').textContent = routes.length ? `${routes.length} route${routes.length === 1 ? '' : 's'} · limit ${tol}%` : '';
+        // warnings
+        const warns = []; const best = routes[0];
+        if (!best) warns.push(['red', `No captured pool path connects ${from} to ${to} (pools under ${fmt$(MIN_TVL)} are hidden). Try routing to LUNA or USDC first.`]);
+        else {
+            if (best.costPct > tol) warns.push(['red', `Best route costs ${pct2(best.costPct, best.curvedAny)} — over your ${tol}% limit. Largest ${from}→${to} trade under ${tol}%: ${fmt$(maxSizeUnder(from, to, tol))}.`]);
+            if (best.thin.length) warns.push(['amber', `Thin leg: ${best.thin.join(', ')} has under ${fmt$(THIN_LEG_USD)} on the side you sell into — small trades move it a lot.`]);
+            if (best.unverified) warns.push(['amber', 'A SkeletonSwap leg — its reserves come from an unverified upstream.']);
+            if (best.curvedAny) warns.push(['gray', 'Concentrated/stable leg(s): the impact shown is a bound; the true cost is lower.']);
+            for (const sym of [from, to]) { const c = store.symConf.get(sym); if (c && c.sources_available === 1) warns.push(['amber', `${sym} is priced by a single source — its USD size may be off; the impact % is not.`]); }
+            const age = store.capturedAt ? (Date.now() - Date.parse(store.capturedAt)) / 36e5 : null; if (age != null && age > 2) warns.push(['amber', `Reserves are ${age.toFixed(1)}h old — pools may have moved.`]);
+        }
+        $('plan-warn').innerHTML = warns.map(([c, t]) => `<div class="text-[11px] px-2.5 py-1.5 rounded-lg ${c === 'red' ? 'bg-red-500/10 text-red-300' : c === 'amber' ? 'bg-amber-500/10 text-amber-300' : 'bg-white/5 text-gray-400'}">${esc(t)}</div>`).join('');
+        // routes
+        const legHtml = (l) => `<span class="text-gray-300">${esc(l.from)}→${esc(l.to)}</span> <span class="text-gray-500">via ${esc(l.pool.name)} (${l.pool.dex === 'astroport' ? 'Astro' : 'SS'}${isCurved(l.pool) ? ' · ' + esc(l.pool.type) : ''}, ${fmt$(l.depth)} ${esc(l.from)} side)</span> <span class="mono ${l.impactPct < 1 ? 'text-gray-400' : l.impactPct < 3 ? 'text-yellow-300' : 'text-red-300'}">${pct2(l.impactPct, l.curved)}</span>`;
+        $('plan-routes').innerHTML = routes.slice(0, 5).map((r, i) => { const g = gradeOfCost(r.costPct); return `
+            <div class="pool-row rounded-xl bg-white/[0.02] border ${i === 0 ? 'border-cyan-500/30' : 'border-white/5'} p-3" data-route="${i}">
+                <div class="flex items-start gap-3">
+                    <span class="grade-badge ${gradeStyle[g]}">${g}</span>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2 flex-wrap text-sm"><span class="font-semibold">${i === 0 ? '👑 ' : ''}${r.kind === 'split' ? `Split ${Math.round(r.split.f * 100)}% / ${Math.round((1 - r.split.f) * 100)}%` : r.kind === 'direct' ? 'Direct' : esc(r.kind)}</span>${r.split ? `<span class="text-[9px] text-gray-500">${esc(r.split.a.kind)} + ${esc(r.split.b.kind)}</span>` : ''}</div>
+                        <div class="text-[10px] mt-1 space-y-0.5">${r.legs.map(l => `<div>${legHtml(l)}</div>`).join('')}</div>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <div class="mono text-base font-bold ${r.costPct < 1 ? 'text-gray-100' : r.costPct < 3 ? 'text-yellow-300' : 'text-red-400'}" title="impact + assumed fees">${pct2(r.costPct, r.curvedAny)}</div>
+                        <div class="text-[10px] mono text-gray-400">keep ${fmt$(r.out)}${tokAmt(r.out, to) ? ` ≈ ${esc(tokAmt(r.out, to))}` : ''}</div>
+                        <div class="text-[9px] mono text-gray-600">impact ${r.impactPct == null ? 'split' : pct2(r.impactPct, r.curvedAny)} · fees ${r.feePct.toFixed(2)}% assumed</div>
+                    </div>
+                </div>
+            </div>`; }).join('') || '';
+        // ladder
+        const sizes = [...new Set([...LADDER, v])].sort((a, b) => a - b);
+        const rows = sizes.map(sz => { const r = planRoutes(from, to, sz)[0]; return { sz, r }; });
+        $('ladder').innerHTML = `<tr class="text-gray-500 text-[10px]"><th class="text-left font-normal py-1">size</th><th class="text-right font-normal">cost</th><th class="text-right font-normal">lost</th><th class="text-right font-normal">in 4 trades*</th><th class="text-left font-normal pl-3">route</th></tr>` + rows.map(({ sz, r }) => {
+            const over = r && r.costPct > tol; const q = planRoutes(from, to, sz / 4)[0];
+            return `<tr class="${sz === v ? 'bg-cyan-500/5' : ''} ${over ? 'text-red-300' : 'text-gray-300'}"><td class="py-1">${fmt$(sz)}${sz === v ? ' ◂' : ''}</td><td class="text-right">${r ? pct2(r.costPct, r.curvedAny) : '—'}</td><td class="text-right">${r ? fmt$(sz - r.out) : '—'}</td><td class="text-right">${q ? pct2(q.costPct, q.curvedAny) : '—'}</td><td class="pl-3 text-gray-500 text-[10px]">${r ? esc(r.kind === 'split' ? 'split' : r.kind) : 'unroutable'}</td></tr>`; }).join('');
+        $('ladder-tranche').textContent = '* if the pool recovers between trades — an assumption, not a promise';
+        $('ladder-limits').innerHTML = routes.length ? 'Largest single trade under ' + TOLS.map(t => `<span class="mono ${t === tol ? 'text-cyan-300' : 'text-gray-400'}">${t}% → ${fmt$(maxSizeUnder(from, to, t))}</span>`).join(' · ') + ' <span class="text-gray-600">(fees included)</span>' : '';
+        // context
+        const ctxCard = (sym) => {
+            const c = tokenContext(sym), peg = pegContext(sym);
+            const usedPools = best ? best.legs.map(l => l.pool).filter(p => p.sides.some(s => s.sym === sym)) : [];
+            const pc = usedPools.map(p => ({ p, c: poolContext(p) })).filter(x => x.c);
+            const lines = [];
+            if (c) {
+                if (c.d7 != null) lines.push(`7d ${c.d7 >= 0 ? '+' : ''}${c.d7.toFixed(1)}% · 30d ${c.d30 == null ? '—' : (c.d30 >= 0 ? '+' : '') + c.d30.toFixed(1) + '%'}`);
+                if (c.pos90 != null) lines.push(`at ${c.pos90.toFixed(0)}% of its 90-day range (${fmt$(c.lo90)}–${fmt$(c.hi90)}) — ${c.pos90 > 80 ? 'near the top of the range' : c.pos90 < 20 ? 'near the bottom of the range' : 'mid-range'}${c.days < 60 ? ` · only ${c.days} days of history` : ''}`);
+            } else lines.push('no committed price history for this token');
+            for (const { p, c: x } of pc) {
+                if (x.volX != null) lines.push(`${p.name}: 24h volume ${x.volX >= 2 ? `${x.volX.toFixed(1)}× its 6-day average — unusually active` : x.volX <= 0.5 ? `${x.volX.toFixed(2)}× its 6-day average — quiet` : `${x.volX.toFixed(1)}× its 6-day average`}`);
+                if (x.tvlD != null) lines.push(`${p.name}: liquidity ${x.tvlD >= 0 ? '+' : ''}${x.tvlD.toFixed(0)}% vs 7 days ago${x.tvlD <= -15 ? ' — thinner than last week' : ''}`);
+            }
+            if (peg) lines.push(`peg: ${peg.map(r => `${r.pool} ${r.dex === 'astroport' ? 'Astro' : 'SS'} $${r.implied.toFixed(4)}`).join(' · ')} — ${peg.some(r => r.implied < 0.995) ? 'trading under $1 in a pool (buying it moves it back toward peg)' : 'holding peg'}`);
+            return `<div class="rounded-xl bg-white/[0.02] border border-white/5 p-3 text-[11px]"><div class="flex items-center justify-between"><span class="font-semibold text-gray-200">${esc(sym)}</span><span class="mono text-gray-400">${store.symPrice.get(sym) != null ? '$' + Number(store.symPrice.get(sym)).toPrecision(4) : ''}</span></div><div class="text-gray-400 mt-1 space-y-0.5">${lines.map(l => `<div>${esc(l)}</div>`).join('')}</div></div>`;
+        };
+        $('plan-ctx').innerHTML = ctxCard(from) + ctxCard(to);
+        // recipe
+        $('plan-recipe').innerHTML = best ? best.legs.map((l, i) => `<div>${i + 1}. On <a class="text-cyan-400 hover:underline" href="${l.pool.dex === 'astroport' ? 'https://app.astroport.fi/swap' : 'https://skeletonswap.io'}" target="_blank" rel="noopener">${l.pool.dex === 'astroport' ? 'Astroport' : 'SkeletonSwap'}</a>, swap <span class="mono">${esc(tokAmt(l.v, l.from) || fmt$(l.v))}</span> → ${esc(l.to)} in <span class="text-gray-400">${esc(l.pool.name)}</span> · set slippage tolerance ≥ ${Math.max(0.5, Math.ceil(l.impactPct * 2) / 2).toFixed(1)}%</div>`).join('') + `<div class="text-gray-500 text-[10px] mt-1">${best.split ? 'Split routes are two separate swaps — do the bigger leg first. ' : ''}Numbers are from reserves captured ${esc(String(store.capturedAt || '').replace('T', ' ').slice(0, 16))} UTC; re-check the DEX quote before signing.</div>` : '';
+    }
+
     function render() {
         const tok = store.token, amt = store.amount;
         if (!tok) return;
@@ -650,6 +912,7 @@
         $('amt-display').textContent = fmt$(store.amount);
         if (!fromSlider) $('amt-slider').value = usdToSlider(store.amount);
         render();
+        renderPlanner();
         // zap-in $ mode follows the trade-size control live
         if (store.member && store.zapMode === 'in' && !store.zapMult) renderZapPlanner();
     }
@@ -659,6 +922,9 @@
         $('amt-slider').addEventListener('input', (e) => setAmount(sliderToUsd(Number(e.target.value)), true));
         document.querySelectorAll('.amt-btn').forEach(b => b.addEventListener('click', () => setAmount(Number(b.dataset.amt))));
         $('amt-custom').addEventListener('change', (e) => { const v = Number(e.target.value); if (v > 0) setAmount(v); });
+        document.querySelectorAll('.tol-btn').forEach(b => b.addEventListener('click', () => { store.tol = Number(b.dataset.tol); document.querySelectorAll('.tol-btn').forEach(x => x.classList.toggle('active', x === b)); renderPlanner(); }));
+        document.querySelectorAll('.bal-btn').forEach(b => b.addEventListener('click', () => { const h = heldUsd(store.token); if (h > 0) setAmount(h * Number(b.dataset.frac)); }));
+        const sd = $('swap-dir'); if (sd) sd.addEventListener('click', () => { const t = store.token; store.token = store.to; store.to = t; renderTokenChips(); render(); renderPlanner(); });
         // wallet selector: lazy member-feed load on first touch; commit on change
         const wi = $('wallet-input');
         if (wi) {
@@ -677,8 +943,8 @@
         // resolved by the picker; this page just receives wallets.
         if (window.AddressPicker) {
             AddressPicker.mount({
-                onSelect: (w) => { loadMembers().then(() => { const m = selectMemberByWallet(w); const st = $('wallet-status'); if (st) st.textContent = m ? '' : '· this wallet has no captured TLA positions'; }); },
-                onClear: clearMember,
+                onSelect: (w) => { loadMembers().then(() => { const m = selectMemberByWallet(w); const st = $('wallet-status'); if (st) st.textContent = m ? '' : '· this wallet has no captured TLA positions'; }); store.holdingsWallet = w; if (store.pools.length) loadHoldings(w); },
+                onClear: () => { clearMember(); store.holdingsWallet = null; loadHoldings(null); const st = $('wallet-hold-status'); if (st) st.textContent = ''; },
             });
         } else {
             const qp = new URLSearchParams(location.search).get('wallet');
@@ -690,7 +956,8 @@
     // Delivery-gate hook (harmless in production): exposes the LIVE functions so
     // the mock gate exercises this exact code on real fixtures — no third copy.
     window.__zapTest = { store, ingestMarket, ingestMembers, findMember, selectMemberByWallet, displayName,
-        aggregatePositions, poolFor, _swapImpact, _bestRoute, _zapOutCost, _zapInCost, _zapAllSymbols, REV, REV_DATE };
+        aggregatePositions, poolFor, _swapImpact, _bestRoute, _zapOutCost, _zapInCost, _zapAllSymbols, REV, REV_DATE,
+        planRoutes, maxSizeUnder, tokenContext, poolContext, pegContext, loadHoldings, renderPlanner, renderTokenChips, setAmount, parseCsv };
 })();
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
@@ -701,6 +968,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '2.1', revDate: '2026-08-21', page: 'slippage' });</script>
+<script>SiteFooter.mount({ rev: '3.0', revDate: '2026-08-24', page: 'slippage' });</script>
 </body>
 </html>
