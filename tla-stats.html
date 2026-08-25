@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Terra Liquidity Alliance Tracker | Alliance DAO — TEST</title>
     
-    <!-- Favicons (hosted in aDAO-Image-Files repo) -->
+    <!-- Favicons (site assets) -->
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon-16x16.png">
@@ -2728,9 +2728,9 @@
     //   1) Unknowns render as "Unknown" + a short prefix:…tail subtitle +
     //      a copy-to-clipboard button so you can grab the full address.
     //   2) Once you've confirmed what a token is (chain query, project docs,
-    //      DEX listing, etc.), add it to tla_known_tokens.json in the
-    //      tla_json_storage repo. The page fetches that file on load and
-    //      populates KNOWN_TOKEN_NAMES from `data.tokens`. Then the pool
+    //      DEX listing, etc.), it gets a name from the org token catalog
+    //      (token-catalog/snapshots/current.json) or the curated register
+    //      (docs/curated/known_contracts.json) — both org-owned. Then the pool
     //      renders as a normal named pool with no extra styling.
     //
     // The map below is the *runtime* form — populated at startup from the
@@ -10382,6 +10382,10 @@
 
     // ---------------- Pools tab (2026-08-25): LP Stats + TLA Stats merged — one row per pool, everything we know ----------------
     function renderPoolsByBucket() {
+        _renderPoolsRows();
+        for (const b of ['stable', 'project', 'bluechip', 'single']) if (document.getElementById(`chart-${b}`)) { try { renderBucketChart(b, (store.poolsChartScale || {})[b] || 'all'); } catch (e) { console.warn('bucket chart', b, e); } }
+    }
+    function _renderPoolsRows() {
         const host = document.getElementById('pools-by-bucket'); if (!host) return;
         const search = (document.getElementById('pool-search')?.value || '').toLowerCase();
         const bucketFilter = document.getElementById('bucket-filter')?.value || 'all';
@@ -10424,7 +10428,18 @@
         const order = ['STABLE', 'PROJECT', 'BLUECHIP', 'SINGLE'];
         const sections = order.filter(b => byBucket[b]).map(b => {
             const rs = byBucket[b]; const tot = { staked: rs.reduce((s2, r) => s2 + r.staked, 0), depth: rs.reduce((s2, r) => s2 + r.depth, 0), vol: rs.reduce((s2, r) => s2 + r.vol, 0), emis: rs.reduce((s2, r) => s2 + (r.emisWk || 0), 0), vp: rs.reduce((s2, r) => s2 + r.vp, 0), votion: rs.reduce((s2, r) => s2 + r.votion, 0), adao: rs.reduce((s2, r) => s2 + r.adao, 0), pot: rs.reduce((s2, r) => s2 + r.pot.usd, 0) };
-            return `<div class="mt-4">
+            const bl = b.toLowerCase(); const tier = (store.poolsChartScale || {})[bl] || 'all';
+            const chartCard = `<div class="rounded-lg bg-white/[0.02] border border-white/[0.05] p-3 mb-2">
+                <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+                    <div class="text-[11px] text-gray-400"><i class="fas fa-chart-line mr-1"></i>Daily liquidity &amp; volume — this bucket's pools against each other <span class="text-[9px] text-gray-600 ml-1">solid = liquidity · dashed = volume · past epoch then current · Astroport only</span></div>
+                    <select class="scale-select epoch-select text-xs" data-bucket="${bl}" onchange="updateBucketChartScale('${bl}', this.value)" title="Tiers keep the scale readable: compare pools of a similar size instead of squashing small ones against a big one">
+                        ${[['all', 'All LPs'], ['top', 'Top tier ($100K+)'], ['mid', 'Mid tier ($10K–$100K)'], ['low', 'Low tier (<$10K)']].map(([v, l]) => `<option value="${v}"${tier === v ? ' selected' : ''}>${l.replace('<', '&lt;')}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="relative" style="height:220px"><canvas id="chart-${bl}" class="w-full h-full"></canvas></div>
+                <div id="legend-${bl}" class="flex flex-wrap gap-2 mt-2 text-[10px]"></div>
+            </div>`;
+            return `<div class="mt-4">${chartCard}
                 <div class="grid gap-x-3 items-center px-2 py-2 rounded-lg bg-white/[0.04]" style="${GRID}">
                     <div><span class="text-[11px] uppercase tracking-wider font-semibold text-gray-200">${b}</span> <span class="text-[10px] text-gray-500">${rs.length} pools</span></div>
                     ${cell(f$(tot.staked), `of ${f$(tot.depth)} DEX depth · ${tot.depth > 0 ? (tot.staked / tot.depth * 100).toFixed(0) : '—'}% in TLA`)}
@@ -10768,6 +10783,7 @@
     }
     
     function updateBucketChartScale(bucket, scale) {
+        (store.poolsChartScale = store.poolsChartScale || {})[bucket] = scale;   // remembered across re-renders
         renderBucketChart(bucket, scale);
     }
     
