@@ -13945,9 +13945,9 @@
                     const getBblBadge = () => '<img src="/assets/images/BBL%20No%20Background.png" class="w-4 h-4" alt="BBL" title="BBL Marketplace">';
                     const getBoostBadge = () => '<img src="/assets/images/Boost%20Logo.png" class="w-4 h-4" alt="Boost" title="Boost Marketplace">';
                     
-                    // Rev 4.06 (owner): 10 at a time, "Load 10 more" — every card carries an NFT image,
-                    // so 63 cards was 63 image fetches at first paint. Filters/collection switches reset to 10.
-                    const LIST_PAGE = 10;
+                    // Rev 4.08 (owner): 12 at a time — three full rows of the 3-column grid — "Load 12 more".
+                    // Every card carries an NFT image, so 63 cards was 63 image fetches at first paint.
+                    const LIST_PAGE = 12;
                     const filterKey = [JSON.stringify(collectionFilters), listingConditionFilter, listingMarketplaceFilter].join('|');
                     if (window.__listingsFilterKey !== filterKey) { window.__listingsFilterKey = filterKey; window.__listingsShown = LIST_PAGE; }
                     window.__listingsShown = window.__listingsShown || LIST_PAGE;
@@ -15490,7 +15490,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '4.06', REV_DATE = '2026-08-24';   // 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
+        const REV = '4.08', REV_DATE = '2026-08-24';   // 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16617,9 +16617,15 @@
             };
             const [rzA, rzB] = await Promise.all([vA ? realizedFor('ampluna-max', vA) : null, vB ? realizedFor('arbluna-max', vB) : null]);
             const pc1 = (x) => x == null ? '—' : x.toFixed(1) + '%';
-            const aprRow = (label, v, ap, rz, slug) => [label, v ? ((rz && rz.vault_apy_pct != null ? pc1(rz.vault_apy_pct) + ' <span class="pr-d text-gray-400">+ ' + pc1(rz.asset_apy_pct) + ' asset</span>' : (ap ? ap.aprSimple.toFixed(1) + '%' : '—')) +
-                sub([ap ? k('forward ' + ap.aprSimple.toFixed(1) + '% APR · $' + ap.rew.toFixed(2) + ' / period') : k('forward reward unavailable'), k(fmt$(v.vault_tvl_usd || 0) + ' TVL'), '<a class="k" style="color:#67e8f9" target="_blank" rel="noopener" href="https://votion.money/pools/liquidity-alliance/' + slug + '">votion.money ↗</a>'])) : '—', 'live',
-                'Headline = REALIZED votion APY: the vault\'s vLST/LST exchange-rate growth over the trailing window from our daily captures, compounded to a year — the same thing Votion\'s "Votion APY" tracks. "+ asset" = the LST hub-rate growth the same way (Votion\'s "Asset APY"); combined = both. The forward chip is next period\'s expected reward ÷ TVL, simple. Measured from chain captures; Votion\'s exact windows/compounding are theirs, so expect small differences.'];
+            // Rev 4.07 (owner 2026-08-24): the annualised figures are GONE. The realized "APY" was
+            // a 7.7-day exchange-rate window compounded to a year — fine for ampLUNA (34.8% vs
+            // Eris 36.8%), wrong for arbLUNA (39.4% vs Eris 15.6%: the arb vault books profit in
+            // lumps, so one week is not a rate). What matches Votion to the cent is the forward
+            // leg — next period's expected reward ÷ vault TVL — so that is the row now. No APR, no
+            // APY: the per-period number, the dollar amount, the TVL, and Votion's own page.
+            const aprRow = (label, v, ap, rz, slug) => [label, v ? ((ap ? (ap.perPeriod * 100).toFixed(2) + '% <span class="pr-d text-gray-400">this period</span>' : '—') +
+                sub([ap ? k('$' + ap.rew.toFixed(2) + ' expected reward · period ' + (ap.period || '?')) : k('forward reward unavailable'), k(fmt$(v.vault_tvl_usd || 0) + ' TVL'), '<a class="k" style="color:#67e8f9" target="_blank" rel="noopener" href="https://votion.money/pools/liquidity-alliance/' + slug + '">votion.money ↗</a>'])) : '—', 'live',
+                'Next period\'s expected reward (Votion\'s own optimizer output, captured verbatim by the votion cron) ÷ the vault\'s TVL. This is the one Votion number we can reproduce exactly. Annualised APR/APY is deliberately not shown: Votion\'s APY uses their own windows and compounding, and our measured one-week rates mis-state lumpy arb yield. Read yields on votion.money.'];
             const vol7 = await volume7dOf(latest), vol7F = await volume7dOf(aFd);
             // Active = gauge-listed pools with status active; inactive = listed with balance but not
             // active (voted below threshold / zero VP). Counts carry a Δ; newly-changed names as chips.
@@ -16785,6 +16791,6 @@
      but its System Health dot is lit from lib/cron-registry.js — the same
      source every other page uses, so they can never disagree. -->
 <script src="/lib/site-footer.js"></script>
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: '4.06', revDate: '2026-08-24', page: 'index', appInfo: true });</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: '4.08', revDate: '2026-08-24', page: 'index', appInfo: true });</script>
 </body>
 </html>
