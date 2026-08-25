@@ -15490,7 +15490,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '4.08', REV_DATE = '2026-08-24';   // 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
+        const REV = '4.09', REV_DATE = '2026-08-24';   // 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16638,8 +16638,11 @@
             const vpPotRow = ['VP potential unrealized', (vpNow && vpPot != null) ? (fmtM(Math.max(0, vpPot - vpNow.vp)) + ' vAMP' + sub([k('if every lock were 104w · 10×')])) : '—', 'daily', 'Σ fixed_amount × 10 minus current VP — the VP the ecosystem would have if all locks were at the 10× ceiling. Not a prediction.'];
             // Rev 3.94 arrangement (owner): LEFT = liquidity & activity · RIGHT = voting power, bribes, Votion yield. 6 and 6.
             rows[5] = await rows[5];   // the epoch-bribes row is async
-            const left = [rows[0], rows[1], volRow, activeRow, inactiveRow, rows[3]];
-            const right = [rows[2], vpPotRow, rows[4], rows[5], aprRow('Votion ampLUNA Max', vA, apA, rzA, 'ampluna-max'), aprRow('Votion arbLUNA Max', vB, apB, rzB, 'arbluna-max')];
+            // Rev 4.09 (owner): the two Votion APR rows are gone — no annualised figure we can stand
+            // behind (see 4.07); the per-period reward lives on votion.money. Votion vault TVL moves to
+            // the right column so both columns are five rows.
+            const left = [rows[0], rows[1], volRow, activeRow, inactiveRow];
+            const right = [rows[2], vpPotRow, rows[4], rows[5], rows[3]];
             const rows2 = right;
             // Rev 3.93 layout: label | value+Δ on one line; detail chips on a second, right-aligned line.
             const row = ([name, val, chip, tip]) => { const i = val.indexOf('<div class="pr-s">'); const main = i < 0 ? val : val.slice(0, i), rest = i < 0 ? '' : val.slice(i);
@@ -16791,6 +16794,6 @@
      but its System Health dot is lit from lib/cron-registry.js — the same
      source every other page uses, so they can never disagree. -->
 <script src="/lib/site-footer.js"></script>
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: '4.08', revDate: '2026-08-24', page: 'index', appInfo: true });</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: '4.09', revDate: '2026-08-24', page: 'index', appInfo: true });</script>
 </body>
 </html>
