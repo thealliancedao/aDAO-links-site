@@ -1472,6 +1472,9 @@ function switchView(viewName, fromHistory = false) {
     if (walletViewBtn) walletViewBtn.classList.remove('active');
     if (analyticsViewBtn) analyticsViewBtn.classList.remove('active');
     if (mapViewBtn) mapViewBtn.classList.remove('active');
+    // 2026-08-25 (owner): the header subnav is the visible tab bar; sync it here directly so a restored view
+    // (?view= on refresh, back/forward, deep link) lights the right tab regardless of load order.
+    document.querySelectorAll('.sh-subtab[data-tab]').forEach(x => x.classList.toggle('active', x.getAttribute('data-tab') === viewName));
 
     if (viewName === 'collection') {
         if (collectionView) collectionView.classList.remove('hidden');
@@ -1787,16 +1790,21 @@ function buildListingFloorBand(listingRecords, lunaOracle, blunaOracle) {
     const lp = lunaOracle.prices || lunaOracle.daily || lunaOracle.data || {};
     const bp = blunaOracle.prices || blunaOracle.daily || blunaOracle.data || {};
     const lpKeys = Object.keys(lp).sort(), bpKeys = Object.keys(bp).sort();
-    const nearest = (map, keys, dateStr) => {
+    // 2026-08-25: the old nearest() walked back WITHOUT a limit — the bLUNA oracle has holes (e.g. no value
+    // 2025-08-30 → 09-12), so a Sept-2025 listing got priced at a months-old $0.92 bLUNA and a 56,000-bLUNA
+    // vanity ask read $51.7K instead of ~$13K. Now: nearest within ±7 days, else null; for bLUNA fall back to
+    // LUNA(date) × the nearest known bLUNA/LUNA ratio (the ratio compounds slowly, so it is safe to carry).
+    const nearest = (map, keys, dateStr, maxDays = 7) => {
         if (map[dateStr] != null) return map[dateStr];
-        let best = null;
-        for (const k of keys) { if (k <= dateStr) best = k; else break; }
-        return best ? map[best] : (keys.length ? map[keys[0]] : null);
+        const t = Date.parse(dateStr); let best = null, bestD = Infinity;
+        for (const k of keys) { const d = Math.abs(Date.parse(k) - t) / 86400e3; if (d < bestD) { bestD = d; best = k; } if (Date.parse(k) > t + maxDays * 86400e3) break; }
+        return (best && bestD <= maxDays) ? map[best] : null;
     };
+    const ratioKeys = bpKeys.filter(k => lp[k] > 0 && bp[k] > 0); const ratioMap = Object.fromEntries(ratioKeys.map(k => [k, bp[k] / lp[k]]));
     const priceUsd = (denom, amount, dateStr) => {
         const a = Number(amount) / 1e6;
         if (denom === "uluna") { const p = nearest(lp, lpKeys, dateStr); return p != null ? a * p : null; }
-        if (denom === DENOM_BLUNA) { const p = nearest(bp, bpKeys, dateStr) ?? ((nearest(lp, lpKeys, dateStr) || 0) * 1.3); return p ? a * p : null; }
+        if (denom === DENOM_BLUNA) { let p = nearest(bp, bpKeys, dateStr); if (p == null) { const l = nearest(lp, lpKeys, dateStr), r = nearest(ratioMap, ratioKeys, dateStr, 400); p = (l != null && r != null) ? l * r : null; } return p ? a * p : null; }
         if (denom === DENOM_SOLID) return a * 1.0;
         return null;
     };
@@ -2122,6 +2130,8 @@ function buildAnalyticsHtml(A, S, E) {
     _fpData = buildFpData(salesDesc, tierOfSale);
     _fpOffset = 0;
     _fpListingFloor = { broken: tierData.broken.listed[0] ?? null, base: tierData.base.listed[0] ?? null, phoenix: tierData.phoenix.listed[0] ?? null };
+    // 2026-08-25: the chip styling used to ride in the page's inline chrome CSS (stripped today) — own it here
+    if (!document.getElementById('av-chip-css')) { const st = document.createElement('style'); st.id = 'av-chip-css'; st.textContent = `.av-scale-btn{padding:.2rem .55rem;font-size:11px;line-height:1.2;color:#9ca3af;background:rgba(255,255,255,.04);border:0;cursor:pointer}.av-scale-btn:hover{color:#e5e7eb}.av-scale-btn.active{color:#67e8f9;background:rgba(34,211,238,.15)}.av-scale-btn+.av-scale-btn{border-left:1px solid #374151}.av-scale-btn.rounded-md{border:1px solid #4b5563}`; document.head.appendChild(st); }
     const fpBtn = (cls, val, lab) => `<button type="button" class="av-scale-btn ${cls}" data-${cls === "av-fp-tier" ? "tier" : "gran"}="${val}">${lab}</button>`;
     const fpCard = `<div class="${card} mb-4">
       <div class="flex items-baseline justify-between mb-3 flex-wrap gap-2">
