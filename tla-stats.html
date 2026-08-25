@@ -856,8 +856,7 @@
             { id: 'overview', label: 'Overview',         icon: 'fa-chart-pie',       active: true },
             { id: 'portfolio', label: 'Member Portfolio', icon: 'fa-user-astronaut',  disabled: true, badge: 'SOON', tip: 'Being rebuilt — the current build is on the Tools page as Test 1' },   // Batch A (owner 2026-08-24)
             { id: 'grades',   label: 'LP Grades',        icon: 'fa-graduation-cap' },
-            { id: 'pools',    label: 'LP Stats',         icon: 'fa-water' },
-            { id: 'tla',      label: 'TLA Stats',        icon: 'fa-coins' },   // Docs tab removed (Batch A) — the page lives on as Test 2 on Tools until rebuilt
+            { id: 'pools',    label: 'Pools',            icon: 'fa-water' },   // 2026-08-25: LP Stats + TLA Stats merged into one tab (Docs removed earlier — Test 2 on Tools)
         ], { onSelect: function (id) { var b = document.querySelector('#tla-legacy-tabs .tab-btn[data-tab="' + id + '"]'); if (b) b.click(); },
              right: '<span id="sh-epoch-slot"></span>', attach: '#tla-top-tile' });
         var syncActive = function () {
@@ -3128,6 +3127,7 @@
             const lpGradesP = fetch(CONFIG.lpGradesUrl + '?t=' + Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
             const bribeRunwayP = fetch(CONFIG.bribeRunwayUrl + '?t=' + Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
             const [
+                knownContractsResp,
                 erisAprResp,
                 votionOptResp,
                 tlaSnapshotResp,
@@ -3147,6 +3147,7 @@
                 orgNftSummaryResp,
                 orgMemberDataResp,
             ] = await Promise.all([
+                fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/curated/known_contracts.json?t=' + Math.floor(Date.now() / 900000)).then(r => r.ok ? r.json() : null).catch(() => null).then(d => { store.knownContracts = (d && d.contracts) || {}; return d; }),
                 fetch(CONFIG.erisAprUrl + '?t=' + Math.floor(Date.now() / 900000)).then(r => r.ok ? r.json() : null).catch(() => null).then(d => { store.erisAprByGauge = {}; for (const row of (d && d.pools) || []) if (row.gauge_pool_id) store.erisAprByGauge[row.gauge_pool_id] = row; store.erisAprAt = d && d.meta && d.meta.generated_at || null; return d; }),
                 // Batch A (2026-08-24): Votion's VP per pool — current AND planned — from the org votion
                 // product (aggregate per gauge, keyed by bare LP address / native denom). The snapshot's
@@ -5760,7 +5761,7 @@
     // inactive / unsupported pool qualifies only through a declared reason (council override). Bribes are never
     // an input. Recommend seldom: propose a change only when it is material; otherwise say "hold" and why.
     // a pool's display name: the product's name, or the catalog symbol when the product only knows the raw gauge id
-    const poolDisplayName = (n) => { const raw = String(n || ''); if (!/^(cw20|native):|^terra1[0-9a-z]{38,}$/.test(raw)) return raw; const bare = raw.replace(/^(cw20|native):/, ''); return KNOWN_TOKEN_NAMES[raw] || KNOWN_TOKEN_NAMES[bare] || KNOWN_TOKEN_NAMES['cw20:' + bare] || KNOWN_TOKEN_NAMES['native:' + bare] || (bare.slice(0, 10) + '…' + bare.slice(-4)); };
+    const poolDisplayName = (n, gaugeId) => { const raw = String(n || ''); if (!/^(cw20|native):|^terra1[0-9a-z]{38,}$|^Unknown$|^$/.test(raw)) return raw; const src = gaugeId ? String(gaugeId) : raw; /* the snapshot's 'name' for unnamed gauges is a truncated id — the full gauge id is the lookup key */ const bare = src.replace(/^(cw20|native):/, ''); const kc = store.knownContracts && store.knownContracts[bare]; return KNOWN_TOKEN_NAMES[src] || KNOWN_TOKEN_NAMES[bare] || KNOWN_TOKEN_NAMES['cw20:' + bare] || KNOWN_TOKEN_NAMES['native:' + bare] || (kc && kc.name) || (bare.length > 20 ? bare.slice(0, 10) + '…' + bare.slice(-4) : raw); };
     const ADVISOR = { streak_required: 4, min_letter: 'C', chunk_bps: 1000, max_per_pool_bps: 5000, material_gain_pct: 10, rescue_band_pct: 2,
         GAUGE_CONTROLLER: 'terra1hfksrhchkmsj4qdq33wkksrslnfles6y2l77fmmzeep0xmq24l2smsd3lj',
         overrides: [] };   // council-declared reasons: [{ gauge_pool_id, reason }] — none today; added by DAO decision, shown verbatim
@@ -10379,160 +10380,74 @@
     // retired 2026-08-11 (hand-corrected series that failed the trust test) and nothing read
     // what it built — it only logged "No historical data available" on every load.
 
+    // ---------------- Pools tab (2026-08-25): LP Stats + TLA Stats merged — one row per pool, everything we know ----------------
     function renderPoolsByBucket() {
-        const search = document.getElementById('pool-search').value.toLowerCase();
-        const bucketFilter = document.getElementById('bucket-filter').value;
-        const dexFilter = document.getElementById('dex-filter').value;
-        const includeInactive = document.getElementById('active-only').checked;
-        
-        // Group pools by bucket
-        const buckets = ['STABLE', 'PROJECT', 'BLUECHIP', 'SINGLE'];
-        const container = document.getElementById('pools-by-bucket');
-        
-        let html = '';
-        
-        buckets.forEach(bucket => {
-            if (bucketFilter !== 'all' && bucketFilter !== bucket) return;
-            
-            let pools = store.pools.filter(p => p.bucket === bucket);
-            
-            // Apply filters
-            if (search) {
-                pools = pools.filter(p => p.name.toLowerCase().includes(search));
-            }
-            if (dexFilter !== 'all') {
-                pools = pools.filter(p => p.dex?.includes(dexFilter.substring(0, 5)));
-            }
-            
-            // Separate active and inactive
-            const activePools = pools.filter(p => p.is_active !== false);
-            const inactivePools = pools.filter(p => p.is_active === false);
-            
-            // Sort active A-Z, inactive by TLA vote desc
-            activePools.sort((a, b) => a.name.localeCompare(b.name));
-            inactivePools.sort((a, b) => (b.vp || 0) - (a.vp || 0));
-            
-            // Combine
-            let sortedPools = [...activePools];
-            if (includeInactive) {
-                sortedPools = [...activePools, ...inactivePools];
-            }
-            
-            if (sortedPools.length === 0) return;
-            
-            // Bucket totals
-            const totalVP = activePools.reduce((sum, p) => sum + (p.vp || 0), 0);
-            const totalAdaoVP = activePools.reduce((sum, p) => sum + (p.adao_vp || 0), 0);
-            
-            const bucketColors = {
-                'STABLE': { text: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/5', accent: '#06b6d4' },
-                'PROJECT': { text: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/5', accent: '#f59e0b' },
-                'BLUECHIP': { text: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/5', accent: '#3b82f6' },
-                'SINGLE': { text: 'text-purple-400', border: 'border-purple-500/30', bg: 'bg-purple-500/5', accent: '#a855f7' }
-            };
-            
-            const colors = bucketColors[bucket];
-            
-            html += `
-                <div class="bucket-section" data-bucket="${bucket}">
-                    <!-- Bucket Header -->
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center gap-3">
-                            <span class="text-xl font-bold ${colors.text} uppercase">${bucket}</span>
-                            <span class="text-sm text-gray-400">${activePools.length} active${inactivePools.length > 0 && includeInactive ? `, ${inactivePools.length} inactive` : ''}</span>
-                        </div>
-                        <div class="flex items-center gap-4 text-sm">
-                            <span class="text-gray-400">TLA: <span class="mono text-orange-400">${fmtNum(totalVP)}</span></span>
-                            <span class="text-gray-400">aDAO: <span class="mono text-cyan-400">${fmtNum(totalAdaoVP)}</span></span>
-                        </div>
-                    </div>
-                    
-                    <!-- Daily Chart for this bucket -->
-                    <div class="glass-card p-4 mb-4">
-                        <div class="flex items-center justify-between mb-3">
-                            <div class="text-sm text-gray-400">
-                                <i class="fas fa-chart-line mr-2"></i>Daily Liquidity & Volume
-                                <span class="text-[10px] text-gray-500 ml-2">Solid = Liq, Dashed = Vol • Past epoch then current</span>
-                                <span class="text-[10px] text-amber-400/80 ml-2" title="Skeleton Swap's upstream API has been serving stale data. SS chart lines are temporarily hidden while the cron is updated to use the new SS API endpoint. SS data remains in the table.">
-                                    <i class="fas fa-info-circle"></i> Astroport only
-                                </span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <select class="scale-select epoch-select text-xs" data-bucket="${bucket}" onchange="updateBucketChartScale('${bucket}', this.value)">
-                                    <option value="all">All LPs</option>
-                                    <option value="top">Top Tier ($100K+)</option>
-                                    <option value="mid">Mid Tier ($10K-$100K)</option>
-                                    <option value="low">Low Tier (<$10K)</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="relative h-[350px]">
-                            <canvas id="chart-${bucket}" class="w-full h-full"></canvas>
-                        </div>
-                        <div id="legend-${bucket}" class="flex flex-wrap gap-2 mt-2 text-[10px]"></div>
-                    </div>
-                    
-                    <!-- Pool Table -->
-                    <div class="glass-card overflow-hidden">
-                        <div class="overflow-x-auto">
-                            <table class="data-table text-sm">
-                                <thead>
-                                    <tr>
-                                        <th class="text-left" title="Pool name, DEX, and pool type (PCL, Stable, XYK)">Pool</th>
-                                        <th class="text-center" title="Active = receiving TLA rewards, Inactive = no rewards">Status</th>
-                                        <th class="text-right" title="Average DEX liquidity over the last completed epoch (~7 days)">Epoch Avg Liq</th>
-                                        <th class="text-right" title="Average daily trading volume over the last completed epoch">Epoch Avg Vol</th>
-                                        <th class="text-right" title="Annual Percentage Rate. Top: Amplified (with boost), Bottom: Non-amplified (base)">APR</th>
-                                        <th class="text-right" title="Total bribes this epoch. Top: Total USD, Bottom: Phoenix Directive contribution">Bribes</th>
-                                        <th class="text-right" title="TLA (Terra Liquidity Alliance) votes. Top: Vote power, Bottom: % of bucket total">TLA Vote</th>
-                                        <th class="text-right" title="Alliance DAO votes. Top: Vote power, Bottom: % of bucket total">aDAO Vote</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${sortedPools.map(p => renderPoolRow(p)).join('')}
-                                </tbody>
-                                <tfoot>
-                                    <tr class="border-t border-white/10 ${colors.bg}">
-                                        <td colspan="5" class="font-bold uppercase ${colors.text}">${bucket} Totals</td>
-                                        <td class="text-right mono text-amber-400">
-                                            ${fmt$(calculateBucketBribes(bucket))}
-                                        </td>
-                                        <td class="text-right mono">
-                                            <div class="text-orange-400">${fmtNum(totalVP)}</div>
-                                            <div class="text-[10px] text-gray-500" title="All votes cast in this bucket — the denominator for every % in this table">100% · all bucket votes</div>
-                                        </td>
-                                        <td class="text-right mono">
-                                            <div class="text-cyan-400">${fmtNum(totalAdaoVP)}</div>
-                                            <div class="text-[10px] text-gray-500" title="aDAO treasury's share of all votes in this bucket — not of TLA-wide VP">${fmtPct(totalVP > 0 ? (totalAdaoVP / totalVP) * 100 : 0)} of bucket</div>
-                                        </td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            `;
+        const host = document.getElementById('pools-by-bucket'); if (!host) return;
+        const search = (document.getElementById('pool-search')?.value || '').toLowerCase();
+        const bucketFilter = document.getElementById('bucket-filter')?.value || 'all';
+        const dexFilter = document.getElementById('dex-filter')?.value || 'all';
+        const activeOnly = !!document.getElementById('active-only')?.checked;
+        const sortKey = store.poolsSort || 'staked', sortDir = store.poolsSortDir || -1;
+        const grades = {}; for (const g of (store.lpGrades?.pools || [])) grades[g.gauge_pool_id] = g;
+        const liqBy = {}; for (const t of (store.tlaPools || [])) liqBy[`${t.name}|${(t.dex || '')}`] = t;
+        const liqOf = (p) => liqBy[`${p.name}|${p.dex || ''}`] || (store.tlaPools || []).find(t => t.name === p.name) || null;
+        const selM = (typeof getSelectedMember === 'function') ? getSelectedMember() : null;
+        const myPos = new Map(); for (const lp of (selM && selM.lp_positions || [])) { const k = `${lp.pool_name}|${String(lp.bucket || '').toUpperCase()}`; const cur = myPos.get(k) || { usd: 0, share: 0 }; cur.usd += lp.estimated_position_usd || 0; cur.share = Math.max(cur.share, lp.pool_share_pct || 0); myPos.set(k, cur); }
+        const live = store.livePots && Number(store.livePots.period) === Number(store.votionOptPeriod || store.epoch) ? store.livePots : null;
+        const potOf = (p) => { const k = String(p.bucket || '').toLowerCase() + '|' + String(p.gauge_pool_id || '').replace(/^(cw20|native):/, ''); if (live) { const lp = live.pots[k]; return lp ? { usd: lp.usd, tokens: lp.tokens, funded: lp.usd > 0, live: true } : { usd: 0, tokens: [], funded: false, live: true }; } const f = bribeFundedFor(p.gauge_pool_id, store.votionOptPeriod); return { usd: p.bribes_total || 0, tokens: [], funded: f ? f.funded : null, live: false }; };
+        const dexTag = (dex) => dex?.includes('Astro') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400">Astro</span>' : dex?.includes('Skeleton') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Skeleton</span>' : '<span class="text-[9px] px-1 py-0.5 rounded bg-purple-500/20 text-purple-300">Single</span>';
+        const LETTER_CLS2 = { A: 'bg-emerald-500/20 text-emerald-300', B: 'bg-teal-500/20 text-teal-300', C: 'bg-amber-500/20 text-amber-300', D: 'bg-orange-500/20 text-orange-300', F: 'bg-red-500/20 text-red-300' };
+        // rows
+        const rows = (store.pools || []).filter(p => {
+            if (activeOnly && p.is_active === false) return false;
+            if (bucketFilter !== 'all' && String(p.bucket || '').toUpperCase() !== String(bucketFilter).toUpperCase()) return false;
+            if (dexFilter !== 'all' && !(p.dex || 'Single').toLowerCase().includes(String(dexFilter).toLowerCase())) return false;
+            if (search && !poolDisplayName(p.name, p.gauge_pool_id).toLowerCase().includes(search)) return false; return true;
+        }).map(p => {
+            const lq = liqOf(p); const g = grades[p.gauge_pool_id]; const v2 = g && g.v2; const pot = potOf(p);
+            const depth = lq ? (lq.depth || 0) : (p.depth || 0); const staked = lq ? (lq.tla_staked || 0) : (p.tla_staked || 0);
+            const vol = p.vol_4ep_avg || 0; const util = (p.liq_4ep_avg || depth) > 0 && vol > 0 ? vol / (p.liq_4ep_avg || depth) : null;
+            const emisWk = lq && lq.rewards_per_year ? lq.rewards_per_year / 52.18 : null;
+            const bucketVp = (store.pools || []).filter(q => q.bucket === p.bucket).reduce((s2, q) => s2 + (q.vp || 0), 0) || 1;
+            const key = `${p.name}|${String(p.bucket || '').toUpperCase()}`;
+            return { p, lq, v2, pot, depth, staked, pctTla: depth > 0 ? staked / depth * 100 : null, vol, util, slip: v2 && v2.raw ? v2.raw.slip_worst_pct : null, aprNon: p.apr_non_amp, aprAmp: p.apr_amplified, emisWk, emisPerVol: emisWk != null && vol > 0 ? emisWk / vol : null, vp: p.vp || 0, share: (p.vp || 0) / bucketVp * 100, votion: p.votion_now_vp || 0, adao: p.adao_vp || 0, cushion: (p.vp || 0) / bucketVp * 100 - 1, mine: myPos.get(key) || null, key };
         });
-        
-        container.innerHTML = html || '<div class="text-center text-gray-500 py-8">No pools match filters</div>';
-        
-        // Render charts for each bucket after DOM is updated
-        setTimeout(() => {
-            buckets.forEach(bucket => {
-                if (bucketFilter !== 'all' && bucketFilter !== bucket) return;
-                renderBucketChart(bucket, 'all');
-            });
-            
-            // Add click listeners for pool metric cells
-            document.querySelectorAll('.pool-metric-cell').forEach(el => {
-                el.addEventListener('click', () => {
-                    const poolName = el.dataset.pool;
-                    const metric = el.dataset.metric;
-                    showPoolMetricHistory(poolName, metric);
-                });
-            });
-        }, 100);
+        const SORTS = { staked: r => r.staked, depth: r => r.depth, vol: r => r.vol, util: r => r.util ?? -1, apr: r => r.aprAmp ?? r.aprNon ?? -1, emis: r => r.emisWk ?? -1, vp: r => r.vp, pot: r => r.pot.usd, grade: r => r.v2 ? r.v2.composite : -1, name: r => poolDisplayName(r.p.name, r.p.gauge_pool_id) };
+        const sf = SORTS[sortKey] || SORTS.staked; rows.sort((a, b) => { const x = sf(a), y = sf(b); return typeof x === 'string' ? x.localeCompare(y) * -sortDir : (x - y) * sortDir; });   // sortDir −1 = descending (default)
+        const hdr = (k, label, cls = 'text-right') => `<div class="${cls} cursor-pointer select-none hover:text-cyan-300 ${sortKey === k ? 'text-cyan-300' : ''}" onclick="window.setPoolsSort('${k}')" title="sort">${label}${sortKey === k ? (sortDir < 0 ? ' ↑' : ' ↓') : ''}</div>`;
+        const GRID = `grid-template-columns: minmax(170px,1.4fr) minmax(150px,1.1fr) minmax(130px,1fr) minmax(130px,1fr) minmax(150px,1.1fr) minmax(110px,0.9fr)${selM ? ' minmax(110px,0.9fr)' : ''}`;
+        const head = `<div class="grid gap-x-3 px-2 pb-1 text-[9px] uppercase tracking-wider text-gray-600 sticky top-0 bg-gray-900/95 backdrop-blur-sm z-10" style="${GRID}">${hdr('name', 'pool · grade', 'text-left')}${hdr('staked', 'liquidity · DEX depth / in TLA')}${hdr('vol', 'work · vol/wk · util · slip')}${hdr('apr', 'emissions · APR / amp APY · $/wk')}${hdr('vp', 'votes · TLA VP · Votion · aDAO')}${hdr('pot', 'pot · p' + (store.votionOptPeriod || store.epoch || '?'))}${selM ? '<div class="text-right text-amber-300/80">you</div>' : ''}</div>`;
+        const f$ = (v) => v == null ? '—' : fmt$(v); const pc = (v, d = 1) => v == null ? '—' : v.toFixed(d) + '%';
+        const cell = (top, sub, cls = 'text-gray-200') => `<div class="text-right"><div class="mono text-xs ${cls}">${top}</div><div class="text-[9px] text-gray-600 leading-tight">${sub}</div></div>`;
+        const flags = (r) => [r.p.is_active === false ? '<span class="text-[9px] px-1 rounded bg-red-500/15 text-red-300">inactive</span>' : '', r.cushion != null && r.cushion >= 0 && r.cushion < 1 && r.p.is_active !== false ? '<span class="text-[9px] px-1 rounded bg-amber-500/15 text-amber-300">near 1%</span>' : '', r.depth > 0 && r.depth < 10000 ? '<span class="text-[9px] px-1 rounded bg-white/5 text-gray-500">thin</span>' : '', (r.p.dex || '').includes('Skeleton') && r.vol === 0 ? '<span class="text-[9px] px-1 rounded bg-white/5 text-gray-600" title="SkeletonSwap volume is not captured">vol not captured</span>' : ''].filter(Boolean).join(' ');
+        const byBucket = {}; for (const r of rows) (byBucket[String(r.p.bucket || '').toUpperCase()] = byBucket[String(r.p.bucket || '').toUpperCase()] || []).push(r);
+        const order = ['STABLE', 'PROJECT', 'BLUECHIP', 'SINGLE'];
+        const sections = order.filter(b => byBucket[b]).map(b => {
+            const rs = byBucket[b]; const tot = { staked: rs.reduce((s2, r) => s2 + r.staked, 0), depth: rs.reduce((s2, r) => s2 + r.depth, 0), vol: rs.reduce((s2, r) => s2 + r.vol, 0), emis: rs.reduce((s2, r) => s2 + (r.emisWk || 0), 0), vp: rs.reduce((s2, r) => s2 + r.vp, 0), votion: rs.reduce((s2, r) => s2 + r.votion, 0), adao: rs.reduce((s2, r) => s2 + r.adao, 0), pot: rs.reduce((s2, r) => s2 + r.pot.usd, 0) };
+            return `<div class="mt-4">
+                <div class="grid gap-x-3 items-center px-2 py-2 rounded-lg bg-white/[0.04]" style="${GRID}">
+                    <div><span class="text-[11px] uppercase tracking-wider font-semibold text-gray-200">${b}</span> <span class="text-[10px] text-gray-500">${rs.length} pools</span></div>
+                    ${cell(f$(tot.staked), `of ${f$(tot.depth)} DEX depth · ${tot.depth > 0 ? (tot.staked / tot.depth * 100).toFixed(0) : '—'}% in TLA`)}
+                    ${cell(f$(tot.vol), 'volume / week (Astroport)')}
+                    ${cell(f$(tot.emis), 'LUNA emissions / week')}
+                    ${cell(fmtNum(tot.vp) + ' VP', `Votion ${tot.vp > 0 ? (tot.votion / tot.vp * 100).toFixed(0) : '—'}% · aDAO ${tot.vp > 0 ? (tot.adao / tot.vp * 100).toFixed(1) : '—'}%`)}
+                    ${cell(f$(tot.pot), 'funded pots')}${selM ? '<div></div>' : ''}
+                </div>
+                ${rs.map(r => `<div data-erow class="grid gap-x-3 items-center px-2 py-1.5 border-t border-white/[0.04] hover:bg-white/[0.03] ${r.mine ? 'bg-amber-500/[0.04]' : ''}" style="${GRID}">
+                    <div class="min-w-0"><div class="flex items-center gap-1.5"><span class="mono text-xs font-bold px-1.5 rounded ${r.v2 && r.v2.letter ? LETTER_CLS2[r.v2.letter] : 'bg-white/5 text-gray-600'}" title="${r.v2 ? 'five-lens grade · composite ' + r.v2.composite + ' · streak ' + (r.v2.streak || 0) + ' ep' : 'not graded'}">${r.v2 && r.v2.letter ? r.v2.letter : '–'}</span><span class="text-sm font-medium truncate">${poolDisplayName(r.p.name, r.p.gauge_pool_id)}</span></div><div class="flex items-center gap-1 mt-0.5">${dexTag(r.p.dex)}<span class="text-[9px] text-gray-600">${r.v2 ? String(r.v2.pair_class || '').replace(/_/g, ' ') : ''}</span>${flags(r)}<button type="button" onclick="togglePoolDrill(this, '${r.key.replace(/'/g, '')}')" class="text-[9px] text-gray-600 hover:text-cyan-400 ml-1" title="history"><i class="fas fa-chevron-down"></i></button></div></div>
+                    ${cell(f$(r.staked), `${f$(r.depth)} depth · ${r.pctTla == null ? '—' : r.pctTla.toFixed(0) + '% in TLA'}`, 'text-cyan-300')}
+                    ${cell(f$(r.vol), `${r.util == null ? 'util —' : 'util ' + r.util.toFixed(2)} · ${r.slip == null ? 'slip —' : 'slip ' + r.slip.toFixed(1) + '%'}`, r.vol > 0 ? 'text-gray-200' : 'text-gray-600')}
+                    ${cell(`${pc(r.aprNon, 1)} <span class="text-gray-500">/</span> ${pc(r.aprAmp, 1)}`, `${r.emisWk == null ? '—' : f$(r.emisWk) + '/wk'}${r.emisPerVol != null ? ' · $' + r.emisPerVol.toFixed(2) + ' per $ traded' : ''}`, 'text-emerald-300/90')}
+                    ${cell(fmtNum(r.vp) + ' <span class="text-gray-500">' + r.share.toFixed(1) + '%</span>', `Votion ${r.vp > 0 ? (r.votion / r.vp * 100).toFixed(0) : '—'}% · aDAO ${r.adao > 0 ? fmtNum(r.adao) : '—'}${r.cushion != null ? ' · ' + (r.cushion >= 0 ? '+' : '') + r.cushion.toFixed(1) + 'pp vs 1%' : ''}`, 'text-violet-300/90')}
+                    ${cell(r.pot.funded === false ? '<span class="text-amber-300">not funded</span>' : f$(r.pot.usd), r.pot.tokens && r.pot.tokens.length ? r.pot.tokens.map(t => fmtNum(t.amount) + ' ' + t.sym).join(' · ') : (r.pot.live ? 'live' : (r.p.bribes_pd > 0 ? 'PD ' + f$(r.p.bribes_pd) + (r.p.bribes_other > 0 ? ' · other ' + f$(r.p.bribes_other) : '') : (r.p.bribes_other > 0 ? 'other ' + f$(r.p.bribes_other) : 'none'))), r.pot.usd > 0 ? 'text-gray-200' : 'text-gray-600')}
+                    ${selM ? cell(r.mine ? f$(r.mine.usd) : '—', r.mine ? r.mine.share.toFixed(2) + '% of pool' : '', 'text-amber-300') : ''}
+                    <div data-drill class="hidden col-span-full mt-2 pt-2 border-t border-white/5"></div>
+                </div>`).join('')}
+            </div>`;
+        }).join('');
+        host.innerHTML = `<div class="text-[11px] text-gray-500 mb-2">One row per pool, everything we know: the five-lens grade (same letter as LP Grades), liquidity (DEX depth and how much of it is staked through TLA), work (weekly volume, utilization, exit slippage at $1K), emissions (Eris APR / amplified APY, LUNA emissions per week and per $ traded), votes (TLA VP and share of bucket, Votion's share, aDAO's votes, cushion above the 1% line), and the pot funded for the period being voted. Click a column header to sort${selM ? '; your stake in each pool is on the right' : '; pick a wallet in the header to see your stake'}. Chevron on a row opens its history.</div>` + head + (sections || '<div class="text-gray-600 text-sm py-3">No pools match.</div>');
     }
+    window.setPoolsSort = function (k) { if (store.poolsSort === k) store.poolsSortDir = -(store.poolsSortDir || -1); else { store.poolsSort = k; store.poolsSortDir = -1; } renderPoolsByBucket(); };
     
     function calculateBucketBribes(bucket) {
         // Sum bribes from pool objects (bribes_total is in the original data)
@@ -12670,7 +12585,8 @@
     
     // Switch to a specific tab
     function switchToTab(tabName) {
-        const validTabs = ['overview', 'pools', 'tla', 'grades', 'docs'];  // rankings + dao retired 2026-07 (rankings merged into LP Grades; aDAO has dedicated pages)
+        if (tabName === 'tla') tabName = 'pools';   // 2026-08-25: TLA Stats merged into Pools (old links keep working)
+        const validTabs = ['overview', 'pools', 'grades', 'docs'];  // rankings + dao retired 2026-07 (rankings merged into LP Grades; aDAO has dedicated pages)
         if (!validTabs.includes(tabName)) tabName = 'overview';
         
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
