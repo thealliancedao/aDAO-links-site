@@ -5750,6 +5750,8 @@
     // Votes are EARNED: an existing pool qualifies with ≥4 epochs at C-or-better on the five lenses; a new /
     // inactive / unsupported pool qualifies only through a declared reason (council override). Bribes are never
     // an input. Recommend seldom: propose a change only when it is material; otherwise say "hold" and why.
+    // a pool's display name: the product's name, or the catalog symbol when the product only knows the raw gauge id
+    const poolDisplayName = (n) => { const raw = String(n || ''); if (!/^(cw20|native):|^terra1[0-9a-z]{38,}$/.test(raw)) return raw; const bare = raw.replace(/^(cw20|native):/, ''); return KNOWN_TOKEN_NAMES[raw] || KNOWN_TOKEN_NAMES[bare] || KNOWN_TOKEN_NAMES['cw20:' + bare] || KNOWN_TOKEN_NAMES['native:' + bare] || (bare.slice(0, 10) + '…' + bare.slice(-4)); };
     const ADVISOR = { streak_required: 4, min_letter: 'C', chunk_bps: 1000, max_per_pool_bps: 5000, material_gain_pct: 10, rescue_band_pct: 2,
         GAUGE_CONTROLLER: 'terra1hfksrhchkmsj4qdq33wkksrslnfles6y2l77fmmzeep0xmq24l2smsd3lj',
         overrides: [] };   // council-declared reasons: [{ gauge_pool_id, reason }] — none today; added by DAO decision, shown verbatim
@@ -5768,10 +5770,10 @@
         const byBucket = {}; const nameOf = {};
         for (const bucket of ['stable', 'project', 'bluechip', 'single']) {
             const all = prod.pools.filter(p => String(p.bucket || '').toLowerCase() === bucket && p.gaugeActive !== false);
-            for (const p of all) nameOf[p.gauge_pool_id] = p.name;
+            for (const p of all) nameOf[p.gauge_pool_id] = poolDisplayName(p.name);
             const ov = (p) => ADVISOR.overrides.find(o => o.gauge_pool_id === p.gauge_pool_id);
             const earned = (p) => p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter] && (p.v2.streak || 0) >= ADVISOR.streak_required;
-            const eligible = all.filter(p => (preview ? (p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter]) : earned(p)) || ov(p));
+            const eligible = all.filter(p => (p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter]) || ov(p));   // the lenses' answer uses every C+ pool
             const earning = all.filter(p => p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter] && !earned(p) && !ov(p)).map(p => ({ p, streak: p.v2.streak || 0 }));
             const cur = current[bucket] || new Map();
             const score = (p, assignedBps) => {
@@ -5798,40 +5800,45 @@
             const gainPct = vCur > 0 ? (vRec - vCur) / vCur * 100 : (vRec > 0 ? 100 : 0);
             const shifts = []; for (const g of new Set([...cur.keys(), ...rec.keys()])) { const d = (rec.get(g) || 0) - (cur.get(g) || 0); if (d) shifts.push({ gauge_pool_id: g, name: nameOf[g] || g.slice(0, 14) + '…', delta_bps: d, reason: reasons.get(g) || (d < 0 ? 'no longer earned (letter or streak below the bar)' : '') }); }
             shifts.sort((x, y) => y.delta_bps - x.delta_bps);
-            const hold = !eligible.length || gainPct < ADVISOR.material_gain_pct || !shifts.length;
+            const notEarned = [...rec.keys()].filter(g => { const p = all.find(x => x.gauge_pool_id === g); return p && rec.get(g) > 0 && !(earned(p) || ov(p)); }).map(g => { const p = all.find(x => x.gauge_pool_id === g); return { name: nameOf[g], streak: p.v2 ? p.v2.streak || 0 : 0 }; });
+            const material = eligible.length > 0 && shifts.length > 0 && gainPct >= ADVISOR.material_gain_pct;
+            const hold = !material || notEarned.length > 0;   // proposable only when material AND every recommended pool has earned it
             const movedBps = shifts.filter(x => x.delta_bps > 0).reduce((s2, x) => s2 + x.delta_bps, 0);
             const emisRedirectWk = (bucketVp[bucket] > 0 ? (movedBps / 10000 * totalVp) / bucketVp[bucket] : 0) * (bucketWk[bucket] || 0);
             const rescued = eligible.filter(p => rec.get(p.gauge_pool_id) > 0 && p.pct_of_bucket != null && p.pct_of_bucket < ADVISOR.rescue_band_pct).map(p => p.name);
-            byBucket[bucket] = { all, eligible, earning, cur, rec, shifts, hold, gainPct, emisRedirectWk, rescued, bucketVp: bucketVp[bucket] || 0 };
+            byBucket[bucket] = { all, eligible, earning, cur, rec, shifts, hold, material, notEarned, gainPct, emisRedirectWk, rescued, bucketVp: bucketVp[bucket] || 0 };
         }
         return { totalVp, chunkVp, byBucket, nameOf, preview };
     }
     function renderVoteAdvisor() {
         const el = document.getElementById('grades-advisor'); if (!el) return;
-        const adv = computeAdvisorV2(!!store.advisorPreview);
+        const adv = computeAdvisorV2(false);
         if (!adv) { el.innerHTML = '<div class="text-[11px] text-gray-500 mt-2">aDAO Vote Advisor: waiting for the grades (v2) and the treasury positions products.</div>'; return; }
         const pct = (bps) => (bps / 100).toFixed(0) + '%';
-        const barOf = (alloc, nameOf, tone) => { const ents = [...alloc.entries()].filter(([, b]) => b > 0).sort((x, y) => y[1] - x[1]); const cols = ['bg-cyan-500/70', 'bg-teal-500/70', 'bg-sky-500/70', 'bg-indigo-500/70', 'bg-violet-500/70', 'bg-fuchsia-500/60']; return `<div class="flex h-5 rounded overflow-hidden bg-white/[0.04]" style="background-image:repeating-linear-gradient(90deg,transparent 0 9.9%,rgba(255,255,255,.08) 9.9% 10%)">${ents.map(([g, b], i) => `<div class="${tone === 'rec' ? cols[i % cols.length] : 'bg-gray-500/60'} h-full text-[9px] leading-5 px-1 truncate text-white/90" style="width:${b / 100}%" title="${nameOf[g] || g} ${pct(b)}">${b >= 2000 ? (nameOf[g] || '') + ' ' + pct(b) : ''}</div>`).join('') || '<div class="text-[9px] leading-5 px-1 text-gray-600">no votes</div>'}</div>`; };
+        // one colour per pool, shared by both bars so a pool can be followed from NOW to RECOMMENDED
+        const PALETTE = ['bg-cyan-500/70', 'bg-teal-500/70', 'bg-sky-500/70', 'bg-indigo-500/70', 'bg-violet-500/70', 'bg-fuchsia-500/60', 'bg-emerald-500/60', 'bg-amber-500/60'];
+        const colorMap = new Map(); const colorOf = (g) => { if (!colorMap.has(g)) colorMap.set(g, PALETTE[colorMap.size % PALETTE.length]); return colorMap.get(g); };
+        const barOf = (alloc, nameOf) => { const ents = [...alloc.entries()].filter(([, b]) => b > 0).sort((x, y) => y[1] - x[1]); return `<div class="flex h-5 rounded overflow-hidden bg-white/[0.04]" style="background-image:repeating-linear-gradient(90deg,transparent 0 9.9%,rgba(255,255,255,.08) 9.9% 10%)">${ents.map(([g, b]) => `<div class="${colorOf(g)} h-full text-[9px] leading-5 px-1 truncate text-white/90" style="width:${b / 100}%" title="${nameOf[g] || g} ${pct(b)}">${b >= 2000 ? (nameOf[g] || '') + ' ' + pct(b) : ''}</div>`).join('') || '<div class="text-[9px] leading-5 px-1 text-gray-600">no votes</div>'}</div>`; };
         const anyChange = Object.values(adv.byBucket).some(b => !b.hold);
+        const anySuggestion = Object.values(adv.byBucket).some(b => b.material);
         const msgs = Object.entries(adv.byBucket).filter(([, b]) => !b.hold && b.rec.size).map(([bucket, b]) => ({ wasm: { execute: { contract_addr: ADVISOR.GAUGE_CONTROLLER, msg: { vote: { gauge: bucket, votes: [...b.rec.entries()].filter(([, w]) => w > 0).map(([g, w]) => [g, w]) } }, funds: [] } } }));
         const bucketsHtml = Object.entries(adv.byBucket).map(([bucket, b]) => `
             <div class="rounded-lg bg-white/[0.02] border border-white/[0.05] p-3">
                 <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">${bucket}</span>
-                    <span class="text-[10px] ${b.hold ? 'text-gray-500' : 'text-emerald-300'}">${b.hold ? (b.eligible.length ? `hold — ${b.shifts.length ? `only ${b.gainPct.toFixed(0)}% better, not material` : 'nothing has earned a move'}` : 'hold — no pool has earned a vote yet') : `recommend · ${b.gainPct.toFixed(0)}% more system value`}</span></div>
-                <div class="text-[9px] text-gray-600 mb-0.5">NOW</div>${barOf(b.cur, adv.nameOf, 'cur')}
-                <div class="text-[9px] text-gray-600 mt-1.5 mb-0.5">${b.hold ? 'RECOMMENDED (same)' : 'RECOMMENDED'}</div>${barOf(b.hold ? b.cur : b.rec, adv.nameOf, b.hold ? 'cur' : 'rec')}
-                ${!b.hold ? `<div class="mt-2 space-y-0.5">${b.shifts.map(x => `<div class="text-[11px]"><span class="mono ${x.delta_bps > 0 ? 'text-emerald-300' : 'text-red-300'}">${x.delta_bps > 0 ? '+' : ''}${pct(x.delta_bps)} ${x.name}</span> <span class="text-gray-500">— ${x.reason}</span></div>`).join('')}</div>
+                    <span class="text-[10px] ${!b.material ? 'text-gray-500' : b.hold ? 'text-amber-300' : 'text-emerald-300'}">${!b.material ? (b.eligible.length ? (b.shifts.length ? `hold — the lenses' answer is only ${b.gainPct.toFixed(0)}% better, not material` : 'hold — the lenses agree with how we vote today') : 'hold — no C+ pool in this bucket') : b.hold ? `not proposable yet — ${b.notEarned.map(n => `${n.name} ${n.streak}/${ADVISOR.streak_required}`).join(', ')} still earning` : `proposable · ${b.gainPct.toFixed(0)}% more system value`}</span></div>
+                <div class="text-[9px] text-gray-600 mb-0.5">NOW</div>${barOf(b.cur, adv.nameOf)}
+                ${b.material ? `<div class="text-[9px] text-gray-600 mt-1.5 mb-0.5">THE LENSES SAY${b.hold ? ' <span class="text-amber-400/80 normal-case">(when earned)</span>' : ''}</div>${barOf(b.rec, adv.nameOf)}
+                <div class="mt-2 space-y-0.5">${b.shifts.map(x => `<div class="text-[11px]"><span class="mono ${x.delta_bps > 0 ? 'text-emerald-300' : 'text-red-300'}">${x.delta_bps > 0 ? '+' : ''}${pct(x.delta_bps)} ${x.name}</span> <span class="text-gray-500">— ${x.reason}</span></div>`).join('')}</div>
                 <div class="text-[10px] text-gray-400 mt-2">≈ <span class="text-emerald-300 mono">+${fmt$(b.emisRedirectWk)}/wk</span> of LUNA emissions redirected${b.rescued.length ? ` · keeps ${b.rescued.join(', ')} above the line` : ''}</div>` : ''}
-                ${b.earning.length ? `<div class="text-[10px] text-gray-500 mt-2">Earning (C+ but under the ${ADVISOR.streak_required}-epoch bar): ${b.earning.sort((x, y) => y.streak - x.streak).map(e => `<span class="inline-block px-1.5 py-0.5 rounded bg-white/5 mr-1 mb-1">${e.p.name} <span class="mono text-gray-400">${e.streak}/${ADVISOR.streak_required}</span></span>`).join('')}</div>` : ''}
+                ${b.earning.length ? `<div class="text-[10px] text-gray-500 mt-2">Earning (C+ but under the ${ADVISOR.streak_required}-epoch bar): ${b.earning.sort((x, y) => y.streak - x.streak).map(e => `<span class="inline-block px-1.5 py-0.5 rounded bg-white/5 mr-1 mb-1">${poolDisplayName(e.p.name)} <span class="mono text-gray-400">${e.streak}/${ADVISOR.streak_required}</span></span>`).join('')}</div>` : ''}
             </div>`).join('');
         el.innerHTML = `
             <div class="rounded-xl border border-cyan-500/20 bg-cyan-500/[0.03] p-4 mb-3">
                 <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
                     <div class="text-sm font-semibold flex items-center gap-2"><i class="fas fa-compass text-cyan-400"></i> aDAO Vote Advisor <span class="text-[10px] font-normal text-gray-500">votes are earned · ${fmtNum(adv.totalVp)} VP · 10% chunks</span></div>
-                    <div class="flex items-center gap-2 text-[10px]"><label class="flex items-center gap-1 text-gray-400 cursor-pointer" title="Show what the recommendation WOULD be once streaks reach the bar, using today's letters. A preview, not a recommendation."><input type="checkbox" ${store.advisorPreview ? 'checked' : ''} onchange="window.toggleAdvisorPreview()"> preview at full streaks</label>
-                        ${msgs.length ? `<button type="button" onclick="window.copyAdvisorMsg()" class="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25">copy proposal message</button>` : ''}</div>
+                    <div class="flex items-center gap-2 text-[10px]">${msgs.length ? `<button type="button" onclick="window.copyAdvisorMsg()" class="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25">copy proposal message</button>` : `<span class="text-gray-500">${anySuggestion ? 'no proposal yet — pools still earning' : 'no proposal — hold'}</span>`}</div>
                 </div>
-                <div class="text-[11px] text-gray-400 mb-3 leading-snug">The rule: an existing pool earns aDAO votes with <b class="text-gray-300">${ADVISOR.streak_required} consecutive epochs at ${ADVISOR.min_letter} or better</b> on the five lenses; a new, inactive or unsupported pool only through a reason the council declares. Bribes are never an input — what our votes earn is a bonus reported elsewhere. A change is proposed only when it is at least ${ADVISOR.material_gain_pct}% more system value than what we vote today${anyChange ? '' : ' — <span class="text-gray-300">today that is nothing: hold</span>'}. ${store.advisorPreview ? '<span class="text-amber-300">PREVIEW — streak bar suspended, letters as of today.</span>' : ''}</div>
+                <div class="text-[11px] text-gray-400 mb-3 leading-snug">The rule: an existing pool earns aDAO votes with <b class="text-gray-300">${ADVISOR.streak_required} consecutive epochs at ${ADVISOR.min_letter} or better</b> on the five lenses; a new, inactive or unsupported pool only through a reason the council declares. Bribes are never an input — what our votes earn is a bonus reported elsewhere. A change becomes a proposal only when it is at least ${ADVISOR.material_gain_pct}% more system value than what we vote today <b>and</b> every pool it points at has earned it. Each bucket shows how we vote now and what the lenses say today; the verdict line says whether that is proposable yet.</div>
                 <div class="grid md:grid-cols-2 gap-3">${bucketsHtml}</div>
                 ${msgs.length ? `<details class="mt-3 text-[10px]"><summary class="cursor-pointer text-gray-400">proposal message (${msgs.length} vote${msgs.length === 1 ? '' : 's'} on the gauge controller)</summary><pre id="advisor-msg" class="mono text-[10px] text-gray-300 whitespace-pre-wrap mt-1 p-2 rounded bg-black/30">${esc2(JSON.stringify(msgs, null, 2))}</pre></details>` : ''}
                 <div class="text-[9px] text-gray-600 mt-2">System value per chunk = the pool's five-lens composite × 1.5 when it is between 1% and ${ADVISOR.rescue_band_pct}% of its bucket (a good pool near the line) × (1 − 0.7 × the share Votion already plans to bring) × diminishing as our own share of the pool grows; capped at ${pct(ADVISOR.max_per_pool_bps)} per pool. Every input is on this tab. Recommendations are recorded per epoch from E201; the record is not public yet.</div>
@@ -5868,7 +5875,7 @@
         const vpTxt = (v) => v == null ? '—' : fmtNum(v);
         const legRows = b.legs.map(l => { const vp0 = l.by_epoch.vp_human[b.window.reference_epoch], vpE = l.by_epoch.vp_human[eps[eps.length - 1]]; return `
             <div class="grid gap-x-2 items-center px-2 py-1.5 border-t border-white/[0.04] text-[11px]" style="grid-template-columns: minmax(120px,1.2fr) 82px 60px ${eps.map(() => '34px').join(' ')} minmax(120px,1fr)">
-                <div class="min-w-0"><span class="font-medium">${l.pool}</span> <span class="text-[9px] text-gray-600 uppercase">${l.gauge}</span>${l.in_universe ? '' : ' <span class="text-[9px] text-gray-500" title="Outside the Astroport weekly series (SkeletonSwap / single-asset / Credia) — no rank can be computed">no series</span>'}</div>
+                <div class="min-w-0"><span class="font-medium">${poolDisplayName(l.pool)}</span> <span class="text-[9px] text-gray-600 uppercase">${l.gauge}</span>${l.in_universe ? '' : ' <span class="text-[9px] text-gray-500" title="Outside the Astroport weekly series (SkeletonSwap / single-asset / Credia) — no rank can be computed">no series</span>'}</div>
                 <div class="text-right mono text-gray-200">${fmtNum(l.luna_per_epoch)} <span class="text-gray-600">LUNA/ep</span></div>
                 <div class="text-right mono text-gray-400">${l.share_pct.toFixed(1)}%</div>
                 ${eps.map(e => `<div class="text-center mono text-[10px]" title="E${e}: efficiency ${l.by_epoch.eff[e] == null ? 'n/a' : l.by_epoch.eff[e].toFixed(3)} · rank ${l.by_epoch.eff_rank[e] ?? 'n/a'} of ${N}">${rankCell(l.by_epoch.eff_rank[e])}</div>`).join('')}
@@ -5944,7 +5951,7 @@
                 return `<div class="rounded-lg border-t border-white/[0.04] ${mine ? 'bg-amber-500/[0.04]' : ''}">
                     <div class="grid gap-x-3 items-center px-2 py-1.5 cursor-pointer hover:bg-white/[0.03]" style="grid-template-columns: 36px minmax(140px,1.2fr) repeat(5, 92px) 70px minmax(120px,1fr) 100px" onclick="const d=document.getElementById('${id}'); d.classList.toggle('hidden');">
                         <div class="mono text-base font-bold text-center rounded ${LETTER_CLS[v.letter]}" title="composite ${v.composite}/100 · confidence ${v.confidence}">${v.letter}</div>
-                        <div class="min-w-0"><div class="text-sm font-medium truncate">${mine ? '<span class="text-amber-400 text-[10px] mr-1" title="aDAO votes here">★</span>' : ''}${p.name}</div><div class="flex items-center gap-1">${dexTag(p.dex, p.is_single)}<span class="text-[9px] text-gray-600">${String(v.pair_class || '').replace(/_/g, ' ')}</span>${v.confidence !== 'firm' ? `<span class="text-[9px] text-gray-600" title="some lens components have no source">${v.confidence}</span>` : ''}</div></div>
+                        <div class="min-w-0"><div class="text-sm font-medium truncate">${mine ? '<span class="text-amber-400 text-[10px] mr-1" title="aDAO votes here">★</span>' : ''}${poolDisplayName(p.name)}</div><div class="flex items-center gap-1">${dexTag(p.dex, p.is_single)}<span class="text-[9px] text-gray-600">${String(v.pair_class || '').replace(/_/g, ' ')}</span>${v.confidence !== 'firm' ? `<span class="text-[9px] text-gray-600" title="some lens components have no source">${v.confidence}</span>` : ''}</div></div>
                         ${['purpose', 'work', 'efficiency', 'durability', 'governance'].map(lid => bar(lid, v.lenses[lid])).join('')}
                         <div class="text-center"><span class="text-[10px] px-1.5 py-0.5 rounded ${streakCls} mono" title="consecutive epochs at C or better${v.streak_basis === 'v1-backfilled' ? ' (earlier epochs from the previous rubric)' : ''}">${streak} ep</span></div>
                         <div class="text-[10px] text-gray-500 truncate" title="${v.why}">${v.why}</div>
