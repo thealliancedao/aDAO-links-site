@@ -103,4 +103,8 @@ globalThis.__capaTopUp = true; await w.refreshLivePots(); await new Promise(r =>
 const capaRow = [...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent).find(t => /LUNA-CAPA/.test(t)) || '';
 check('L3 a live CAPA top-up (100,000 CAPA for p200) flips the row to funded and the optimizer places Votion votes on it (gauge added as an option)', /100(,000|\.0K) CAPA/.test(capaRow) && !/not funded/.test(capaRow) && /\+[1-9][\d,.KM]* VPshare/.test(capaRow), capaRow.replace(/\s+/g, ' ').slice(0, 300));
 globalThis.__capaTopUp = false;
+console.log('\n=== voter boards ===');
+const vb = d.getElementById('top-board-vp').textContent;
+check('B1 Voting Leaders show % of all TLA VP per wallet and name the Votion vaults from the vault registry', /% of all TLA VP/.test(vb) && /Votion arbLUNA Max vault/.test(vb) && /Votion ampLUNA Max vault/.test(vb), vb.replace(/\s+/g, ' ').slice(0, 220));
+check('B2 "Most Engaged Voters" board: this-epoch voters first', /Most Engaged Voters/.test(d.body.textContent) && (() => { const first = d.querySelector('#top-board-adjusted'); return first && /THIS EPOCH/.test(first.textContent.slice(0, 400)); })());
 console.log(`\n=== PAGE GATE: ${PASS} passed, ${FAIL} failed ===`); process.exit(FAIL ? 1 : 0);

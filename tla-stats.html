@@ -1228,8 +1228,8 @@
                     <div id="top-board-util" class="space-y-3"><div class="loading-pulse text-gray-500 text-sm">Loading...</div></div>
                 </div>
                 <div class="glass-card p-6">
-                    <h3 class="font-semibold mb-4 flex items-center gap-2"><i class="fas fa-clock-rotate-left text-cyan-400"></i> Recently Adjusted</h3>
-                    <p class="text-[11px] text-gray-500 -mt-2 mb-3" title="Wallets whose vote allocations were most recently touched, by the period stamped on their latest bucket vote. THIS EPOCH badge = adjusted during the live epoch.">latest vote changes · by period touched</p>
+                    <h3 class="font-semibold mb-4 flex items-center gap-2"><i class="fas fa-fire text-cyan-400"></i> Most Engaged Voters</h3>
+                    <p class="text-[11px] text-gray-500 -mt-2 mb-3" title="Who keeps their TLA votes current: ranked by buckets voted this epoch, then how recently the votes were touched, then VP. The chip shows whether the wallet's VP is fully refreshed or how much is still stale.">who keeps their votes current · this epoch first</p>
                     <div id="top-board-adjusted" class="space-y-3"><div class="loading-pulse text-gray-500 text-sm">Loading...</div></div>
                 </div>
             </div>
@@ -3378,6 +3378,7 @@
                 fuelPriceUsd: store.fuelPriceUsd,
             });
             store.data = transformedData;
+            store.votionVaultsRaw = votionResp || null;   // vault registry (addresses + labels) for the voter boards
 
             // === Normalize through existing functions (untouched) ===
             store.pools = normalizePoolData(transformedData);
@@ -6673,18 +6674,23 @@
             vpEl.innerHTML = msg; if (utilEl) utilEl.innerHTML = msg; if (adjEl) adjEl.innerHTML = msg;
             return;
         }
-        // Voting Leaders — VP held desc
+        // Voting Leaders — VP held desc. Owner 2026-08-25: show each wallet's share of total TLA VP
+        // (canonical = max bucket VP, the Eris definition), and name the Votion vaults from the votion
+        // product's own vault registry (verified addresses — the top of this board is mostly Votion).
+        const totalTla = store.data?.vote?.summary?.total_vp_max_bucket || store.data?.vote?.summary?.total_vp || 0;
+        // current.json vaults carry address + vdenom (factory/<addr>/max/vampluna); the label is the vdenom tail
+        const votionVaultName = (w) => { const v = (store.votionVaultsRaw && store.votionVaultsRaw.vaults || []).find(x => x.address === w); if (!v) return null; const lbl = String(v.label || (v.vdenom || '').split('/').slice(-2).join('/')); const lst = /vampluna/.test(lbl) ? 'ampLUNA' : /varbluna/.test(lbl) ? 'arbLUNA' : (lbl.split('/')[1] || lbl || 'LST'); const tier = /^max\//.test(lbl) ? ' Max' : (/^(\d+)\//.test(lbl) ? ' ' + lbl.split('/')[0] + '-period' : ''); return `Votion ${lst}${tier} vault`; };
         const byVp = [...members]
             .map(m => ({ m, vp: m.summary?.voting_power_human || 0 }))
             .filter(x => x.vp > 0)
             .sort((a, b) => b.vp - a.vp);
-        boardExpander(vpEl, byVp.map((x, i) => personRow(
+        boardExpander(vpEl, byVp.map((x, i) => { const vn = store.nameByWallet?.get(x.m.wallet) ? null : votionVaultName(x.m.wallet); return personRow(
             i,
-            `${displayName(x.m.wallet)} ${walletBadges(x.m.wallet)}`,
-            null,
+            `${vn ? `<span class="text-emerald-300">${vn}</span>` : displayName(x.m.wallet)} ${walletBadges(x.m.wallet)}`,
+            totalTla > 0 ? `<span class="text-gray-500">${(x.vp / totalTla * 100).toFixed(1)}% of all TLA VP</span>` : null,
             `<span class="mono text-sm text-cyan-300 font-semibold">${fmtNum(x.vp)} VP</span>`,
             x.m.wallet
-        )), 'vp');
+        ); }), 'vp');
 
         // Utilization Leaders — org member-data avg_utilization_pct, 10K+ VP floor.
         // Rev T1 tiebreak: among equal utilization (a wall of 100%s), the wallet
@@ -6727,7 +6733,9 @@
                     return { m, last, touched };
                 })
                 .filter(x => x.last > 0)
-                .sort((a, b) => b.last - a.last || ((b.m.summary?.voting_power_human || 0) - (a.m.summary?.voting_power_human || 0)));
+                // Most Engaged (owner 2026-08-25): this epoch first, then by buckets voted, then recency, then VP —
+                // "actively voting in TLA", not merely "touched something once".
+                .sort((a, b) => (Number(cur && b.last >= cur) - Number(cur && a.last >= cur)) || (b.touched - a.touched) || (b.last - a.last) || ((b.m.summary?.voting_power_human || 0) - (a.m.summary?.voting_power_human || 0)));
             // Rev T2: show what the touch left behind — the measured stale gap NOW
             // (potential − current, participants feed). A true "+VP recovered by
             // this touch" needs the before-snapshot from daily member history
