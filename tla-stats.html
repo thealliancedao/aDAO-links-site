@@ -763,6 +763,7 @@
         var nav = SiteHeader.subnav([
             { id: 'overview', label: 'Overview',         icon: 'fa-chart-pie',       active: true },
             { id: 'portfolio', label: 'Member Portfolio', icon: 'fa-user-astronaut',  disabled: true, badge: 'SOON', tip: 'Being rebuilt — the current build is on the Tools page as Test 1' },   // Batch A (owner 2026-08-24)
+            { id: 'slippage',  label: 'Slippage Simulator', icon: 'fa-arrows-turn-to-dots', href: 'slippage.html' },   // 2026-08-25 (owner): the Trade Planner, one tab away
             { id: 'grades',   label: 'LP Grades',        icon: 'fa-graduation-cap' },
             { id: 'pools',    label: 'Pools',            icon: 'fa-water' },   // 2026-08-25: LP Stats + TLA Stats merged into one tab (Docs removed earlier — Test 2 on Tools)
         ], { onSelect: function (id) { var b = document.querySelector('#tla-legacy-tabs .tab-btn[data-tab="' + id + '"]'); if (b) b.click(); },
@@ -6350,6 +6351,8 @@
         const hidden = (allG.length - gainers.length) + (allL.length - losers.length);
         const maxAbs = Math.max(...rows.map(x => Math.abs(x.proj)), 1);
         const sgn = (v) => v == null ? '—' : (v > 0 ? '+' : '') + fmtNum(v);
+        const totalTla = store.data?.vote?.summary?.total_vp_max_bucket || store.data?.vote?.summary?.total_vp || 0;   // canonical: max bucket VP
+        const pctTla = (v) => totalTla > 0 ? (Math.abs(v) / totalTla * 100).toFixed(2) + '% of all TLA VP' : '';
         const row = (x) => {
             const pos = x.proj > 0; const wU = Math.abs(x.users || 0) / maxAbs * 50, wV = Math.abs(x.votion) / maxAbs * 50;
             const impact = x.mine && x.epv != null ? `<div class="text-[9px] text-amber-300/90">your pool · emissions ${x.proj > 0 ? '+' : ''}${fmt$(x.proj * x.epv)}/wk if this holds</div>` : '';
@@ -6357,17 +6360,17 @@
             <div class="p-2 rounded-lg bg-white/[0.02]${x.mine ? ' border border-amber-500/20' : ''}">
                 <div class="flex items-center justify-between mb-0.5">
                     <div class="flex items-baseline gap-2 min-w-0"><span class="text-sm font-medium truncate">${x.p.name}</span><span class="text-[9px] text-gray-600 uppercase shrink-0">${x.p.bucket || ''}</span>${x.mine ? '<span class="text-[9px] px-1 rounded bg-amber-500/15 text-amber-300">yours</span>' : ''}</div>
-                    <span class="mono text-sm font-semibold shrink-0 ${pos ? 'text-emerald-400' : 'text-red-400'}" title="projected = users + Votion's plan">${sgn(x.proj)} VP</span>
+                    <div class="text-right shrink-0"><span class="mono text-sm font-semibold ${pos ? 'text-emerald-400' : 'text-red-400'}" title="projected = users + Votion's plan">${sgn(x.proj)} VP</span><div class="text-[9px] text-gray-500">${pctTla(x.proj)}</div></div>
                 </div>
                 <div class="flex items-center gap-3 text-[10px] mono mb-1">
-                    <span class="text-gray-400" title="on-chain vote changes since the locked-in baseline (Votion's vault votes are not in here — it casts later)">users <span class="${(x.users || 0) >= 0 ? 'text-emerald-300/90' : 'text-red-300/90'}">${sgn(x.users)}</span></span>
-                    <span class="text-gray-400" title="Votion's published plan minus its current votes on this pool">Votion plans <span class="${x.votion >= 0 ? 'text-emerald-300/90' : 'text-red-300/90'}">${sgn(x.votion)}</span></span>
+                    <span class="text-gray-400" title="on-chain vote changes since the locked-in baseline (Votion's vault votes are not in here — it casts later)"><span class="inline-block w-2 h-2 rounded-sm bg-cyan-400 mr-1 align-middle"></span>users <span class="text-cyan-300">${sgn(x.users)}</span></span>
+                    <span class="text-gray-400" title="Votion's published plan minus its current votes on this pool"><span class="inline-block w-2 h-2 rounded-sm bg-violet-400 mr-1 align-middle"></span>Votion plans <span class="text-violet-300">${sgn(x.votion)}</span></span>
                 </div>
                 ${impact}
-                <div class="relative h-1.5 rounded-full bg-white/[0.04] overflow-hidden" title="light = users · dark = Votion's plan">
-                    <div class="absolute top-0 bottom-0 left-1/2 w-px bg-white/15"></div>
-                    ${(x.users || 0) !== 0 ? `<div class="absolute top-0 bottom-0 ${(x.users || 0) > 0 ? 'left-1/2 bg-emerald-400/60' : 'right-1/2 bg-red-400/60'}" style="width:${Math.max(wU, 0.8).toFixed(1)}%"></div>` : ''}
-                    ${x.votion !== 0 ? `<div class="absolute top-0 bottom-0 ${x.votion > 0 ? 'bg-emerald-600/70' : 'bg-red-600/70'}" style="${x.votion > 0 ? `left:${(50 + ((x.users || 0) > 0 ? wU : 0)).toFixed(1)}%` : `right:${(50 + ((x.users || 0) < 0 ? wU : 0)).toFixed(1)}%`};width:${Math.max(wV, 0.8).toFixed(1)}%"></div>` : ''}
+                <div class="relative h-2 rounded-full bg-white/[0.04] overflow-hidden" title="cyan = users · violet = Votion's plan · from the centre line: right = gaining, left = losing">
+                    <div class="absolute top-0 bottom-0 left-1/2 w-px bg-white/20"></div>
+                    ${(x.users || 0) !== 0 ? `<div class="absolute top-0 bottom-0 bg-cyan-400/80 ${(x.users || 0) > 0 ? 'left-1/2' : 'right-1/2'}" style="width:${Math.max(wU, 0.8).toFixed(1)}%"></div>` : ''}
+                    ${x.votion !== 0 ? `<div class="absolute top-0 bottom-0 bg-violet-400/85" style="${x.votion > 0 ? `left:${(50 + ((x.users || 0) > 0 ? wU : 0)).toFixed(1)}%` : `right:${(50 + ((x.users || 0) < 0 ? wU : 0)).toFixed(1)}%`};width:${Math.max(wV, 0.8).toFixed(1)}%"></div>` : ''}
                 </div>
             </div>`;
         };
@@ -6375,7 +6378,7 @@
             (gainers.length ? `<div class="text-[10px] text-emerald-400/80 uppercase tracking-wider font-semibold">Gaining support · projected</div>` + gainers.map(row).join('') : '') +
             (losers.length ? `<div class="text-[10px] text-red-400/80 uppercase tracking-wider font-semibold mt-2">Losing support · projected</div>` + losers.map(row).join('') : '') +
             ((hidden > 0 || open) ? `<div class="text-center pt-1"><button type="button" class="text-[10px] px-3 py-1 rounded-full bg-white/5 text-gray-400 hover:text-cyan-300 font-medium" onclick="window.toggleMovers()">${open ? 'show top 3 + 3' : `show all ${allG.length + allL.length} movers (${hidden} hidden)`} <i class="fas fa-chevron-${open ? 'up' : 'down'} text-[8px] ml-1"></i></button></div>` : '') +
-            `<div class="text-[9px] text-gray-600 pt-1">projected = users' on-chain moves since lock-in${store.lockedInDate ? ` (${store.lockedInDate})` : ''} + Votion's published plan · Votion casts its votes at the end of the period · bars: light = users, dark = Votion</div>`;
+            `<div class="text-[9px] text-gray-600 pt-1"><span class="inline-block w-2 h-2 rounded-sm bg-cyan-400 mr-1 align-middle"></span>users' on-chain moves since lock-in${store.lockedInDate ? ` (${store.lockedInDate})` : ''} · <span class="inline-block w-2 h-2 rounded-sm bg-violet-400 mr-1 align-middle"></span>Votion's published plan (it casts at the end of the period) · projected = the two together${totalTla ? ` · % is of all TLA VP (${fmtNum(totalTla)})` : ''}</div>`;
     }
 
     window.toggleMovers = function () { store.moversExpanded = !store.moversExpanded; renderEpochMovers(); };
