@@ -68,4 +68,7 @@ check('P2 the embedded simulator is gone; the strip links to the Trade Planner',
 const hostDiv = d.createElement('div'); hostDiv.id = 'idle-assets'; d.body.appendChild(hostDiv);
 await w.eval('renderIdleAssets')({ wallet: 'terra1hr8zsfpch47qygc96c8e6rzkd2t7mafqx77ulw' }); await new Promise(r => setTimeout(r, 300));
 check('I1 Idle assets: LUNA and CAPA balances priced, with TLA options (pool APY / max-lock VP) and a planner link', /LUNA/.test(hostDiv.textContent) && /CAPA/.test(hostDiv.textContent) && /Eris APY|max-locked/.test(hostDiv.textContent) && /plan a trade from/.test(hostDiv.textContent), hostDiv.textContent.slice(0, 200));
+const rf = d.getElementById('reward-fates');
+check('G1 growth tile: "Where the rewards go" renders the last closed epoch sentence with compounded/held/swapped shares and the not-captured caveat', rf && /compounded/.test(rf.textContent) && /claimed to wallets/.test(rf.textContent) && /Not captured/.test(rf.textContent) && /E199:/.test(rf.textContent), rf && rf.textContent.slice(0, 160));
+check('G2 growth tile: net pressure chips carry signed USD per token', rf && /ampLUNA [−+]\$/.test(rf.textContent));
 console.log(`\n=== PAGE GATE: ${PASS} passed, ${FAIL} failed ===`); process.exit(FAIL ? 1 : 0);

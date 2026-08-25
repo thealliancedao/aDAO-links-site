@@ -9085,6 +9085,38 @@
     // constant) — if that real series rises while $ falls, the base is growing and the $ drop
     // is just price. We also break down which tokens drove the change (price-neutral), so you
     // can see e.g. LUNA base growing (auto-compounding) vs stablecoins being withdrawn.
+    // Batch B (owner 2026-08-24): "are the rewards building liquidity here, or leaving?" — read from the
+    // tla-flows pressure product (reward fates per epoch, per-token net pressure). Appends to the
+    // growth tile. Not published yet → says so; never a number from nowhere.
+    async function renderRewardFates() {
+        const panel = document.getElementById('liq-growth-panel'); if (!panel) return;
+        let host = document.getElementById('reward-fates'); if (!host) { host = document.createElement('div'); host.id = 'reward-fates'; host.className = 'mt-4 pt-3 border-t border-white/5'; panel.appendChild(host); }
+        const d = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-flows/pressure/current.json?t=' + Math.floor(Date.now() / 900000)).then(r => r.ok ? r.json() : null).catch(() => null);
+        if (!d || !Array.isArray(d.epochs) || !d.epochs.length) { host.innerHTML = '<div class="text-[11px] text-gray-500"><i class="fas fa-circle-info mr-1"></i>Where the rewards go: the reward-fate ledger (tla-flows pressure) has not published yet.</div>'; return; }
+        const closed = d.epochs.filter(e => e.epoch < d.epoch_current); const last = closed[closed.length - 1] || d.epochs[d.epochs.length - 1];
+        const L = last.luna_rewards; const pct = (v) => v == null ? '—' : v.toFixed(0) + '%';
+        const win = d.epochs.slice(-4);
+        const bars = win.map(e => { const l = e.luna_rewards; const c = l.pct_compounded || 0, s2 = l.pct_swapped || 0, h = l.pct_held || 0; return `
+            <div class="flex items-center gap-2" title="E${e.epoch} · ${fmtNum(l.claimed)} LUNA claimed · compounded ${pct(l.pct_compounded)} · swapped ${pct(l.pct_swapped)} · held ${pct(l.pct_held)}">
+                <span class="mono text-[10px] text-gray-500 w-10">E${e.epoch}${e.epoch >= d.epoch_current ? '<span class="text-gray-700">·</span>' : ''}</span>
+                <div class="flex-1 h-3 rounded overflow-hidden flex bg-white/[0.03]"><div class="h-full bg-emerald-500/70" style="width:${c}%"></div><div class="h-full bg-sky-400/70" style="width:${s2}%"></div><div class="h-full bg-gray-500/50" style="width:${h}%"></div></div>
+                <span class="mono text-[10px] text-gray-400 w-24 text-right">${fmtNum(l.claimed)} LUNA</span>
+            </div>`; }).join('');
+        // net pressure over the closed window: sum per token
+        const agg = {};
+        for (const e of closed.slice(-4)) for (const [sym, t] of Object.entries(e.tokens || {})) { const a = agg[sym] || (agg[sym] = { np: 0, nl: 0 }); a.np += t.net_pressure_usd || 0; a.nl += t.net_liquidity_usd || 0; }
+        const press = Object.entries(agg).filter(([, a]) => Math.abs(a.np) >= 250).sort((x, y) => Math.abs(y[1].np) - Math.abs(x[1].np)).slice(0, 6);
+        const chip = ([sym, a]) => `<span class="text-[10px] px-2 py-0.5 rounded ${a.np >= 0 ? 'bg-emerald-500/15 text-emerald-300' : 'bg-red-500/15 text-red-300'} mono" title="net buy − sell pressure from TLA flows (claims, zap-ins, zap-outs) over the last ${Math.min(4, closed.length)} closed epochs · liquidity ${a.nl >= 0 ? '+' : ''}${fmt$(a.nl)}">${sym} ${a.np >= 0 ? '+' : '−'}${fmt$(Math.abs(a.np))}</span>`;
+        host.innerHTML = `
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1"><i class="fas fa-recycle text-emerald-400/80 mr-1"></i>Where the rewards go <span class="normal-case tracking-normal text-gray-600">— every LUNA reward claimed via TLA, by what the claim tx did with it</span></div>
+            <div class="text-sm text-gray-200 mb-2">E${last.epoch}: <span class="mono">${fmtNum(L.claimed)} LUNA</span> claimed — <span class="text-emerald-300">${pct(L.pct_compounded)} compounded</span> straight back into ampLUNA-backed LP, <span class="text-gray-300">${pct(L.pct_held)} claimed to wallets</span> (still on Terra as far as this ledger sees), <span class="text-sky-300">${pct(L.pct_swapped)} swapped</span> in the same tx.</div>
+            ${bars}
+            <div class="flex items-center gap-3 text-[9px] text-gray-500 mt-1"><span><span class="inline-block w-2 h-2 rounded-sm bg-emerald-500/70 mr-1"></span>compounded</span><span><span class="inline-block w-2 h-2 rounded-sm bg-sky-400/70 mr-1"></span>swapped in-tx</span><span><span class="inline-block w-2 h-2 rounded-sm bg-gray-500/50 mr-1"></span>claimed to wallet</span><span class="ml-auto">· = open epoch</span></div>
+            <div class="text-[11px] text-gray-400 mt-2 mb-1">Net buy/sell pressure from TLA flows, last ${Math.min(4, closed.length)} closed epochs:</div>
+            <div class="flex flex-wrap gap-1.5">${press.length ? press.map(chip).join('') : '<span class="text-[10px] text-gray-600">nothing over $250 net</span>'}</div>
+            <div class="text-[9px] text-gray-600 mt-2">Not captured: whether "claimed to wallet" later left Terra (no IBC-out stream yet) — so that share is an upper bound on what stayed, and this panel will not pretend otherwise. Source: tla-flows pressure v${(d.version || '').replace(/^\D+/, '')}, ${(d.generated_at || '').slice(0, 16).replace('T', ' ')} UTC.</div>`;
+    }
+
     function renderLiquidityGrowth() {
         const panel = document.getElementById('liq-growth-panel');
         if (!panel) return;
@@ -9314,6 +9346,8 @@
           </div>
           <div class="text-[10px] text-gray-600 mt-3 pt-2 border-t border-white/5"><i class="fas fa-circle-info mr-1"></i>${disclosures.join(' · ')}. LUNA growing here is the auto-compounding rewards buying back in; stablecoin moves are LPs rebalancing. Pools also migrate between curve types (xyk \u2192 concentrated), which shifts where liquidity sits without leaving TLA.</div>
         `;
+        // Batch B (owner 2026-08-24): the other half of "is TLA growing" — where the rewards go.
+        try { renderRewardFates(); } catch (e) { console.warn('reward fates:', e); }
     }
 
     // Member mode for Threshold Watch: the selected wallet's own LP positions that
