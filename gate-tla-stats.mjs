@@ -103,6 +103,7 @@ globalThis.__capaTopUp = true; await w.refreshLivePots(); await new Promise(r =>
 const capaRow = [...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent).find(t => /LUNA-CAPA/.test(t)) || '';
 check('L3 a live CAPA top-up (100,000 CAPA for p200) flips the row to funded and the optimizer places Votion votes on it (gauge added as an option)', /100(,000|\.0K) CAPA/.test(capaRow) && !/not funded/.test(capaRow) && /\+[1-9][\d,.KM]* VPshare/.test(capaRow), capaRow.replace(/\s+/g, ' ').slice(0, 300));
 globalThis.__capaTopUp = false;
+check('V4 Movers default 3 gainers + 3 losers with an expand button; expanding shows all', (() => { const el = d.getElementById('epoch-movers'); const rowsN = () => el.querySelectorAll(':scope > div.p-2').length; const n0 = rowsN(); if (!(n0 <= 6 && /show all \d+ movers/.test(el.textContent))) return false; w.toggleMovers(); const n1 = rowsN(); const ok = n1 > n0 && /show top 3 \+ 3/.test(el.textContent); w.toggleMovers(); return ok; })());
 console.log('\n=== voter boards ===');
 const vb = d.getElementById('top-board-vp').textContent;
 check('B1 Voting Leaders show % of all TLA VP per wallet and name the Votion vaults from the vault registry', /% of all TLA VP/.test(vb) && /Votion arbLUNA Max vault/.test(vb) && /Votion ampLUNA Max vault/.test(vb), vb.replace(/\s+/g, ' ').slice(0, 220));

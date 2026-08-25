@@ -6371,8 +6371,12 @@
         }
         if (!rows.length) { el.innerHTML = '<div class="text-gray-600 text-sm">No meaningful vote movement since epoch start yet, and Votion plans no moves.</div>'; return; }
         rows.sort((a, b) => b.proj - a.proj);
-        const gainers = rows.filter(x => x.proj > 0).slice(0, 6);
-        const losers = rows.filter(x => x.proj < 0).slice(-6).reverse();
+        // owner 2026-08-25: 3 + 3 by default so the tile stays level with Vote Market; expand shows all
+        const allG = rows.filter(x => x.proj > 0), allL = rows.filter(x => x.proj < 0).reverse();
+        const open = !!store.moversExpanded;
+        const gainers = open ? allG : allG.slice(0, 3);
+        const losers = open ? allL : allL.slice(0, 3);
+        const hidden = (allG.length - gainers.length) + (allL.length - losers.length);
         const maxAbs = Math.max(...rows.map(x => Math.abs(x.proj)), 1);
         const sgn = (v) => v == null ? '—' : (v > 0 ? '+' : '') + fmtNum(v);
         const row = (x) => {
@@ -6399,8 +6403,11 @@
         el.innerHTML =
             (gainers.length ? `<div class="text-[10px] text-emerald-400/80 uppercase tracking-wider font-semibold">Gaining support · projected</div>` + gainers.map(row).join('') : '') +
             (losers.length ? `<div class="text-[10px] text-red-400/80 uppercase tracking-wider font-semibold mt-2">Losing support · projected</div>` + losers.map(row).join('') : '') +
+            ((hidden > 0 || open) ? `<div class="text-center pt-1"><button type="button" class="text-[10px] px-3 py-1 rounded-full bg-white/5 text-gray-400 hover:text-cyan-300 font-medium" onclick="window.toggleMovers()">${open ? 'show top 3 + 3' : `show all ${allG.length + allL.length} movers (${hidden} hidden)`} <i class="fas fa-chevron-${open ? 'up' : 'down'} text-[8px] ml-1"></i></button></div>` : '') +
             `<div class="text-[9px] text-gray-600 pt-1">projected = users' on-chain moves since lock-in${store.lockedInDate ? ` (${store.lockedInDate})` : ''} + Votion's published plan · Votion casts its votes at the end of the period · bars: light = users, dark = Votion</div>`;
     }
+
+    window.toggleMovers = function () { store.moversExpanded = !store.moversExpanded; renderEpochMovers(); };
 
     // ---------------- People boards ----------------
     const personRow = (i, title, sub, valueHtml, wallet) => `
