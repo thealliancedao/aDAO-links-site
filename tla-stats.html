@@ -5856,9 +5856,30 @@
             </div>
             <div class="grid gap-x-2 px-2 pb-1 text-[9px] uppercase tracking-wider text-gray-600" style="grid-template-columns: minmax(120px,1.2fr) 82px 60px ${eps.map(() => '34px').join(' ')} minmax(120px,1fr)"><div>pool · gauge</div><div class="text-right">PD bribe</div><div class="text-right">share</div>${eps.map(e => `<div class="text-center" title="rank by trading efficiency among ${N} pools">E${e}</div>`).join('')}<div class="text-right">votes, ref → latest</div></div>
             ${legRows}
+            ${(() => {   // the whole field at placement — every pool on their criterion, bribed or not
+                const U = b.universe_at_placement; const legBy = Object.fromEntries(b.legs.map(l => [l.pool, l]));
+                const bribedRanks = U.filter(r => r.bribed).map(r => r.rank_eff); const lowestBribed = bribedRanks.length ? Math.max(...bribedRanks) : null;
+                const passedOver = U.filter(r => !r.bribed && lowestBribed != null && r.rank_eff < lowestBribed);
+                const open = !!store.pdTrackerFieldOpen;
+                return `<div class="mt-3 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                    <button type="button" onclick="window.togglePdField()" class="w-full flex items-center justify-between px-3 py-2 text-left">
+                        <span class="text-[11px] text-gray-300"><i class="fas fa-list-ol text-amber-400/80 mr-1"></i>The whole field at E${b.window.reference_epoch} — all ${N} pools on their criterion${passedOver.length ? ` · <span class="text-amber-300">${passedOver.length} ranked above a bribed pool and were not bribed</span>` : ''}</span>
+                        <i class="fas fa-chevron-${open ? 'up' : 'down'} text-[9px] text-gray-500"></i></button>
+                    ${open ? `<div class="px-2 pb-2">
+                        <div class="grid gap-x-2 px-1 pb-1 text-[9px] uppercase tracking-wider text-gray-600" style="grid-template-columns: 34px minmax(120px,1.2fr) 70px 90px 90px 70px 90px minmax(100px,1fr)"><div>#</div><div>pool</div><div>bucket</div><div class="text-right">volume/wk</div><div class="text-right">liquidity</div><div class="text-right">vol ÷ liq</div><div class="text-right">PD bribe</div><div></div></div>
+                        ${U.map(r => { const l = legBy[r.pool]; const po = !r.bribed && lowestBribed != null && r.rank_eff < lowestBribed; return `<div class="grid gap-x-2 items-center px-1 py-1 text-[11px] border-t border-white/[0.04] ${r.bribed ? 'bg-emerald-500/[0.05]' : po ? 'bg-amber-500/[0.05]' : ''}" style="grid-template-columns: 34px minmax(120px,1.2fr) 70px 90px 90px 70px 90px minmax(100px,1fr)">
+                            <div class="mono text-gray-400">${r.rank_eff}</div><div class="truncate ${r.bribed ? 'text-gray-100' : 'text-gray-300'}">${r.pool}</div><div class="text-[9px] uppercase text-gray-600">${r.bucket}</div>
+                            <div class="text-right mono text-gray-400">${fmt$(r.vol)}</div><div class="text-right mono text-gray-400">${fmt$(r.liq)}</div><div class="text-right mono text-gray-300">${r.eff.toFixed(3)}</div>
+                            <div class="text-right mono ${l ? 'text-emerald-300' : 'text-gray-700'}">${l ? fmtNum(l.luna_per_epoch) + '/ep' : '—'}</div>
+                            <div class="text-[9px] ${r.bribed ? 'text-emerald-400/80' : po ? 'text-amber-300/90' : 'text-gray-600'}">${r.bribed ? 'bribed' : po ? 'ranked above a bribed pool · not bribed' : 'not bribed'}</div>
+                        </div>`; }).join('')}
+                        <div class="text-[9px] text-gray-600 mt-1">Every active Astroport TLA pool at the epoch before the window, ranked by PD's stated criterion (trading efficiency = weekly volume ÷ average liquidity). Green = received PD LUNA; amber = outranked at least one bribed pool on that criterion and received none. Pools outside the Astroport series are not in this field.</div>
+                    </div>` : ''}
+                </div>`; })()}
             <div class="text-[9px] text-gray-600 mt-2">Rank cells: 1 = highest trading efficiency among ${N} active Astroport TLA pools that epoch (green top quarter → red bottom quarter). ${b.notes && b.notes.length ? b.notes.join(' · ') + ' · ' : ''}Placement-time numbers are the record as captured then. Source: pd-bribe-fit v${(d.version || '').replace(/^\D+/, '')}, ${(d.generated_at || '').slice(0, 16).replace('T', ' ')} UTC.</div>`;
     }
     window.setPdTrackerBatch = function (id) { store.pdTrackerBatch = id; renderPdTracker(); };
+    window.togglePdField = function () { store.pdTrackerFieldOpen = !store.pdTrackerFieldOpen; renderPdTracker(); };
 
     // ---------------- LP Grades v2 rows (SPEC-lp-grades-v2 §2) ----------------
     const LENS_META = {
@@ -6027,8 +6048,9 @@
             : '<span class="text-[9px] px-1 py-0.5 rounded bg-white/5 text-gray-500">\u2014</span>';
 
         // ---- v2 five-lens view (2026-08-25): bucketed, one letter, five bars, a streak, a plain why. Falls back to v1 rows when the product has no v2.
-        if (prod.v2 && rows.some(p => p.v2)) { renderGradesV2(tableEl, rows, prod, dexTag, myVotes); return; }
-        tableEl.innerHTML = rows.map((p, i) => {
+        const useV2 = !!(prod.v2 && rows.some(p => p.v2));
+        if (useV2) renderGradesV2(tableEl, rows, prod, dexTag, myVotes);
+        else tableEl.innerHTML = rows.map((p, i) => {
             const mine = p.gauge_pool_id && myVotes.has(p.gauge_pool_id);
             const why = view === 'best_for_chain' ? '' : whyLine(p);
             const detailId = `grade-detail-${i}`;
@@ -12627,6 +12649,9 @@
         
         if (tabBtn) tabBtn.classList.add('active');
         if (tabContent) tabContent.classList.add('active');
+        // 2026-08-25 (owner): the header subnav highlight synced only from the URL hash, so a tab
+        // opened any other way (saved tab, ?tab=, in-page link) left "Overview" lit. Sync it here.
+        document.querySelectorAll('.sh-subtab[data-tab]').forEach(x => x.classList.toggle('active', x.getAttribute('data-tab') === tabName));
         // LP Grades renders lazily on first visit (and re-renders on later visits so
         // the member-lens star column stays in sync with the header dropdown).
         if (tabName === 'grades') {

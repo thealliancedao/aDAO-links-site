@@ -109,11 +109,17 @@ const vb = d.getElementById('top-board-vp').textContent;
 check('B1 Voting Leaders show % of all TLA VP per wallet and name the Votion vaults from the vault registry', /% of all TLA VP/.test(vb) && /Votion arbLUNA Max vault/.test(vb) && /Votion ampLUNA Max vault/.test(vb), vb.replace(/\s+/g, ' ').slice(0, 220));
 check('B2 "Most Engaged Voters" board: this-epoch voters first', /Most Engaged Voters/.test(d.body.textContent) && (() => { const first = d.querySelector('#top-board-adjusted'); return first && /THIS EPOCH/.test(first.textContent.slice(0, 400)); })());
 console.log('\n=== PD Bribe Tracker (LP Grades tab) ===');
+// subnav highlight must follow the tab (the gate's SiteHeader stub has no subnav DOM, so build the three tabs it would render)
+const nav = d.createElement('div'); nav.innerHTML = ['overview', 'grades', 'pools', 'tla'].map(t => `<span class="sh-subtab${t === 'overview' ? ' active' : ''}" data-tab="${t}"></span>`).join(''); d.body.appendChild(nav);
 w.eval('switchToTab')('grades'); await new Promise(r => setTimeout(r, 800));
+check('N2 switching tabs moves the header highlight (LP Grades lit, Overview not)', nav.querySelector('[data-tab="grades"]').classList.contains('active') && !nav.querySelector('[data-tab="overview"]').classList.contains('active'));
 const pt = d.getElementById('pd-tracker');
 check('T1 tracker renders the latest fitted batch: prop 253, stated criterion quoted, 72% to top-half, PAXG-WBTC rank cells, qualified-not-bribed chips', pt && /prop 253/.test(pt.textContent) && /trading efficiency \+ volume/.test(pt.textContent) && /72%/.test(pt.textContent) && /PAXG-WBTC/.test(pt.textContent) && /LUNA-USDC/.test(pt.textContent) && /Drift inside the window/.test(pt.textContent), pt && pt.textContent.replace(/\s+/g, ' ').slice(0, 240));
 w.setPdTrackerBatch(250); await new Promise(r => setTimeout(r, 100));
 check('T2 switching to prop 250 shows 56% and the LUNA-WBTC drift line (#3 → #9)', /56%/.test(pt.textContent) && /LUNA-WBTC: #3 at placement/.test(pt.textContent), pt.textContent.replace(/\s+/g, ' ').match(/LUNA-WBTC: #[^·]+/) || '');
+w.togglePdField(); await new Promise(r => setTimeout(r, 100));
+check('T3 the whole field opens: all 19 pools ranked on their criterion, bribed rows marked, and pools ranked above a bribed pool but not bribed called out (LUNA-USDC among them)', /all 19 pools/.test(pt.textContent) && /ranked above a bribed pool and were not bribed/.test(pt.textContent) && (() => { const rowsF = [...pt.querySelectorAll('.grid.items-center')].map(x => x.textContent.replace(/\s+/g, ' ')); return rowsF.some(t => /LUNA-USDC/.test(t) && /ranked above a bribed pool · not bribed/.test(t)) && rowsF.some(t => /PAXG-WBTC/.test(t) && /bribed$/.test(t.trim()) && !/not bribed/.test(t)); })(), pt.textContent.replace(/\s+/g, ' ').match(/The whole field[^·]*·[^R]*/)?.[0]);
+check('T4 the Vote Advisor still renders under the v2 table', !!(d.getElementById('grades-advisor') && d.getElementById('grades-advisor').textContent.length > 50), (d.getElementById('grades-advisor') || {}).textContent?.slice(0, 80));
 console.log('\n=== LP Grades v2 (five lenses) ===');
 const gt = d.getElementById('grades-table');
 check('G3 legend states the field distribution (A/B/C/D/F counts), the five lens weights and the streak rule', gt && /This epoch's field/.test(gt.textContent) && /Purpose 20%/.test(gt.textContent) && /Streak/.test(gt.textContent) && /earned with four/.test(gt.textContent), gt && gt.textContent.replace(/\s+/g, ' ').slice(0, 200));

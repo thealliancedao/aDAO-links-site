@@ -18,7 +18,7 @@ const dom = new JSDOM(html.replace(/<script[^>]*src=[^>]*><\/script>/g, ''), { u
   w.fetch = async (u) => String(u).includes('known_contracts.json') ? { ok: true, json: async () => reg } : { ok: false, status: 404 }; } });
 await new Promise(r => setTimeout(r, 300)); const d = dom.window.document;
 check('V2 core section renders 15 rows incl. the three candy machines with their reconciled counts', d.querySelectorAll('#core-rows .row').length === 15 && /352 loaded · 127 sold/.test(d.getElementById('core-rows').textContent) && /1,300 loaded · 1,300 sold/.test(d.getElementById('core-rows').textContent));
-check('V3 live register grouped by protocol with the full count', /59 contracts/.test(d.getElementById('reg-count').textContent) && d.querySelectorAll('#register .row').length === 59 && /Eris · 18/.test(d.getElementById('register').textContent));
+check('V3 live register grouped by protocol with the full count', /60 contracts/.test(d.getElementById('reg-count').textContent) && d.querySelectorAll('#register .row').length === 60 && /Eris · 18/.test(d.getElementById('register').textContent));
 check('V4 chain links go to chainsco.pe; the Ally denom row has copy but no chain link', [...d.querySelectorAll('#core-rows a.btn')].every(a => /chainsco\.pe/.test(a.href)) && d.querySelectorAll('#core-rows .row')[2].querySelector('a.btn') === null);
 check('V5 code/gov/data sections carry the NFT repo, gov #4801, provenance', /alliance-nft-collection/.test(d.getElementById('code-rows').textContent) && /#4801/.test(d.getElementById('gov-rows').textContent) && /provenance/.test(d.getElementById('data-rows').textContent));
 check('V6 unverified register entry is tagged', /unverified/.test(d.getElementById('register').textContent));
