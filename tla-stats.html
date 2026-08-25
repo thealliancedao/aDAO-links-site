@@ -854,11 +854,10 @@
     (function () {
         var nav = SiteHeader.subnav([
             { id: 'overview', label: 'Overview',         icon: 'fa-chart-pie',       active: true },
-            { id: 'portfolio', label: 'Member Portfolio', icon: 'fa-user-astronaut',  href: 'member-portfolio.html', badge: 'NEW' },
+            { id: 'portfolio', label: 'Member Portfolio', icon: 'fa-user-astronaut',  disabled: true, badge: 'SOON', tip: 'Being rebuilt — the current build is on the Tools page as Test 1' },   // Batch A (owner 2026-08-24)
             { id: 'grades',   label: 'LP Grades',        icon: 'fa-graduation-cap' },
             { id: 'pools',    label: 'LP Stats',         icon: 'fa-water' },
-            { id: 'tla',      label: 'TLA Stats',        icon: 'fa-coins' },
-            { id: 'docs',     label: 'Docs',             icon: 'fa-book' },
+            { id: 'tla',      label: 'TLA Stats',        icon: 'fa-coins' },   // Docs tab removed (Batch A) — the page lives on as Test 2 on Tools until rebuilt
         ], { onSelect: function (id) { var b = document.querySelector('#tla-legacy-tabs .tab-btn[data-tab="' + id + '"]'); if (b) b.click(); },
              right: '<span id="sh-epoch-slot"></span>', attach: '#tla-top-tile' });
         var syncActive = function () {
@@ -1054,7 +1053,7 @@
             <div class="tab-btn active" data-tab="overview">
                 <i class="fas fa-chart-pie mr-2"></i>Overview
             </div>
-            <a href="member-portfolio.html" class="tab-btn" style="text-decoration: none; display: inline-flex; align-items: center;" title="Your full Terra position — locks, LP, votes, balances — with alerts: stale VP, inactive LP, expiring locks, unclaimed rewards.">
+            <a href="member-portfolio.html" class="tab-btn hidden" aria-hidden="true" style="text-decoration: none; display: inline-flex; align-items: center;" title="Your full Terra position — locks, LP, votes, balances — with alerts: stale VP, inactive LP, expiring locks, unclaimed rewards.">
                 <i class="fas fa-user-astronaut mr-2"></i>Member Portfolio
                 <span class="ml-2 text-[8px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-semibold tracking-wide">NEW</span>
             </a>
@@ -1066,9 +1065,6 @@
             </div>
             <div class="tab-btn" data-tab="tla">
                 <i class="fas fa-coins mr-2"></i>TLA Stats
-            </div>
-            <div class="tab-btn" data-tab="docs">
-                <i class="fas fa-book mr-2"></i>Docs
             </div>
         </div>
     </nav>
@@ -2269,6 +2265,8 @@
     const CONFIG = {
         // New continuous data sources (post-2026 cron rebuild)
         tlaSnapshotUrl:    'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/current.json',
+        // Batch A (2026-08-24): Eris's own gauge-LP APR/APY per gauge (source-confirmed formula, org cron) — the leaderboard reads THIS, not a bucket multiplier
+        erisAprUrl:        'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/eris-apr/current.json',
         bribeRunwayUrl:    'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/bribe-state/runway.json',  // per-pool pot runway (state truth, funders included)
         lpGradesUrl:       'https://raw.githubusercontent.com/thealliancedao/tla-core/main/lp-grades/snapshots/current.json',  // org lp-grades cron (Rev G1, 2026-08-19)  // org fold (member-data VP absorber), 2026-08-10
         aprHistoryUrl:     'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/apr-history.json',
@@ -2310,13 +2308,6 @@
         // RETIRED 2026-08-11: no org fuel series. FUEL price falls back to the
         // pool-derived value in network-and-prices. Rebuild org-side or retire the chart.
         fuelIndexUrl:      null,
-        historicalUrls: {
-            // RETIRED 2026-08-11: hand-corrected 'staging_4day_corrected' series with
-            // missing=zero volume — failed the trust test; deleted with the repo.
-            2025: null,
-            2026: null   // RETIRED (same). Live LP liquidity/volume comes from org dex-data.
-        },
-
         // Weekly archives for member portfolios (epoch-N.json)
         adaoWeeklyArchiveBaseUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/weekly',
 
@@ -3146,12 +3137,13 @@
             const lpGradesP = fetch(CONFIG.lpGradesUrl + '?t=' + Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
             const bribeRunwayP = fetch(CONFIG.bribeRunwayUrl + '?t=' + Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
             const [
+                erisAprResp,
+                votionOptResp,
                 tlaSnapshotResp,
                 networkPricesResp,
                 adaoPositionsResp,
                 bribesCurrentResp,
                 pdBribesResp,
-                historicalResp,
                 votionResp,
                 astroEpochResp,
                 ssWeeklyAvgText,
@@ -3164,6 +3156,11 @@
                 orgNftSummaryResp,
                 orgMemberDataResp,
             ] = await Promise.all([
+                fetch(CONFIG.erisAprUrl + '?t=' + Math.floor(Date.now() / 900000)).then(r => r.ok ? r.json() : null).catch(() => null).then(d => { store.erisAprByGauge = {}; for (const row of (d && d.pools) || []) if (row.gauge_pool_id) store.erisAprByGauge[row.gauge_pool_id] = row; store.erisAprAt = d && d.meta && d.meta.generated_at || null; return d; }),
+                // Batch A (2026-08-24): Votion's VP per pool — current AND planned — from the org votion
+                // product (aggregate per gauge, keyed by bare LP address / native denom). The snapshot's
+                // votion_current_vp field no longer exists, which is why every bucket read "Votion 0.00".
+                fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/optimization/current.json?t=' + Math.floor(Date.now() / 900000)).then(r => r.ok ? r.json() : null).catch(() => null).then(d => { store.votionByPid = {}; for (const [gauge, gd] of Object.entries((d && d.aggregate) || {})) for (const [pid, pp] of Object.entries(gd.pools || {})) store.votionByPid[gauge + '|' + pid] = { current_vp: pp.current_vp || 0, planned_vp: pp.planned_vp || 0 }; store.votionOptAt = d && d.capturedAt || null; store.votionOptPeriod = d && d.period || null; return d; }),
                 fetch(CONFIG.tlaSnapshotUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('tla-snapshot fetch:', e.message); return null; }),
                 fetch(CONFIG.networkPricesUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('network-prices fetch:', e.message); return null; }),
                 fetch(CONFIG.adaoPositionsUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('adao-positions fetch:', e.message); return null; }),
@@ -3197,7 +3194,6 @@
                         }));
                     })
                     .catch(() => null),
-                CONFIG.historicalUrls[2026] ? fetch(CONFIG.historicalUrls[2026]).then(r => r.ok ? r.json() : null).catch(() => null) : Promise.resolve(null),
                 // Votion: same epoch-boundary pattern as astroport below — the votion
                 // roller creates epoch-N.json on its first run inside epoch N, so on
                 // day 1 the current file 404s (observed live e197, 2026-08-03).
@@ -3230,16 +3226,19 @@
                     .catch(e => { console.warn('ss-weekly-avg fetch:', e.message); return null; }),
                 // Known-token name overrides (manual mapping for raw cw20:/native: addresses)
                 fetch(CONFIG.knownTokensUrl).then(r => r.ok ? r.json() : null)
-                    // ORG ADAPTER: token-catalog keys tokens BY ADDRESS with rich
-                    // records; the page wants { tokens: { 'cw20:addr'|'native:denom': NAME } }.
+                    // ORG ADAPTER (Batch A 2026-08-24, fixed): the token catalog's `tokens` is an ARRAY of
+                    // {denom, discovered:{symbol}, effective?:{symbol}}; the previous adapter assumed an
+                    // object keyed by address with t.symbol and produced 0 names every load. The page wants
+                    // { tokens: { denom | 'cw20:addr' | 'native:denom': NAME } }.
                     .then(tc => {
                         if (!tc || !tc.tokens) return tc;
                         const out = {};
-                        for (const [addr, t] of Object.entries(tc.tokens)) {
-                            const name = t?.symbol || t?.name;
-                            if (!name) continue;
+                        const list = Array.isArray(tc.tokens) ? tc.tokens : Object.entries(tc.tokens).map(([denom, t]) => ({ denom, ...(t || {}) }));
+                        for (const t of list) {
+                            const addr = t && t.denom; const name = (t && t.effective && t.effective.symbol) || (t && t.discovered && t.discovered.symbol) || (t && t.symbol) || null;
+                            if (!addr || !name) continue;
                             out[addr] = name;
-                            out[addr.startsWith('ibc/') || addr.startsWith('factory/') ? `native:${addr}` : `cw20:${addr}`] = name;
+                            out[/^terra1/.test(addr) ? `cw20:${addr}` : `native:${addr}`] = name;
                         }
                         return { schemaVersion: 1, tokens: out, _org_source: 'token-catalog' };
                     })
@@ -3270,13 +3269,18 @@
 
             // Populate the runtime token-names map. Underscore-prefixed keys
             // are placeholders in the JSON template — filter them out.
-            if (knownTokensResp?.tokens && typeof knownTokensResp.tokens === 'object') {
+            // Batch A (2026-08-24): the URL was repointed to the org token catalog on 2026-08-11 but the
+            // parser still expected the legacy {tokens: {denom: "NAME"}} shape — the catalog's `tokens`
+            // is an ARRAY of {denom, effective:{symbol}}, so this loaded 0 overrides every time.
+            if (knownTokensResp?.tokens) {
                 const cleaned = {};
-                for (const [k, v] of Object.entries(knownTokensResp.tokens)) {
-                    if (!k.startsWith('_') && typeof v === 'string' && v) cleaned[k] = v;
+                if (Array.isArray(knownTokensResp.tokens)) {
+                    for (const t of knownTokensResp.tokens) { const sym = t?.effective?.symbol || t?.discovered?.symbol; if (t?.denom && sym) cleaned[t.denom] = sym; }
+                } else if (typeof knownTokensResp.tokens === 'object') {
+                    for (const [k, v] of Object.entries(knownTokensResp.tokens)) if (!k.startsWith('_') && typeof v === 'string' && v) cleaned[k] = v;
                 }
                 KNOWN_TOKEN_NAMES = cleaned;
-                console.log(`Loaded ${Object.keys(cleaned).length} known-token name overrides`);
+                console.log(`Loaded ${Object.keys(cleaned).length} known-token name overrides (org token catalog)`);
             }
 
             // Fire off the daily-chart fetch in the background (28 small CSVs).
@@ -3327,7 +3331,6 @@
                 }
                 return null;
             })();
-            store.historicalData = historicalResp;
             store.votionData = votionResp;
             // Community layer sources
             store.tlaParticipants = tlaParticipantsResp;
@@ -3387,7 +3390,6 @@
                 adaoPositions: adaoPositionsResp,
                 bribesCurrent: bribesCurrentResp,
                 pdBribes: pdBribesResp,
-                historical: historicalResp,
                 votion: votionResp,
                 astroEpoch: astroEpochResp,
                 ssWeeklyAvgCsv: ssWeeklyAvgText,
@@ -3527,11 +3529,21 @@
             // Empty until apr-history.json exists -> the APR badge simply doesn't render.
             store.prevAprByName = {};
             store.aprHistory = aprHistResp;   // Rev T2: full per-epoch rollup kept for the hero sparkline
-            const aprBaseIdx = buildAprBaselineIndex(aprHistResp, lastCompleteEpoch);
-            Object.entries(aprBaseIdx).forEach(([k, v]) => {
-                const nm = k.split('|')[0];
-                if (v > 0) store.prevAprByName[nm] = Math.max(store.prevAprByName[nm] || 0, v);
-            });
+            // Batch A (2026-08-24): the movement baseline is the SAME Eris product, one epoch back
+            // (dex-data/eris-apr/daily/<date>.json, nearest capture within ±2 days of 7 days ago).
+            // Same definition as the live number = like with like. No daily file → no arrows.
+            try {
+                const base = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/eris-apr/daily/';
+                const ds = (d) => d.toISOString().slice(0, 10);
+                const anchor = new Date(Date.now() - 7 * 86400e3);
+                let prev = null;
+                for (const off of [0, -1, 1, -2, 2]) {
+                    const r = await fetch(base + ds(new Date(anchor.getTime() + off * 86400e3)) + '.json').catch(() => null);
+                    if (r && r.ok) { prev = await r.json(); break; }
+                }
+                for (const row of (prev && prev.pools) || []) if (row.pool_name && typeof row.eris_apy_pct === 'number') store.prevAprByName[row.pool_name] = Math.max(store.prevAprByName[row.pool_name] || 0, row.eris_apy_pct);
+                store.prevAprAt = prev && prev.meta && prev.meta.generated_at || null;
+            } catch (e) { console.warn('eris-apr baseline:', e.message); }
 
             // Pool status/VP history -> fast lookup keyed "name|bucket" (matches the
             // name+bucket convention used throughout Threshold Watch). On duplicate
@@ -3634,16 +3646,18 @@
 
         // ===== Build v3 "vote.pools" array =====
         const votePools = (tlaSnapshot.pools || []).map(p => {
-            const bribes = bribesByPool[p.gauge_pool_id] || { total_usd: 0, pd_usd: 0, other_usd: 0 };
+            const bribes = bribesByPool[`${p.gauge_pool_id}|${(p.bucket || '').toLowerCase()}`] || { total_usd: 0, pd_usd: 0, other_usd: 0 };   // Batch A: gauge id + bucket
             const adaoEntry = adaoVotesByPool[p.gauge_pool_id] || { adao_vp: 0, adao_pct: 0 };
 
             // VP — use vp_human from voting_power
             const vp = p.voting_power?.vp_human || 0;
             const votePct = p.voting_power?.pct_of_bucket || 0;
 
-            // Votion VP — already computed per-pool in tla-snapshot
-            const votionCurrentVp = p.voting_power?.votion_current_vp || 0;
-            const votionOptimizedVp = p.voting_power?.votion_optimized_vp || 0;
+            // Votion VP — Batch A: from votion/optimization aggregate, keyed gauge|bare-id (the snapshot field is gone)
+            const _vkey = (p.bucket || '') + '|' + String(p.gauge_pool_id || '').replace(/^(cw20|native):/, '');
+            const _vrow = (store.votionByPid && store.votionByPid[_vkey]) || null;
+            const votionCurrentVp = _vrow ? _vrow.current_vp : 0;
+            const votionOptimizedVp = _vrow ? _vrow.planned_vp : 0;
 
             // Historical lookup — try both pool name keys (with/without DEX)
             const histKey1 = `${p.name}|${p.dex}`;
@@ -3657,11 +3671,15 @@
             // A pool with $48K depth but only $884 staked in TLA has unrealistic APR.
             // Threshold $20K ensures meaningful TLA stake. Cap at 200% as final safety.
             const tlaStakedUsd = p.staked_in_tla_usd || 0;
-            const aprNonRaw = p.rewards?.approx_apr_pct;
-            const aprNonValid = (typeof aprNonRaw === 'number' && isFinite(aprNonRaw)) ? aprNonRaw : 0;
-            const aprNon = tlaStakedUsd < 20000 ? 0 : Math.min(aprNonValid, 200);
-            const ampFactor = computeAmpFactor(p.bucket);
-            const aprAmp = aprNon * ampFactor;
+            // Batch A (2026-08-24): APR/APY from Eris's own per-gauge product (dex-data/eris-apr), matched by
+            // gauge id. Non = Eris's linear APR (the white number on erisprotocol.com), Amp = Eris's compounded
+            // amplified APY (the orange number). The old path — snapshot approx_apr × a bucket multiplier
+            // (1.10 stable / 1.05 else) — was a rule, and it read 88.5% where Eris shows 68.7 / 96.1.
+            // No Eris row for this gauge → null (blank on the board), never the multiplier.
+            const erisRow = p.gauge_pool_id && store.erisAprByGauge ? store.erisAprByGauge[p.gauge_pool_id] : null;
+            const aprNon = erisRow && typeof erisRow.eris_apr_pct === 'number' ? erisRow.eris_apr_pct : null;
+            const aprAmp = erisRow && typeof erisRow.eris_apy_pct === 'number' ? erisRow.eris_apy_pct : null;
+            const ampFactor = (aprNon && aprAmp) ? aprAmp / aprNon : null;
 
             // adao_pct computed from VP if VP > 0
             const adaoPct = vp > 0 ? (adaoEntry.adao_vp / vp) * 100 : 0;
@@ -3819,9 +3837,9 @@
                 tla_staked: tlaStakedUsd,
                 rewards_per_year: p.rewards?.annual_emissions_usd || 0,
                 rewards: p.rewards,   // coherent single-source APR (both sides at snapshot prices)
-                apr: {
-                    non_amp: aprNon,
-                    amplified: aprNon * computeAmpFactor(p.bucket),
+                apr: {   // Batch A: Eris's own numbers by gauge id; null when Eris has no row (never a multiplier)
+                    non_amp: (p.gauge_pool_id && store.erisAprByGauge && store.erisAprByGauge[p.gauge_pool_id] && typeof store.erisAprByGauge[p.gauge_pool_id].eris_apr_pct === 'number') ? store.erisAprByGauge[p.gauge_pool_id].eris_apr_pct : null,
+                    amplified: (p.gauge_pool_id && store.erisAprByGauge && store.erisAprByGauge[p.gauge_pool_id] && typeof store.erisAprByGauge[p.gauge_pool_id].eris_apy_pct === 'number') ? store.erisAprByGauge[p.gauge_pool_id].eris_apy_pct : null,
                 },
                 adao_deposit: { non_amp: 0, amplified: 0 },
             };
@@ -3912,7 +3930,9 @@
     // TRANSFORM HELPERS
     // ============================================================
     function computeAmpFactor(bucket) {
-        // TLA constants: stable gets 10% amp, others get 5%
+        // Batch A (2026-08-24): RETIRED as an APR input — the leaderboard, LP stats and the
+        // movement baseline all read Eris's per-gauge product now. Kept only for the legacy
+        // apr-history baseline builder below, which is no longer called for the badge.
         return bucket === 'stable' ? 1.10 : 1.05;
     }
 
@@ -3996,7 +4016,13 @@
         const pdConsumed = {};
 
         for (const p of (tlaSnapshot.pools || [])) {
-            const activeNow = p.bribes?.active_now || [];
+            // Batch A (2026-08-24): a bribe lives on a GAUGE (bucket + pool). The same LP can be
+            // registered in two buckets (USDC-USDT: bluechip 282K VP and single 7.5M VP) and the
+            // snapshot attaches the manager's active bribes to both rows; PD prop 253 bribed the
+            // SINGLE gauge only. Count a bribe on this row only when its gauge matches this row's
+            // bucket — otherwise the bluechip variant read "$139 on 282K VP = $493 / 1M VP" and the
+            // pot double-counted $139.
+            const activeNow = (p.bribes?.active_now || []).filter(b => !b.gauge || !p.bucket || String(b.gauge).toLowerCase() === String(p.bucket).toLowerCase());
             let totalUsd = 0;
             const tokenDetail = {};  // symbol -> { symbol, amountHuman, usd, priceUsd, priced }
             for (const bucket of activeNow) {
@@ -4016,8 +4042,11 @@
             }
             const key = `${normName(p.name)}|${(p.bucket || '').toLowerCase()}`;
             const gidGaugeKey = `${p.gauge_pool_id}|${(p.bucket || '').toLowerCase()}`;
+            // Batch A: bucket-keyed first; the gauge-id-only fallback applies ONLY when the product
+            // has no bucket-keyed entry for this gauge at all (never hands one bucket's LUNA to another).
+            const _hasBucketKeyed = pdLunaByGid ? Object.keys(pdLunaByGid).some(k => k.startsWith(p.gauge_pool_id + '|')) : false;
             const pdLuna = pdLunaByGid
-                ? (pdLunaByGid[gidGaugeKey] ?? pdLunaByGid[p.gauge_pool_id] ?? 0)
+                ? (pdLunaByGid[gidGaugeKey] ?? (_hasBucketKeyed ? 0 : (pdLunaByGid[p.gauge_pool_id] ?? 0)))
                 : (pdLunaByKey[key] || 0);
             let pdUsd = 0, pdLunaAssigned = 0;
             if (pdLuna > 0 && !(pdConsumed[key] && !pdLunaByGid) && !(pdLunaByGid && pdConsumed[gidGaugeKey])) {
@@ -4038,7 +4067,8 @@
             const effectiveTotal = (totalUsd > 0) ? totalUsd : pdUsd;
             // Per-token breakdown (largest USD first) for the modal's token chips.
             const tokens = Object.values(tokenDetail).sort((a, b) => b.usd - a.usd);
-            idx[p.gauge_pool_id] = {
+            // Batch A: keyed by gauge id + bucket — one gauge id can be two gauges (two buckets)
+            idx[gidGaugeKey] = {
                 total_usd: effectiveTotal,
                 pd_usd: pdUsd,
                 pd_luna: pdLunaAssigned,
@@ -6246,6 +6276,7 @@
                     </div>
                     <span class="mono text-sm font-semibold shrink-0 ${pos ? 'text-emerald-400' : 'text-red-400'}">${pos ? '+' : ''}${fmtNum(x.d)} VP</span>
                 </div>
+                ${(() => { const vc = (x.p.votion_next_vp || 0) - (x.p.votion_now_vp || 0); return Math.abs(vc) >= 1000 ? `<div class="text-[9px] mb-1 ${vc > 0 ? 'text-emerald-300/80' : 'text-amber-300/80'}" title="Votion's published plan for next epoch on this pool (planned − current). Per-pool Votion history is not captured daily, so the share of THIS move that was Votion cannot be stated — this is what Votion says it will do next."><i class="fas fa-robot mr-1"></i>Votion plans ${vc > 0 ? '+' : ''}${fmtNum(vc)} VP next epoch</div>` : ''; })()}
                 <div class="relative h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
                     <div class="absolute top-0 bottom-0 left-1/2 w-px bg-white/15"></div>
                     <div class="absolute top-0 bottom-0 ${pos ? 'left-1/2 bg-emerald-400/60 rounded-r-full' : 'right-1/2 bg-red-400/60 rounded-l-full'}" style="width:${w.toFixed(1)}%"></div>
@@ -7763,7 +7794,9 @@
                     ${volDexMode === 'all' ? deltaLine(p.avgVolume, prevVolByName[p.name]) : ''}
                 </div>
             </div>
-        `), 'volp', '<div class="text-gray-500 text-sm">No volume data</div>');
+        `), 'volp', volDexMode === 'ss'
+            ? '<div class="text-gray-500 text-sm"><i class="fas fa-circle-info mr-1"></i>SkeletonSwap volume is not captured yet — the capture layer reads SS reserves (liquidity), not swaps. Blank here means uncaptured, not zero.</div>'
+            : '<div class="text-gray-500 text-sm">No volume data</div>');
         
         // Top by Avg DEX Liquidity (liq_4ep_avg) OR TLA-staked, per the toggle.
         const liqMode = store.liqTileMode || 'dex';
@@ -7835,7 +7868,7 @@
         const aprTileMode = store.aprTileMode || 'amp';
         const aprKey = aprTileMode === 'amp' ? 'apr_amp' : 'apr_non';
         const aprSubEl = document.getElementById('apr-tile-sub');
-        if (aprSubEl) aprSubEl.textContent = aprTileMode === 'amp' ? 'live amplified · ▲▼ APR rank vs last epoch' : 'live non-amplified · rank history is amp-based (arrows hidden here)';
+        if (aprSubEl) aprSubEl.textContent = aprTileMode === 'amp' ? 'Eris amplified APY (their orange number) · ▲▼ rank vs last epoch' : 'Eris APR (their white number) · rank history is amp-based (arrows hidden here)';
         const topAPR = [...active].filter(p => (p[aprKey] || 0) > 0).sort((a, b) => (b[aprKey] || 0) - (a[aprKey] || 0));
 
         boardExpander(document.getElementById('top-apr-pools'), topAPR.map((p, i) => `
@@ -9986,127 +10019,13 @@ ${(() => {
     // POOLS TAB
     // ============================================================
     function renderPoolsTab() {
-        loadHistoricalData().then(() => {
-            renderPoolsByBucket();
-        });
+        renderPoolsByBucket();
     }
     
-    // Historical chart state
-    let historicalState = {
-        data: null
-    };
-    
-    async function loadHistoricalData() {
-        if (historicalState.data) {
-            return;
-        }
-        
-        try {
-            console.log('Loading historical data from yearly files...');
-            
-            // Determine which years to load based on current date
-            const currentYear = new Date().getFullYear();
-            const previousYear = currentYear - 1;
-            
-            // Try to load current year and previous year files
-            const yearUrls = CONFIG.historicalUrls;
-            const loadPromises = [];
-            const yearsToLoad = [];
-            
-            // Always try current year
-            if (yearUrls[currentYear]) {
-                loadPromises.push(fetch(yearUrls[currentYear]).then(r => r.ok ? r.json() : null).catch(() => null));
-                yearsToLoad.push(currentYear);
-            }
-            
-            // Also try previous year (for cross-year coverage)
-            if (yearUrls[previousYear]) {
-                loadPromises.push(fetch(yearUrls[previousYear]).then(r => r.ok ? r.json() : null).catch(() => null));
-                yearsToLoad.push(previousYear);
-            }
-            
-            const results = await Promise.all(loadPromises);
-            
-            // Merge all available data
-            const mergedLps = {};
-            
-            results.forEach((yearData, idx) => {
-                if (!yearData || !yearData.lps) {
-                    console.log(`Historical data for ${yearsToLoad[idx]}: not found or invalid`);
-                    return;
-                }
-                
-                console.log(`Historical data for ${yearsToLoad[idx]}: ${Object.keys(yearData.lps).length} LPs`);
-                
-                // Merge each LP's data
-                Object.entries(yearData.lps).forEach(([lpKey, lpData]) => {
-                    if (!mergedLps[lpKey]) {
-                        mergedLps[lpKey] = { liquidity: { epochs: {} }, volume: { epochs: {} } };
-                    }
-                    
-                    // Merge liquidity epochs
-                    if (lpData.liquidity?.epochs) {
-                        Object.entries(lpData.liquidity.epochs).forEach(([ep, data]) => {
-                            mergedLps[lpKey].liquidity.epochs[ep] = data;
-                        });
-                    }
-                    
-                    // Merge volume epochs
-                    if (lpData.volume?.epochs) {
-                        Object.entries(lpData.volume.epochs).forEach(([ep, data]) => {
-                            mergedLps[lpKey].volume.epochs[ep] = data;
-                        });
-                    }
-                });
-            });
-            
-            if (Object.keys(mergedLps).length === 0) {
-                console.error('No historical data available from any year');
-                return;
-            }
-            
-            // Trim to last N epochs (configured in CONFIG.maxHistoricalEpochs)
-            const maxEpochs = CONFIG.maxHistoricalEpochs || 26;
-            
-            Object.keys(mergedLps).forEach(lpKey => {
-                // Get all epochs and sort
-                const liqEpochs = Object.keys(mergedLps[lpKey].liquidity.epochs).map(Number).sort((a, b) => a - b);
-                const volEpochs = Object.keys(mergedLps[lpKey].volume.epochs).map(Number).sort((a, b) => a - b);
-                
-                // Keep only last N epochs for liquidity
-                if (liqEpochs.length > maxEpochs) {
-                    const keepEpochs = liqEpochs.slice(-maxEpochs);
-                    const trimmedLiq = {};
-                    keepEpochs.forEach(ep => {
-                        trimmedLiq[ep] = mergedLps[lpKey].liquidity.epochs[ep];
-                    });
-                    mergedLps[lpKey].liquidity.epochs = trimmedLiq;
-                }
-                
-                // Keep only last N epochs for volume
-                if (volEpochs.length > maxEpochs) {
-                    const keepEpochs = volEpochs.slice(-maxEpochs);
-                    const trimmedVol = {};
-                    keepEpochs.forEach(ep => {
-                        trimmedVol[ep] = mergedLps[lpKey].volume.epochs[ep];
-                    });
-                    mergedLps[lpKey].volume.epochs = trimmedVol;
-                }
-            });
-            
-            historicalState.data = {
-                meta: { merged: true, years: yearsToLoad, maxEpochs: maxEpochs },
-                lps: mergedLps
-            };
-            
-            console.log(`Historical data merged: ${Object.keys(mergedLps).length} LPs, last ${maxEpochs} epochs`);
-            console.log('Note: Historical data covers Astroport pools only. Skeleton Swap data not available.');
-            
-        } catch (error) {
-            console.error('Failed to load historical data:', error);
-        }
-    }
-    
+    // Batch A (2026-08-24): the historical-yearly-file loader is GONE. Its two source URLs were
+    // retired 2026-08-11 (hand-corrected series that failed the trust test) and nothing read
+    // what it built — it only logged "No historical data available" on every load.
+
     function renderPoolsByBucket() {
         const search = document.getElementById('pool-search').value.toLowerCase();
         const bucketFilter = document.getElementById('bucket-filter').value;
@@ -14299,6 +14218,6 @@ ${(() => {
         })();
     </script>
 
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T3.18', revDate: '2026-08-24', page: 'tla-stats' });</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T3.19', revDate: '2026-08-24', page: 'tla-stats' });</script>
 </body>
 </html>
