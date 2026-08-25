@@ -1639,6 +1639,8 @@
                     Grades: A+ ≥90 · A ≥80 · B ≥70 · C ≥55 · D ≥40 · F below. Single-asset pools skip Depth/Utilization (reweighted). This is an opinionated v1 — the weights are shown so you can argue with them.</div>
                 <div id="grades-callouts" class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3"></div>
                 <div id="grades-advisor"></div>
+                <!-- PD Bribe Tracker (SPEC-lp-grades-v2 §4, 2026-08-25): what they said, what they did, what changed -->
+                <div id="pd-tracker" class="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"><div class="text-[11px] text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>loading the PD bribe tracker…</div></div>
             </div>
             <div class="glass-card p-6">
                 <div id="grades-filters" class="flex items-center gap-2 flex-wrap mb-2"></div>
@@ -5817,7 +5819,92 @@
     // This function only RENDERS: lenses come from the product, weights
     // shown come from the rubric echo, confidence tiers from the cron.
     // ============================================================
+    // ---------------- PD Bribe Tracker (SPEC-lp-grades-v2 §4) ----------------
+    // Descriptive by law: quotes PD's own stated criterion, shows its allocation beside every pool's
+    // rank on that criterion at placement and through the window, names what qualified and was not
+    // bribed, and what the bribed pools carried. The page never says "should".
+    async function renderPdTracker() {
+        const host = document.getElementById('pd-tracker'); if (!host) return;
+        if (!store.pdFit) { store.pdFit = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/pd-bribes/fit/current.json?t=' + Math.floor(Date.now() / 900000)).then(r => r.ok ? r.json() : null).catch(() => null) || { _missing: true }; }
+        const d = store.pdFit;
+        if (!d || d._missing || !Array.isArray(d.batches)) { host.innerHTML = '<div class="text-[11px] text-gray-500"><i class="fas fa-circle-info mr-1"></i>PD Bribe Tracker: the fit product (tla-voting pd-bribe-fit) has not published yet.</div>'; return; }
+        const fitted = d.batches.filter(b => b.universe_at_placement); if (!fitted.length) { host.innerHTML = '<div class="text-[11px] text-gray-500">No PD batch falls inside the captured weekly series yet.</div>'; return; }
+        const sel = store.pdTrackerBatch || fitted[fitted.length - 1].proposal_id; const b = fitted.find(x => x.proposal_id === sel) || fitted[fitted.length - 1];
+        const eps = []; for (let e = b.window.reference_epoch; e <= Math.min(b.window.end, d.epoch_current); e++) eps.push(e);
+        const N = b.universe_at_placement.length;
+        const rankCell = (r) => r == null ? '<span class="text-gray-700">—</span>' : `<span class="inline-block w-7 text-center rounded ${r <= Math.ceil(N / 4) ? 'bg-emerald-500/25 text-emerald-200' : r <= Math.ceil(N / 2) ? 'bg-emerald-500/10 text-emerald-300/80' : r <= Math.ceil(3 * N / 4) ? 'bg-amber-500/15 text-amber-300' : 'bg-red-500/20 text-red-300'}">${r}</span>`;
+        const vpTxt = (v) => v == null ? '—' : fmtNum(v);
+        const legRows = b.legs.map(l => { const vp0 = l.by_epoch.vp_human[b.window.reference_epoch], vpE = l.by_epoch.vp_human[eps[eps.length - 1]]; return `
+            <div class="grid gap-x-2 items-center px-2 py-1.5 border-t border-white/[0.04] text-[11px]" style="grid-template-columns: minmax(120px,1.2fr) 82px 60px ${eps.map(() => '34px').join(' ')} minmax(120px,1fr)">
+                <div class="min-w-0"><span class="font-medium">${l.pool}</span> <span class="text-[9px] text-gray-600 uppercase">${l.gauge}</span>${l.in_universe ? '' : ' <span class="text-[9px] text-gray-500" title="Outside the Astroport weekly series (SkeletonSwap / single-asset / Credia) — no rank can be computed">no series</span>'}</div>
+                <div class="text-right mono text-gray-200">${fmtNum(l.luna_per_epoch)} <span class="text-gray-600">LUNA/ep</span></div>
+                <div class="text-right mono text-gray-400">${l.share_pct.toFixed(1)}%</div>
+                ${eps.map(e => `<div class="text-center mono text-[10px]" title="E${e}: efficiency ${l.by_epoch.eff[e] == null ? 'n/a' : l.by_epoch.eff[e].toFixed(3)} · rank ${l.by_epoch.eff_rank[e] ?? 'n/a'} of ${N}">${rankCell(l.by_epoch.eff_rank[e])}</div>`).join('')}
+                <div class="text-right mono text-[10px] text-gray-400" title="votes on the gauge at the reference epoch → latest epoch in the window">${vpTxt(vp0)} → ${vpTxt(vpE)} VP</div>
+            </div>`; }).join('');
+        const qualified = b.qualified_not_bribed_at_placement || [];
+        host.innerHTML = `
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                <div class="text-sm font-semibold flex items-center gap-2"><i class="fas fa-magnifying-glass-chart text-amber-400"></i> PD Bribe Tracker <span class="text-[10px] font-normal text-gray-500">what they said · what they did · what changed</span></div>
+                <div class="flex items-center gap-1 text-[10px]">${fitted.slice(-6).map(x => `<button type="button" onclick="window.setPdTrackerBatch(${x.proposal_id})" class="px-2 py-0.5 rounded-full ${x.proposal_id === b.proposal_id ? 'bg-amber-500/25 text-amber-200' : 'bg-white/5 text-gray-400 hover:text-amber-300'}">prop ${x.proposal_id} <span class="text-gray-600">E${x.window.start}–${x.window.end}</span></button>`).join('')}</div>
+            </div>
+            <div class="text-[11px] text-gray-400 mb-2"><span class="text-gray-500">Stated criterion (their proposal title):</span> <span class="text-gray-200">"${(b.title || '').replace(/"/g, '&quot;')}"</span> · placed ${(b.executed_at || '').slice(0, 10)} · pays E${b.window.start}–${b.window.end} · <span class="mono">${fmtNum(b.luna_per_epoch_total)} LUNA/epoch</span> across ${b.pools_bribed} gauges</div>
+            <div class="grid md:grid-cols-3 gap-2 mb-3 text-[11px]">
+                <div class="rounded-lg bg-white/[0.03] p-2"><div class="text-[9px] uppercase tracking-wider text-gray-500">LUNA to top-half pools by their own criterion</div><div class="mono text-lg ${b.share_to_top_half_by_efficiency_pct >= 75 ? 'text-emerald-300' : b.share_to_top_half_by_efficiency_pct >= 50 ? 'text-amber-300' : 'text-red-300'}">${b.share_to_top_half_by_efficiency_pct == null ? '—' : b.share_to_top_half_by_efficiency_pct.toFixed(0) + '%'}</div><div class="text-[9px] text-gray-600">ranked by trading efficiency (volume ÷ liquidity) at E${b.window.reference_epoch}, across ${N} active Astroport TLA pools</div></div>
+                <div class="rounded-lg bg-white/[0.03] p-2"><div class="text-[9px] uppercase tracking-wider text-gray-500">Top-${b.pools_bribed} by that criterion, not bribed</div><div class="text-gray-200 leading-snug">${qualified.length ? qualified.map(q => `<span class="inline-block px-1.5 py-0.5 rounded bg-white/5 mr-1 mb-1">${q}</span>`).join('') : '<span class="text-gray-500">none</span>'}</div><div class="text-[9px] text-gray-600">at placement${(b.qualified_not_bribed_at_window_end || []).length ? ` · at window end: ${b.qualified_not_bribed_at_window_end.join(', ')}` : ''}</div></div>
+                <div class="rounded-lg bg-white/[0.03] p-2"><div class="text-[9px] uppercase tracking-wider text-gray-500">Drift inside the window</div><div class="text-gray-300 leading-snug text-[10px]">${(() => { const moves = b.legs.filter(l => l.in_universe).map(l => { const r0 = l.by_epoch.eff_rank[b.window.reference_epoch], rs = eps.slice(1).map(e => l.by_epoch.eff_rank[e]).filter(x => x != null); if (r0 == null || !rs.length) return null; const worst = Math.max(...rs), best = Math.min(...rs); return { pool: l.pool, r0, best, worst, span: Math.max(Math.abs(worst - r0), Math.abs(best - r0)) }; }).filter(Boolean).sort((a, b2) => b2.span - a.span).slice(0, 3); return moves.length ? moves.map(m => `${m.pool}: #${m.r0} at placement → #${m.best}–#${m.worst} during the window`).join('<br>') : 'no ranked pools'; })()}</div><div class="text-[9px] text-gray-600">a fixed 4-epoch placement, re-ranked each epoch</div></div>
+            </div>
+            <div class="grid gap-x-2 px-2 pb-1 text-[9px] uppercase tracking-wider text-gray-600" style="grid-template-columns: minmax(120px,1.2fr) 82px 60px ${eps.map(() => '34px').join(' ')} minmax(120px,1fr)"><div>pool · gauge</div><div class="text-right">PD bribe</div><div class="text-right">share</div>${eps.map(e => `<div class="text-center" title="rank by trading efficiency among ${N} pools">E${e}</div>`).join('')}<div class="text-right">votes, ref → latest</div></div>
+            ${legRows}
+            <div class="text-[9px] text-gray-600 mt-2">Rank cells: 1 = highest trading efficiency among ${N} active Astroport TLA pools that epoch (green top quarter → red bottom quarter). ${b.notes && b.notes.length ? b.notes.join(' · ') + ' · ' : ''}Placement-time numbers are the record as captured then. Source: pd-bribe-fit v${(d.version || '').replace(/^\D+/, '')}, ${(d.generated_at || '').slice(0, 16).replace('T', ' ')} UTC.</div>`;
+    }
+    window.setPdTrackerBatch = function (id) { store.pdTrackerBatch = id; renderPdTracker(); };
+
+    // ---------------- LP Grades v2 rows (SPEC-lp-grades-v2 §2) ----------------
+    const LENS_META = {
+        purpose:    { k: 'P', label: 'Purpose',    tip: 'What the chain needs this kind of pool for — declared per pair class (native-stable 1.0 · LST-correlated 0.9 · bluechip bridge 0.7 · stable-stable 0.6 · project 0.5), changeable by DAO prop. Not measured.' },
+        work:       { k: 'W', label: 'Work',       tip: 'Does it facilitate trades? Utilization (volume ÷ liquidity), depth, exit slippage — each a percentile vs the other active pools.' },
+        efficiency: { k: 'E', label: 'Efficiency', tip: 'What emissions buy here: $ of emissions per $ traded and per $ staked — lower cost ranks higher, vs the other active pools.' },
+        durability: { k: 'D', label: 'Durability', tip: 'Does liquidity stay? Price-neutral retention over 4 epochs, amplified (POL-like) share, IL exposure by pair class, asset durability.' },
+        governance: { k: 'G', label: 'Governance', tip: 'Who holds the votes: Votion (mercenary) share, bribe rate vs Votion\'s rate, cushion above the 1% line, PD share of the pot. Lower dependence ranks higher.' },
+    };
+    const LETTER_CLS = { A: 'bg-emerald-500/20 text-emerald-300', B: 'bg-teal-500/20 text-teal-300', C: 'bg-amber-500/20 text-amber-300', D: 'bg-orange-500/20 text-orange-300', F: 'bg-red-500/20 text-red-300' };
+    function renderGradesV2(tableEl, rows, prod, dexTag, myVotes) {
+        const m = prod.v2; const dist = m.distribution || {};
+        const bands = m.letter_bands || { A: 75, B: 60, C: 45, D: 30 };
+        const legend = `<div class="rounded-lg bg-white/[0.03] p-3 mb-3 text-[11px]">
+            <div class="flex items-center gap-2 flex-wrap mb-1"><span class="text-gray-300 font-semibold">This epoch's field:</span>${['A', 'B', 'C', 'D', 'F'].map(L => `<span class="px-2 py-0.5 rounded ${LETTER_CLS[L]} mono">${L} <span class="opacity-80">${dist[L] || 0}</span></span>`).join('')}<span class="text-gray-500 ml-1">of ${m.graded} active pools</span></div>
+            <div class="text-gray-400 leading-snug">A letter is the weighted average of five lenses — <b class="text-gray-300">P</b>urpose ${Math.round(m.lens_weights.purpose * 100)}% · <b class="text-gray-300">W</b>ork ${Math.round(m.lens_weights.work * 100)}% · <b class="text-gray-300">E</b>fficiency ${Math.round(m.lens_weights.efficiency * 100)}% · <b class="text-gray-300">D</b>urability ${Math.round(m.lens_weights.durability * 100)}% · <b class="text-gray-300">G</b>overnance ${Math.round(m.lens_weights.governance * 100)}% — where every measured lens scores a pool <i>against the other active pools</i> (100 = best of the field). A ≥ ${bands.A} · B ≥ ${bands.B} · C ≥ ${bands.C} · D ≥ ${bands.D} · F below. <b class="text-gray-300">Streak</b> = consecutive epochs at C or better — aDAO votes are earned with four. Hover a bar for what is inside it; click a row for every number.</div>
+        </div>`;
+        const bar = (id, l) => { const meta = LENS_META[id]; const v = l && l.score; const cls = v == null ? 'bg-white/10' : v >= 75 ? 'bg-emerald-400' : v >= 50 ? 'bg-teal-400' : v >= 30 ? 'bg-amber-400' : 'bg-red-400'; const parts = l && l.parts ? Object.entries(l.parts).map(([k, pv]) => `${k.replace(/_/g, ' ')}: ${pv == null ? 'n/a' : Math.round(pv)}`).join(' · ') : ''; return `<div class="flex items-center gap-1" title="${meta.label} ${v == null ? '— no source' : v + '/100'}${parts ? ' — ' + parts : ''}. ${meta.tip}"><span class="text-[9px] w-3 text-gray-500 font-semibold">${meta.k}</span><div class="w-12 h-1.5 rounded-full bg-white/[0.06] overflow-hidden"><div class="h-full ${cls}" style="width:${v == null ? 0 : v}%"></div></div><span class="mono text-[9px] w-5 ${v == null ? 'text-gray-700' : 'text-gray-400'}">${v == null ? '—' : v}</span></div>`; };
+        const order = ['stable', 'project', 'bluechip', 'single'];
+        const byBucket = {}; for (const p of rows) { const b = String(p.bucket || '').toLowerCase(); (byBucket[b] = byBucket[b] || []).push(p); }
+        const sections = order.filter(b => byBucket[b]).map(b => {
+            const ps = byBucket[b].sort((x, y) => ((y.v2 && y.v2.composite) ?? -1) - ((x.v2 && x.v2.composite) ?? -1));
+            const graded = ps.filter(p => p.v2 && p.v2.letter);
+            return `<div class="mt-3"><div class="flex items-center gap-2 px-1 mb-1"><span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">${b}</span><span class="text-[10px] text-gray-600">${graded.length} graded${ps.length > graded.length ? ` · ${ps.length - graded.length} ungraded` : ''}</span></div>` + ps.map((p, i) => {
+                const v = p.v2; const mine = p.gauge_pool_id && myVotes.has(p.gauge_pool_id); const id = `g2-${b}-${i}`;
+                if (!v || !v.letter) return `<div class="px-2 py-1.5 rounded-lg text-[11px] text-gray-500 border-t border-white/[0.04]"><span class="text-gray-300">${p.name}</span> ${dexTag(p.dex, p.is_single)} — ${p.state === 'inactive' ? 'inactive (below 1% of its bucket): not graded' : p.state === 'new' ? 'too new to grade honestly' : 'not enough trustworthy data to grade'}</div>`;
+                const streak = v.streak || 0; const streakCls = streak >= 4 ? 'bg-emerald-500/20 text-emerald-300' : streak >= 2 ? 'bg-teal-500/15 text-teal-300' : 'bg-white/5 text-gray-500';
+                const detail = Object.entries(v.lenses).map(([lid, l]) => `<div class="rounded bg-white/[0.03] p-2"><div class="flex items-center justify-between"><span class="text-[10px] font-semibold text-gray-300">${LENS_META[lid].label}</span><span class="mono text-xs ${l.score == null ? 'text-gray-600' : 'text-gray-200'}">${l.score == null ? '—' : l.score}</span></div>${lid === 'purpose' ? `<div class="text-[10px] text-gray-500">${String(v.pair_class || '').replace(/_/g, ' ')}</div>` : Object.entries(l.parts).map(([k, pv]) => `<div class="flex justify-between text-[10px]"><span class="text-gray-500">${k.replace(/_/g, ' ')}</span><span class="mono ${pv == null ? 'text-gray-700' : 'text-gray-400'}">${pv == null ? 'n/a' : Math.round(pv)}</span></div>`).join('')}</div>`).join('');
+                const rawL = Object.entries(v.raw || {}).filter(([, x]) => x != null).map(([k, x]) => `${k.replace(/_/g, ' ')} ${typeof x === 'number' ? (Math.abs(x) >= 1000 ? fmtNum(x) : x.toFixed(x < 1 ? 3 : 2)) : x}`).join(' · ');
+                return `<div class="rounded-lg border-t border-white/[0.04] ${mine ? 'bg-amber-500/[0.04]' : ''}">
+                    <div class="grid gap-x-3 items-center px-2 py-1.5 cursor-pointer hover:bg-white/[0.03]" style="grid-template-columns: 36px minmax(140px,1.2fr) repeat(5, 92px) 70px minmax(120px,1fr) 100px" onclick="const d=document.getElementById('${id}'); d.classList.toggle('hidden');">
+                        <div class="mono text-base font-bold text-center rounded ${LETTER_CLS[v.letter]}" title="composite ${v.composite}/100 · confidence ${v.confidence}">${v.letter}</div>
+                        <div class="min-w-0"><div class="text-sm font-medium truncate">${mine ? '<span class="text-amber-400 text-[10px] mr-1" title="aDAO votes here">★</span>' : ''}${p.name}</div><div class="flex items-center gap-1">${dexTag(p.dex, p.is_single)}<span class="text-[9px] text-gray-600">${String(v.pair_class || '').replace(/_/g, ' ')}</span>${v.confidence !== 'firm' ? `<span class="text-[9px] text-gray-600" title="some lens components have no source">${v.confidence}</span>` : ''}</div></div>
+                        ${['purpose', 'work', 'efficiency', 'durability', 'governance'].map(lid => bar(lid, v.lenses[lid])).join('')}
+                        <div class="text-center"><span class="text-[10px] px-1.5 py-0.5 rounded ${streakCls} mono" title="consecutive epochs at C or better${v.streak_basis === 'v1-backfilled' ? ' (earlier epochs from the previous rubric)' : ''}">${streak} ep</span></div>
+                        <div class="text-[10px] text-gray-500 truncate" title="${v.why}">${v.why}</div>
+                        <div class="text-right"><div class="mono text-xs text-cyan-300">${fmt$(p.staked_usd || 0)}</div><div class="text-[9px] text-gray-600">${fmtNum(p.vp || 0)} VP</div></div>
+                    </div>
+                    <div id="${id}" class="hidden px-2 pb-2"><div class="grid md:grid-cols-5 gap-2">${detail}</div><div class="text-[9px] text-gray-600 mt-1">${rawL}</div></div>
+                </div>`; }).join('') + '</div>';
+        }).join('');
+        tableEl.innerHTML = legend + sections;
+    }
+
     function renderLpGrades() {
+        try { renderPdTracker(); } catch (e) { console.warn('pd tracker:', e); }
         const tableEl = document.getElementById('grades-table');
         if (!tableEl) return;
         const prod = store.lpGrades;
@@ -5939,6 +6026,8 @@
             : dex?.includes('Skeleton') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Skeleton</span>'
             : '<span class="text-[9px] px-1 py-0.5 rounded bg-white/5 text-gray-500">\u2014</span>';
 
+        // ---- v2 five-lens view (2026-08-25): bucketed, one letter, five bars, a streak, a plain why. Falls back to v1 rows when the product has no v2.
+        if (prod.v2 && rows.some(p => p.v2)) { renderGradesV2(tableEl, rows, prod, dexTag, myVotes); return; }
         tableEl.innerHTML = rows.map((p, i) => {
             const mine = p.gauge_pool_id && myVotes.has(p.gauge_pool_id);
             const why = view === 'best_for_chain' ? '' : whyLine(p);
