@@ -1124,11 +1124,11 @@
             <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="glass-card p-6 lg:col-span-2" id="bounty-board-card" data-cron-source="tla-snapshot,bribes-history">
                     <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-                        <h3 class="font-semibold text-lg flex items-center gap-2"><i class="fas fa-sack-dollar text-amber-400"></i> Bounty Board <span id="bounty-epoch-chip" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-medium"></span></h3>
+                        <h3 class="font-semibold text-lg flex items-center gap-2"><i class="fas fa-store text-amber-400"></i> Vote Market <span id="bounty-epoch-chip" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-medium"></span></h3>
                         <div id="bounty-summary" class="flex items-center gap-3 text-xs mono text-gray-400"></div>
                     </div>
-                    <p class="text-xs text-gray-500 mb-1">What pools are paying for votes right now. <span class="text-amber-300/80 font-medium">$ / 1M VP</span> is the price of support — high means your vote is underpaid elsewhere. <span class="desc-toggle" onclick="toggleDesc('bounty-full', this)">learn more</span></p>
-                    <div id="bounty-full" class="desc-full"><span class="ex-lead">What this means:</span> Projects put up rewards ("bribes") to attract votes to their pool this epoch. Every voter on that pool shares the pot in proportion to their votes. Dividing the pot by the pool's current votes gives the going rate — dollars paid per 1M VP of support. A high rate means few voters are competing for that pot: moving votes there pays more. A pool with a pot but almost no votes is the loudest signal on the board. Rates shift as votes move, right up to the epoch close.</div>
+                    <p class="text-xs text-gray-500 mb-1">What a vote costs this epoch, and what your bribe would buy. Votion moves votes toward the best <span class="text-amber-300/80 font-medium">$ per 1M VP</span> until pools pay about the same — that going rate is the <span class="text-amber-300/80 font-medium">market</span>. <span class="desc-toggle" onclick="document.getElementById('bounty-full').classList.toggle('open')">how it's estimated</span></p>
+                    <div id="bounty-full" class="desc-full"><span class="ex-lead">The model:</span> market rate = the VP-weighted median of bribe ÷ votes across bribed pools with real votes (open bounties and dust excluded). Adding $X to a pool raises its rate; Votion re-allocates until the pool is back at market, so projected votes ≈ (bribe + X) ÷ market rate, capped by the votes Votion actually has. Projected LUNA is that vote share × the pool's current emissions per vote. Honest limits: Votion is ~28% of the electorate and exits pools it dislikes regardless (it is leaving both CAPA gauges next epoch at a near-market rate); other voters chase bribes too; timing is an epoch. This is a planning number, not a promise — and it is back-testable against Votion's published plan every epoch.</div>
                     <div id="bounty-board-rows" class="space-y-1.5 mt-3">
                         <div class="loading-pulse text-gray-500 text-sm">Loading...</div>
                     </div>
@@ -1298,10 +1298,10 @@
                     <div class="flex items-center gap-4">
                         <!-- Epoch Toggle -->
                         <div class="flex gap-1 bg-white/5 rounded-lg p-0.5" id="epoch-toggle">
-                            <button class="epoch-toggle-btn active px-2.5 py-1 text-xs rounded-md bg-cyan-500/20 text-cyan-400 font-medium" data-epoch="current">
+                            <button class="epoch-toggle-btn px-2.5 py-1 text-xs rounded-md text-gray-400 hover:text-gray-300 font-medium" data-epoch="current">
                                 <span id="epoch-current-label">Epoch 161</span> <span class="text-[9px] opacity-70">(Locked-in)</span>
                             </button>
-                            <button class="epoch-toggle-btn px-2.5 py-1 text-xs rounded-md text-gray-400 hover:text-gray-300 font-medium" data-epoch="next">
+                            <button class="epoch-toggle-btn active px-2.5 py-1 text-xs rounded-md bg-cyan-500/20 text-cyan-400 font-medium" data-epoch="next">
                                 <span id="epoch-next-label">Epoch 162</span> <span class="text-[9px] opacity-70">(Planned)</span>
                             </button>
                         </div>
@@ -1433,38 +1433,18 @@
                     </div>
                 </div>
                 <div id="exit-risk-summary" class="mb-4"></div>
-                <!-- Slippage simulator (Stage B3) -->
+                <!-- Batch B (owner 2026-08-24): the embedded simulator is gone — it was the planner squeezed
+                     into a quarter of the width. One strip: the arb read (still useful at a glance) and a
+                     way into the Trade Planner with this wallet's holdings first. The hidden containers keep
+                     the legacy writers (arb strip, zap panel, slip rows) from throwing until they are stripped. -->
                 <div class="rounded-lg bg-white/[0.02] p-3 mb-4" id="slippage-sim-card">
-                    <!-- Collapsed by default (DeFi_Patriot 2026-08-02: tools shouldn't interrupt the
-                         summary→table read). Header toggles the body; the full-sim link stays live. -->
-                    <div class="flex items-center justify-between flex-wrap gap-2 cursor-pointer select-none" onclick="toggleSlipCard()">
-                        <div class="text-sm font-semibold flex items-center gap-2"><i class="fas fa-arrows-turn-to-dots text-cyan-400"></i> Trade Impact Simulator <span id="slip-member-chip" class="hidden text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300"></span>
-                            <span class="text-[9px] text-gray-600 font-normal" id="slip-card-hint">what a trade or a zap in/out of your LPs costs — tap to open</span>
-                            <a href="slippage.html" onclick="event.stopPropagation()" class="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 hover:bg-teal-500/25 font-medium" title="The full-page version: pick any token, slide the amount, every pool ranked — bigger, easier, more fun."><i class="fas fa-water mr-1"></i>open the full simulator <i class="fas fa-arrow-right text-[8px]"></i></a>
-                        </div>
-                        <i id="slip-card-chev" class="fas fa-chevron-down text-[10px] text-gray-500 transition-transform"></i>
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div class="text-sm font-semibold flex items-center gap-2"><i class="fas fa-arrows-turn-to-dots text-cyan-400"></i> Plan a trade <span id="slip-member-chip" class="hidden text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 font-medium"></span>
+                            <span class="text-[9px] text-gray-600 font-normal" id="slip-card-hint">cheapest route across every pool, how big you can go, and where each token sits — from what you hold</span></div>
+                        <a href="slippage.html" id="slip-open-link" class="text-[10px] px-2.5 py-1 rounded-full bg-teal-500/15 text-teal-300 hover:bg-teal-500/25 font-medium">open the Trade Planner →</a>
                     </div>
                     <div id="arb-strip" class="mt-2"></div>
-                    <div id="slip-card-body" class="hidden mt-2">
-                    <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            <button type="button" data-slipdir="toLuna" class="slip-dir-btn text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-medium" title="Selling the paired asset INTO the pool for LUNA (e.g. $100 of USDC sold for LUNA)">Asset → LUNA</button>
-                            <button type="button" data-slipdir="fromLuna" class="slip-dir-btn text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 font-medium" title="Selling LUNA INTO the pool for the paired asset (e.g. $100 of LUNA sold for USDC)">LUNA → Asset</button>
-                            <span class="text-gray-700 text-[10px]">·</span>
-                            <button type="button" data-slipamt="100" class="slip-amt-btn text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 font-medium mono">$100</button>
-                            <button type="button" data-slipamt="1000" class="slip-amt-btn text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-medium mono">$1K</button>
-                            <button type="button" data-slipamt="10000" class="slip-amt-btn text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 font-medium mono">$10K</button>
-                            <button type="button" data-slipamt="50000" class="slip-amt-btn text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 font-medium mono">$50K</button>
-                            <input type="number" id="slip-custom" placeholder="custom $" class="w-20 text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-300 mono border border-white/10 focus:border-cyan-500/50 outline-none">
-                        </div>
-                    </div>
-                    <p class="text-[10px] text-gray-500 mb-2">What a one-sided trade of this size costs in price impact, per pool, from live reserves. <span class="desc-toggle" onclick="toggleDesc('slip-full', this)">how it's estimated</span></p>
-                    <div id="slip-full" class="desc-full"><span class="ex-lead">The model:</span> For standard (xyk) pools, impact = trade ÷ (input-side reserve + trade) — the exact constant-product execution-price formula, using the pool's real per-side balances, worst direction shown. Concentrated and stable pools bunch their liquidity near the current price, so their true impact is LOWER than this figure — those rows show "≤" and grade on the bound. This ignores fees, routing through other pools, and same-block competition; treat it as a planning number, not a quote. Grades: A under 0.5% · B under 1% · C under 3% · D under 8% · F above.</div>
-                    <!-- Zap planner (member mode): per-position zap-out/zap-in routing costs.
-                         Rendered by renderZapPlanner when a wallet is selected. -->
-                    <div id="zap-panel" class="hidden mb-3"></div>
-                    <div id="slip-rows" class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1"></div>
-                    </div><!-- /slip-card-body -->
+                    <div id="slip-card-body" class="hidden" aria-hidden="true"><div id="slip-custom" class="hidden"></div><div id="zap-panel" class="hidden"></div><div id="slip-rows" class="hidden"></div><div id="slip-full" class="hidden"></div></div>
                 </div>
                 <div id="exit-risk-panel" class="space-y-2">
                     <div class="text-gray-500 text-sm">Loading...</div>
@@ -3234,6 +3214,7 @@
                         if (!tc || !tc.tokens) return tc;
                         const out = {};
                         const list = Array.isArray(tc.tokens) ? tc.tokens : Object.entries(tc.tokens).map(([denom, t]) => ({ denom, ...(t || {}) }));
+                        store.tokenCatalogRaw = list;   // Batch B: decimals + symbols for the wallet's idle-asset read
                         for (const t of list) {
                             const addr = t && t.denom; const name = (t && t.effective && t.effective.symbol) || (t && t.discovered && t.discovered.symbol) || (t && t.symbol) || null;
                             if (!addr || !name) continue;
@@ -6164,10 +6145,9 @@
         });
     }
 
-    // ---------------- Bounty Board ----------------
-    // Active-bribe pools ranked by $/1M VP (the price of a vote right now).
-    // Data: store.data.vote.pools — per-pool bribes.total (USD, priced upstream)
-    // and live VP. A bribed pool with ~no votes is flagged as the open-bounty case.
+    // ---------------- Vote Market (was Bounty Board; owner 2026-08-24) ----------------
+    // The LP's question: "if I add $X to my pool, what does it buy?" — answered with the
+    // going rate of a vote and a simple equalisation model (see #bounty-full).
     function renderBountyBoard() {
         const el = document.getElementById('bounty-board-rows');
         if (!el) return;
@@ -6175,58 +6155,43 @@
         const bribed = pools.filter(p => (p.bribes?.total || 0) > 0.005);
         const chip = document.getElementById('bounty-epoch-chip');
         if (chip) chip.textContent = `Epoch ${store.epoch || '—'} · live`;
-        if (!bribed.length) {
-            el.innerHTML = '<div class="text-gray-600 text-sm">No active bribes this epoch — the board is quiet.</div>';
-            const s0 = document.getElementById('bounty-summary');
-            if (s0) s0.innerHTML = '';
-            return;
-        }
-        const rows = bribed.map(p => {
-            const vp = p.vp || 0;
-            const usd = p.bribes.total;
-            const per1m = vp > 1 ? usd / (vp / 1e6) : null;   // null = open bounty
-            return { p, vp, usd, per1m };
-        }).sort((a, b) => {
-            const av = a.per1m === null ? Infinity : a.per1m;
-            const bv = b.per1m === null ? Infinity : b.per1m;
-            return bv - av;
-        });
-        const totalPot = rows.reduce((s, r) => s + r.usd, 0);
         const summary = document.getElementById('bounty-summary');
-        if (summary) summary.innerHTML =
-            `<span><span class="text-amber-300 font-semibold">${fmt$(totalPot)}</span> pot</span>` +
-            `<span class="text-gray-600">·</span><span>${rows.length} pools paying</span>`;
-        const maxPer = Math.max(...rows.map(r => r.per1m === null ? 0 : r.per1m), 1);
-        const dexTag = (dex) => dex?.includes('Astro')
-            ? '<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400">Astro</span>'
-            : dex?.includes('Skeleton')
-                ? '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Skeleton</span>' : '';
-        el.innerHTML = rows.slice(0, store.bountyExpanded ? rows.length : 8).map((r, i) => {
-            const barPct = r.per1m === null ? 100 : Math.max(3, (r.per1m / maxPer) * 100);
-            const rateHtml = r.per1m === null
-                ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-300 font-semibold animate-pulse" title="This pool has a reward pot but almost no votes — the first voters take the whole pot.">OPEN BOUNTY</span>'
-                : `<span class="mono text-amber-300 font-semibold">${fmt$(r.per1m)}</span><span class="text-[9px] text-gray-500"> /1M VP</span>`;
+        if (!bribed.length) { el.innerHTML = '<div class="text-gray-600 text-sm">No active bribes this epoch — nothing is paying for votes.</div>'; if (summary) summary.innerHTML = ''; return; }
+        const rows = bribed.map(p => { const vp = p.vp || 0; const usd = p.bribes.total; return { p, vp, usd, per1m: vp > 50000 ? usd / (vp / 1e6) : null }; });
+        // market rate: VP-weighted median of $/1M VP over pools with real votes
+        const priced = rows.filter(r => r.per1m !== null).sort((a, b) => a.per1m - b.per1m);
+        let market = null, lo = null, hi = null;
+        if (priced.length) { const tot = priced.reduce((s, r) => s + r.vp, 0); let acc = 0; for (const r of priced) { acc += r.vp; if (lo === null && acc >= tot * 0.25) lo = r.per1m; if (market === null && acc >= tot * 0.5) market = r.per1m; if (hi === null && acc >= tot * 0.75) hi = r.per1m; } }
+        const totalPot = rows.reduce((s, r) => s + r.usd, 0);
+        const votionTotal = store.data?.vote?.summary?.total_votion_current_vp || 0;
+        store.voteMarketRate = market;   // $ per 1M VP — shared with Threshold Watch ("what would keep it above the line")
+        if (summary) summary.innerHTML = `<span>market <span class="text-amber-300 font-semibold">${market != null ? fmt$(market) : '—'}</span> / 1M VP</span><span class="text-gray-600">·</span><span>${fmt$(totalPot)} in bribes</span><span class="text-gray-600">·</span><span>${rows.length} pools</span>`;
+        const X = store.voteMarketX || 50;
+        const emissionsPerVp = (p) => { const lp = (store.tlaPools || []).find(x => x.name === p.name && (x.dex || '') === (p.dex || '')); const wk = lp && lp.rewards_per_year ? lp.rewards_per_year / 52.18 : null; return wk && p.vp > 0 ? wk / p.vp : null; };
+        const dexTag = (dex) => dex?.includes('Astro') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400">Astro</span>' : dex?.includes('Skeleton') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Skeleton</span>' : '';
+        rows.sort((a, b) => b.usd - a.usd);
+        const shown = rows.slice(0, store.bountyExpanded ? rows.length : 8);
+        const ctl = `<div class="flex items-center gap-1.5 flex-wrap mb-2 text-[11px]"><span class="text-gray-500">what would</span>${[25, 50, 100, 150, 250].map(v => `<button type="button" onclick="window.setVoteMarketX(${v})" class="px-2 py-0.5 rounded-full mono ${X === v ? 'bg-amber-500/25 text-amber-200' : 'bg-white/5 text-gray-400 hover:text-amber-300'}">$${v}</button>`).join('')}<span class="text-gray-500">more buy?</span>${market != null ? `<span class="ml-auto text-gray-600">market band ${fmt$(lo)}–${fmt$(hi)} / 1M VP · Votion holds ${fmtNum(votionTotal)} VP</span>` : ''}</div>`;
+        el.innerHTML = ctl + shown.map((r) => {
+            const vs = (r.per1m != null && market) ? (r.per1m / market - 1) * 100 : null;
+            const projVp = market ? Math.min((r.usd + X) / market * 1e6, r.vp + votionTotal) : null;
+            const gain = projVp != null ? Math.max(0, projVp - r.vp) : null;
+            const epv = emissionsPerVp(r.p);
+            const gainUsdWk = gain != null && epv != null ? gain * epv : null;
+            const vsHtml = r.per1m == null ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-300 font-semibold" title="A pot with almost no votes — the first voters here are paid far above market">open bounty</span>'
+                : `<span class="mono text-xs ${vs > 25 ? 'text-emerald-300' : vs < -25 ? 'text-red-300' : 'text-gray-300'}" title="${fmt$(r.per1m)} per 1M VP vs market ${fmt$(market)}">${fmt$(r.per1m)}<span class="text-gray-500">/1M</span> <span class="text-[10px]">${vs >= 0 ? '+' : ''}${vs.toFixed(0)}% vs mkt</span></span>`;
             return `
-            <div class="flex items-center gap-3 p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.04]">
-                <span class="w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 ${i < 3 ? `rank-${i + 1}` : 'bg-white/10'}">${i + 1}</span>
-                <div class="flex flex-col min-w-0 shrink-0" style="width:150px">
-                    <span class="text-sm font-medium truncate">${r.p.name}</span>
-                    <div class="flex items-center gap-1">${dexTag(r.p.dex)}<span class="text-[9px] text-gray-600 uppercase">${r.p.bucket || ''}</span></div>
+            <div class="p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.04]">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <div class="flex flex-col min-w-0 shrink-0" style="width:150px"><span class="text-sm font-medium truncate">${r.p.name}</span><div class="flex items-center gap-1">${dexTag(r.p.dex)}<span class="text-[9px] text-gray-600 uppercase">${r.p.bucket || ''}</span></div></div>
+                    <div class="shrink-0" style="min-width:150px">${vsHtml}</div>
+                    <div class="text-right shrink-0 ml-auto"><div class="mono text-xs text-gray-300">${fmt$(r.usd)} <span class="text-gray-600">bribe</span></div><div class="text-[9px] text-gray-600">${fmtNum(r.vp)} VP now</div></div>
                 </div>
-                <div class="flex-1 h-2 rounded-full bg-white/5 overflow-hidden hidden sm:block" title="Relative $/1M VP vs the top-paying pool">
-                    <div class="h-full rounded-full bg-gradient-to-r from-amber-500/60 to-amber-300/80" style="width:${barPct}%"></div>
-                </div>
-                <div class="text-right shrink-0" style="min-width:100px">${rateHtml}</div>
-                <div class="text-right shrink-0 hidden md:block" style="min-width:90px">
-                    <div class="mono text-xs text-gray-300">${fmt$(r.usd)}</div>
-                    <div class="text-[9px] text-gray-600">${fmtNum(r.vp)} VP</div>
-                </div>
+                ${gain != null ? `<div class="mt-1 text-[10px] text-gray-400 flex items-center gap-2 flex-wrap"><i class="fas fa-plus text-amber-400/70"></i><span>+$${X} → ≈ <span class="mono text-amber-200">+${fmtNum(gain)} VP</span>${gainUsdWk != null ? ` · ≈ <span class="mono text-emerald-300">+${fmt$(gainUsdWk)}</span>/week of LUNA emissions to this pool` : ''}${r.p.bucket ? ` · ${((projVp / Math.max(1, (store.data?.vote?.pools || []).filter(q => q.bucket === r.p.bucket).reduce((s2, q) => s2 + (q.vp || 0), 0))) * 100).toFixed(1)}% of bucket` : ''}</span></div>` : ''}
             </div>`;
-        }).join('') + (rows.length > 8 ? `<div class="text-center pt-1">
-            <button type="button" class="text-[10px] px-3 py-1 rounded-full bg-white/5 text-gray-400 hover:text-amber-300 font-medium" onclick="toggleBountyExpand()">
-                ${store.bountyExpanded ? 'show top 8 only' : `show all ${rows.length} bribed pools`} <i class="fas fa-chevron-${store.bountyExpanded ? 'up' : 'down'} text-[8px] ml-1"></i>
-            </button></div>` : '');
+        }).join('') + (rows.length > 8 ? `<div class="text-center pt-1"><button type="button" class="text-[10px] px-3 py-1 rounded-full bg-white/5 text-gray-400 hover:text-amber-300 font-medium" onclick="toggleBountyExpand()">${store.bountyExpanded ? 'show top 8 only' : `show all ${rows.length} bribed pools`} <i class="fas fa-chevron-${store.bountyExpanded ? 'up' : 'down'} text-[8px] ml-1"></i></button></div>` : '');
     }
+    window.setVoteMarketX = function (v) { store.voteMarketX = v; renderBountyBoard(); };
 
     function toggleBountyExpand() {
         store.bountyExpanded = !store.bountyExpanded;
@@ -6500,9 +6465,12 @@
         const vp8 = weeks.reduce((x, b) => x + b.vp, 0);
         const locks8 = weeks.reduce((x, b) => x + b.locks, 0);
         const hl = document.getElementById('runway-headline');
+        // Batch B (owner 2026-08-24): the story was inverted — 161 VP of 30M unlocking is the
+        // headline, not the table. Say it in one sentence, then the detail.
+        const _share8 = totalTrackedVp > 0 ? vp8 / totalTrackedVp * 100 : null;
         if (hl) { hl.innerHTML = vp8 > 0
-            ? `<span class="text-amber-300 font-semibold">${fmtNum(vp4)} VP</span> unlocking ≤4 epochs · ${fmtNum(vp8)} VP ≤8 <span class="text-gray-600" title="Share of the tracked electorate's total display VP (${fmtNum(totalTrackedVp)}). Auto-max locks never unlock and are excluded by definition.">(${totalTrackedVp > 0 ? (vp8 / totalTrackedVp * 100).toFixed(2) : '?'}% of tracked VP)</span>`
-            : 'no non-auto-max locks inside 8 weeks'; window.__unlockHeadline = hl.innerHTML; }
+            ? `<span class="text-gray-200">${_share8 != null && _share8 < 0.5 ? `Essentially the whole electorate is auto-max: only` : `Scheduled exits:`} <span class="text-amber-300 font-semibold">${fmtNum(vp8)} VP</span> (${_share8 != null ? _share8.toFixed(2) : '?'}% of tracked VP) unlocks in the next 8 weeks, ${fmtNum(vp4)} of it within 4.</span> <span class="text-gray-600">Exit pressure from unlocks is ${_share8 != null && _share8 < 0.5 ? 'negligible' : 'worth watching'}.</span>`
+            : '<span class="text-gray-200">Nothing unlocks in the next 8 weeks — every tracked lock is auto-max. Exit pressure from unlocks is zero.</span>'; window.__unlockHeadline = hl.innerHTML; }
         if (!vp8) { el.innerHTML = '<div class="text-gray-600 text-sm lg:col-span-2">Nothing scheduled to unlock in the next 8 weeks — every tracked lock in that window is auto-max. Exactly what a healthy runway looks like.</div>'; return; }
         const maxVp = Math.max(...weeks.map(b => b.vp), 1);
         const bars = weeks.map((b, i) => `
@@ -6531,8 +6499,12 @@
                 const bySym = {};
                 for (const p of pending) bySym[p.sym] = (bySym[p.sym] || 0) + p.amt;
                 const totline = Object.entries(bySym).sort((a, b) => b[1] - a[1]).map(([sy, a]) => `${fmtNum(a)} ${esc(sy)}`).join(' · ');
+                // Batch B: the interesting half — capital that already left the race but never came home. Price it.
+                const _tp = store.data?.token_prices || {}; const _px = (sy) => (_tp[sy] && (_tp[sy].final_price_usd || _tp[sy].price)) || 0;
+                const pendingUsd = Object.entries(bySym).reduce((x, [sy, a]) => x + a * _px(sy), 0);
+                const _unpriced = Object.keys(bySym).filter(sy => !_px(sy));
                 pel.innerHTML = `
-                    <div class="text-[11px] text-gray-400 mb-1.5"><span class="text-orange-300 font-semibold">${pending.length} locks</span> fully unlocked but never withdrawn — ${totline}. This capital already left the VP race; it just hasn't come home. A withdrawal here is old news for the gauge, not new exit pressure.</div>
+                    <div class="text-[11px] text-gray-400 mb-1.5"><span class="text-orange-300 font-semibold">${pending.length} locks</span> fully unlocked but never withdrawn — ${totline}${pendingUsd > 0 ? ` ≈ <span class="text-orange-200 font-semibold">${fmt$(pendingUsd)}</span>${_unpriced.length ? ` <span class="text-gray-600">(${_unpriced.join(', ')} unpriced)</span>` : ''}` : ''}. This capital already left the VP race; it just hasn't come home. A withdrawal here is old news for the gauge, not new exit pressure.</div>
                     ${pending.slice(0, 10).map(p => `
                     <div class="flex items-center justify-between text-[11px] py-1 border-b border-white/[0.04] last:border-0">
                         <span class="truncate">${p.name ? esc(p.name) : `<span class="mono text-gray-500">${esc(p.wallet.slice(0, 12))}…</span>`} <span class="text-gray-600 mono text-[9px]">#${esc(String(p.id))}</span></span>
@@ -7051,6 +7023,8 @@
     function onMemberSelectorChange(e) {
         const wallet = e.target.value || null;
         store.selectedMemberWallet = wallet;
+        // Batch B: the Trade Planner link follows the selected wallet (holdings first, planner-side)
+        const _pl = document.getElementById('slip-open-link'); if (_pl) _pl.href = wallet ? 'slippage.html?wallet=' + encodeURIComponent(wallet) : 'slippage.html';
         // Re-render only the three Overview-tab visuals affected by member selection.
         // Other tabs untouched per design (member overlay is Overview-only).
         try { renderBucketCharts(); } catch (err) { console.warn('renderBucketCharts after member change:', err); }
@@ -7401,6 +7375,7 @@
         renderBucketCharts();
         renderTopPools();
         renderWaterfallChart('STABLE');
+        try { renderBountyBoard(); } catch (err) { console.warn('renderBountyBoard (early, sets the market rate):', err); }   // Batch B: before Threshold Watch
         renderThresholdWatch();
         try { renderExitRisk(); } catch (err) { console.warn('renderExitRisk:', err); }
         try { renderLiquidityGrowth(); } catch (err) { console.warn('renderLiquidityGrowth:', err); }
@@ -8025,6 +8000,47 @@
     // Member mode for the Pool Health panel: the selected wallet's LP positions,
     // ranked by their capital, with how much they added/pulled vs the prior epoch
     // (from the weekly archive) and which positions are inactive or near the threshold.
+    // Batch B (owner 2026-08-24): "what could this wallet's idle tokens do in TLA?" — live balances
+    // (bank + catalog cw20s), each priced, with the options the platform can price: the TLA pools
+    // that take the token (Eris APY, entry cost via the planner), and for LSTs the VP a max lock
+    // would carry. A menu with prices on it — never advice.
+    async function renderIdleAssets(member) {
+        const host = document.getElementById('idle-assets'); if (!host || !member || !member.wallet) return;
+        const cat = store.tokenCatalogRaw || []; if (!cat.length) { host.innerHTML = ''; return; }
+        const LCD = (CONFIG.lcds && CONFIG.lcds[0]) || 'https://terra-lcd.publicnode.com';
+        host.innerHTML = '<div class="text-[11px] text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>reading wallet balances…</div>';
+        const px = (sym) => { const t = store.data?.token_prices?.[sym]; return t ? (t.final_price_usd || t.price || 0) : 0; };
+        const info = {}; for (const t of cat) { const sym = t?.effective?.symbol || t?.discovered?.symbol; if (t?.denom && sym) info[t.denom] = { sym, dec: (t.effective && t.effective.decimals != null) ? t.effective.decimals : (t.discovered?.decimals ?? 6) }; }
+        const bal = new Map();
+        try {
+            const bank = await fetch(`${LCD}/cosmos/bank/v1beta1/balances/${member.wallet}?pagination.limit=200`).then(r => r.ok ? r.json() : null).catch(() => null);
+            for (const b of (bank && bank.balances) || []) { const i = info[b.denom]; if (i) bal.set(i.sym, (bal.get(i.sym) || 0) + Number(b.amount) / 10 ** i.dec); }
+            const cw = Object.entries(info).filter(([d]) => /^terra1/.test(d));
+            for (let k = 0; k < cw.length; k += 4) await Promise.all(cw.slice(k, k + 4).map(async ([d, i]) => { const r = await fetch(`${LCD}/cosmwasm/wasm/v1/contract/${d}/smart/${btoa(JSON.stringify({ balance: { address: member.wallet } }))}`).then(r => r.ok ? r.json() : null).catch(() => null); const a = r && r.data && Number(r.data.balance); if (a > 0) bal.set(i.sym, (bal.get(i.sym) || 0) + a / 10 ** i.dec); }));
+        } catch (e) { host.innerHTML = '<div class="text-[11px] text-gray-500">wallet balances unavailable right now (LCD) — positions below are from the capture</div>'; return; }
+        const rows = [...bal].map(([sym, amt]) => ({ sym, amt, usd: amt * px(sym) })).filter(r => r.usd >= 5).sort((a, b) => b.usd - a.usd);
+        if (!rows.length) { host.innerHTML = '<div class="text-[11px] text-gray-600">No idle priced tokens in this wallet (under $5 each) — everything it holds in TLA is in the positions below.</div>'; return; }
+        const lunaPx = px('LUNA');
+        const LST = { ampLUNA: 1, arbLUNA: 1, bLUNA: 1 };
+        const poolsFor = (sym) => (store.tlaPools || []).filter(p => p.is_active !== false && p.apr && p.apr.amplified != null && (p.name || '').split(/[-/]/).map(x => x.trim()).includes(sym)).sort((a, b) => (b.apr.amplified || 0) - (a.apr.amplified || 0)).slice(0, 2);
+        const total = rows.reduce((s2, r) => s2 + r.usd, 0);
+        host.innerHTML = `
+            <div class="flex items-center gap-2 pt-1 pb-1"><span class="text-[10px] uppercase tracking-wide text-teal-300/80 font-semibold"><i class="fas fa-wallet text-[9px] mr-1"></i>Idle in the wallet · ${fmt$(total)} across ${rows.length} tokens</span><div class="flex-1 border-t border-teal-500/15"></div><span class="text-[9px] text-gray-600">live balances · what each could do in TLA · a menu, not advice</span></div>
+            ${rows.slice(0, 8).map(r => {
+                const pools = poolsFor(r.sym);
+                const opts = [];
+                for (const p of pools) opts.push(`<span class="text-gray-300">${p.name}</span> <span class="text-emerald-300/90 mono">${p.apr.amplified.toFixed(0)}%</span> <span class="text-gray-600">Eris APY</span>`);
+                if (LST[r.sym] && lunaPx > 0) { const vp = r.amt * (px(r.sym) / lunaPx) * 10; opts.push(`max-lock in TLA → <span class="text-violet-300 mono">≈${fmtNum(vp)} VP</span> <span class="text-gray-600">(10× the LUNA behind it)</span>`); }
+                if (r.sym === 'LUNA' && lunaPx > 0) opts.push(`as ampLUNA max-locked → <span class="text-violet-300 mono">≈${fmtNum(r.amt * 10)} VP</span>`);
+                const plan = `<a href="slippage.html?wallet=${encodeURIComponent(member.wallet)}&from=${encodeURIComponent(r.sym)}" class="text-teal-400/80 hover:text-teal-300">plan a trade from ${r.sym} →</a>`;
+                return `<div class="flex items-start gap-3 py-1.5 border-b border-white/[0.04] last:border-0 text-[11px]">
+                    <div class="shrink-0" style="width:150px"><span class="font-medium text-gray-200">${r.sym}</span><div class="mono text-gray-400 text-[10px]">${r.amt.toLocaleString(undefined, { maximumFractionDigits: r.amt < 10 ? 4 : 2 })} · ${fmt$(r.usd)}</div></div>
+                    <div class="flex-1 min-w-0 text-gray-400">${opts.length ? opts.join(' <span class="text-gray-700">·</span> ') : '<span class="text-gray-600">no TLA pool takes this token directly</span>'} <span class="text-gray-700">·</span> ${plan}</div>
+                </div>`; }).join('')}
+            ${rows.length > 8 ? `<div class="text-[10px] text-gray-600 mt-1">+ ${rows.length - 8} smaller holdings</div>` : ''}
+            <div class="text-[9px] text-gray-600 mt-1">APY is Eris's amplified figure per pool; entry cost, size limits and where the token sits vs its own history are on the planner. Leaving a position: open the planner with this wallet for zap-out costs and what you would forfeit (bribe runway, VP).</div>`;
+    }
+
     function renderExitRiskMember(member, panel, summaryEl) {
         ensureAmpCapaGov(member.wallet);
         const memberName = member.name || (member.wallet ? member.wallet.slice(0, 10) + '\u2026' : 'Member');
@@ -8160,7 +8176,7 @@
         };
         const pctStr = (v) => `${v >= 0 ? '+' : '\u2212'}${Math.abs(v).toFixed(1)}%`;
         const dollarStr = (v) => `${v >= 0 ? '+' : '\u2212'}${fmt$(Math.abs(v))}`;
-        panel.innerHTML = `
+        panel.innerHTML = `<div id="idle-assets" class="mb-3"></div>` + `
             <div class="flex items-center gap-2 pt-1 pb-1">
                 <span class="text-[10px] uppercase tracking-wide text-amber-400/80 font-semibold"><i class="fas fa-user text-[9px] mr-1"></i>${memberName}'s LP positions (${recs.length})</span>
                 <div class="flex-1 border-t border-amber-500/15"></div>
@@ -8209,6 +8225,7 @@
               </div>
             </div>`;
         }).join('');
+        try { renderIdleAssets(member); } catch (e) { console.warn('idle assets:', e); }   // Batch B
     }
 
     // Render Pool Health & Capital Flow watchlist (TLA-wide; not member-filtered).
@@ -8936,10 +8953,29 @@
                 : `<div class="hidden lg:block shrink-0" style="width:200px"></div>`;
             const vpNow = r.hp ? (() => { const eps = Object.keys(r.hp.epochs || {}).map(Number); if (!eps.length) return null; return r.hp.epochs[String(Math.max(...eps))]?.vp_human ?? null; })() : null;
             const col = (cap, val, cls, tip) => `<div class="text-right shrink-0 hidden md:block" style="width:72px" ${tip ? `title="${tip}"` : ''}><div class="mono text-[11px] ${cls}">${val}</div><div class="text-[8px] text-gray-600 -mt-0.5">${cap}</div></div>`;
+            // Batch B (owner 2026-08-24): the row shape. Was six captioned mono columns at 72px each —
+            // half the width unreadable, half empty. Now: identity + one sentence written from the same
+            // numbers, a wider trend chart, three legible chips (APR · runway · votes), and the staked
+            // figure. Same values, same drill-downs; nothing removed, everything readable.
+            const _shift = voteShiftFor(r, vpNow);
+            const _plan = votionPlanFor(r);
+            const _planPct = _plan && _plan.current_vp > 0 ? _plan.delta_vp / _plan.current_vp * 100 : (_plan && _plan.delta_vp > 0 ? null : 0);
+            const _planMaterial = _plan && (Math.abs(_plan.delta_vp) > 1000) && (_planPct == null || Math.abs(_planPct) >= 3);
+            const _vpTxt = vpNow != null ? (vpNow >= 1e6 ? (vpNow / 1e6).toFixed(2) + 'M' : Math.round(vpNow).toLocaleString()) : null;
+            const _stakedDelta = (r.prevStaked > 0) ? (r.staked - r.prevStaked) / r.prevStaked * 100 : null;
+            const _sent = [
+                `<span class="text-gray-200">${fmt$(r.staked)}</span> staked in TLA${_stakedDelta != null ? ` (<span class="${_stakedDelta > 1 ? 'text-emerald-400' : _stakedDelta < -1 ? 'text-red-400' : 'text-gray-500'}">${_stakedDelta >= 0 ? '+' : ''}${_stakedDelta.toFixed(0)}% vs last epoch</span>)` : ''}`,
+                `<span class="${wTrendCls}">${wTrendTxt}</span>`,
+                wFlowStr ? `<span class="${wFlowCls}">${wFlowStr}</span> net over ${phWin()} ep` : null,
+                _vpTxt ? `<span class="text-violet-300/90">${_vpTxt} votes</span>${_shift && Math.abs(_shift.pct) >= 2 ? ` <span class="${_shift.pct > 0 ? 'text-emerald-400' : 'text-red-400'}">${_shift.pct > 0 ? '+' : ''}${_shift.pct.toFixed(0)}% next ep</span>` : (_planMaterial ? ` <span class="text-violet-400/80">Votion plans ${_plan.delta_vp > 0 ? '+' : ''}${_planPct == null ? 'entry' : _planPct.toFixed(0) + '%'}</span>` : '')}` : null,
+            ].filter(Boolean).join(' <span class="text-gray-700">·</span> ');
+            const _chip = (val, cap, cls, onclick, tip) => `<${onclick ? 'button onclick="' + onclick + '"' : 'div'} class="text-center shrink-0 rounded-lg px-2 py-1 bg-white/[0.03] hover:bg-white/[0.06]" style="min-width:64px" ${tip ? `title="${tip}"` : ''}><div class="mono text-[13px] font-semibold ${cls}">${val}</div><div class="text-[8px] text-gray-600 -mt-0.5">${cap}</div></${onclick ? 'button' : 'div'}>`;
+            const _drill = `togglePoolDrill(this, '${(r.name + '|' + r.bucket).replace(/'/g, '')}')`;
+            const _rwCls = rwLeft == null ? 'text-gray-500' : rwLeft <= 1 ? 'text-red-300' : rwLeft <= 4 ? 'text-amber-300' : 'text-emerald-300';
             return `
             <div data-erow class="p-2.5 rounded-lg border-l-2 ${border}">
               <div class="flex items-center gap-3">
-                <span class="w-2 h-2 rounded-full shrink-0" style="background:${dotColor(r)}" title="${r.sev === 'high' ? 'RED: high exit risk \u2014 depth, reserves and price all falling together' : r.sev === 'med' ? 'YELLOW: watch \u2014 draining faster than similar pools, or several straight epochs of decline' : (r.netW > 0.03 ? 'GREEN: growing \u2014 TLA-staked money in this pool is up over the window, no risk flags' : 'GRAY: steady \u2014 no risk flags, no notable growth')}"></span>
+                <span class="w-2 h-2 rounded-full shrink-0" style="background:${dotColor(r)}" title="${r.sev === 'high' ? 'RED: high exit risk — depth, reserves and price all falling together' : r.sev === 'med' ? 'AMBER: draining faster than peers' : 'GREEN: healthy'}"></span>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-medium truncate">${r.name}</span>
@@ -8948,54 +8984,25 @@
                     ${statusBadge(r)}
                     ${/possible depeg/.test(sc) ? sc : ''}
                     ${runwayChip(r)}
+                    <a href="slippage.html?to=${encodeURIComponent((r.name.split('-')[1] || r.name.split('-')[0] || '').trim())}" class="text-[9px] text-teal-400/80 hover:text-teal-300" title="Plan a trade into this pool's token in the Trade Planner">plan a trade →</a>
                   </div>
+                  <div class="text-[11px] text-gray-400 mt-0.5 leading-snug">${_sent}</div>
                   <div class="flex items-center gap-2 mt-0.5">
                     <span class="lg:hidden">${sparkline(r.series, sparkColor(r))}</span>
-                    <span class="text-[10px] ${wTrendCls}">${wTrendTxt}</span>
                     ${compOpen ? '' : compToggle}
-                    <button onclick="togglePoolDrill(this, '${(r.name + '|' + r.bucket).replace(/'/g, '')}')" class="text-[9px] text-gray-600 hover:text-cyan-400 transition-colors"><i class="fas fa-chevron-down text-[8px] mr-0.5 transition-transform"></i>details</button>
+                    <button onclick="${_drill}" class="text-[9px] text-gray-600 hover:text-cyan-400 transition-colors"><i class="fas fa-chevron-down mr-0.5"></i>details</button>
                   </div>
                 </div>
-                ${midChart}
-${(() => {
-                    const sh2 = voteShiftFor(r, vpNow);
-                    const nextApr = apr != null && sh2 && sh2.prev > 0 && vpNow != null ? apr * (vpNow / sh2.prev) : null;
-                    const sub2 = nextApr != null && apr != null && Math.abs(nextApr - apr) / apr >= 0.02
-                        ? `<div class="text-[8px] ${nextApr > apr ? 'text-emerald-400' : 'text-red-400'} -mt-0.5">next \u2248${nextApr.toFixed(0)}%</div>` : `<div class="text-[8px] text-gray-600 -mt-0.5">reward APR</div>`;
-                    return `<div class="text-right shrink-0 hidden md:block" style="width:72px" title="TLA reward emissions ÷ dollars STAKED VIA TLA (chain distributions) — the yield on TLA-staked capital specifically. Reads HIGHER than Eris’s display, which divides by whole-pool depth with their fee treatment; reconciliation is an open spec item. Reads HIGHER than Eris\u2019s display, which divides by whole-pool depth with their fee treatment \u2014 different question, different number; reconciliation is an open spec item.${nextApr != null ? ` Next epoch \u2248${nextApr.toFixed(1)}% \u2014 scaled by the committed vote shift vs the last payout; gauge-total drift ignored \u2014 an estimate.` : ''}">
-                      <div class="mono text-[11px] text-emerald-300/90">${apr != null ? apr.toFixed(0) + '%' : '\u2014'}</div>${sub2}
-                    </div>`;
-                })()}
-${(() => {
-                    const cls = rwLeft == null ? 'text-gray-500' : rwLeft <= 1 ? 'text-red-300' : rwLeft <= 4 ? 'text-amber-300' : 'text-emerald-300';
-                    return `<button onclick="togglePoolDrill(this, '${(r.name + '|' + r.bucket).replace(/'/g, '')}')" class="text-right shrink-0 hidden md:block hover:bg-white/[0.04] rounded px-0.5 transition-colors" style="width:72px" title="Epochs of bribes still funded in the manager\u2019s future pots \u2014 click to see WHO is paying, in which tokens, and until when. Colors: \u22641 red \u00b7 2\u20134 yellow \u00b7 5+ green.">
-                      <div class="mono text-[11px] ${cls}">${rwLeft != null ? rwLeft + ' ep' : '\u2014'}</div>
-                      <div class="text-[8px] text-gray-600 -mt-0.5">bribe runway \u25be</div>
-                    </button>`;
-                })()}
-                ${(() => {
-                    const shift = voteShiftFor(r, vpNow);
-                    const val = vpNow != null ? (vpNow >= 1e6 ? (vpNow / 1e6).toFixed(2) + 'M' : Math.round(vpNow).toLocaleString()) : '\u2014';
-                    const plan = votionPlanFor(r);
-                    const planPct = plan && plan.current_vp > 0 ? plan.delta_vp / plan.current_vp * 100 : (plan && plan.delta_vp > 0 ? null : 0);
-                    const planMaterial = plan && (Math.abs(plan.delta_vp) > 1000) && (planPct == null || Math.abs(planPct) >= 3);
-                    const planLine = planMaterial ? `Votion plans ${plan.delta_vp > 0 ? '+' : ''}${planPct == null ? 'entry' : planPct.toFixed(0) + '%'}` : null;
-                    const sub = shift == null ? (planLine || 'vote power')
-                        : Math.abs(shift.pct) < 2 ? (planLine || 'votes \u2248 steady')
-                        : `votes ${shift.pct > 0 ? '+' : ''}${shift.pct.toFixed(0)}% next ep`;
-                    const subCls = (shift == null || Math.abs(shift.pct) < 2)
-                        ? (planLine ? (plan.delta_vp > 0 ? 'text-violet-300/90' : 'text-violet-400/70') : 'text-gray-600')
-                        : shift.pct > 0 ? 'text-emerald-400' : 'text-red-400';
-                    return `<button onclick="togglePoolDrill(this, '${(r.name + '|' + r.bucket).replace(/'/g, '')}')" class="text-right shrink-0 hidden md:block hover:bg-white/[0.04] rounded px-0.5 transition-colors" style="width:78px" title="Click for the 3-layer vote-shift breakdown (committed \u00b7 Votion planned \u00b7 total projected). vAMP votes on this gauge right now${shift ? ` vs the ${Math.round(shift.prev) >= 1e6 ? (shift.prev / 1e6).toFixed(2) + 'M' : Math.round(shift.prev).toLocaleString()} VP that governed the last payout (e${shift.period}). Votes are already cast \u2014 this shift decides next week\u2019s reward share; Votion\u2019s bribe-following reallocation is the dominant mover.` : ''}${plan ? ` PLANNED (Votion optimizer, ${plan.vaultCount} lockup${plan.vaultCount === 1 ? '' : 's'} captured, votes cast by ${String(plan.voteBefore || '').slice(0, 10)}): ${plan.delta_vp >= 0 ? '+' : ''}${plan.delta_vp.toLocaleString()} VP${plan.note ? ' \u2014 ' + plan.note : ''}. Intention, not yet on chain \u2014 firms up near the deadline.` : ''}">
-                      <div class="mono text-[11px] text-violet-300/90">${val}</div>
-                      <div class="text-[8px] ${subCls} -mt-0.5">${sub} \u25be</div>
-                    </button>`;
-                })()}
-                ${col('net flow \u00b7 ' + phWin() + 'ep', wFlowStr || '\u2014', wFlowCls, 'Net dollars into/out of TLA staking in this pool over the selected ' + phWin() + '-epoch window (follows the window toggle). Per-epoch breakdown is in details.')}
+                ${midChart.replace('width:200px', 'width:260px')}
+                <div class="hidden md:flex items-center gap-1.5 shrink-0">
+                  ${_chip(apr != null ? apr.toFixed(0) + '%' : '—', 'reward APR', 'text-emerald-300/90', _drill, 'TLA reward emissions ÷ dollars staked via TLA — the yield on TLA-staked LP, before amplification')}
+                  ${_chip(rwLeft != null ? rwLeft + ' ep' : '—', 'bribe runway', _rwCls, _drill, 'Epochs of committed bribes left on this pool')}
+                  ${_chip(_vpTxt || '—', 'votes', 'text-violet-300/90', _drill, 'Voting power on this pool now')}
+                </div>
                 <div class="text-right shrink-0" style="width:88px">
                   <div class="mono text-[13px] font-bold text-cyan-400">${fmt$(r.staked)}</div>
-                  ${(() => { const pv = r.prevStaked; if (!(pv > 0)) return `<div class="text-[9px] text-gray-500 -mt-0.5">staked in TLA</div>`; const d = (r.staked - pv) / pv * 100; const c = d > 1 ? 'text-emerald-400' : d < -1 ? 'text-red-400' : 'text-gray-500'; return `<div class="text-[9px] ${c} -mt-0.5" title="vs last epoch (${fmt$(pv)})">${d >= 0 ? '+' : ''}${d.toFixed(0)}% \u00b7 staked in TLA</div>`; })()}
-                  ${flowStr ? `<div class="mono text-[10px] ${flowCls} mt-0.5 md:hidden">${flowStr} <span class="opacity-70 text-[8px]">${flowLabel}</span></div>` : ''}
+                  <div class="text-[9px] text-gray-500 -mt-0.5">staked in TLA</div>
+                  ${flowStr ? `<div class="mono text-[10px] ${flowCls} mt-0.5">${flowStr} <span class="opacity-70 text-[8px]">${flowLabel}</span></div>` : ''}
                 </div>
               </div>
               ${comp ? `<div data-comp class="${compOpen ? '' : 'hidden'}">${comp}</div>` : ''}
@@ -9034,14 +9041,11 @@ ${(() => {
           </div>`;
         const colHeads = `<div class="hidden md:flex items-center gap-3 px-2.5 py-1 mb-1 mt-1 sticky top-0 z-10 bg-gray-900/90 backdrop-blur-sm rounded">
             <span class="w-2 shrink-0"></span>
-            <div class="flex-1 min-w-0 text-[9px] text-gray-600 uppercase tracking-wider">pool</div>
-            <div class="hidden lg:block shrink-0 text-[9px] text-gray-600 uppercase tracking-wider text-center" style="width:200px" title="TLA-staked $ over the selected window">staked trend</div>
-            <div class="text-right shrink-0 text-[9px] text-gray-600 uppercase tracking-wider" style="width:72px">reward APR</div>
-            <div class="text-right shrink-0 text-[9px] text-gray-600 uppercase tracking-wider" style="width:72px">bribe runway</div>
-            <div class="text-right shrink-0 text-[9px] text-gray-600 uppercase tracking-wider" style="width:78px" title="click a value for the full 3-layer shift breakdown">votes \u00b7 shift</div>
-            <div class="text-right shrink-0 text-[9px] text-gray-600 uppercase tracking-wider" style="width:72px">net flow</div>
-            <div class="text-right shrink-0 text-[9px] text-gray-600 uppercase tracking-wider" style="width:88px">staked in TLA</div>
-          </div>`;
+            <div class="flex-1 text-[9px] text-gray-600 uppercase tracking-wider">pool · what changed, in one line</div>
+            <div class="hidden lg:block shrink-0 text-[9px] text-gray-600 uppercase tracking-wider text-center" style="width:260px" title="TLA-staked $ over the selected window">staked trend</div>
+            <div class="hidden md:block shrink-0 text-[9px] text-gray-600 uppercase tracking-wider text-center" style="width:206px">APR · runway · votes</div>
+            <div class="shrink-0 text-[9px] text-gray-600 uppercase tracking-wider text-right" style="width:88px">staked in TLA</div>
+        </div>`;
         panel.innerHTML = sortBar + colHeads + bucketKeys.map(b => {
             const rows = byBucket[b].sort(SORTS[store._phSort].fn);
             const flagged = rows.filter(r => r.sev).length;
@@ -9478,6 +9482,7 @@ ${(() => {
                     <div class="flex flex-col gap-1">
                         <div class="flex items-center gap-2"><span class="font-medium">${p.name}</span>${trendBadge(p.name, p.bucket, p.bucketPct)}</div>
                         <div class="flex items-center gap-1">${getDexLabel(p.dex)}${getBucketBadge(p.bucket)}</div>
+                        ${(() => { const bt = bucketTotals[p.bucket] || 0; const cushion = Math.max(0, (p.vp || 0) - 0.01 * bt); const needTo2 = Math.max(0, 0.02 * bt - (p.vp || 0)); const mr = store.voteMarketRate; return `<div class="text-[10px] text-gray-500 mt-0.5"><span class="text-gray-400">${fmtNum(cushion)} VP</span> above the 1% line · to reach a safe 2%: <span class="text-amber-300">+${fmtNum(needTo2)} VP</span>${mr ? ` ≈ <span class="text-amber-200">${fmt$(needTo2 / 1e6 * mr)}</span> of bribe at the market rate` : ''}</div>`; })()}
                     </div>
                     <div class="text-right cursor-pointer hover:scale-105 transition-transform pool-history-trigger bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-lg px-3 py-2" data-pool="${p.name}" data-bucket="${p.bucket}" title="Click for history">
                         <div class="mono text-amber-400 font-bold flex items-center gap-1">${p.bucketPct.toFixed(2)}%<i class="fas fa-chart-line text-[10px] opacity-60"></i></div>
@@ -9610,7 +9615,7 @@ ${(() => {
     }
 
     // Track which epoch view is selected for waterfall
-    let waterfallEpochView = 'current'; // 'current' or 'next'
+    let waterfallEpochView = 'next'; // 'current' or 'next' — Batch B (owner 2026-08-24): Planned is the default; it is what settles
     let waterfallShowInactive = false;  // inactive pools collapsed into one grouped bar by default
     
     // Fetches the daily snapshot captured just before this epoch began (the epoch-boundary
@@ -9743,8 +9748,12 @@ ${(() => {
         const memberPct = bucketTotalVP > 0 ? (bucketMemberVP / bucketTotalVP) * 100 : 0;
         const otherPct = bucketTotalVP > 0 ? (bucketOtherVP / bucketTotalVP) * 100 : 0;
         
-        // Round up to nice number for scale
-        const scaleMax = Math.ceil(bucketTotalVP / 1000000) * 1000000 || 1000000;
+        // Batch B (owner 2026-08-24): bars are LEFT-ALIGNED and scaled to the largest pool in the
+        // bucket (was a cumulative stagger scaled to the bucket total — pools could not be compared
+        // by eye). The bucket total stays in the header; the axis is now "VP per pool".
+        const _largest = Math.max(...activePools.map(p => getPoolVP(p)), inactivePools.reduce((s2, p) => s2 + getPoolVP(p), 0), 1);
+        const _mag = Math.pow(10, Math.floor(Math.log10(_largest)));
+        const scaleMax = Math.ceil(_largest / (_mag / 4)) * (_mag / 4) || 1000000;
         
         // Update displays
         document.getElementById('waterfall-total').textContent = fmtNum(bucketTotalVP) + ' VP';
@@ -9823,8 +9832,8 @@ ${(() => {
             const memberVP = memberPoolKey ? (memberByPool.get(memberPoolKey) || 0) : 0;
             const otherVP = Math.max(0, poolVP - votionVP - adaoVP - memberVP);
 
-            const startPct = (cumulative / scaleMax) * 100;
-            const poolWidthPct = (poolVP / scaleMax) * 100;
+            const startPct = 0;   // Batch B: left-aligned
+            const poolWidthPct = Math.min(100, (poolVP / scaleMax) * 100);
             const vP = poolVP > 0 ? (votionVP / poolVP) * 100 : 0;
             const aP = poolVP > 0 ? (adaoVP / poolVP) * 100 : 0;
             const mP = poolVP > 0 ? (memberVP / poolVP) * 100 : 0;
@@ -9867,14 +9876,17 @@ ${(() => {
                 const up = projShift > 0;
                 const pctStr = (pct != null && isFinite(pct)) ? ` / ${up ? '+' : ''}${pct.toFixed(0)}%` : '';
                 const decompTip = `Shift vs locked-in: ${up ? '+' : ''}${fmtNum(projShift)} VP = cast-vote drift ${castDrift >= 0 ? '+' : ''}${fmtNum(castDrift)} + Votion planned ${votionChange >= 0 ? '+' : ''}${fmtNum(votionChange)}`;
-                const txt = `<span class="text-[10px] mono ${up ? 'text-emerald-400' : 'text-red-400'} whitespace-nowrap" title="${decompTip}">${up ? '+' : ''}${fmtNum(projShift)}${pctStr}</span>`;
+                const _dec = (Math.abs(castDrift) >= 1000 || Math.abs(votionChange) >= 1000) ? ` <span class="text-gray-500">(users ${castDrift >= 0 ? '+' : ''}${fmtNum(castDrift)} · Votion ${votionChange >= 0 ? '+' : ''}${fmtNum(votionChange)})</span>` : '';
+                const txt = `<span class="text-[10px] mono ${up ? 'text-emerald-400' : 'text-red-400'} whitespace-nowrap" title="${decompTip}">${up ? '+' : ''}${fmtNum(projShift)}${pctStr}${_dec}</span>`;
                 // First bar starts at the left edge → label goes AFTER the bar end. Every
                 // following bar starts further right, with empty space to its left → label
                 // goes BEFORE the bar (ending just at the bar's left edge), which keeps it
                 // off the right edge and reads cleanly.
-                plannedDelta = isFirst
+                // Batch B: every bar starts at the left edge now → the label always sits after the bar end
+                // (or inside the bar's right end when the bar is nearly full width).
+                plannedDelta = poolWidthPct < 70
                     ? `<div class="absolute top-0 h-full flex items-center z-20 pointer-events-none pl-1" style="left: ${Math.min(startPct + poolWidthPct, 100)}%;">${txt}</div>`
-                    : `<div class="absolute top-0 h-full flex items-center justify-end z-20 pointer-events-none pr-1" style="right: ${Math.max(100 - startPct, 0)}%;">${txt}</div>`;
+                    : `<div class="absolute top-0 h-full flex items-center justify-end z-20 pointer-events-none pr-1" style="right: 0;">${txt}</div>`;
             }
 
             return `
@@ -9927,8 +9939,8 @@ ${(() => {
             } else {
                 // Collapsed: one grouped bar representing all inactive VP, in the plot area
                 // so it lines up with the active bars above it.
-                const startPct = (cumulative / scaleMax) * 100;
-                const widthPct = (inactiveVP / scaleMax) * 100;
+                const startPct = 0;   // Batch B: left-aligned
+                const widthPct = Math.min(100, (inactiveVP / scaleMax) * 100);
                 html += `
                     <div class="flex items-center gap-2 py-1.5 cursor-pointer select-none" onclick="toggleWaterfallInactive()">
                         <i class="fas fa-chevron-right text-[9px] text-amber-500/70"></i>

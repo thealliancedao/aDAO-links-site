@@ -16,6 +16,9 @@ const dom = new JSDOM(html, { url: 'https://thealliancedao.com/tla-stats.html', 
   w.console.log = (...a) => logs.push(a.join(' ')); w.console.warn = () => {}; w.console.error = (...a) => logs.push('ERR ' + a.join(' '));
   w.fetch = async (u) => { const clean = String(u).split('?')[0]; const m = /tla-core\/main\/(.+)$/.exec(clean); const nope = { ok: false, status: 404, json: async () => { throw new Error('404'); }, text: async () => '' };
     if (m) { const b = read(m[1]); if (b == null) return nope; const t = b.toString('utf8'); return { ok: true, status: 200, json: async () => JSON.parse(t), text: async () => t, arrayBuffer: async () => b }; }
+    if (/\/cosmos\/bank\/v1beta1\/balances\//.test(clean)) return { ok: true, status: 200, json: async () => ({ balances: [{ denom: 'uluna', amount: '1000000000' }] }) };   // 1,000 LUNA
+    if (/\/cosmwasm\/wasm\/v1\/contract\/terra1t4p3u8khpd7f8qzurwyafxt648dya6mp6vur3vaapswt6m24gkuqrfdhar\/smart\//.test(clean)) return { ok: true, status: 200, json: async () => ({ data: { balance: '500000000000' } }) };   // 500,000 CAPA
+    if (/\/cosmwasm\/wasm\/v1\/contract\//.test(clean)) return { ok: true, status: 200, json: async () => ({ data: { balance: '0' } }) };
     return nope; };
 } });
 await new Promise(r => setTimeout(r, 6000));
@@ -48,4 +51,21 @@ const ov = logs.find(l => /known-token name overrides/.test(l)) || ''; const nOv
 check('T1 token-name overrides parsed from the org catalog (>20, was 0)', nOv > 20, nOv);
 check('N1 subnav: Member Portfolio is disabled with SOON; Docs is gone', subnavItems && subnavItems.some(t => t.id === 'portfolio' && t.disabled && t.badge === 'SOON') && !subnavItems.some(t => t.id === 'docs'), subnavItems && subnavItems.map(t => t.id));
 check('L1 no uncaught page errors', !logs.some(l => /^ERR/.test(l) && !/fetch|network/i.test(l)), logs.filter(l => /^ERR/.test(l)).slice(0, 3));
+console.log('\n=== Batch B — Overview redesign ===');
+const vm = d.getElementById('bounty-board-rows'); const vmSum = d.getElementById('bounty-summary');
+check('M1 Vote Market: a market rate is stated and rows show what +$50 buys in VP', /market/.test(vmSum.textContent) && /\/ 1M VP/.test(vmSum.textContent) && /\+\$50 → ≈ \+[\d,.KM]+ VP/.test(vm.textContent), vmSum.textContent);
+check('M2 Vote Market: rows compare to market (± % vs mkt) and the store carries the rate for Threshold Watch', /vs mkt/.test(vm.textContent) && store.voteMarketRate > 0, store.voteMarketRate);
+w.setVoteMarketX(150); check('M3 Vote Market: the $150 preset re-renders the projection', /\+\$150 →/.test(d.getElementById('bounty-board-rows').textContent));
+check('W1 Vote breakdown defaults to Planned and bars are left-aligned (every bar starts at left: 0%)', w.eval('waterfallEpochView') === 'next' && [...d.querySelectorAll('#waterfall-bars .waterfall-row [style*="left: 0%"]')].length > 0 && ![...d.querySelectorAll('#waterfall-bars .waterfall-row .flex.rounded.overflow-hidden')].some(b => /left: [1-9]/.test(b.getAttribute('style') || '')));
+check('W2 planned labels expose the users/Votion decomposition where material', /users [+-]|Votion [+-]/.test(d.getElementById('waterfall-bars').textContent));
+const rh = d.getElementById('runway-headline'); check('R1 Runway headline is a sentence about exit pressure, not a number pair', rh && /(Exit pressure from unlocks is|every tracked lock is auto-max)/.test(rh.textContent), rh && rh.textContent.slice(0, 120));
+check('R2 Pending-withdrawal block is priced in USD', /≈ \$/.test((d.getElementById('unlock-pending') || {}).textContent || ''));
+check('T2 Threshold Watch at-risk rows say the cushion and what +2% would take at the market rate', /above the 1% line/.test(d.getElementById('threshold-at-risk').textContent) && /of bribe at the market rate/.test(d.getElementById('threshold-at-risk').textContent));
+const ph = d.querySelector('[data-erow]');
+check('P1 Pool Health rows carry the one-line sentence, three chips and a planner link', ph && /staked in TLA/.test(ph.textContent) && /reward APR/.test(ph.textContent) && /bribe runway/.test(ph.textContent) && /plan a trade →/.test(ph.textContent), ph && ph.textContent.slice(0, 160));
+check('P2 the embedded simulator is gone; the strip links to the Trade Planner', !d.querySelector('.slip-amt-btn') && /open the Trade Planner/.test(d.getElementById('slippage-sim-card').textContent));
+// idle assets: run the live function against the stubbed LCD
+const hostDiv = d.createElement('div'); hostDiv.id = 'idle-assets'; d.body.appendChild(hostDiv);
+await w.eval('renderIdleAssets')({ wallet: 'terra1hr8zsfpch47qygc96c8e6rzkd2t7mafqx77ulw' }); await new Promise(r => setTimeout(r, 300));
+check('I1 Idle assets: LUNA and CAPA balances priced, with TLA options (pool APY / max-lock VP) and a planner link', /LUNA/.test(hostDiv.textContent) && /CAPA/.test(hostDiv.textContent) && /Eris APY|max-locked/.test(hostDiv.textContent) && /plan a trade from/.test(hostDiv.textContent), hostDiv.textContent.slice(0, 200));
 console.log(`\n=== PAGE GATE: ${PASS} passed, ${FAIL} failed ===`); process.exit(FAIL ? 1 : 0);
