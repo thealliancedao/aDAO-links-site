@@ -1500,7 +1500,10 @@ const ANALYTICS_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core
 const ANALYTICS_SUMMARY_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/summary.json";
 const ANALYTICS_ENRICHED_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/sales-enriched.json";
 const BROKEN_AT_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/broken-at.json";
-const LISTING_HISTORY_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/listing-first-seen.json";
+// 2026-08-25: listing-history.json = every marketplace listing since 2023-12 with its price segments (BBL price
+// changes are cancel+recreate). The band builder was written for it; the constant pointed at the cron's
+// first-seen log (no `records`), so the listing bars silently never drew.
+const LISTING_HISTORY_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/listing-history.json";
 const LUNA_ORACLE_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/luna-usd-daily.json";
 const BLUNA_ORACLE_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/bluna-usd-daily.json";
 const DENOM_BLUNA = "cw20:terra17aj4ty4sz4yhgm08na8drc0v03v2jwr3waxcqrwhajj729zhl7zqnpc0ml";
@@ -1512,6 +1515,7 @@ let _avScale = "log";        // default log so recent months are visible
 let _fpData = null;          // floor-history slots {monthly:{labels,tiers},weekly:{...}}
 let _fpTier = "base";        // broken | base | phoenix
 let _fpGran = "monthly";     // monthly (12M) | weekly (12W)
+let _fpScale = "log";        // 2026-08-25: log by default — one outlier sale (e.g. #6067 Phoenix, 15,000 bLUNA in 26-05) must not flatten a year of $50–$300 months
 let _fpListingFloor = {};    // current listing floor per tier (dashed reference line)
 let _fpBrokenAt = null;      // token_id -> broken_at ISO (exact sale-time tiers)
 let _fpBand = null;          // historical listing-floor per period: {mid, lo, hi} per slot
@@ -1644,34 +1648,43 @@ function renderFpChart() {
     const highs = slots.filter(Boolean).map(s => s.high);
     if (band) band.forEach(v => { if (v != null) highs.push(v.hi); });
     if (lfRef != null) highs.push(lfRef);
-    const max = highs.length ? Math.max(...highs) * 1.08 : 1;
+    const bandHi = (bandAll || []).slice(start, end).filter(Boolean).map(v => v.hi), bandLo = (bandAll || []).slice(start, end).filter(Boolean).map(v => v.lo);
+    const max = (highs.length || bandHi.length) ? Math.max(...highs, ...bandHi) * 1.08 : 1;
     const edgeLabels = []; // right-edge annotations, de-collided before drawing
     const W = 600, H = 210, padL = 44, padB = 22, padT = 8;
     const x = (i) => padL + i * ((W - padL - 8) / labels.length) + 4;
     const bw = ((W - padL - 8) / labels.length) - 8;
-    const y = (v) => padT + (1 - v / max) * (H - padT - padB);
+    // scale: log keeps a $1.7K outlier month and a $60 month both readable; linear is the honest raw view
+    const lows = [...slots.filter(Boolean).map(s => Math.min(...[s.low, s.med].filter(v => v != null && v > 0))), ...bandLo.filter(v => v > 0)];
+    const lmin = _fpScale === "log" ? Math.max(1, Math.min(...(lows.length ? lows : [1])) / 1.3) : 0;
+    const y = (v) => _fpScale === "log"
+        ? padT + (1 - (Math.log(Math.max(v, lmin)) - Math.log(lmin)) / (Math.log(max) - Math.log(lmin))) * (H - padT - padB)
+        : padT + (1 - v / max) * (H - padT - padB);
     let g = "";
-    // gridlines: 0, mid, max
-    [[0, "0"], [max / 2, fmtUsd(max / 2)], [max / 1.08, fmtUsd(max / 1.08)]].forEach(([v, l]) => {
+    // gridlines: bottom, mid, top (log: geometric mid so the labels sit where the bars are)
+    (_fpScale === "log" ? [[lmin, fmtUsd(lmin)], [Math.sqrt(lmin * max / 1.08), fmtUsd(Math.sqrt(lmin * max / 1.08))], [max / 1.08, fmtUsd(max / 1.08)]] : [[0, "0"], [max / 2, fmtUsd(max / 2)], [max / 1.08, fmtUsd(max / 1.08)]]).forEach(([v, l]) => {
         g += `<line x1="${padL}" y1="${y(v)}" x2="${W - 4}" y2="${y(v)}" stroke="rgba(255,255,255,.07)"/><text x="${padL - 6}" y="${y(v) + 3}" text-anchor="end" font-size="9" fill="#6b7280">${l}</text>`;
     });
+    const meds = slots.filter(s => s && s.med > 0).map(s => s.med).sort((a, b) => a - b); const medAll = meds.length ? meds[Math.floor(meds.length / 2)] : 0;
     labels.forEach((lab, i) => {
         const s = slots[i];
         const lx = x(i) + bw / 2;
+        if (s && s.n === 1 && medAll > 0 && s.high > 5 * medAll) g += `<text x="${lx}" y="${Math.max(padT + 9, y(s.high) - 4)}" text-anchor="middle" font-size="8" fill="#fbbf24"><title>one sale this period, ${fmtUsd(s.high)} — an outlier, not a floor</title>1 sale ↑</text>`;
         g += `<text x="${lx}" y="${H - 6}" text-anchor="middle" font-size="8.5" fill="${s ? "#9ca3af" : "#4b5563"}">${lab}</text>`;
         if (!s) { g += `<line x1="${x(i) + 2}" y1="${y(0) - 1}" x2="${x(i) + bw - 2}" y2="${y(0) - 1}" stroke="#374151" stroke-width="2"/>`; return; }
+        // YELLOW = sales that period: lowest sale → highest sale, median as a tick (drawn over the blue listing bar)
         const yH = y(s.high), yL = y(s.low), yM = y(s.med);
-        g += `<g><title>${lab} · ${s.n} sale${s.n === 1 ? "" : "s"} · low ${fmtUsd(s.low)} · median ${fmtUsd(s.med)} · high ${fmtUsd(s.high)}</title>
-          <rect x="${x(i)}" y="${yH}" width="${bw}" height="${Math.max(2, yL - yH)}" rx="2" fill="rgba(34,211,238,.28)" stroke="rgba(34,211,238,.5)" stroke-width="0.5"/>
-          <line x1="${x(i)}" y1="${yM}" x2="${x(i) + bw}" y2="${yM}" stroke="#fbbf24" stroke-width="2"/></g>`;
+        g += `<g><title>${lab} · ${s.n} sale${s.n === 1 ? "" : "s"} · lowest ${fmtUsd(s.low)} · median ${fmtUsd(s.med)} · highest ${fmtUsd(s.high)}</title>
+          <rect x="${x(i) + bw * 0.2}" y="${yH}" width="${bw * 0.6}" height="${Math.max(2, yL - yH)}" rx="2" fill="rgba(251,191,36,.35)" stroke="rgba(251,191,36,.7)" stroke-width="0.6"/>
+          <line x1="${x(i) + bw * 0.2}" y1="${yM}" x2="${x(i) + bw * 0.8}" y2="${yM}" stroke="#fbbf24" stroke-width="2"/></g>`;
     });
+    let gBand = "";
     if (band) {
-        // historical listing floor: translucent range area (USD swing of the standing floor while
-        // the token amount stayed fixed) + dashed mid step-line
+        // BLUE = listings that period: lowest listing → highest listing across all markets (drawn first, under the sales)
         band.forEach((v, i) => {
             if (v == null) return;
             const yH = y(v.hi), yL = y(v.lo);
-            g += `<rect x="${x(i)}" y="${yH}" width="${bw}" height="${Math.max(1.5, yL - yH)}" fill="rgba(34,211,238,.13)" stroke="rgba(34,211,238,.25)" stroke-width="0.4" rx="1"><title>${labels[i]}: cheapest listing ${fmtUsd(v.mid)} mid · ${fmtUsd(v.lo)}–${fmtUsd(v.hi)} USD range while listed (token price moved, ask didn't)</title></rect>`;
+            gBand += `<rect x="${x(i)}" y="${yH}" width="${bw}" height="${Math.max(1.5, yL - yH)}" fill="rgba(34,211,238,.22)" stroke="rgba(34,211,238,.45)" stroke-width="0.5" rx="2"><title>${labels[i]}: ${v.n || 1} listing${(v.n || 1) === 1 ? "" : "s"} · lowest ${fmtUsd(v.lo)} · highest ${fmtUsd(v.hi)} · cheapest ask mid ${fmtUsd(v.mid)} (USD at the time)</title></rect>`;
         });
         let path = "", lastY = null;
         band.forEach((v, i) => {
@@ -1721,12 +1734,13 @@ function renderFpChart() {
           <button id="av-fp-fwd" class="av-scale-btn" ${canFwd ? "" : "disabled style='opacity:.3'"}>newer &rsaquo;</button>
           <span class="text-gray-500 ml-1">${winLabel}</span>
         </div>${tierNote}</div>
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block">${g}</svg>`;
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block">${gBand}${g}</svg>`;
     const bk = document.getElementById("av-fp-back"), fw = document.getElementById("av-fp-fwd");
     if (bk && canBack) bk.onclick = () => { _fpOffset++; renderFpChart(); };
     if (fw && canFwd) fw.onclick = () => { _fpOffset--; renderFpChart(); };
     document.querySelectorAll(".av-fp-tier").forEach(b => b.classList.toggle("active", b.dataset.tier === _fpTier));
     document.querySelectorAll(".av-fp-gran").forEach(b => b.classList.toggle("active", b.dataset.gran === _fpGran));
+    document.querySelectorAll(".av-fp-scale").forEach(b => b.classList.toggle("active", b.dataset.scale === _fpScale));
 }
 function periodKey(date, gran) {
     if (gran === "monthly") return date.toISOString().slice(0, 7);
@@ -1823,7 +1837,10 @@ function buildListingFloorBand(listingRecords, lunaOracle, blunaOracle) {
                     if (!t) return;
                     const mid = samples[Math.floor(samples.length / 2)] ?? samples[0];
                     const cur = floors[t][i];
-                    if (cur == null || mid < cur.mid) floors[t][i] = { mid, lo: Math.min(...samples), hi: Math.max(...samples) };
+                    // owner spec (2026-08-25): the blue bar is the whole listing range that period — lowest listing
+                    // (lo) to highest listing (hi) across all markets; `mid` keeps the cheapest listing's mid for the floor read
+                    if (cur == null) floors[t][i] = { mid, lo: Math.min(...samples), hi: Math.max(...samples), n: 1 };
+                    else { floors[t][i] = { mid: Math.min(cur.mid, mid), lo: Math.min(cur.lo, ...samples), hi: Math.max(cur.hi, ...samples), n: cur.n + 1 }; }
                 });
             });
         });
@@ -1902,6 +1919,7 @@ async function renderAnalytics() {
     root.querySelectorAll("[data-explain]").forEach(el => el.addEventListener("click", () => showMetricExplainer(el.dataset.explain)));
     document.querySelectorAll(".av-fp-tier").forEach(b => b.onclick = () => { _fpTier = b.dataset.tier; renderFpChart(); });
     document.querySelectorAll(".av-fp-gran").forEach(b => b.onclick = () => { _fpGran = b.dataset.gran; renderFpChart(); });
+    document.querySelectorAll(".av-fp-scale").forEach(b => b.onclick = () => { _fpScale = b.dataset.scale; renderFpChart(); });
     const lunaBtn = document.getElementById("av-fp-luna");
     if (lunaBtn) lunaBtn.onclick = () => { _fpShowLuna = !_fpShowLuna; lunaBtn.classList.toggle("active", _fpShowLuna); renderFpChart(); };
 }
@@ -2111,13 +2129,14 @@ function buildAnalyticsHtml(A, S, E) {
         <div class="flex items-center gap-2 text-xs">
           <span class="inline-flex rounded-md overflow-hidden border border-gray-600">${fpBtn("av-fp-tier", "broken", "Broken")}${fpBtn("av-fp-tier", "base", "Base")}${fpBtn("av-fp-tier", "phoenix", "Phoenix")}</span>
           <span class="inline-flex rounded-md overflow-hidden border border-gray-600">${fpBtn("av-fp-gran", "weekly", "12W")}${fpBtn("av-fp-gran", "monthly", "12M")}</span>
+          <span class="inline-flex rounded-md overflow-hidden border border-gray-600"><button type="button" class="av-fp-scale av-scale-btn" data-scale="linear">linear</button><button type="button" class="av-fp-scale av-scale-btn" data-scale="log">log</button></span>
           <button id="av-fp-luna" type="button" class="av-scale-btn active rounded-md border border-gray-600">LUNA</button>
         </div></div>
       <div id="av-fp-chart"></div>
       <div class="flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-gray-300 mt-3">
-        <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 h-3 rounded-sm" style="background:rgba(34,211,238,.35);border:1px solid rgba(34,211,238,.7)"></span>sales range (USD at sale)</span>
+        <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 h-3 rounded-sm" style="background:rgba(34,211,238,.35);border:1px solid rgba(34,211,238,.7)"></span>sales that period (lowest → highest, median tick)</span>
         <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 rounded" style="height:3px;background:#fbbf24"></span>median sale</span>
-        <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 h-3 rounded-sm" style="background:rgba(34,211,238,.15);border:1.5px dashed rgba(34,211,238,.8)"></span>cheapest listing (USD range + <span class="text-cyan-300 font-semibold">--&nbsp;mid</span>)</span>
+        <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 h-3 rounded-sm" style="background:rgba(34,211,238,.15);border:1.5px dashed rgba(34,211,238,.8)"></span>listings that period (lowest → highest, <span class="text-cyan-300 font-semibold">--&nbsp;mid</span>)</span>
         <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4" style="height:0;border-top:2px dashed #34d399"></span>today's listing floor</span>
         <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4" style="height:0;border-top:2px solid #a78bfa"></span>LUNA price (own scale)</span>
         <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 rounded" style="height:3px;background:#4b5563"></span>no sales</span>
