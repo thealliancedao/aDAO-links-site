@@ -112,6 +112,10 @@ console.log('\n=== PD Bribe Tracker (LP Grades tab) ===');
 // subnav highlight must follow the tab (the gate's SiteHeader stub has no subnav DOM, so build the three tabs it would render)
 const nav = d.createElement('div'); nav.innerHTML = ['overview', 'grades', 'pools', 'tla'].map(t => `<span class="sh-subtab${t === 'overview' ? ' active' : ''}" data-tab="${t}"></span>`).join(''); d.body.appendChild(nav);
 w.eval('switchToTab')('grades'); await new Promise(r => setTimeout(r, 800));
+console.log('\n=== LP Grades guide ===');
+const gm = d.getElementById('grades-method');
+check('M1g the guide block explains the five lenses, the bands, the earned rule, Votion and the PD tracker in plain language', gm && /one-sentence version/.test(gm.textContent) && /Purpose/.test(gm.textContent) && /A ≥ 75/.test(gm.textContent) && /four consecutive epochs/.test(gm.textContent) && /bribes are never a factor/.test(gm.textContent) && /Vote Market/.test(gm.textContent) && /PD Bribe Tracker/.test(gm.textContent) && /lp-grades-and-voting\.md/.test(gm.innerHTML));
+check('M2g the header chip reads the v2 grading version, not the retired rubric draft', /grading v2/.test((d.getElementById('grades-count-chip') || {}).textContent || '') && !/0\.2\.0-draft/.test((d.getElementById('grades-count-chip') || {}).textContent || ''));
 check('N2 switching tabs moves the header highlight (LP Grades lit, Overview not)', nav.querySelector('[data-tab="grades"]').classList.contains('active') && !nav.querySelector('[data-tab="overview"]').classList.contains('active'));
 const pt = d.getElementById('pd-tracker');
 check('T1 tracker renders the latest fitted batch: prop 253, stated criterion quoted, 72% to top-half, PAXG-WBTC rank cells, qualified-not-bribed chips', pt && /prop 253/.test(pt.textContent) && /trading efficiency \+ volume/.test(pt.textContent) && /72%/.test(pt.textContent) && /PAXG-WBTC/.test(pt.textContent) && /LUNA-USDC/.test(pt.textContent) && /Drift inside the window/.test(pt.textContent), pt && pt.textContent.replace(/\s+/g, ' ').slice(0, 240));
