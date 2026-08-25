@@ -6267,26 +6267,45 @@
             ${_leftTxt ? `<span class="px-2 py-1 rounded-lg bg-cyan-500/10 text-cyan-300" title="Votion's own cast deadline (its voteBefore). It re-optimizes about every 15 minutes until then.">casts in ${_leftTxt}</span>` : ''}
             ${live ? `<span class="text-emerald-400/90" title="pots read from the incentive manager — the live auction">● live ${new Date(live.at).toISOString().slice(11, 16)}Z</span><button type="button" onclick="refreshLivePots()" class="text-gray-500 hover:text-cyan-300" title="re-read the pots now">↻</button>` : `<span class="text-gray-500">captured</span>`}
         </div>`;
-        const X = store.voteMarketX || 25;
+        const X = store.voteMarketX == null ? 0 : store.voteMarketX;   // owner: default $0 — stage up from what Votion does if nothing changes
         const emissionsPerVp = (p) => { const lp = (store.tlaPools || []).find(x => x.name === p.name && (x.dex || '') === (p.dex || '')); const wk = lp && lp.rewards_per_year ? lp.rewards_per_year / 52.18 : null; return wk && p.vp > 0 ? wk / p.vp : null; };
         const dexTag = (dex) => dex?.includes('Astro') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400">Astro</span>' : dex?.includes('Skeleton') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Skeleton</span>' : '';
         const _isUnfundedWarn = (r) => { if (r.votionVp <= 50000) return false; if (r.liveMode) return r.usd <= 0; const f = bribeFundedFor(r.p.gauge_pool_id, store.votionOptPeriod); return f ? !f.funded : false; };
-        rows.sort((a, b) => (Number(_isUnfundedWarn(b)) - Number(_isUnfundedWarn(a))) || (b.usd - a.usd));
+        // Precompute every row's projection once (sorting needs it): what Votion's optimizer does with +$X here.
+        const liveOverrideAll = live ? Object.fromEntries(Object.entries(live.pots).map(([k, v]) => [k.split('|')[1], v.usd])) : null;
+        const grades = {}; for (const gp of (store.lpGrades?.pools || [])) if (gp.gauge_pool_id) grades[gp.gauge_pool_id] = gp.grade || null;
+        const selM = (typeof getSelectedMember === 'function') ? getSelectedMember() : null;
+        const myPools = new Set((selM && selM.lp_positions || []).map(lp => `${lp.pool_name}|${String(lp.bucket || '').toUpperCase()}`));
+        for (const r of rows) {
+            const gid = String(r.p.gauge_pool_id || '').replace(/^(cw20|native):/, ''); r.gid = gid; r.simKey = String(r.p.bucket || '').toLowerCase() + '|' + gid;
+            const _fund = r.liveMode ? { funded: r.usd > 0 } : (bribeFundedFor(r.p.gauge_pool_id, store.votionOptPeriod) || { funded: true });
+            r.fundedNow = !!_fund.funded; r.fund = _fund; r.basePotUsd = r.fundedNow ? r.usd : 0;
+            const extra = gid ? { [String(r.p.bucket || '').toLowerCase()]: [{ id: gid, usdIncentives: r.basePotUsd, votingPower: Math.max(0, r.vp - r.votionVp) }] } : null;
+            const override = Object.assign({}, liveOverrideAll || {}, r.fundedNow ? {} : { [gid]: 0 });
+            const probeX = X > 0 ? X : 25;   // at $0 the "move per $" sort still needs a probe size
+            const simRes = gid && (r.basePotUsd + probeX) > 0 ? votionSimulate({ [gid]: probeX }, override, extra) : null; r.sr = simRes && simRes[r.simKey];
+            r.gainProbe = r.sr ? Math.max(0, r.sr.sim - r.sr.base) : null;
+            const vrow = store.votionByPid && store.votionByPid[r.simKey]; r.votionPlanDelta = vrow ? (vrow.planned_vp - vrow.current_vp) : null;   // Votion's own next move if nothing changes
+            r.grade = grades[r.p.gauge_pool_id] || null; r.mine = myPools.has(`${r.p.name}|${String(r.p.bucket || '').toUpperCase()}`);
+        }
+        const GRADE_ORD = { A: 0, B: 1, C: 2, D: 3, F: 4 };
+        const sortMode = store.voteMarketSort || 'pot';
+        const SORTS = {
+            pot:    { label: 'pot', tip: 'Biggest pots first; pools where Votion\'s votes are about to leave (pot not funded) pinned on top', fn: (a, b) => (Number(_isUnfundedWarn(b)) - Number(_isUnfundedWarn(a))) || (b.usd - a.usd) },
+            perdollar: { label: 'move per $', tip: 'Where a dollar moves the most Votion votes — the underdogs', fn: (a, b) => ((b.gainProbe || 0) - (a.gainProbe || 0)) },
+            grade:  { label: 'best grade', tip: 'By LP grade (A first) — good pools to point votes at', fn: (a, b) => ((GRADE_ORD[a.grade] ?? 9) - (GRADE_ORD[b.grade] ?? 9)) || (b.usd - a.usd) },
+            mine:   { label: 'my pools', tip: 'The selected wallet\'s LP positions first', fn: (a, b) => (Number(b.mine) - Number(a.mine)) || (b.usd - a.usd) },
+        };
+        rows.sort(SORTS[sortMode] ? SORTS[sortMode].fn : SORTS.pot.fn);
         const shown = rows.slice(0, store.bountyExpanded ? rows.length : 8);
         const GRID = 'grid-template-columns: minmax(130px,1.1fr) minmax(96px,0.9fr) minmax(96px,0.9fr) 70px minmax(150px,1.6fr)';
-        const ctl = `<div class="flex items-center gap-1.5 flex-wrap mb-2 text-[11px]"><span class="text-gray-500">if I add</span>${[10, 25, 50, 100, 250].map(v => `<button type="button" onclick="window.setVoteMarketX(${v})" class="px-2 py-0.5 rounded-full mono ${X === v ? 'bg-amber-500/25 text-amber-200' : 'bg-white/5 text-gray-400 hover:text-amber-300'}">$${v}</button>`).join('')}<span class="text-gray-500">to a pot for p${_vp2 || '?'} →</span><span class="ml-auto text-gray-600">$${X} is ${totalPot > 0 ? (X / totalPot * 100).toFixed(0) : '?'}% of everything funded</span></div>
-            <div class="grid gap-x-3 px-2 pb-1 text-[9px] uppercase tracking-wider text-gray-600" style="${GRID}"><div>pool</div><div class="text-right">pot · p${_vp2 || '?'}</div><div class="text-right">votes now</div><div class="text-right">$ / 1M</div><div class="text-right">+$${X} → Votion votes</div></div>`;
+        const ctl = `<div class="flex items-center gap-1.5 flex-wrap mb-1 text-[11px]"><span class="text-gray-500">if I add</span>${[0, 10, 25, 50, 100, 250].map(v => `<button type="button" onclick="window.setVoteMarketX(${v})" class="px-2 py-0.5 rounded-full mono ${X === v ? 'bg-amber-500/25 text-amber-200' : 'bg-white/5 text-gray-400 hover:text-amber-300'}">$${v}</button>`).join('')}<span class="text-gray-500">to a pot for p${_vp2 || '?'} →</span><span class="ml-auto text-gray-600">${X > 0 ? `$${X} is ${totalPot > 0 ? (X / totalPot * 100).toFixed(0) : '?'}% of everything funded` : 'showing Votion\'s next move if nothing changes'}</span></div>
+            <div class="flex items-center gap-1.5 flex-wrap mb-2 text-[11px]"><span class="text-gray-500">sort</span>${Object.entries(SORTS).filter(([k]) => k !== 'mine' || selM).map(([k, v]) => `<button type="button" onclick="window.setVoteMarketSort('${k}')" title="${v.tip}" class="px-2 py-0.5 rounded-full ${sortMode === k ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/5 text-gray-400 hover:text-cyan-300'}">${v.label}</button>`).join('')}</div>
+            <div class="grid gap-x-3 px-2 pb-1 text-[9px] uppercase tracking-wider text-gray-600" style="${GRID}"><div>pool</div><div class="text-right">pot · p${_vp2 || '?'}</div><div class="text-right">votes now</div><div class="text-right">$ / 1M</div><div class="text-right">${X > 0 ? `+$${X} → Votion votes` : 'Votion\'s next move'}</div></div>`;
         const cell = (v, cap, cls = 'text-gray-200') => `<div class="text-right"><div class="mono text-xs ${cls}">${v}</div>${cap ? `<div class="text-[9px] text-gray-600 leading-tight">${cap}</div>` : ''}</div>`;
         el.innerHTML = ctl + shown.map((r) => {
             const inSet = r.votionVp > 50000;
-            const gid = String(r.p.gauge_pool_id || '').replace(/^(cw20|native):/, '');
-            const simKey = String(r.p.bucket || '').toLowerCase() + '|' + gid;
-            const liveOverride = live ? Object.fromEntries(Object.entries(live.pots).map(([k, v]) => [k.split('|')[1], v.usd])) : null;
-            const _fund = r.liveMode ? { funded: r.usd > 0 } : (bribeFundedFor(r.p.gauge_pool_id, store.votionOptPeriod) || { funded: true });
-            const fundedNow = !!_fund.funded; const basePotUsd = fundedNow ? r.usd : 0;
-            const extra = gid ? { [String(r.p.bucket || '').toLowerCase()]: [{ id: gid, usdIncentives: basePotUsd, votingPower: Math.max(0, r.vp - r.votionVp) }] } : null;
-            const override = Object.assign({}, liveOverride || {}, fundedNow ? {} : { [gid]: 0 });
-            const simRes = gid && (basePotUsd + X) > 0 ? votionSimulate({ [gid]: X }, override, extra) : null; const sr = simRes && simRes[simKey];
+            const fundedNow = r.fundedNow, basePotUsd = r.basePotUsd, _fund = r.fund, sr = X > 0 ? r.sr : null;
             const gain = sr ? Math.max(0, sr.sim - sr.base) : null; const projVp = sr ? r.vp - r.votionVp + sr.sim : null;
             const bucketVp = Math.max(1, (store.data?.vote?.pools || []).filter(q2 => q2.bucket === r.p.bucket).reduce((s2, q2) => s2 + (q2.vp || 0), 0));
             const epv = emissionsPerVp(r.p); const gainUsdWk = gain != null && epv != null ? gain * epv : null;
@@ -6299,17 +6318,23 @@
             const votesCell = cell(fmtNum(r.vp), inSet ? `<span class="text-emerald-300/80">Votion ${fmtNum(r.votionVp)}</span>` : '<span class="text-gray-600">LP-voted</span>');
             const rateCell = cell(fundedNow && r.per1m != null ? fmt$(r.per1m) : '—', fundedNow && r.per1m != null && market ? `${r.per1m >= market ? '+' : ''}${((r.per1m / market - 1) * 100).toFixed(0)}% vs rate` : '');
             let projCell;
-            if (gain == null) projCell = cell('—', 'no inputs', 'text-gray-600');
+            if (X === 0) {   // Votion's own next move (its published plan vs its current votes), if nothing changes
+                const dv = r.votionPlanDelta;
+                projCell = dv == null ? cell('—', 'no plan', 'text-gray-600')
+                    : Math.abs(dv) < 1000 ? cell('holds', `${fmtNum(r.votionVp)} stays`, 'text-gray-500')
+                    : `<div class="text-right" title="Votion's published plan for p${_vp2 || '?'} minus its current votes on this pool"><div class="mono text-xs ${dv > 0 ? 'text-emerald-300' : 'text-red-300'}">${dv > 0 ? '+' : ''}${fmtNum(dv)} VP</div><div class="text-[9px] text-gray-500 leading-tight">${fmtNum(r.votionVp)} → ${fmtNum(r.votionVp + dv)}${epv != null ? ` · <span class="${dv > 0 ? 'text-emerald-300/90' : 'text-red-300/90'}">${dv > 0 ? '+' : ''}${fmt$(dv * epv)}/wk</span>` : ''}</div></div>`;
+            } else if (gain == null) projCell = cell('—', 'no inputs', 'text-gray-600');
             else if (gain < 1000) projCell = cell('≈ 0', fundedNow ? 'below Votion\'s rate — more needed' : `$${X} alone is under the rate here`, 'text-gray-500');
             else projCell = `<div class="text-right" title="Votion's optimizer re-run with +$${X} here: its votes ${fmtNum(sr.base)} → ${fmtNum(sr.sim)}"><div class="mono text-xs text-amber-200">+${fmtNum(gain)} VP</div><div class="text-[9px] text-gray-500 leading-tight">share ${(r.vp / bucketVp * 100).toFixed(0)}→${(projVp / bucketVp * 100).toFixed(0)}%${gainUsdWk != null ? ` · <span class="text-emerald-300/90">+${fmt$(gainUsdWk)}/wk</span>` : ''}${rateAfter ? ` · pays ${fmt$(rateAfter)}/1M` : ''}</div></div>`;
             const warn = !fundedNow && inSet ? `<div class="col-span-full text-[10px] text-amber-300/80 mt-0.5">Votion's ${fmtNum(r.votionVp)} VP here leaves unless p${_vp2 || '?'} is funded before it casts.</div>` : '';
             return `<div class="grid gap-x-3 items-center px-2 py-1.5 rounded-lg hover:bg-white/[0.03] border-t border-white/[0.04]" style="${GRID}">
-                <div class="min-w-0"><div class="text-sm font-medium truncate">${r.p.name}</div><div class="flex items-center gap-1">${dexTag(r.p.dex)}<span class="text-[9px] text-gray-600 uppercase">${r.p.bucket || ''}</span></div></div>
+                <div class="min-w-0"><div class="text-sm font-medium truncate">${r.p.name}${r.mine ? ' <span class="text-[9px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-300 font-normal">yours</span>' : ''}</div><div class="flex items-center gap-1">${dexTag(r.p.dex)}<span class="text-[9px] text-gray-600 uppercase">${r.p.bucket || ''}</span>${r.grade ? `<span class="text-[9px] px-1 rounded bg-white/5 text-gray-400" title="LP grade">${r.grade}</span>` : ''}</div></div>
                 ${potCell}${votesCell}${rateCell}${projCell}${warn}
             </div>`;
         }).join('') + (rows.length > 8 ? `<div class="text-center pt-1"><button type="button" class="text-[10px] px-3 py-1 rounded-full bg-white/5 text-gray-400 hover:text-amber-300 font-medium" onclick="toggleBountyExpand()">${store.bountyExpanded ? 'show top 8 only' : `show all ${rows.length} bribed pools`} <i class="fas fa-chevron-${store.bountyExpanded ? 'up' : 'down'} text-[8px] ml-1"></i></button></div>` : '');
     }
     window.setVoteMarketX = function (v) { store.voteMarketX = v; renderBountyBoard(); };
+    window.setVoteMarketSort = function (k) { store.voteMarketSort = k; renderBountyBoard(); };
 
     function toggleBountyExpand() {
         store.bountyExpanded = !store.bountyExpanded;
@@ -6320,56 +6345,60 @@
     // Per-pool live VP vs the locked-in (epoch start) baseline — the same baseline
     // the waterfall's "Locked-in" view uses. Top gainers and losers by ΔVP.
     function renderEpochMovers() {
+        // Owner 2026-08-25: three numbers per pool — what USERS moved since lock-in (on chain now; Votion's
+        // vault votes do not move until it casts), what VOTION PLANS (its published plan minus its current
+        // votes), and the PROJECTED total if nothing else changes. Ranked by projected. "yours" marks the
+        // selected wallet's pools, with the emissions impact.
         const el = document.getElementById('epoch-movers');
         if (!el) return;
         const locked = store.lockedInByPool;
         const pools = store.data?.vote?.pools || [];
-        if (!locked || !locked.size || !pools.length) {
-            el.innerHTML = '<div class="text-gray-600 text-sm">Waiting for the epoch-start baseline snapshot…</div>';
-            return;
-        }
+        if (!locked || !locked.size || !pools.length) { el.innerHTML = '<div class="text-gray-600 text-sm">Waiting for the epoch-start baseline snapshot…</div>'; return; }
         const keyOf = (p) => `${p.name}|${(p.dex || '').includes('Astro') ? 'Astro' : (p.dex || '').includes('Skeleton') ? 'Skeleton' : 'Single'}`;
-        const deltas = [];
+        const selM = (typeof getSelectedMember === 'function') ? getSelectedMember() : null;
+        const myPools = new Set((selM && selM.lp_positions || []).map(lp => `${lp.pool_name}|${String(lp.bucket || '').toUpperCase()}`));
+        const emissionsPerVp = (p) => { const lp = (store.tlaPools || []).find(x => x.name === p.name && (x.dex || '') === (p.dex || '')); const wk = lp && lp.rewards_per_year ? lp.rewards_per_year / 52.18 : null; return wk && p.vp > 0 ? wk / p.vp : null; };
+        const rows = [];
         for (const p of pools) {
             const base = locked.get(keyOf(p));
-            if (!base) continue;                       // new pools have no baseline
-            const d = (p.vp || 0) - (base.total || 0);
-            if (Math.abs(d) < 1000) continue;          // ignore dust moves
-            deltas.push({ p, d });
+            const users = base ? (p.vp || 0) - (base.total || 0) : null;              // on-chain since lock-in (no baseline → unknown, never 0)
+            const np = (store.pools || []).find(x => x.name === p.name && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase() && (x.dex || '') === (p.dex || '')) || p;   // Votion fields live on the normalized pools
+            const votion = (np.votion_next_vp || 0) - (np.votion_now_vp || 0);       // Votion's plan vs its current votes
+            const proj = (users || 0) + votion;
+            if (Math.abs(users || 0) < 1000 && Math.abs(votion) < 1000) continue;
+            rows.push({ p, users, votion, proj, mine: myPools.has(`${p.name}|${String(p.bucket || '').toUpperCase()}`), epv: emissionsPerVp(p) });
         }
-        if (!deltas.length) {
-            el.innerHTML = '<div class="text-gray-600 text-sm">No meaningful vote movement since epoch start yet.</div>';
-            return;
-        }
-        deltas.sort((a, b) => b.d - a.d);
-        // Rev T2: diverging bars — every row's magnitude on ONE shared scale
-        // from a center axis, so gainers vs losers read at a glance.
-        const gainers = deltas.filter(x => x.d > 0).slice(0, 5);
-        const losers = deltas.filter(x => x.d < 0).slice(-5).reverse();
-        const maxAbs = Math.max(...deltas.map(x => Math.abs(x.d)));
+        if (!rows.length) { el.innerHTML = '<div class="text-gray-600 text-sm">No meaningful vote movement since epoch start yet, and Votion plans no moves.</div>'; return; }
+        rows.sort((a, b) => b.proj - a.proj);
+        const gainers = rows.filter(x => x.proj > 0).slice(0, 6);
+        const losers = rows.filter(x => x.proj < 0).slice(-6).reverse();
+        const maxAbs = Math.max(...rows.map(x => Math.abs(x.proj)), 1);
+        const sgn = (v) => v == null ? '—' : (v > 0 ? '+' : '') + fmtNum(v);
         const row = (x) => {
-            const w = maxAbs > 0 ? Math.max(Math.abs(x.d) / maxAbs * 50, 1.5) : 0;
-            const pos = x.d > 0;
+            const pos = x.proj > 0; const wU = Math.abs(x.users || 0) / maxAbs * 50, wV = Math.abs(x.votion) / maxAbs * 50;
+            const impact = x.mine && x.epv != null ? `<div class="text-[9px] text-amber-300/90">your pool · emissions ${x.proj > 0 ? '+' : ''}${fmt$(x.proj * x.epv)}/wk if this holds</div>` : '';
             return `
-            <div class="p-2 rounded-lg bg-white/[0.02]">
-                <div class="flex items-center justify-between mb-1">
-                    <div class="flex items-baseline gap-2 min-w-0">
-                        <span class="text-sm font-medium truncate">${x.p.name}</span>
-                        <span class="text-[9px] text-gray-600 uppercase shrink-0">${x.p.bucket || ''}</span>
-                    </div>
-                    <span class="mono text-sm font-semibold shrink-0 ${pos ? 'text-emerald-400' : 'text-red-400'}">${pos ? '+' : ''}${fmtNum(x.d)} VP</span>
+            <div class="p-2 rounded-lg bg-white/[0.02]${x.mine ? ' border border-amber-500/20' : ''}">
+                <div class="flex items-center justify-between mb-0.5">
+                    <div class="flex items-baseline gap-2 min-w-0"><span class="text-sm font-medium truncate">${x.p.name}</span><span class="text-[9px] text-gray-600 uppercase shrink-0">${x.p.bucket || ''}</span>${x.mine ? '<span class="text-[9px] px-1 rounded bg-amber-500/15 text-amber-300">yours</span>' : ''}</div>
+                    <span class="mono text-sm font-semibold shrink-0 ${pos ? 'text-emerald-400' : 'text-red-400'}" title="projected = users + Votion's plan">${sgn(x.proj)} VP</span>
                 </div>
-                ${(() => { const vc = (x.p.votion_next_vp || 0) - (x.p.votion_now_vp || 0); return Math.abs(vc) >= 1000 ? `<div class="text-[9px] mb-1 ${vc > 0 ? 'text-emerald-300/80' : 'text-amber-300/80'}" title="Votion's published plan for next epoch on this pool (planned − current). Per-pool Votion history is not captured daily, so the share of THIS move that was Votion cannot be stated — this is what Votion says it will do next."><i class="fas fa-robot mr-1"></i>Votion plans ${vc > 0 ? '+' : ''}${fmtNum(vc)} VP next epoch</div>` : ''; })()}
-                <div class="relative h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
+                <div class="flex items-center gap-3 text-[10px] mono mb-1">
+                    <span class="text-gray-400" title="on-chain vote changes since the locked-in baseline (Votion's vault votes are not in here — it casts later)">users <span class="${(x.users || 0) >= 0 ? 'text-emerald-300/90' : 'text-red-300/90'}">${sgn(x.users)}</span></span>
+                    <span class="text-gray-400" title="Votion's published plan minus its current votes on this pool">Votion plans <span class="${x.votion >= 0 ? 'text-emerald-300/90' : 'text-red-300/90'}">${sgn(x.votion)}</span></span>
+                </div>
+                ${impact}
+                <div class="relative h-1.5 rounded-full bg-white/[0.04] overflow-hidden" title="light = users · dark = Votion's plan">
                     <div class="absolute top-0 bottom-0 left-1/2 w-px bg-white/15"></div>
-                    <div class="absolute top-0 bottom-0 ${pos ? 'left-1/2 bg-emerald-400/60 rounded-r-full' : 'right-1/2 bg-red-400/60 rounded-l-full'}" style="width:${w.toFixed(1)}%"></div>
+                    ${(x.users || 0) !== 0 ? `<div class="absolute top-0 bottom-0 ${(x.users || 0) > 0 ? 'left-1/2 bg-emerald-400/60' : 'right-1/2 bg-red-400/60'}" style="width:${Math.max(wU, 0.8).toFixed(1)}%"></div>` : ''}
+                    ${x.votion !== 0 ? `<div class="absolute top-0 bottom-0 ${x.votion > 0 ? 'bg-emerald-600/70' : 'bg-red-600/70'}" style="${x.votion > 0 ? `left:${(50 + ((x.users || 0) > 0 ? wU : 0)).toFixed(1)}%` : `right:${(50 + ((x.users || 0) < 0 ? wU : 0)).toFixed(1)}%`};width:${Math.max(wV, 0.8).toFixed(1)}%"></div>` : ''}
                 </div>
             </div>`;
         };
         el.innerHTML =
-            (gainers.length ? `<div class="text-[10px] text-emerald-400/80 uppercase tracking-wider font-semibold">Gaining support</div>` + gainers.map(row).join('') : '') +
-            (losers.length ? `<div class="text-[10px] text-red-400/80 uppercase tracking-wider font-semibold mt-2">Losing support</div>` + losers.map(row).join('') : '') +
-            `<div class="text-[9px] text-gray-600 pt-1">bars share one scale (widest = largest move) \u00b7 vs locked-in baseline${store.lockedInDate ? ` · ${store.lockedInDate}` : ''}</div>`;
+            (gainers.length ? `<div class="text-[10px] text-emerald-400/80 uppercase tracking-wider font-semibold">Gaining support · projected</div>` + gainers.map(row).join('') : '') +
+            (losers.length ? `<div class="text-[10px] text-red-400/80 uppercase tracking-wider font-semibold mt-2">Losing support · projected</div>` + losers.map(row).join('') : '') +
+            `<div class="text-[9px] text-gray-600 pt-1">projected = users' on-chain moves since lock-in${store.lockedInDate ? ` (${store.lockedInDate})` : ''} + Votion's published plan · Votion casts its votes at the end of the period · bars: light = users, dark = Votion</div>`;
     }
 
     // ---------------- People boards ----------------
@@ -9228,8 +9257,8 @@
         const press = Object.entries(agg).filter(([, a]) => Math.abs(a.np) >= 250).sort((x, y) => Math.abs(y[1].np) - Math.abs(x[1].np)).slice(0, 6);
         const chip = ([sym, a]) => `<span class="text-[10px] px-2 py-0.5 rounded ${a.np >= 0 ? 'bg-emerald-500/15 text-emerald-300' : 'bg-red-500/15 text-red-300'} mono" title="net buy − sell pressure from TLA flows (claims, zap-ins, zap-outs) over the last ${Math.min(4, closed.length)} closed epochs · liquidity ${a.nl >= 0 ? '+' : ''}${fmt$(a.nl)}">${sym} ${a.np >= 0 ? '+' : '−'}${fmt$(Math.abs(a.np))}</span>`;
         host.innerHTML = `
-            <div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1"><i class="fas fa-recycle text-emerald-400/80 mr-1"></i>Where the rewards go <span class="normal-case tracking-normal text-gray-600">— every LUNA reward claimed via TLA, by what the claim tx did with it</span></div>
-            <div class="text-sm text-gray-200 mb-2">E${last.epoch}: <span class="mono">${fmtNum(L.claimed)} LUNA</span> claimed — <span class="text-emerald-300">${pct(L.pct_compounded)} compounded</span> straight back into ampLUNA-backed LP, <span class="text-gray-300">${pct(L.pct_held)} claimed to wallets</span> (still on Terra as far as this ledger sees), <span class="text-sky-300">${pct(L.pct_swapped)} swapped</span> in the same tx.</div>
+            <div class="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-1"><i class="fas fa-recycle text-emerald-400/80 mr-1"></i>Where the rewards go <span class="normal-case tracking-normal text-gray-600">— every LUNA reward claimed via TLA, by what the claim tx did with it. "Compounded" = the Eris amplifier's claim cycle across all amplified positions.</span></div>
+            <div class="text-sm text-gray-200 mb-2">E${last.epoch}: <span class="mono">${fmtNum(L.claimed)} LUNA</span> claimed — <span class="text-emerald-300">${pct(L.pct_compounded)} compounded by the Eris amplifier</span> <span class="text-gray-400">(the amplifier claims every amplified position's LUNA at once, converts it to ampLUNA and bonds it back into those positions — all amp pools, not one)</span>, <span class="text-gray-300">${pct(L.pct_held)} claimed to wallets</span> (still on Terra as far as this ledger sees), <span class="text-sky-300">${pct(L.pct_swapped)} swapped</span> in the same tx.</div>
             ${bars}
             <div class="flex items-center gap-3 text-[9px] text-gray-500 mt-1"><span><span class="inline-block w-2 h-2 rounded-sm bg-emerald-500/70 mr-1"></span>compounded</span><span><span class="inline-block w-2 h-2 rounded-sm bg-sky-400/70 mr-1"></span>swapped in-tx</span><span><span class="inline-block w-2 h-2 rounded-sm bg-gray-500/50 mr-1"></span>claimed to wallet</span><span class="ml-auto">· = open epoch</span></div>
             <div class="text-[11px] text-gray-400 mt-2 mb-1">Net buy/sell pressure from TLA flows, last ${Math.min(4, closed.length)} closed epochs:</div>
