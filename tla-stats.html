@@ -5746,68 +5746,100 @@
         return { placements, leftover: leftover + remaining, unit };
     }
 
+    // ---------------- aDAO Vote Advisor v2 (SPEC-lp-grades-v2 §3 · owner doctrine 2026-08-25) ----------------
+    // Votes are EARNED: an existing pool qualifies with ≥4 epochs at C-or-better on the five lenses; a new /
+    // inactive / unsupported pool qualifies only through a declared reason (council override). Bribes are never
+    // an input. Recommend seldom: propose a change only when it is material; otherwise say "hold" and why.
+    const ADVISOR = { streak_required: 4, min_letter: 'C', chunk_bps: 1000, max_per_pool_bps: 5000, material_gain_pct: 10, rescue_band_pct: 2,
+        GAUGE_CONTROLLER: 'terra1hfksrhchkmsj4qdq33wkksrslnfles6y2l77fmmzeep0xmq24l2smsd3lj',
+        overrides: [] };   // council-declared reasons: [{ gauge_pool_id, reason }] — none today; added by DAO decision, shown verbatim
+    function computeAdvisorV2(preview) {
+        const prod = store.lpGrades; const treasury = store.adaoPositions?.treasury;
+        if (!prod || !prod.v2 || !treasury) return null;
+        const totalVp = treasury.voting?.total_voting_power_human || 0; if (!totalVp) return null;
+        const LO = { A: 4, B: 3, C: 2, D: 1, F: 0 };
+        const chunks = Math.round(10000 / ADVISOR.chunk_bps), chunkVp = totalVp / chunks;
+        const poolsV = store.data?.vote?.pools || [];
+        const bucketVp = {}; for (const q of poolsV) bucketVp[String(q.bucket || '').toLowerCase()] = (bucketVp[String(q.bucket || '').toLowerCase()] || 0) + (q.vp || 0);
+        const emisWk = {}; for (const sp of (store.tlaPools || [])) emisWk[`${sp.name}|${sp.dex || ''}`] = sp.rewards_per_year ? sp.rewards_per_year / 52.18 : 0;
+        const bucketWk = {}; for (const p of prod.pools) { const b = String(p.bucket || '').toLowerCase(); bucketWk[b] = (bucketWk[b] || 0) + (emisWk[`${p.name}|${p.dex || ''}`] || 0); }
+        const normP = (p) => (store.pools || []).find(x => x.name === p.name && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase() && (x.dex || '') === (p.dex || ''));
+        const current = {}; for (const [bucket, info] of Object.entries(treasury.voting?.votes_per_bucket || {})) current[String(bucket).toLowerCase()] = new Map((info.votes || []).map(v => [v.pool_gauge_id, v.weight_bps || 0]));
+        const byBucket = {}; const nameOf = {};
+        for (const bucket of ['stable', 'project', 'bluechip', 'single']) {
+            const all = prod.pools.filter(p => String(p.bucket || '').toLowerCase() === bucket && p.gaugeActive !== false);
+            for (const p of all) nameOf[p.gauge_pool_id] = p.name;
+            const ov = (p) => ADVISOR.overrides.find(o => o.gauge_pool_id === p.gauge_pool_id);
+            const earned = (p) => p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter] && (p.v2.streak || 0) >= ADVISOR.streak_required;
+            const eligible = all.filter(p => (preview ? (p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter]) : earned(p)) || ov(p));
+            const earning = all.filter(p => p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter] && !earned(p) && !ov(p)).map(p => ({ p, streak: p.v2.streak || 0 }));
+            const cur = current[bucket] || new Map();
+            const score = (p, assignedBps) => {
+                const np = normP(p) || {}; const vp = p.vp || 0; const votionNext = np.votion_next_vp || 0;
+                const cover = vp > 0 ? Math.min(1, votionNext / (vp + chunkVp)) : 0;                       // Votion already bringing votes here
+                const rescue = (p.pct_of_bucket != null && p.pct_of_bucket >= 1 && p.pct_of_bucket < ADVISOR.rescue_band_pct) ? 1.5 : 1;   // good pool sliding toward the line
+                const mine = assignedBps / 10000 * totalVp; const dimin = vp > 0 ? vp / (vp + mine) : 1;   // diminishing as our share grows
+                return ((p.v2 ? p.v2.composite : 50) / 100) * rescue * (1 - 0.7 * cover) * dimin;
+            };
+            const rec = new Map(); const reasons = new Map();
+            if (eligible.length) for (let c = 0; c < chunks; c++) {
+                let best = null, bestS = -1;
+                for (const p of eligible) { const bps = rec.get(p.gauge_pool_id) || 0; if (bps >= ADVISOR.max_per_pool_bps) continue; const sc = score(p, bps); if (sc > bestS) { bestS = sc; best = p; } }
+                if (!best) break; rec.set(best.gauge_pool_id, (rec.get(best.gauge_pool_id) || 0) + ADVISOR.chunk_bps);
+            }
+            for (const p of eligible) { const np = normP(p) || {}; const o = ov(p); const bits = [];
+                if (p.v2) bits.push(`${p.v2.letter} · ${p.v2.streak || 0} ep streak`); if (o) bits.push(`declared: ${o.reason}`);
+                if (p.pct_of_bucket != null && p.pct_of_bucket >= 1 && p.pct_of_bucket < ADVISOR.rescue_band_pct) bits.push(`${p.pct_of_bucket.toFixed(2)}% of bucket — near the line`);
+                if ((np.votion_next_vp || 0) > (p.vp || 0) * 0.25) bits.push('Votion already covering'); if (p.v2 && p.v2.why) bits.push(p.v2.why);
+                reasons.set(p.gauge_pool_id, bits.join(' · ')); }
+            // value of an allocation = Σ chunk × score at that assignment (recomputed incrementally)
+            const valueOf = (alloc) => { let v = 0; for (const [g, bps] of alloc) { const p = all.find(x => x.gauge_pool_id === g); if (!p) continue; for (let k = 0; k < bps / ADVISOR.chunk_bps; k++) v += score(p, k * ADVISOR.chunk_bps); } return v; };
+            const vCur = valueOf(cur), vRec = valueOf(rec);
+            const gainPct = vCur > 0 ? (vRec - vCur) / vCur * 100 : (vRec > 0 ? 100 : 0);
+            const shifts = []; for (const g of new Set([...cur.keys(), ...rec.keys()])) { const d = (rec.get(g) || 0) - (cur.get(g) || 0); if (d) shifts.push({ gauge_pool_id: g, name: nameOf[g] || g.slice(0, 14) + '…', delta_bps: d, reason: reasons.get(g) || (d < 0 ? 'no longer earned (letter or streak below the bar)' : '') }); }
+            shifts.sort((x, y) => y.delta_bps - x.delta_bps);
+            const hold = !eligible.length || gainPct < ADVISOR.material_gain_pct || !shifts.length;
+            const movedBps = shifts.filter(x => x.delta_bps > 0).reduce((s2, x) => s2 + x.delta_bps, 0);
+            const emisRedirectWk = (bucketVp[bucket] > 0 ? (movedBps / 10000 * totalVp) / bucketVp[bucket] : 0) * (bucketWk[bucket] || 0);
+            const rescued = eligible.filter(p => rec.get(p.gauge_pool_id) > 0 && p.pct_of_bucket != null && p.pct_of_bucket < ADVISOR.rescue_band_pct).map(p => p.name);
+            byBucket[bucket] = { all, eligible, earning, cur, rec, shifts, hold, gainPct, emisRedirectWk, rescued, bucketVp: bucketVp[bucket] || 0 };
+        }
+        return { totalVp, chunkVp, byBucket, nameOf, preview };
+    }
     function renderVoteAdvisor() {
-        const el = document.getElementById('grades-advisor');
-        if (!el) return;
-        const prod = store.lpGrades;
-        if (!prod?.rubric?.advisor) { el.innerHTML = ''; return; }
-        const advice = computeVoteAdvice();
-        const rv = prod.rubric.config_version;
-        const bpsPct = (bps) => (bps / 100).toFixed(0) + '%';
-        let voteHtml;
-        if (!advice) {
-            voteHtml = '<div class="text-[11px] text-gray-600">Treasury vote data unavailable — the advisor needs the aDAO positions product.</div>';
-        } else {
-            voteHtml = Object.entries(advice.byBucket).map(([bucket, b]) => {
-                const curStr = b.current.size ? [...b.current.entries()].map(([g, w]) => `${b.nameOf(g)} ${bpsPct(w)}`).join(' · ') : '<span class="text-gray-600">no votes</span>';
-                const recStr = b.recommended.size ? [...b.recommended.entries()].sort((x, y) => y[1] - x[1]).map(([g, w]) => `${b.nameOf(g)} ${bpsPct(w)}`).join(' · ') : '<span class="text-gray-600">—</span>';
-                const shifts = b.shifts.filter(s => s.delta_bps !== 0);
-                const shiftStr = shifts.length
-                    ? shifts.sort((x, y) => y.delta_bps - x.delta_bps).map(s => `<span class="${s.delta_bps > 0 ? 'text-emerald-400' : 'text-amber-300'}">${s.delta_bps > 0 ? '+' : ''}${bpsPct(s.delta_bps)} ${b.nameOf(s.gid)}</span>`).join(' · ')
-                    : '<span class="text-emerald-500/80">already aligned with the rubric</span>';
-                return `<div class="py-1.5 border-b border-white/5 last:border-0">
-                    <div class="text-[10px] uppercase text-gray-500 mb-0.5">${bucket}</div>
-                    <div class="text-[11px]"><span class="text-gray-600 inline-block w-20">Now:</span>${curStr}</div>
-                    <div class="text-[11px]"><span class="text-gray-600 inline-block w-20">Rubric says:</span>${recStr}</div>
-                    <div class="text-[11px]"><span class="text-gray-600 inline-block w-20">Shift:</span>${shiftStr}</div>
-                </div>`;
-            }).join('');
-        }
-        const budget = store.bribeBudget || 0;
-        const presets = prod.rubric.advisor.bribe?.presets_usd || [25, 50, 75, 100];
-        let planHtml = '';
-        if (budget > 0) {
-            const plan = computeBribePlan(budget);
-            planHtml = plan && plan.placements.length
-                ? plan.placements.map(pl => `<div class="flex items-start justify-between text-[11px] py-1 border-b border-white/5 last:border-0">
-                        <div><span class="mono text-amber-300">${fmt$(pl.usd)}</span> → <span class="font-medium">${pl.name}</span> <span class="text-[9px] text-gray-600 uppercase">${pl.bucket}</span> <span class="text-[9px] px-1 rounded bg-white/5 text-gray-400">${pl.grade || '—'}</span>
-                        ${pl.why ? `<div class="text-[10px] text-cyan-300/70">${pl.why}</div>` : ''}</div>
-                    </div>`).join('') + (plan.leftover > 0 ? `<div class="text-[10px] text-gray-600 pt-1">${fmt$(plan.leftover)} left unplaced (below the ${fmt$(plan.unit)} unit).</div>` : '')
-                : '<div class="text-[11px] text-gray-600 py-1">No qualifying targets right now — every underpaid pool already has a pot.</div>';
-        }
+        const el = document.getElementById('grades-advisor'); if (!el) return;
+        const adv = computeAdvisorV2(!!store.advisorPreview);
+        if (!adv) { el.innerHTML = '<div class="text-[11px] text-gray-500 mt-2">aDAO Vote Advisor: waiting for the grades (v2) and the treasury positions products.</div>'; return; }
+        const pct = (bps) => (bps / 100).toFixed(0) + '%';
+        const barOf = (alloc, nameOf, tone) => { const ents = [...alloc.entries()].filter(([, b]) => b > 0).sort((x, y) => y[1] - x[1]); const cols = ['bg-cyan-500/70', 'bg-teal-500/70', 'bg-sky-500/70', 'bg-indigo-500/70', 'bg-violet-500/70', 'bg-fuchsia-500/60']; return `<div class="flex h-5 rounded overflow-hidden bg-white/[0.04]" style="background-image:repeating-linear-gradient(90deg,transparent 0 9.9%,rgba(255,255,255,.08) 9.9% 10%)">${ents.map(([g, b], i) => `<div class="${tone === 'rec' ? cols[i % cols.length] : 'bg-gray-500/60'} h-full text-[9px] leading-5 px-1 truncate text-white/90" style="width:${b / 100}%" title="${nameOf[g] || g} ${pct(b)}">${b >= 2000 ? (nameOf[g] || '') + ' ' + pct(b) : ''}</div>`).join('') || '<div class="text-[9px] leading-5 px-1 text-gray-600">no votes</div>'}</div>`; };
+        const anyChange = Object.values(adv.byBucket).some(b => !b.hold);
+        const msgs = Object.entries(adv.byBucket).filter(([, b]) => !b.hold && b.rec.size).map(([bucket, b]) => ({ wasm: { execute: { contract_addr: ADVISOR.GAUGE_CONTROLLER, msg: { vote: { gauge: bucket, votes: [...b.rec.entries()].filter(([, w]) => w > 0).map(([g, w]) => [g, w]) } }, funds: [] } } }));
+        const bucketsHtml = Object.entries(adv.byBucket).map(([bucket, b]) => `
+            <div class="rounded-lg bg-white/[0.02] border border-white/[0.05] p-3">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">${bucket}</span>
+                    <span class="text-[10px] ${b.hold ? 'text-gray-500' : 'text-emerald-300'}">${b.hold ? (b.eligible.length ? `hold — ${b.shifts.length ? `only ${b.gainPct.toFixed(0)}% better, not material` : 'nothing has earned a move'}` : 'hold — no pool has earned a vote yet') : `recommend · ${b.gainPct.toFixed(0)}% more system value`}</span></div>
+                <div class="text-[9px] text-gray-600 mb-0.5">NOW</div>${barOf(b.cur, adv.nameOf, 'cur')}
+                <div class="text-[9px] text-gray-600 mt-1.5 mb-0.5">${b.hold ? 'RECOMMENDED (same)' : 'RECOMMENDED'}</div>${barOf(b.hold ? b.cur : b.rec, adv.nameOf, b.hold ? 'cur' : 'rec')}
+                ${!b.hold ? `<div class="mt-2 space-y-0.5">${b.shifts.map(x => `<div class="text-[11px]"><span class="mono ${x.delta_bps > 0 ? 'text-emerald-300' : 'text-red-300'}">${x.delta_bps > 0 ? '+' : ''}${pct(x.delta_bps)} ${x.name}</span> <span class="text-gray-500">— ${x.reason}</span></div>`).join('')}</div>
+                <div class="text-[10px] text-gray-400 mt-2">≈ <span class="text-emerald-300 mono">+${fmt$(b.emisRedirectWk)}/wk</span> of LUNA emissions redirected${b.rescued.length ? ` · keeps ${b.rescued.join(', ')} above the line` : ''}</div>` : ''}
+                ${b.earning.length ? `<div class="text-[10px] text-gray-500 mt-2">Earning (C+ but under the ${ADVISOR.streak_required}-epoch bar): ${b.earning.sort((x, y) => y.streak - x.streak).map(e => `<span class="inline-block px-1.5 py-0.5 rounded bg-white/5 mr-1 mb-1">${e.p.name} <span class="mono text-gray-400">${e.streak}/${ADVISOR.streak_required}</span></span>`).join('')}</div>` : ''}
+            </div>`).join('');
         el.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                <div class="rounded-lg bg-cyan-500/[0.04] border border-cyan-500/15 p-3">
-                    <div class="text-xs font-semibold text-cyan-300 mb-1"><i class="fas fa-compass mr-1"></i>aDAO Vote Advisor
-                        <i class="fas fa-circle-info text-gray-600 ml-1 cursor-help" title="Deterministic output of the public rubric (${rv}): the treasury's full VP allocates per bucket in ${advice ? advice.chunkPct : 10}% chunks; each chunk goes to the bucket pool with the highest marginal quality × underpaid score, recomputed after every chunk as our own votes raise that pool's support. Pools below quality ${advice ? advice.minQuality : ''} are excluded, and no single pool may take more than ${(prod.rubric.advisor.vote.max_per_pool_bps || 10000) / 100}% of a bucket (diversification cap). This is the rubric's answer, not an instruction — council judgment decides."></i>
-                    </div>
-                    <div class="text-[10px] text-gray-500 mb-1">How the treasury votes now vs. what the rubric recommends, in TLA's 10% chunks — with the exact shifts to get there.</div>
-                    ${voteHtml}
+            <div class="rounded-xl border border-cyan-500/20 bg-cyan-500/[0.03] p-4 mb-3">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                    <div class="text-sm font-semibold flex items-center gap-2"><i class="fas fa-compass text-cyan-400"></i> aDAO Vote Advisor <span class="text-[10px] font-normal text-gray-500">votes are earned · ${fmtNum(adv.totalVp)} VP · 10% chunks</span></div>
+                    <div class="flex items-center gap-2 text-[10px]"><label class="flex items-center gap-1 text-gray-400 cursor-pointer" title="Show what the recommendation WOULD be once streaks reach the bar, using today's letters. A preview, not a recommendation."><input type="checkbox" ${store.advisorPreview ? 'checked' : ''} onchange="window.toggleAdvisorPreview()"> preview at full streaks</label>
+                        ${msgs.length ? `<button type="button" onclick="window.copyAdvisorMsg()" class="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25">copy proposal message</button>` : ''}</div>
                 </div>
-                <div class="rounded-lg bg-amber-500/[0.04] border border-amber-500/15 p-3">
-                    <div class="text-xs font-semibold text-amber-300 mb-1"><i class="fas fa-sack-dollar mr-1"></i>Bribe Planner
-                        <i class="fas fa-circle-info text-gray-600 ml-1 cursor-help" title="Places a budget where it works hardest per the rubric: greedy by need score (quality × underpaid) with diminishing pull as a pool's planned pot grows — a big budget naturally splits (up to ${prod.rubric.advisor.bribe?.max_splits || 4} pools), a small one concentrates. Placements under ${fmt$(prod.rubric.advisor.bribe?.min_effective_pot_usd || 25)} merge upward rather than dust-split."></i>
-                    </div>
-                    <div class="text-[10px] text-gray-500 mb-1">If aDAO used some of its rewards as voting incentives — where would a budget do the most for the system?</div>
-                    <div class="flex items-center gap-1.5 flex-wrap mb-1.5">
-                        ${presets.map(v => `<button type="button" onclick="setBribeBudget(${v})" class="text-[11px] px-2.5 py-0.5 rounded-full font-medium ${budget === v ? 'bg-amber-500/20 text-amber-300' : 'bg-white/5 text-gray-400 hover:text-gray-300'}">$${v}</button>`).join('')}
-                        <input id="bribe-custom" type="number" min="1" placeholder="custom $" value="${budget && !presets.includes(budget) ? budget : ''}" class="w-20 bg-white/5 border border-white/10 rounded px-2 py-0.5 text-[11px] text-gray-300" onkeydown="if(event.key==='Enter'){setBribeBudget(parseFloat(this.value)||0)}">
-                        <button type="button" onclick="setBribeBudget(parseFloat(document.getElementById('bribe-custom').value)||0)" class="text-[11px] px-2 py-0.5 rounded bg-white/5 text-gray-400 hover:text-gray-300">Plan</button>
-                    </div>
-                    ${planHtml}
-                </div>
+                <div class="text-[11px] text-gray-400 mb-3 leading-snug">The rule: an existing pool earns aDAO votes with <b class="text-gray-300">${ADVISOR.streak_required} consecutive epochs at ${ADVISOR.min_letter} or better</b> on the five lenses; a new, inactive or unsupported pool only through a reason the council declares. Bribes are never an input — what our votes earn is a bonus reported elsewhere. A change is proposed only when it is at least ${ADVISOR.material_gain_pct}% more system value than what we vote today${anyChange ? '' : ' — <span class="text-gray-300">today that is nothing: hold</span>'}. ${store.advisorPreview ? '<span class="text-amber-300">PREVIEW — streak bar suspended, letters as of today.</span>' : ''}</div>
+                <div class="grid md:grid-cols-2 gap-3">${bucketsHtml}</div>
+                ${msgs.length ? `<details class="mt-3 text-[10px]"><summary class="cursor-pointer text-gray-400">proposal message (${msgs.length} vote${msgs.length === 1 ? '' : 's'} on the gauge controller)</summary><pre id="advisor-msg" class="mono text-[10px] text-gray-300 whitespace-pre-wrap mt-1 p-2 rounded bg-black/30">${esc2(JSON.stringify(msgs, null, 2))}</pre></details>` : ''}
+                <div class="text-[9px] text-gray-600 mt-2">System value per chunk = the pool's five-lens composite × 1.5 when it is between 1% and ${ADVISOR.rescue_band_pct}% of its bucket (a good pool near the line) × (1 − 0.7 × the share Votion already plans to bring) × diminishing as our own share of the pool grows; capped at ${pct(ADVISOR.max_per_pool_bps)} per pool. Every input is on this tab. Recommendations are recorded per epoch from E201; the record is not public yet.</div>
             </div>`;
     }
+    const esc2 = (x) => String(x).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    window.toggleAdvisorPreview = function () { store.advisorPreview = !store.advisorPreview; renderVoteAdvisor(); };
+    window.copyAdvisorMsg = function () { const el = document.getElementById('advisor-msg'); if (!el) return; (navigator.clipboard ? navigator.clipboard.writeText(el.textContent) : Promise.reject()).catch(() => {}); };
     function setBribeBudget(v) { store.bribeBudget = v > 0 ? v : 0; renderVoteAdvisor(); }
 
     // ============================================================
@@ -5987,23 +6019,7 @@
         if (descEl) descEl.textContent = active.description || '';
 
         // ---- callouts (from overlay facts, bucket-aware medians upstream)
-        const callEl = document.getElementById('grades-callouts');
-        if (callEl) {
-            const underpaid = gradedRows.filter(p => p.overlay?.balance === 'underpaid' && q(p) >= 55).sort((a, b) => (b.overlay.need_score || 0) - (a.overlay.need_score || 0)).slice(0, 3);
-            const over = gradedRows.filter(p => p.overlay?.balance === 'overweighted').sort((a, b) => (b.vp || 0) - (a.vp || 0)).slice(0, 3);
-            const li = (p, cls) => `<div class="flex items-center justify-between text-xs py-1"><span class="font-medium">${dispName(p.name)} <span class="text-[9px] text-gray-600">${p.dex || ''}</span></span><span class="mono ${cls}">${p.overlay?.ratio_vs_bucket_median != null ? p.overlay.ratio_vs_bucket_median.toFixed(1) + '\u00d7 bucket median' : '\u2014'}</span></div>`;
-            callEl.innerHTML = `
-                <div class="rounded-lg bg-emerald-500/[0.06] border border-emerald-500/20 p-3">
-                    <div class="text-xs font-semibold text-emerald-400 mb-1"><i class="fas fa-hand-point-right mr-1"></i>Votes help most here \u2014 underpaid workhorses</div>
-                    <div class="text-[10px] text-gray-500 mb-1">Quality pools carrying more liquidity per vote than their bucket's median. Support keeps their LPs from leaving.</div>
-                    ${underpaid.length ? underpaid.map(p => li(p, 'text-emerald-400')).join('') : '<div class="text-[11px] text-gray-600">None right now \u2014 support looks balanced.</div>'}
-                </div>
-                <div class="rounded-lg bg-amber-500/[0.06] border border-amber-500/20 p-3">
-                    <div class="text-xs font-semibold text-amber-300 mb-1"><i class="fas fa-scale-unbalanced mr-1"></i>Overweighted \u2014 votes outrunning liquidity</div>
-                    <div class="text-[10px] text-gray-500 mb-1">Heavy vote support with comparatively little staked liquidity behind it \u2014 emissions working below capacity.</div>
-                    ${over.length ? over.map(p => li(p, 'text-amber-300')).join('') : '<div class="text-[11px] text-gray-600">None right now.</div>'}
-                </div>`;
-        }
+        const callEl = document.getElementById('grades-callouts'); if (callEl) callEl.innerHTML = '';   // 2026-08-25: the v1 underpaid/overweighted callouts retired — the five-lens field + Advisor cover them
 
         // ---- plain-language "why" line from the overlay facts
         const whyLine = (p) => {
