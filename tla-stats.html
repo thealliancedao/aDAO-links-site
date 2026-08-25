@@ -1128,7 +1128,7 @@
                         <div id="bounty-summary" class="flex items-center gap-3 text-xs mono text-gray-400"></div>
                     </div>
                     <p class="text-xs text-gray-500 mb-1">What a vote costs this epoch, and what your bribe would buy. Votion moves votes toward the best <span class="text-amber-300/80 font-medium">$ per 1M VP</span> until pools pay about the same — that going rate is the <span class="text-amber-300/80 font-medium">market</span>. <span class="desc-toggle" onclick="document.getElementById('bounty-full').classList.toggle('open')">how it's estimated</span></p>
-                    <div id="bounty-full" class="desc-full"><span class="ex-lead">The model:</span> market rate = the VP-weighted median of bribe ÷ votes across bribed pools with real votes (open bounties and dust excluded). Adding $X to a pool raises its rate; Votion re-allocates until the pool is back at market, so projected votes ≈ (bribe + X) ÷ market rate, capped by the votes Votion actually has. Projected LUNA is that vote share × the pool's current emissions per vote. Honest limits: Votion is ~28% of the electorate and exits pools it dislikes regardless (it is leaving both CAPA gauges next epoch at a near-market rate); other voters chase bribes too; timing is an epoch. This is a planning number, not a promise — and it is back-testable against Votion's published plan every epoch.</div>
+                    <div id="bounty-full" class="desc-full"><span class="ex-lead">The model:</span> the projection runs Votion's own optimizer. Its captured worksheet shows the reward model (expected reward = bribe × your-votes ÷ (gauge votes + your-votes)) and the objective (maximize the sum across gauges with the vault's VP as budget); we solve that objective exactly on the same inputs with your $X added, for both max vaults — Votion's own solver stops 1–2% short of the optimum, so this is where it is aiming. Votion re-votes only when the change is worth it (observed: keeps current under ~4% deviation or ~$1 of gain). Two kinds of votes exist. LPs vote their own pools to keep emissions flowing — those votes are not for sale and sit below the rate. Votion's ~8M VP goes wherever bribe ÷ votes is best, so on the pools Votion is in, the rate equalises; that median is "Votion's rate". Add $X to a pool and its rate jumps above it; Votion moves votes in until the pool pays the rate again — projected votes ≈ (bribe + X) ÷ rate, capped by the Votion votes not already in that pool. Projected LUNA = those votes × the pool's current emissions per vote. Limits: Votion also exits pools it judges poorly regardless (both CAPA gauges next epoch at a fair rate); timing is one epoch; other bribers react. A planning number, back-testable against Votion's published plan every epoch.</div>
                     <div id="bounty-board-rows" class="space-y-1.5 mt-3">
                         <div class="loading-pulse text-gray-500 text-sm">Loading...</div>
                     </div>
@@ -3140,7 +3140,7 @@
                 // Batch A (2026-08-24): Votion's VP per pool — current AND planned — from the org votion
                 // product (aggregate per gauge, keyed by bare LP address / native denom). The snapshot's
                 // votion_current_vp field no longer exists, which is why every bucket read "Votion 0.00".
-                fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/optimization/current.json?t=' + Math.floor(Date.now() / 900000)).then(r => r.ok ? r.json() : null).catch(() => null).then(d => { store.votionByPid = {}; for (const [gauge, gd] of Object.entries((d && d.aggregate) || {})) for (const [pid, pp] of Object.entries(gd.pools || {})) store.votionByPid[gauge + '|' + pid] = { current_vp: pp.current_vp || 0, planned_vp: pp.planned_vp || 0 }; store.votionOptAt = d && d.capturedAt || null; store.votionOptPeriod = d && d.period || null; return d; }),
+                fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/optimization/current.json?t=' + Math.floor(Date.now() / 900000)).then(r => r.ok ? r.json() : null).catch(() => null).then(d => { store.votionByPid = {}; for (const [gauge, gd] of Object.entries((d && d.aggregate) || {})) for (const [pid, pp] of Object.entries(gd.pools || {})) store.votionByPid[gauge + '|' + pid] = { current_vp: pp.current_vp || 0, planned_vp: pp.planned_vp || 0 }; store.votionOptAt = d && d.capturedAt || null; store.votionOptPeriod = d && d.period || null; store.votionOptRaw = d; return d; }),
                 fetch(CONFIG.tlaSnapshotUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('tla-snapshot fetch:', e.message); return null; }),
                 fetch(CONFIG.networkPricesUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('network-prices fetch:', e.message); return null; }),
                 fetch(CONFIG.adaoPositionsUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('adao-positions fetch:', e.message); return null; }),
@@ -6145,6 +6145,86 @@
         });
     }
 
+    // ---------------- Votion's optimizer, reproduced (owner 2026-08-24) ----------------
+    // Verified against every bucket-plan in the captured payload: Votion's reward model is
+    // expectedReward = bribe × a/(V+a) (V = gauge VP excluding the vault's own votes), and its
+    // objective is max Σ over gauges with the vault's VP as budget. Its own solver runs 1–4
+    // iterations and lands 1–2% under the true optimum; we solve the same objective exactly
+    // (marginal equalisation), so our answer is where Votion is aiming. Both max vaults are
+    // solved, the second seeing the first's new votes in V. A hysteresis rule sits on top
+    // (observed: keeps current under ~4% deviation or ~$1 gain; re-votes at 44%+/$15+).
+    function votionWaterFill(opts, P) {
+        const f = (lam) => { const a = {}; for (const o of opts) { const b = o.usdIncentives || 0, V = o.votingPower || 0; a[o.id] = (b > 0 && V > 0) ? Math.max(0, Math.sqrt(b * V / lam) - V) : 0; } return a; };
+        let lo = 1e-18, hi = 1e3;
+        for (let i = 0; i < 120; i++) { const mid = Math.sqrt(lo * hi); const tot = Object.values(f(mid)).reduce((s, x) => s + x, 0); if (tot > P) lo = mid; else hi = mid; }
+        return f(hi);
+    }
+    // addUsd: { gaugeId(bare): +$ } → { [bucket|gaugeId]: { base, sim, plan } } Votion VP (both max vaults summed)
+    function votionSimulate(addUsd, usdOverride, extraOptions) {   // usdOverride: { bareGaugeId: liveUsd } (live auction); extraOptions: { bucket: [{id, usdIncentives, votingPower}] } for gauges funded live but absent from the captured option set
+        const raw = store.votionOptRaw; if (!raw || !raw.vaults) return null;
+        const vaults = ['ampluna-max', 'arbluna-max'].map(k => raw.vaults[k]).filter(v => v && Array.isArray(v.optimizations));
+        if (!vaults.length) return null;
+        const run = (add) => {
+            const out = {}; const placed = {};   // placed[bucket|g] = Σ allocations by vaults already solved (so the next vault sees them in V)
+            for (const v of vaults) for (const o of v.optimizations) {
+                const bucket = o.id; const own = (o.activeVoted || {});
+                const extra = (extraOptions && extraOptions[bucket] || []).filter(x => !o.votingOptions.some(q => q.id === x.id));
+                const opts = [...o.votingOptions, ...extra].map(q => { const k = bucket + '|' + q.id; const otherVaultsPrior = placed[k] || 0; const baseUsd = (usdOverride && usdOverride[q.id] != null) ? usdOverride[q.id] : (q.usdIncentives || 0); return { id: q.id, usdIncentives: baseUsd + ((add && add[q.id]) || 0), votingPower: Math.max(0, (q.votingPower || 0) + otherVaultsPrior) }; });
+                const a = votionWaterFill(opts, o.votingPower || 0);
+                for (const [g, x] of Object.entries(a)) { const k = bucket + '|' + g; out[k] = (out[k] || 0) + x; placed[k] = (placed[k] || 0) + x; }
+            }
+            return out;
+        };
+        const base = run(null), sim = run(addUsd);
+        const plan = {}; for (const v of vaults) for (const o of v.optimizations) for (const x of (o.optimization && o.optimization.votes) || []) { const k = o.id + '|' + x.id; plan[k] = (plan[k] || 0) + (x.votingPowerToAllocate || 0); }
+        const res = {}; for (const k of new Set([...Object.keys(base), ...Object.keys(sim), ...Object.keys(plan)])) res[k] = { base: base[k] || 0, sim: sim[k] || 0, plan: plan[k] || 0 };
+        return res;
+    }
+
+    // Period-keyed funding (owner catch 2026-08-24): a pot is "live" only for the periods it is funded
+    // for. Votion optimizes for its `period`; a pot funded through 199 is not an option for 200.
+    // Source: tla-voting/bribe-state/runway.json per_period map. null = runway not loaded (unknown).
+    function bribeFundedFor(gaugePoolId, period) {
+        const rw = store.bribeRunway; if (!rw || !Array.isArray(rw.pools) || !period) return null;
+        const row = rw.pools.find(x => x.pool === gaugePoolId); if (!row) return { funded: false, usd: null, tokens: [] };
+        const toks = []; let any = false;
+        for (const [den, v] of Object.entries(row.by_denom || {})) { const amt = v.per_period && v.per_period[String(period)]; if (amt && Number(amt) > 0) { any = true; toks.push({ denom: den, raw: amt }); } }
+        return { funded: any, tokens: toks, last_funded_period: row.last_funded_period, epochs_left: row.epochs_left };
+    }
+
+    // ---------------- LIVE pots (owner 2026-08-24: "it's a battle of bribes until Votion casts") ----------------
+    // Votion re-optimizes every ~15 min; the captured snapshot can be hours behind the auction. One
+    // smart query on the incentive manager returns every pot for a period — read it live, price it
+    // with the catalog, and let the Vote Market run the optimizer on what is funded RIGHT NOW.
+    const TLA_INCENTIVE_MANAGER = 'terra1tuuwm8yrj54qeg0c8xu00aha9ryatyhtczq8qq2q8tntuw0auzas9037wh';
+    async function fetchLivePots(period) {
+        const LCD = (CONFIG.lcds && CONFIG.lcds[0]) || 'https://terra-lcd.publicnode.com';
+        const q = btoa(JSON.stringify({ bribes: { period: { period: Number(period) } } }));
+        const r = await fetch(`${LCD}/cosmwasm/wasm/v1/contract/${TLA_INCENTIVE_MANAGER}/smart/${q}`).then(x => x.ok ? x.json() : null).catch(() => null);
+        const buckets = r && r.data && r.data.buckets; if (!Array.isArray(buckets)) return null;
+        const out = {};   // key `${bucket}|${bareId}` → { usd, tokens:[{sym, amount}], unpriced:[] }
+        const catDen = store.tokenCatalogRaw || []; const symOf = (den) => { const t = catDen.find(x => x.denom === den); return t ? ((t.effective && t.effective.symbol) || (t.discovered && t.discovered.symbol) || null) : null; };
+        const decOf = (den) => { const t = catDen.find(x => x.denom === den); return t ? ((t.effective && t.effective.decimals != null) ? t.effective.decimals : (t.discovered && t.discovered.decimals != null ? t.discovered.decimals : 6)) : 6; };
+        const px = (sym) => { const t = store.data?.token_prices?.[sym]; return t ? (t.final_price_usd || t.price || 0) : 0; };
+        const walk = (b, gaugeName) => {
+            const gauge = String(b.gauge || gaugeName || '').toLowerCase();
+            const items = Array.isArray(b.bribes) ? b.bribes : (b.asset ? [b] : []);
+            for (const it of items) {
+                const id = (it.asset && (it.asset.cw20 || it.asset.native)) || ''; if (!id) continue;
+                const key = gauge + '|' + id; const rec = out[key] || (out[key] = { usd: 0, tokens: [], unpriced: [] });
+                for (const a of it.assets || []) { const den = a.info && (a.info.native || a.info.cw20); const sym = symOf(den); const human = Number(a.amount || 0) / 10 ** decOf(den); const p = sym ? px(sym) : 0; rec.tokens.push({ sym: sym || (den || '?').slice(0, 14), amount: human, usd: p ? human * p : null }); if (p) rec.usd += human * p; else rec.unpriced.push(sym || den); }
+            }
+            if (Array.isArray(b.buckets)) for (const bb of b.buckets) walk(bb, b.gauge);
+        };
+        for (const b of buckets) walk(b, null);
+        return { period: Number(period), at: new Date().toISOString(), pots: out };
+    }
+    async function refreshLivePots() {
+        const per = store.votionOptPeriod || store.epoch; if (!per) return;
+        const live = await fetchLivePots(per);
+        if (live) { store.livePots = live; try { renderBountyBoard(); } catch (e) { console.warn('vote market re-render:', e); } }
+    }
+
     // ---------------- Vote Market (was Bounty Board; owner 2026-08-24) ----------------
     // The LP's question: "if I add $X to my pool, what does it buy?" — answered with the
     // going rate of a vote and a simple equalisation model (see #bounty-full).
@@ -6157,37 +6237,82 @@
         if (chip) chip.textContent = `Epoch ${store.epoch || '—'} · live`;
         const summary = document.getElementById('bounty-summary');
         if (!bribed.length) { el.innerHTML = '<div class="text-gray-600 text-sm">No active bribes this epoch — nothing is paying for votes.</div>'; if (summary) summary.innerHTML = ''; return; }
-        const rows = bribed.map(p => { const vp = p.vp || 0; const usd = p.bribes.total; return { p, vp, usd, per1m: vp > 50000 ? usd / (vp / 1e6) : null }; });
-        // market rate: VP-weighted median of $/1M VP over pools with real votes
-        const priced = rows.filter(r => r.per1m !== null).sort((a, b) => a.per1m - b.per1m);
-        let market = null, lo = null, hi = null;
-        if (priced.length) { const tot = priced.reduce((s, r) => s + r.vp, 0); let acc = 0; for (const r of priced) { acc += r.vp; if (lo === null && acc >= tot * 0.25) lo = r.per1m; if (market === null && acc >= tot * 0.5) market = r.per1m; if (hi === null && acc >= tot * 0.75) hi = r.per1m; } }
-        const totalPot = rows.reduce((s, r) => s + r.usd, 0);
+        // Votion's per-pool VP lives on the normalized store.pools (Batch A repoint) — match by name + bucket + dex
+        const _vot = (p) => { const m = (store.pools || []).find(x => x.name === p.name && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase() && (x.dex || '') === (p.dex || '')); return m ? (m.votion_now_vp || 0) : (p.votion_now_vp || 0); };
+        const live = store.livePots && Number(store.livePots.period) === Number(store.votionOptPeriod || store.epoch) ? store.livePots : null;
+        const liveKey = (p) => String(p.bucket || '').toLowerCase() + '|' + String(p.gauge_pool_id || '').replace(/^(cw20|native):/, '');
+        // LIVE MODE: the pot for the period being voted, read from the manager minutes ago, wins over the capture.
+        // Pools with a live pot but no captured bribe are added; pools whose captured bribe is not funded for
+        // the voted period show $0 live (and the not-funded note).
+        const universe = live ? (store.data?.vote?.pools || []).filter(p => (p.bribes?.total || 0) > 0.005 || (live.pots[liveKey(p)] && live.pots[liveKey(p)].usd > 0)) : bribed;
+        const rows = universe.map(p => { const vp = p.vp || 0; const lp = live ? live.pots[liveKey(p)] : null; const usd = live ? (lp ? lp.usd : 0) : p.bribes.total; return { p, vp, usd, per1m: (vp > 50000 && usd > 0) ? usd / (vp / 1e6) : null, votionVp: _vot(p), livePot: lp, liveMode: !!live }; });
+        // v2 (owner test-drive 2026-08-24): the market is set by the votes that MOVE for money — Votion's.
+        // Rate = median $/1M VP across the pools Votion currently votes (its equalisation set). Pools
+        // Votion is not in (bluechips voted by LPs protecting their own emissions) sit below it by
+        // design and do not set it. v1 weighted every bribed pool by VP and read $4.58 — 5× too low.
         const votionTotal = store.data?.vote?.summary?.total_votion_current_vp || 0;
+        const vset = rows.filter(r => r.per1m !== null && r.votionVp > 50000).map(r => r.per1m).sort((a, b) => a - b);
+        const setRates = vset.length ? vset : rows.filter(r => r.per1m !== null).map(r => r.per1m).sort((a, b) => a - b);
+        const q = (arr, f) => arr.length ? arr[Math.min(arr.length - 1, Math.floor((arr.length - 1) * f))] : null;
+        const market = q(setRates, 0.5), lo = q(setRates, 0.25), hi = q(setRates, 0.75);
+        const totalPot = rows.reduce((s, r) => s + r.usd, 0);
         store.voteMarketRate = market;   // $ per 1M VP — shared with Threshold Watch ("what would keep it above the line")
-        if (summary) summary.innerHTML = `<span>market <span class="text-amber-300 font-semibold">${market != null ? fmt$(market) : '—'}</span> / 1M VP</span><span class="text-gray-600">·</span><span>${fmt$(totalPot)} in bribes</span><span class="text-gray-600">·</span><span>${rows.length} pools</span>`;
-        const X = store.voteMarketX || 50;
+        const _vp2 = store.votionOptPeriod; const _fundedN = live ? rows.filter(r => r.usd > 0).length : (_vp2 ? rows.filter(r => { const f = bribeFundedFor(r.p.gauge_pool_id, _vp2); return f && f.funded; }).length : null);
+        const _deadline = store.votionOptRaw && store.votionOptRaw.voteBefore ? Date.parse(store.votionOptRaw.voteBefore) : null; const _left = _deadline ? Math.max(0, _deadline - Date.now()) : null;
+        const _leftTxt = _left != null ? (_left > 864e5 ? Math.floor(_left / 864e5) + 'd ' + Math.floor((_left % 864e5) / 36e5) + 'h' : Math.floor(_left / 36e5) + 'h ' + Math.floor((_left % 36e5) / 6e4) + 'm') : null;
+        if (summary) summary.innerHTML = `<span>Votion's rate <span class="text-amber-300 font-semibold">${market != null ? fmt$(market) : '—'}</span> / 1M VP</span><span class="text-gray-600">·</span><span>${fmt$(totalPot)} funded for p${_vp2 || '?'}</span>${_fundedN != null ? `<span class="text-gray-600">·</span><span title="Votion votes into period ${_vp2}; only pots funded for it are options">${_fundedN} of ${rows.length} pots</span>` : ''}<span class="text-gray-600">·</span><span>${fmtNum(votionTotal)} VP for sale</span>${_leftTxt ? `<span class="text-gray-600">·</span><span class="text-cyan-300" title="Votion's own cast deadline for this period (its voteBefore). Pots funded before it count; it re-optimizes about every 15 minutes until then.">Votion casts in ${_leftTxt}</span>` : ''}${live ? `<span class="text-gray-600">·</span><span class="text-emerald-300" title="Pots read from the incentive manager ${new Date(live.at).toISOString().slice(11, 16)} UTC — the live auction, not the capture">live ${new Date(live.at).toISOString().slice(11, 16)}Z</span> <button type="button" onclick="refreshLivePots()" class="text-[10px] px-1.5 rounded bg-white/5 text-gray-400 hover:text-cyan-300" title="re-read the pots now">↻</button>` : `<span class="text-gray-600">·</span><span class="text-gray-500" title="Live pot read not available — showing the captured pots">captured</span>`}`;
+        const X = store.voteMarketX || 25;
         const emissionsPerVp = (p) => { const lp = (store.tlaPools || []).find(x => x.name === p.name && (x.dex || '') === (p.dex || '')); const wk = lp && lp.rewards_per_year ? lp.rewards_per_year / 52.18 : null; return wk && p.vp > 0 ? wk / p.vp : null; };
         const dexTag = (dex) => dex?.includes('Astro') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400">Astro</span>' : dex?.includes('Skeleton') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Skeleton</span>' : '';
-        rows.sort((a, b) => b.usd - a.usd);
+        // sort: actionable warnings first (Votion has votes here but the pot is not funded for the voted period),
+        // then by pot size. An unfunded pool must not hide below the fold — that is the row someone needs to see.
+        const _isUnfundedWarn = (r) => { if (r.votionVp <= 50000) return false; if (r.liveMode) return r.usd <= 0; const f = bribeFundedFor(r.p.gauge_pool_id, store.votionOptPeriod); return f ? !f.funded : false; };
+        rows.sort((a, b) => (Number(_isUnfundedWarn(b)) - Number(_isUnfundedWarn(a))) || (b.usd - a.usd));
         const shown = rows.slice(0, store.bountyExpanded ? rows.length : 8);
-        const ctl = `<div class="flex items-center gap-1.5 flex-wrap mb-2 text-[11px]"><span class="text-gray-500">what would</span>${[25, 50, 100, 150, 250].map(v => `<button type="button" onclick="window.setVoteMarketX(${v})" class="px-2 py-0.5 rounded-full mono ${X === v ? 'bg-amber-500/25 text-amber-200' : 'bg-white/5 text-gray-400 hover:text-amber-300'}">$${v}</button>`).join('')}<span class="text-gray-500">more buy?</span>${market != null ? `<span class="ml-auto text-gray-600">market band ${fmt$(lo)}–${fmt$(hi)} / 1M VP · Votion holds ${fmtNum(votionTotal)} VP</span>` : ''}</div>`;
+        const ctl = `<div class="text-[11px] text-gray-400 mb-2 leading-snug">The whole market is <span class="text-gray-200">${fmt$(totalPot)}</span> of bribes competing for <span class="text-gray-200">${fmtNum(votionTotal)} VP</span> that moves for money (Votion's). On the pools Votion votes, a vote costs <span class="text-amber-300">${market != null ? fmt$(market) : '—'} per 1M VP</span> (band ${fmt$(lo)}–${fmt$(hi)}). Pools below that rate are voted by their own LPs, not bought.</div>
+            <div class="flex items-center gap-1.5 flex-wrap mb-2 text-[11px]"><span class="text-gray-500">if I add</span>${[10, 25, 50, 100, 250].map(v => `<button type="button" onclick="window.setVoteMarketX(${v})" class="px-2 py-0.5 rounded-full mono ${X === v ? 'bg-amber-500/25 text-amber-200' : 'bg-white/5 text-gray-400 hover:text-amber-300'}">$${v}</button>`).join('')}<span class="text-gray-500">to a pool's bribe this epoch…</span><span class="ml-auto text-gray-600">$${X} is ${totalPot > 0 ? (X / totalPot * 100).toFixed(0) : '?'}% of the whole market</span></div>`;
         el.innerHTML = ctl + shown.map((r) => {
             const vs = (r.per1m != null && market) ? (r.per1m / market - 1) * 100 : null;
-            const projVp = market ? Math.min((r.usd + X) / market * 1e6, r.vp + votionTotal) : null;
-            const gain = projVp != null ? Math.max(0, projVp - r.vp) : null;
+            const inSet = r.votionVp > 50000;
+            // v3: run Votion's own objective on its own captured inputs with +$X on this gauge (both max vaults)
+            const gid = String(r.p.gauge_pool_id || '').replace(/^(cw20|native):/, '');
+            const simKey = String(r.p.bucket || '').toLowerCase() + '|' + gid;
+            // live mode: the optimizer runs on the live pots (usdIncentives override per gauge) + your $X
+            const liveOverride = live ? Object.fromEntries(Object.entries(live.pots).map(([k, v]) => [k.split('|')[1], v.usd])) : null;
+            // Is this pot funded for the period Votion votes into? Live mode: the live pot says. Captured mode: the runway
+            // product says (the captured $ can be last period's pot). The optimizer's BASE pot for the gauge is the live
+            // pot, or 0 when not funded — so "+$X" on an unfunded gauge means "if you fund $X for this period".
+            const _fund = r.liveMode ? { funded: r.usd > 0 } : (bribeFundedFor(r.p.gauge_pool_id, store.votionOptPeriod) || { funded: true });
+            const fundedNow = !!_fund.funded;
+            const basePotUsd = fundedNow ? r.usd : 0;
+            // a gauge the captured option set lacks (unfunded then, funded now or by your $X): give the optimizer the gauge
+            // as an option with the others' votes it has now (pool VP minus Votion's) — what Votion sees on its next pass
+            const extra = gid ? { [String(r.p.bucket || '').toLowerCase()]: [{ id: gid, usdIncentives: basePotUsd, votingPower: Math.max(0, r.vp - r.votionVp) }] } : null;
+            const override = Object.assign({}, liveOverride || {}, fundedNow ? {} : { [gid]: 0 });
+            const simRes = gid && (basePotUsd + X) > 0 ? votionSimulate({ [gid]: X }, override, extra) : null; const sr = simRes && simRes[simKey];
+            let gain = null, capped = false, projVp = null, rateAfter = null, simNote = '', notOption = false;
+            if (sr) {
+                gain = Math.max(0, sr.sim - sr.base); projVp = r.vp - r.votionVp + sr.sim; rateAfter = projVp > 0 ? (r.usd + X) / (projVp / 1e6) : null;
+                capped = false; simNote = `Votion's optimizer, re-run with +$${X} here: its votes on this pool go ${fmtNum(sr.base)} → ${fmtNum(sr.sim)} (its published plan today: ${fmtNum(sr.plan)}).`;
+            } else if (!sr) {
+                notOption = true; gain = 0; projVp = r.vp; rateAfter = r.vp > 0 ? (r.usd + X) / (r.vp / 1e6) : null; simNote = 'no optimizer inputs for this gauge';
+            } else if (market) {   // no captured optimizer inputs at all → fall back to the rate model, labeled
+                const spare = Math.max(0, votionTotal - r.votionVp); const projVpRaw = (r.usd + X) / market * 1e6; gain = Math.min(Math.max(0, projVpRaw - r.vp), spare); capped = projVpRaw - r.vp > spare; projVp = r.vp + gain; rateAfter = projVp > 0 ? (r.usd + X) / (projVp / 1e6) : null; simNote = 'rate model (this gauge is not in the captured optimizer inputs)';
+            }
             const epv = emissionsPerVp(r.p);
             const gainUsdWk = gain != null && epv != null ? gain * epv : null;
-            const vsHtml = r.per1m == null ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-300 font-semibold" title="A pot with almost no votes — the first voters here are paid far above market">open bounty</span>'
-                : `<span class="mono text-xs ${vs > 25 ? 'text-emerald-300' : vs < -25 ? 'text-red-300' : 'text-gray-300'}" title="${fmt$(r.per1m)} per 1M VP vs market ${fmt$(market)}">${fmt$(r.per1m)}<span class="text-gray-500">/1M</span> <span class="text-[10px]">${vs >= 0 ? '+' : ''}${vs.toFixed(0)}% vs mkt</span></span>`;
+            const bucketVp = Math.max(1, (store.data?.vote?.pools || []).filter(q2 => q2.bucket === r.p.bucket).reduce((s2, q2) => s2 + (q2.vp || 0), 0));
+            const vsHtml = r.per1m == null ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-300 font-semibold" title="A pot with almost no votes — the first voters here are paid far above the rate">open bounty</span>'
+                : `<span class="mono text-xs ${inSet ? 'text-gray-200' : 'text-gray-500'}" title="${fmt$(r.per1m)} per 1M VP${inSet ? ` — Votion holds ${fmtNum(r.votionVp)} VP here` : ' — Votion is not in this pool; these votes are LPs voting for their own emissions'}">${fmt$(r.per1m)}<span class="text-gray-500">/1M</span></span> ${inSet ? `<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/15 text-emerald-300" title="Votion votes here — its rate applies">Votion ${fmtNum(r.votionVp)} VP</span>` : `<span class="text-[9px] px-1 py-0.5 rounded bg-white/5 text-gray-500" title="No Votion votes here — the bribe is shared by LPs voting their own pool">LP-voted</span>`}`;
             return `
             <div class="p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.04]">
                 <div class="flex items-center gap-3 flex-wrap">
                     <div class="flex flex-col min-w-0 shrink-0" style="width:150px"><span class="text-sm font-medium truncate">${r.p.name}</span><div class="flex items-center gap-1">${dexTag(r.p.dex)}<span class="text-[9px] text-gray-600 uppercase">${r.p.bucket || ''}</span></div></div>
-                    <div class="shrink-0" style="min-width:150px">${vsHtml}</div>
-                    <div class="text-right shrink-0 ml-auto"><div class="mono text-xs text-gray-300">${fmt$(r.usd)} <span class="text-gray-600">bribe</span></div><div class="text-[9px] text-gray-600">${fmtNum(r.vp)} VP now</div></div>
+                    <div class="shrink-0" style="min-width:210px">${vsHtml}</div>
+                    <div class="text-right shrink-0 ml-auto"><div class="mono text-xs text-gray-300">${fmt$(r.usd)} <span class="text-gray-600">${r.liveMode ? 'funded p' + (store.votionOptPeriod || '?') : 'bribe'}</span>${r.livePot && r.livePot.tokens.length ? `<div class="text-[9px] text-gray-500">${r.livePot.tokens.map(t => fmtNum(t.amount) + ' ' + t.sym).join(' · ')}${r.livePot.unpriced.length ? ' <span class="text-amber-400">(unpriced: ' + r.livePot.unpriced.join(', ') + ')</span>' : ''}</div>` : ''}</div><div class="text-[9px] text-gray-600">${fmtNum(r.vp)} VP now${(() => { const vp2 = store.votionOptPeriod; if (r.liveMode) return r.usd > 0 ? ` · <span class="text-emerald-400/80">live</span>` : ` · <span class="text-amber-400">not funded p${vp2}</span>`; const f = bribeFundedFor(r.p.gauge_pool_id, vp2); return f == null ? '' : f.funded ? ` · <span class="text-emerald-400/80">funded p${vp2}</span>` : ` · <span class="text-amber-400">not funded p${vp2}</span>`; })()}</div></div>
                 </div>
-                ${gain != null ? `<div class="mt-1 text-[10px] text-gray-400 flex items-center gap-2 flex-wrap"><i class="fas fa-plus text-amber-400/70"></i><span>+$${X} → ≈ <span class="mono text-amber-200">+${fmtNum(gain)} VP</span>${gainUsdWk != null ? ` · ≈ <span class="mono text-emerald-300">+${fmt$(gainUsdWk)}</span>/week of LUNA emissions to this pool` : ''}${r.p.bucket ? ` · ${((projVp / Math.max(1, (store.data?.vote?.pools || []).filter(q => q.bucket === r.p.bucket).reduce((s2, q) => s2 + (q.vp || 0), 0))) * 100).toFixed(1)}% of bucket` : ''}</span></div>` : ''}
+                ${!fundedNow ? (() => { const vp2 = store.votionOptPeriod || store.epoch; const f = r.liveMode ? bribeFundedFor(r.p.gauge_pool_id, vp2) : _fund; return `<div class="mt-1 text-[10px] text-amber-300/90 leading-snug"><i class="fas fa-triangle-exclamation mr-1"></i>Not funded for period ${vp2}${f && f.last_funded_period ? ` (last funded: ${f.last_funded_period})` : ''} — Votion only weighs pots funded for the period it votes into (it re-checks about every 15 minutes until it casts), so right now this gauge is not an option and Votion's ${fmtNum(r.votionVp)} VP here is on its way out. Fund period ${vp2} and it is back in the market${X > 0 ? ' — the line below is what $' + X + ' funded for p' + vp2 + ' would do' : ''}.</div>`; })() : ''}
+                ${gain != null && !notOption ? `<div class="mt-1 text-[10px] text-gray-400 leading-snug" title="${String(simNote).replace(/"/g, '&quot;')}"><i class="fas fa-plus text-amber-400/70 mr-1"></i>${fundedNow ? '+$' + X : '$' + X + ' funded for p' + (store.votionOptPeriod || store.epoch)} → Votion's optimizer would move <span class="mono text-amber-200">${gain > 0 ? '+' : ''}${fmtNum(gain)} VP</span> here${sr ? ` <span class="text-gray-600">(${fmtNum(sr.base)} → ${fmtNum(sr.sim)} of its votes)</span>` : ''} · pool pays <span class="mono">${fmt$(rateAfter)}/1M</span> after · share <span class="mono">${(r.vp / bucketVp * 100).toFixed(1)}% → ${(projVp / bucketVp * 100).toFixed(1)}%</span>${gainUsdWk != null ? ` · ≈ <span class="mono text-emerald-300">+${fmt$(gainUsdWk)}/week</span> of LUNA emissions redirected here` : ''}${gain > 0 && gain < 0.04 * (r.votionVp + 1) && sr ? ' <span class="text-gray-600">· below Votion\'s re-vote threshold: it may keep current votes</span>' : ''}</div>` : ''}
             </div>`;
         }).join('') + (rows.length > 8 ? `<div class="text-center pt-1"><button type="button" class="text-[10px] px-3 py-1 rounded-full bg-white/5 text-gray-400 hover:text-amber-300 font-medium" onclick="toggleBountyExpand()">${store.bountyExpanded ? 'show top 8 only' : `show all ${rows.length} bribed pools`} <i class="fas fa-chevron-${store.bountyExpanded ? 'up' : 'down'} text-[8px] ml-1"></i></button></div>` : '');
     }
@@ -7376,6 +7501,7 @@
         renderTopPools();
         renderWaterfallChart('STABLE');
         try { renderBountyBoard(); } catch (err) { console.warn('renderBountyBoard (early, sets the market rate):', err); }   // Batch B: before Threshold Watch
+        try { refreshLivePots(); if (!store._livePotsTimer) store._livePotsTimer = setInterval(() => { if (!document.hidden) refreshLivePots(); }, 5 * 60 * 1000); } catch (err) { console.warn('live pots:', err); }
         renderThresholdWatch();
         try { renderExitRisk(); } catch (err) { console.warn('renderExitRisk:', err); }
         try { renderLiquidityGrowth(); } catch (err) { console.warn('renderLiquidityGrowth:', err); }
@@ -7843,7 +7969,8 @@
         const aprTileMode = store.aprTileMode || 'amp';
         const aprKey = aprTileMode === 'amp' ? 'apr_amp' : 'apr_non';
         const aprSubEl = document.getElementById('apr-tile-sub');
-        if (aprSubEl) aprSubEl.textContent = aprTileMode === 'amp' ? 'Eris amplified APY (their orange number) · ▲▼ rank vs last epoch' : 'Eris APR (their white number) · rank history is amp-based (arrows hidden here)';
+        const _erisAt = store.erisAprAt ? ' · as of ' + String(store.erisAprAt).slice(11, 16) + ' UTC' : '';
+        if (aprSubEl) aprSubEl.textContent = (aprTileMode === 'amp' ? 'Eris amplified APY (their orange number) · ▲▼ rank vs last epoch' : 'Eris APR (their white number) · rank history is amp-based (arrows hidden here)') + _erisAt;
         const topAPR = [...active].filter(p => (p[aprKey] || 0) > 0).sort((a, b) => (b[aprKey] || 0) - (a[aprKey] || 0));
 
         boardExpander(document.getElementById('top-apr-pools'), topAPR.map((p, i) => `
