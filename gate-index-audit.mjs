@@ -5,13 +5,11 @@
 // functions from index.html (no third copy). Usage: node gate-index-audit.mjs
 import fs from 'fs'; import path from 'path';
 const here = path.dirname(new URL(import.meta.url).pathname);
-const html = fs.readFileSync(path.join(here, 'index.html'), 'utf8');
-const a = html.indexOf('        const deepDecode = (v, depth) => {'); const b = html.indexOf('        function requestVerification(c) {');
-if (a < 0 || b < 0) { console.error('anchors not found'); process.exit(1); }
-const src = html.slice(a, b).replace(/async function resolvers\(\)[\s\S]*?\n        }\n        const fmtAmt/, 'const fmtAmt');   // resolvers() needs the network; not under test
+// 2026-08-25: the engine is lib/prop-audit.js (shared by index + dao); the gate loads the LIVE lib.
+const src = fs.readFileSync(path.join(here, 'lib/prop-audit.js'), 'utf8') + '\nconst { deepDecode, msgShape, shapeCompare, precedentOf, ledgerOf, ledgerHtml, decodedHtml } = window.PropAudit;';
 let PASS = 0, FAIL = 0; const check = (n, ok, x) => { if (ok) { PASS++; console.log('  ✓ ' + n); } else { FAIL++; console.log('  ✗ ' + n + (x != null ? '  ← ' + JSON.stringify(x) : '')); } };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const ctx = { esc, atob: (s) => Buffer.from(s, 'base64').toString('binary'), WATCHED_DAOS: [], BASE: '', state: {}, daily: {} };
+const ctx = { esc, atob: (s) => Buffer.from(s, 'base64').toString('binary'), window: {}, fetch: async () => ({ ok: false }) };
 const fn = new Function(...Object.keys(ctx), src + '\nreturn { ledgerOf, ledgerHtml, decodedHtml, deepDecode };');
 const M = fn(...Object.values(ctx));
 const ROAR = 'terra1lxx40s29qvkrcj8fsa3yzyehy7w50umdvvnls2r830rys6lu2zns63eelv', MGR = 'terra1tuuwm8yrj54qeg0c8xu00aha9ryatyhtczq8qq2q8tntuw0auzas9037wh', LP = 'terra1hqq6pnx74q0wae7eqqu2wgddzr2xn8l9gvd33sfwqfew50qawj0sfn69fh';

@@ -3,910 +3,155 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TLA Docs | Terra Liquidity Alliance Documentation</title>
-    <meta name="description" content="Learn how Terra Liquidity Alliance works - voting, rewards, impermanent loss, and more.">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #0a0e17;
-            --bg-secondary: #111827;
-            --bg-card: rgba(17, 24, 39, 0.7);
-            --border-color: rgba(75, 85, 99, 0.4);
-            --text-primary: #f3f4f6;
-            --text-secondary: #9ca3af;
-            --text-muted: #6b7280;
-            --accent-blue: #3b82f6;
-            --accent-emerald: #10b981;
-            --accent-amber: #f59e0b;
-            --accent-red: #ef4444;
-            --accent-purple: #8b5cf6;
-            --glass-bg: rgba(255, 255, 255, 0.03);
-            --glass-border: rgba(255, 255, 255, 0.08);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
-
-        /* Subtle grid background */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: 
-                linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-            pointer-events: none;
-            z-index: -1;
-        }
-
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem 4rem;
-        }
-
-        /* Header */
-        .header {
-            text-align: center;
-            margin-bottom: 3rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid var(--glass-border);
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-blue) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .header p {
-            color: var(--text-secondary);
-            font-size: 1.1rem;
-        }
-
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.9rem;
-            margin-bottom: 1.5rem;
-            transition: color 0.2s;
-        }
-
-        .back-link:hover {
-            color: var(--accent-blue);
-        }
-
-        /* Navigation */
-        .nav-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 0.75rem;
-            margin-bottom: 3rem;
-        }
-
-        .nav-item {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-decoration: none;
-            color: var(--text-secondary);
-            font-size: 0.85rem;
-        }
-
-        .nav-item:hover {
-            background: rgba(59, 130, 246, 0.1);
-            border-color: var(--accent-blue);
-            color: var(--text-primary);
-        }
-
-        .nav-item i {
-            display: block;
-            font-size: 1.25rem;
-            margin-bottom: 0.5rem;
-            color: var(--accent-blue);
-        }
-
-        /* Sections */
-        .section {
-            background: var(--bg-card);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            margin-bottom: 1rem;
-            overflow: hidden;
-            backdrop-filter: blur(10px);
-        }
-
-        .section-header {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 1.25rem 1.5rem;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .section-header:hover {
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        .section-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1rem;
-            flex-shrink: 0;
-        }
-
-        .section-title-wrap {
-            flex: 1;
-        }
-
-        .section-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .section-intro {
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-            margin-top: 0.25rem;
-        }
-
-        .section-toggle {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            transition: transform 0.3s;
-        }
-
-        .section.expanded .section-toggle {
-            transform: rotate(180deg);
-        }
-
-        .section-content {
-            display: none;
-            padding: 0 1.5rem 1.5rem;
-            border-top: 1px solid var(--glass-border);
-        }
-
-        .section.expanded .section-content {
-            display: block;
-        }
-
-        /* Content Elements */
-        .content-text {
-            color: var(--text-secondary);
-            margin: 1rem 0;
-        }
-
-        .content-text:first-child {
-            margin-top: 1.5rem;
-        }
-
-        .content-heading {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin: 1.5rem 0 0.75rem;
-        }
-
-        .content-list {
-            margin: 1rem 0;
-            padding-left: 1.25rem;
-        }
-
-        .content-list li {
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-            position: relative;
-        }
-
-        .content-list li::marker {
-            color: var(--accent-blue);
-        }
-
-        /* Tables */
-        .content-table {
-            width: 100%;
-            margin: 1rem 0;
-            border-collapse: collapse;
-            font-size: 0.875rem;
-        }
-
-        .content-table th {
-            background: rgba(59, 130, 246, 0.1);
-            color: var(--text-primary);
-            font-weight: 600;
-            text-align: left;
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--glass-border);
-        }
-
-        .content-table td {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--glass-border);
-            color: var(--text-secondary);
-        }
-
-        .content-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .content-table tr:hover td {
-            background: rgba(255, 255, 255, 0.02);
-        }
-
-        /* Callouts */
-        .callout {
-            margin: 1.25rem 0;
-            padding: 1rem 1.25rem;
-            border-radius: 8px;
-            border-left: 3px solid;
-            font-size: 0.9rem;
-        }
-
-        .callout-info {
-            background: rgba(59, 130, 246, 0.1);
-            border-color: var(--accent-blue);
-            color: var(--text-secondary);
-        }
-
-        .callout-tip {
-            background: rgba(16, 185, 129, 0.1);
-            border-color: var(--accent-emerald);
-            color: var(--text-secondary);
-        }
-
-        .callout-warning {
-            background: rgba(245, 158, 11, 0.1);
-            border-color: var(--accent-amber);
-            color: var(--text-secondary);
-        }
-
-        /* Links */
-        .section-links {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-top: 1.5rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--glass-border);
-        }
-
-        .section-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: rgba(59, 130, 246, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            border-radius: 6px;
-            color: var(--accent-blue);
-            text-decoration: none;
-            font-size: 0.85rem;
-            transition: all 0.2s;
-        }
-
-        .section-link:hover {
-            background: rgba(59, 130, 246, 0.2);
-            border-color: var(--accent-blue);
-        }
-
-        /* Glossary Tooltip */
-        .glossary-term {
-            color: var(--accent-blue);
-            text-decoration: underline;
-            text-decoration-style: dotted;
-            text-underline-offset: 3px;
-            cursor: help;
-            position: relative;
-        }
-
-        .glossary-tooltip {
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            width: 280px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.2s;
-            z-index: 100;
-            pointer-events: none;
-        }
-
-        .glossary-term:hover .glossary-tooltip {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        /* IL Calculator */
-        .il-calculator {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 10px;
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-        }
-
-        .il-calculator h4 {
-            font-size: 0.95rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            color: var(--text-primary);
-        }
-
-        .il-slider-wrap {
-            margin-bottom: 1rem;
-        }
-
-        .il-slider-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-        }
-
-        .il-slider-value {
-            color: var(--accent-blue);
-            font-weight: 600;
-            font-family: 'JetBrains Mono', monospace;
-        }
-
-        .il-slider {
-            width: 100%;
-            height: 6px;
-            border-radius: 3px;
-            background: var(--bg-secondary);
-            outline: none;
-            -webkit-appearance: none;
-            cursor: pointer;
-        }
-
-        .il-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: var(--accent-blue);
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
-        }
-
-        .il-result {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem;
-            background: rgba(239, 68, 68, 0.1);
-            border-radius: 8px;
-            margin-top: 1rem;
-        }
-
-        .il-result-label {
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-        }
-
-        .il-result-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            font-family: 'JetBrains Mono', monospace;
-            color: var(--accent-red);
-        }
-
-        .il-note {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-top: 0.75rem;
-            font-style: italic;
-        }
-
-        /* Glossary Section */
-        .glossary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 0.75rem;
-            margin-top: 1.5rem;
-        }
-
-        .glossary-item {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 8px;
-            padding: 0.875rem 1rem;
-        }
-
-        .glossary-item-term {
-            font-weight: 600;
-            color: var(--accent-blue);
-            font-size: 0.9rem;
-            margin-bottom: 0.25rem;
-        }
-
-        .glossary-item-def {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
-
-        /* Search */
-        .search-wrap {
-            margin-bottom: 2rem;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 0.875rem 1.25rem;
-            padding-left: 2.75rem;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 10px;
-            color: var(--text-primary);
-            font-size: 0.95rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .search-input:focus {
-            border-color: var(--accent-blue);
-        }
-
-        .search-input::placeholder {
-            color: var(--text-muted);
-        }
-
-        .search-wrap {
-            position: relative;
-        }
-
-        .search-wrap i {
-            position: absolute;
-            left: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-muted);
-        }
-
-        /* Loading */
-        .loading {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: var(--text-muted);
-        }
-
-        .loading i {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Responsive */
-        @media (max-width: 640px) {
-            .container {
-                padding: 1.5rem 1rem 3rem;
-            }
-
-            .header h1 {
-                font-size: 1.75rem;
-            }
-
-            .nav-grid {
-                grid-template-columns: repeat(3, 1fr);
-                gap: 0.5rem;
-            }
-
-            .nav-item {
-                padding: 0.6rem 0.5rem;
-                font-size: 0.75rem;
-            }
-
-            .nav-item i {
-                font-size: 1rem;
-            }
-
-            .section-header {
-                padding: 1rem;
-            }
-
-            .section-content {
-                padding: 0 1rem 1rem;
-            }
-
-            .content-table {
-                font-size: 0.8rem;
-            }
-
-            .content-table th,
-            .content-table td {
-                padding: 0.5rem;
-            }
-
-            .glossary-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Docs | Alliance DAO · Terra Liquidity Alliance</title>
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png">
-    <script>
-      window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };
-    </script>
+    <meta name="description" content="How the Terra Liquidity Alliance works, how Alliance DAO grades pools and decides where to vote, and the knowledge base behind every number on this site.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    <script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
     <script src="/_vercel/insights/script.js" defer></script>
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0D0D0D; color: #EAEAEA; }
+        .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+        .card { background: #141414; border: 1px solid #262626; border-radius: 0.9rem; }
+        .side a { display: block; padding: .35rem .6rem; border-radius: .4rem; font-size: .8rem; color: #9ca3af; }
+        .side a:hover { color: #e5e7eb; background: rgba(255,255,255,.04); }
+        .side a.active { color: #67e8f9; background: rgba(34,211,238,.10); }
+        .side .grp { font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; color: #6b7280; margin: .9rem .6rem .3rem; }
+        .doc h1 { font-size: 1.5rem; font-weight: 800; margin: 0 0 .5rem; }
+        .doc h2 { font-size: 1.15rem; font-weight: 700; margin: 1.6rem 0 .5rem; color: #e5e7eb; }
+        .doc h3 { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 .4rem; color: #d1d5db; }
+        .doc p, .doc li { font-size: .9rem; line-height: 1.6; color: #c7cbd1; }
+        .doc ul, .doc ol { padding-left: 1.25rem; margin: .4rem 0 .8rem; } .doc ul { list-style: disc; } .doc ol { list-style: decimal; }
+        .doc a { color: #67e8f9; } .doc a:hover { text-decoration: underline; }
+        .doc code { font-family: 'JetBrains Mono', monospace; font-size: .8em; background: rgba(255,255,255,.06); padding: .1em .35em; border-radius: .25rem; }
+        .doc pre { background: #0a0a0a; border: 1px solid #262626; border-radius: .5rem; padding: .75rem; overflow: auto; font-size: .78rem; }
+        .doc table { width: 100%; border-collapse: collapse; font-size: .82rem; margin: .6rem 0 1rem; } .doc th, .doc td { border: 1px solid #262626; padding: .35rem .5rem; text-align: left; vertical-align: top; } .doc th { background: rgba(255,255,255,.04); color: #e5e7eb; }
+        .doc blockquote { border-left: 3px solid #22d3ee55; padding-left: .8rem; color: #9ca3af; margin: .6rem 0; }
+        .doc strong { color: #e5e7eb; }
+        .callout { border-left: 3px solid #22d3ee; background: rgba(34,211,238,.06); padding: .6rem .8rem; border-radius: .4rem; margin: .8rem 0; font-size: .85rem; }
+        mark { background: rgba(251,191,36,.35); color: inherit; border-radius: .15rem; }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <a href="tla-stats.html" class="back-link">
-            <i class="fas fa-arrow-left"></i> Back to TLA Stats
-        </a>
-    <!-- ============================================================
-         SHARED HEADER (logo + 5-tab nav + Terra logo)
-         Keep in sync with index.html
-         ============================================================ -->
-    <!-- Site header + address picker + ticker — lib/site-header.js (uniform chrome, 2026-08-21) -->
     <div id="site-header"></div>
     <script src="/lib/site-header.js"></script>
     <script src="/lib/address-picker.js"></script>
     <script>SiteHeader.mount({ page: 'tla-docs' }); if (window.AddressPicker) AddressPicker.mount({});</script>
 
-
-        <div class="search-wrap">
-            <i class="fas fa-search"></i>
-            <input type="text" class="search-input" placeholder="Search docs..." id="searchInput">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="flex items-start justify-between flex-wrap gap-3 mb-5">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-extrabold"><i class="fas fa-book text-cyan-400 mr-2"></i>Docs</h1>
+                <p class="text-gray-400 text-sm mt-1 max-w-2xl">How the Terra Liquidity Alliance works, how Alliance DAO grades pools and decides where its votes go, and the knowledge base behind every number on this site. Everything here is the same text the help bot reads.</p>
+            </div>
+            <div class="relative w-full sm:w-80"><i class="fas fa-magnifying-glass absolute left-3 top-2.5 text-gray-500 text-sm"></i><input id="doc-search" type="text" placeholder="search all docs…" class="w-full bg-[#141414] border border-[#262626] rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-cyan-500/60"></div>
         </div>
-
-        <nav class="nav-grid" id="navGrid">
-            <!-- Populated by JS -->
-        </nav>
-
-        <main id="sectionsContainer">
-            <div class="loading">
-                <i class="fas fa-circle-notch"></i>
-                <p>Loading documentation...</p>
-            </div>
-        </main>
-
-        <!-- Glossary Section -->
-        <section class="section" id="glossary-section" style="margin-top: 2rem;">
-            <div class="section-header" onclick="toggleSection(this.parentElement)">
-                <div class="section-icon">
-                    <i class="fas fa-book"></i>
-                </div>
-                <div class="section-title-wrap">
-                    <div class="section-title">Glossary</div>
-                    <div class="section-intro">Quick definitions for common terms</div>
-                </div>
-                <i class="fas fa-chevron-down section-toggle"></i>
-            </div>
-            <div class="section-content">
-                <div class="glossary-grid" id="glossaryGrid">
-                    <!-- Populated by JS -->
-                </div>
-            </div>
-        </section>
-    </div>
+        <div class="grid lg:grid-cols-[250px_1fr] gap-5">
+            <aside class="card p-2 side lg:sticky lg:top-4 self-start max-h-[80vh] overflow-auto" id="side"><div class="text-[11px] text-gray-500 p-2">loading…</div></aside>
+            <section class="card p-5 md:p-7 doc" id="doc"><div class="text-sm text-gray-500">loading…</div></section>
+        </div>
+        <p class="text-center text-[11px] text-gray-600 mt-6">Sources: <span class="mono">tla-core/docs/tla-docs-content.json</span> (the TLA guide) and <span class="mono">tla-core/docs/ecosystem-knowledge/*.md</span> (the knowledge base). Ask the help bot anything on these pages — it reads the same files. <span class="mono" id="page-rev"></span></p>
+    </main>
 
     <script>
-        // Content URL - tries relative first, falls back to GitHub raw
-        const CONTENT_URLS = [
-            'tla_docs_content.json',
-            'https://raw.githubusercontent.com/thealliancedao/aDAO-links-site/main/tla_docs_content.json'
+    (() => {
+        'use strict';
+        const REV = '2.0', REV_DATE = '2026-08-25';
+        const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
+        const T = Math.floor(Date.now() / 900000);
+        // The knowledge base, in reading order. Each is a markdown file the bot also reads.
+        const KB = [
+            { grp: 'How to read this site' },
+            { id: 'lp-grades-and-voting', file: 'lp-grades-and-voting.md', title: 'How we grade pools & how the DAO votes' },
+            { id: 'dao-governance-page',  file: 'dao-governance-page.md',  title: 'The DAO page: grades, titles, quick audit' },
+            { id: 'pricing-doctrine',     file: 'PRICING-DOCTRINE.md',     title: 'Pricing doctrine (how every $ is computed)' },
+            { grp: 'The alliance' },
+            { id: 'terra-liquidity-alliance', file: 'terra-liquidity-alliance.md', title: 'Terra Liquidity Alliance' },
+            { id: 'alliance-dao',         file: 'alliance-dao.md',         title: 'Alliance DAO (aDAO) & the NFT' },
+            { id: 'alliance-dao-lore',    file: 'alliance-dao-lore.md',    title: 'Galaxy lore' },
+            { id: 'phoenix-directive',    file: 'phoenix-directive.md',    title: 'Phoenix Directive' },
+            { id: 'votion',               file: 'votion.md',               title: 'Votion (vote aggregation)' },
+            { grp: 'Protocols on the rails' },
+            { id: 'eris-protocol',        file: 'eris-protocol.md',        title: 'Eris Protocol' },
+            { id: 'astroport',            file: 'astroport.md',            title: 'Astroport' },
+            { id: 'skeletonswap',         file: 'skeletonswap.md',         title: 'SkeletonSwap' },
+            { id: 'solid-protocol',       file: 'solid-protocol.md',       title: 'Solid Protocol' },
+            { id: 'credia',               file: 'credia.md',               title: 'Credia' },
+            { id: 'boost-dao',            file: 'boost-dao.md',            title: 'Boost DAO (FUEL)' },
+            { id: 'backbonelabs',         file: 'backbonelabs.md',         title: 'Backbone Labs (bLUNA)' },
+            { grp: 'History & verification' },
+            { id: 'terra-depeg-and-fork', file: 'terra-depeg-and-fork.md', title: 'The depeg and the fork' },
+            { id: 'audits',               file: 'AUDITS.md',               title: 'Audits registry' },
+            { id: 'foundations',          file: 'FOUNDATIONS-SOURCES.md',  title: 'Foundational sources' },
         ];
-        
-        let docsContent = null;
-        let glossary = {};
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const state = { guide: null, kb: {}, current: null };
+        const side = document.getElementById('side'), doc = document.getElementById('doc');
+        document.getElementById('page-rev').textContent = `Rev ${REV} · ${REV_DATE}`;
+        const inline = (t) => (window.marked && marked.parseInline) ? marked.parseInline(esc(t)) : esc(t);
+        const parse = (t) => (window.marked && marked.parse) ? marked.parse(t) : '<pre>' + esc(t) + '</pre>';
 
-        // Initialize
-        async function init() {
-            let lastError = null;
-            
-            for (const url of CONTENT_URLS) {
-                try {
-                    console.log('Trying to load from:', url);
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    docsContent = await response.json();
-                    glossary = docsContent.glossary || {};
-                    renderNav();
-                    renderSections();
-                    renderGlossary();
-                    setupSearch();
-                    console.log('Successfully loaded from:', url);
-                    return; // Success, exit
-                } catch (error) {
-                    console.warn('Failed to load from:', url, error);
-                    lastError = error;
-                }
+        // ---- the curated TLA guide (13 sections + glossary), rendered from its JSON content model ----
+        const renderGuideSection = (s) => {
+            const block = (c) => {
+                if (c.type === 'text') return `<p>${inline(c.value)}</p>`;
+                if (c.type === 'callout' || c.type === 'tip') return `<div class="callout">${inline(c.value)}</div>`;
+                if (c.type === 'list') return `<ul>${(c.items || []).map(i => `<li>${inline(i)}</li>`).join('')}</ul>`;
+                if (c.type === 'table') return `<table><thead><tr>${(c.headers || []).map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${(c.rows || []).map(r => `<tr>${r.map(x => `<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+                if (c.type === 'heading') return `<h3>${esc(c.value)}</h3>`;
+                return c.value ? `<p>${esc(c.value)}</p>` : '';
+            };
+            return `<h1><i class="fas ${esc(s.icon || 'fa-book')} text-cyan-400 mr-2"></i>${esc(s.title)}</h1><p class="text-gray-400 mb-3">${esc(s.intro || '')}</p>${(s.content || []).map(block).join('')}${(s.links || []).length ? `<h3>Links</h3><ul>${s.links.map(l => `<li><a href="${esc(l.url || l.href || '#')}" target="_blank" rel="noopener">${esc(l.label || l.title || l.url)}</a></li>`).join('')}</ul>` : ''}`;
+        };
+        const renderGlossary = (g) => { const items = Array.isArray(g) ? g.map(t => [t.term || t.name, t.definition || t.value || '']) : Object.entries(g || {}); return `<h1><i class="fas fa-spell-check text-cyan-400 mr-2"></i>Glossary</h1>${items.map(([k, v]) => `<p><strong>${esc(k)}</strong> — ${inline(v)}</p>`).join('')}`; };
+
+        function buildSide() {
+            const q = (document.getElementById('doc-search').value || '').trim().toLowerCase();
+            const hit = (e) => !q || e.title.toLowerCase().includes(q) || (e.text || '').toLowerCase().includes(q);
+            let h = '';
+            if (state.guide) {
+                h += '<div class="grp">The TLA guide</div>';
+                for (const s of state.guide.sections) { const e = { id: 'guide-' + s.id, title: s.title, text: JSON.stringify(s.content || '') }; if (hit(e)) h += `<a href="#${e.id}" class="${state.current === e.id ? 'active' : ''}">${esc(s.title)}</a>`; }
+                if (hit({ title: 'Glossary', text: JSON.stringify(state.guide.glossary || '') })) h += `<a href="#guide-glossary" class="${state.current === 'guide-glossary' ? 'active' : ''}">Glossary</a>`;
             }
-            
-            // All URLs failed
-            console.error('Failed to load docs from all sources:', lastError);
-            document.getElementById('sectionsContainer').innerHTML = `
-                <div class="loading">
-                    <i class="fas fa-exclamation-triangle" style="animation: none; color: var(--accent-amber);"></i>
-                    <p>Failed to load documentation. Please refresh.</p>
-                </div>
-            `;
+            for (const e of KB) { if (e.grp) { h += `<div class="grp">${esc(e.grp)}</div>`; continue; } if (hit({ title: e.title, text: state.kb[e.id] || '' })) h += `<a href="#${e.id}" class="${state.current === e.id ? 'active' : ''}">${esc(e.title)}</a>`; }
+            side.innerHTML = h || '<div class="text-[11px] text-gray-500 p-2">nothing matches</div>';
         }
-
-        // Render navigation
-        function renderNav() {
-            const nav = document.getElementById('navGrid');
-            nav.innerHTML = docsContent.sections.map(section => `
-                <a href="#${section.id}" class="nav-item" onclick="scrollToSection('${section.id}')">
-                    <i class="fas ${section.icon}"></i>
-                    ${section.title}
-                </a>
-            `).join('');
-        }
-
-        // Render all sections
-        function renderSections() {
-            const container = document.getElementById('sectionsContainer');
-            container.innerHTML = docsContent.sections.map(section => renderSection(section)).join('');
-        }
-
-        // Render single section
-        function renderSection(section) {
-            const contentHtml = section.content.map(item => renderContentItem(item)).join('');
-            const linksHtml = section.links ? `
-                <div class="section-links">
-                    ${section.links.map(link => `
-                        <a href="${link.url}" target="_blank" class="section-link">
-                            <i class="fas ${link.icon}"></i>
-                            ${link.text}
-                        </a>
-                    `).join('')}
-                </div>
-            ` : '';
-
-            // Add IL calculator to impermanent-loss section
-            const ilCalc = section.id === 'impermanent-loss' ? renderILCalculator() : '';
-
-            return `
-                <section class="section" id="${section.id}">
-                    <div class="section-header" onclick="toggleSection(this.parentElement)">
-                        <div class="section-icon">
-                            <i class="fas ${section.icon}"></i>
-                        </div>
-                        <div class="section-title-wrap">
-                            <div class="section-title">${section.title}</div>
-                            <div class="section-intro">${section.intro}</div>
-                        </div>
-                        <i class="fas fa-chevron-down section-toggle"></i>
-                    </div>
-                    <div class="section-content">
-                        ${contentHtml}
-                        ${ilCalc}
-                        ${linksHtml}
-                    </div>
-                </section>
-            `;
-        }
-
-        // Render content item based on type
-        function renderContentItem(item) {
-            switch (item.type) {
-                case 'text':
-                    return `<p class="content-text">${processGlossaryTerms(item.value)}</p>`;
-                
-                case 'heading':
-                    return `<h3 class="content-heading">${item.value}</h3>`;
-                
-                case 'list':
-                    return `<ul class="content-list">${item.items.map(li => `<li>${processGlossaryTerms(li)}</li>`).join('')}</ul>`;
-                
-                case 'table':
-                    return `
-                        <table class="content-table">
-                            <thead>
-                                <tr>${item.headers.map(h => `<th>${h}</th>`).join('')}</tr>
-                            </thead>
-                            <tbody>
-                                ${item.rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}
-                            </tbody>
-                        </table>
-                    `;
-                
-                case 'callout':
-                    return `<div class="callout callout-${item.style}">${processGlossaryTerms(item.value)}</div>`;
-                
-                default:
-                    return '';
+        async function show(id) {
+            state.current = id; buildSide();
+            const q = (document.getElementById('doc-search').value || '').trim();
+            const highlight = (html) => { if (!q || q.length < 3) return html; const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'); return html.replace(/>([^<]+)</g, (m, t) => '>' + t.replace(re, '<mark>$1</mark>') + '<'); };
+            if (id.startsWith('guide-')) {
+                if (!state.guide) { doc.innerHTML = '<div class="text-sm text-gray-500">the TLA guide is unavailable right now</div>'; return; }
+                if (id === 'guide-glossary') { doc.innerHTML = highlight(renderGlossary(state.guide.glossary)); return; }
+                const s = state.guide.sections.find(x => 'guide-' + x.id === id); doc.innerHTML = s ? highlight(renderGuideSection(s)) : '<div class="text-sm text-gray-500">not found</div>'; return;
             }
+            const e = KB.find(x => x.id === id); if (!e) { doc.innerHTML = '<div class="text-sm text-gray-500">not found</div>'; return; }
+            if (state.kb[id] == null) { doc.innerHTML = '<div class="text-sm text-gray-500">loading…</div>'; try { const r = await fetch(`${CORE}/docs/ecosystem-knowledge/${e.file}?t=${T}`); state.kb[id] = r.ok ? await r.text() : ''; } catch { state.kb[id] = ''; } }
+            const md = state.kb[id];
+            doc.innerHTML = md ? highlight(parse(md)) + `<p class="text-[11px] text-gray-600 mt-6 border-t border-white/5 pt-3">Source: <a href="https://github.com/thealliancedao/tla-core/blob/main/docs/ecosystem-knowledge/${esc(e.file)}" target="_blank" rel="noopener">tla-core/docs/ecosystem-knowledge/${esc(e.file)} ↗</a></p>` : '<div class="text-sm text-gray-500">this document is unavailable right now</div>';
+            doc.querySelectorAll('a[href^="http"]').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
         }
+        const route = () => { const id = (location.hash || '').slice(1) || (state.guide ? 'guide-' + state.guide.sections[0].id : 'lp-grades-and-voting'); show(id); };
+        window.addEventListener('hashchange', route);
+        document.getElementById('doc-search').addEventListener('input', () => { buildSide(); if (state.current) show(state.current); });
 
-        // IL Calculator
-        function renderILCalculator() {
-            return `
-                <div class="il-calculator">
-                    <h4><i class="fas fa-calculator" style="margin-right: 0.5rem; color: var(--accent-blue);"></i>IL Calculator</h4>
-                    <div class="il-slider-wrap">
-                        <div class="il-slider-label">
-                            <span>Price Change</span>
-                            <span class="il-slider-value" id="priceChangeValue">0%</span>
-                        </div>
-                        <input type="range" class="il-slider" id="ilSlider" min="-80" max="400" value="0" oninput="updateIL()">
-                    </div>
-                    <div class="il-result">
-                        <span class="il-result-label">Impermanent Loss</span>
-                        <span class="il-result-value" id="ilValue">0.00%</span>
-                    </div>
-                    <p class="il-note">Drag the slider to see IL at different price changes. Assumes 50/50 constant product pool.</p>
-                </div>
-            `;
-        }
-
-        // Update IL calculation
-        function updateIL() {
-            const slider = document.getElementById('ilSlider');
-            const priceChange = parseFloat(slider.value) / 100;
-            const priceChangeDisplay = document.getElementById('priceChangeValue');
-            const ilDisplay = document.getElementById('ilValue');
-
-            priceChangeDisplay.textContent = `${slider.value > 0 ? '+' : ''}${slider.value}%`;
-
-            // IL formula: 2 * sqrt(price_ratio) / (1 + price_ratio) - 1
-            const priceRatio = 1 + priceChange;
-            if (priceRatio <= 0) {
-                ilDisplay.textContent = '100.00%';
-                return;
-            }
-            const il = 2 * Math.sqrt(priceRatio) / (1 + priceRatio) - 1;
-            const ilPercent = Math.abs(il * 100);
-            ilDisplay.textContent = ilPercent.toFixed(2) + '%';
-
-            // Color based on severity
-            if (ilPercent < 2) {
-                ilDisplay.style.color = 'var(--accent-emerald)';
-            } else if (ilPercent < 10) {
-                ilDisplay.style.color = 'var(--accent-amber)';
-            } else {
-                ilDisplay.style.color = 'var(--accent-red)';
-            }
-        }
-
-        // Process text for glossary terms
-        function processGlossaryTerms(text) {
-            // Simple version - can be enhanced to auto-detect terms
-            return text;
-        }
-
-        // Render glossary grid
-        function renderGlossary() {
-            const grid = document.getElementById('glossaryGrid');
-            const terms = Object.entries(glossary).sort((a, b) => a[0].localeCompare(b[0]));
-            grid.innerHTML = terms.map(([term, def]) => `
-                <div class="glossary-item">
-                    <div class="glossary-item-term">${term}</div>
-                    <div class="glossary-item-def">${def}</div>
-                </div>
-            `).join('');
-        }
-
-        // Toggle section expansion
-        function toggleSection(section) {
-            section.classList.toggle('expanded');
-        }
-
-        // Scroll to section and expand it
-        function scrollToSection(id) {
-            const section = document.getElementById(id);
-            if (section) {
-                section.classList.add('expanded');
-                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }
-
-        // Search functionality
-        function setupSearch() {
-            const input = document.getElementById('searchInput');
-            input.addEventListener('input', (e) => {
-                const query = e.target.value.toLowerCase().trim();
-                const sections = document.querySelectorAll('.section');
-                
-                sections.forEach(section => {
-                    if (section.id === 'glossary-section') return;
-                    
-                    const text = section.textContent.toLowerCase();
-                    if (query === '' || text.includes(query)) {
-                        section.style.display = '';
-                        if (query !== '') {
-                            section.classList.add('expanded');
-                        }
-                    } else {
-                        section.style.display = 'none';
-                    }
-                });
-
-                // Also search glossary
-                const glossaryItems = document.querySelectorAll('.glossary-item');
-                let hasGlossaryMatch = false;
-                glossaryItems.forEach(item => {
-                    const text = item.textContent.toLowerCase();
-                    if (query === '' || text.includes(query)) {
-                        item.style.display = '';
-                        hasGlossaryMatch = true;
-                    } else {
-                        item.style.display = 'none';
-                    }
-                });
-
-                if (hasGlossaryMatch && query !== '') {
-                    document.getElementById('glossary-section').classList.add('expanded');
-                }
-            });
-        }
-
-        // Check for hash on load
-        function checkHash() {
-            const hash = window.location.hash.slice(1);
-            if (hash) {
-                setTimeout(() => scrollToSection(hash), 100);
-            }
-        }
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            init().then(() => checkHash());
-        });
+        (async () => {
+            try { const r = await fetch(`${CORE}/docs/tla-docs-content.json?t=${T}`); state.guide = r.ok ? await r.json() : null; } catch { state.guide = null; }
+            route();
+            for (const e of KB) { if (e.grp || state.kb[e.id] != null) continue; try { const r = await fetch(`${CORE}/docs/ecosystem-knowledge/${e.file}?t=${T}`); state.kb[e.id] = r.ok ? await r.text() : ''; } catch { state.kb[e.id] = ''; } }
+            buildSide();
+        })();
+        window.__docsTest = { state, KB, show, buildSide };
+    })();
     </script>
-    <!-- ============================================================
-         SHARED FOOTER (links + rev + changelog trigger)
-         Keep in sync with index.html
-         ============================================================ -->
-    <!-- Site footer — one implementation in lib/site-footer.js (uniform chrome, 2026-08-21) -->
+
     <div id="site-footer"></div>
     <script src="/lib/cron-registry.js"></script>
     <script src="/lib/site-footer.js"></script>
-    <script>SiteFooter.mount({ rev: '1.3', revDate: '2026-08-21', page: 'tla-docs' });</script>
-    <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
+    <script>SiteFooter.mount({ rev: '2.0', revDate: '2026-08-25', page: 'tla-docs' });</script>
 </body>
 </html>

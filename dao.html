@@ -184,6 +184,7 @@
          (SPEC-unified-header uniform-chrome, 2026-08-21). -->
     <div id="site-header"></div>
     <script src="/lib/site-header.js"></script>
+    <script src="/lib/prop-audit.js"></script>
     <script src="/lib/address-picker.js"></script>
     <script>SiteHeader.mount({ page: 'dao', mobileTabs: false }); if (window.AddressPicker) AddressPicker.mount({ onSelect: function (w) { var i = document.getElementById('member-search'); if (i) { i.value = w; try { renderMembers(); } catch (e) {} } }, onClear: function () { var i = document.getElementById('member-search'); if (i) { i.value = ''; try { renderMembers(); } catch (e) {} } } });</script>
 
@@ -487,11 +488,18 @@
                 <div class="flex flex-wrap gap-3 mb-5">
                     <input type="text" id="partner-search" onkeyup="renderPartnerMembers()" placeholder="🔍 Search address or name..." 
                            class="flex-1 min-w-[200px] bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-violet-500">
+                    <!-- 2026-08-25 (owner): one grade per view. BOTH = the combined Ally grade (the one Allies uses);
+                         LION / PIXEL = that DAO's own grade for the same people. -->
+                    <div class="inline-flex rounded-lg overflow-hidden border border-zinc-800 text-sm" id="partner-view">
+                        <button type="button" data-view="both" onclick="setPartnerView('both')" class="px-3 py-2 bg-violet-500/20 text-violet-300">🤝 Both · Ally grade</button>
+                        <button type="button" data-view="lion" onclick="setPartnerView('lion')" class="px-3 py-2 text-zinc-400 hover:text-amber-300">🦁 Lion DAO</button>
+                        <button type="button" data-view="pixel" onclick="setPartnerView('pixel')" class="px-3 py-2 text-zinc-400 hover:text-pink-300">🎨 PixelLions</button>
+                    </div>
                     <select id="partner-filter" onchange="renderPartnerMembers()" class="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2 text-sm">
-                        <option value="all">All Voters</option>
-                        <option value="both">🤝 Active in Both</option>
-                        <option value="lion">🦁 Lion DAO Only</option>
-                        <option value="pixel">🎨 PixelLions Only</option>
+                        <option value="all">All voters</option>
+                        <option value="both">🤝 Active in both</option>
+                        <option value="lion">🦁 Lion DAO only</option>
+                        <option value="pixel">🎨 PixelLions only</option>
                     </select>
                 </div>
                 
@@ -728,7 +736,9 @@ function isValidImage(img) {
 }
 
 // Rev 1.9b (owner 2026-08-22): DAODAO's own gateway first — when theirs works, ours works.
-const IPFS_GATEWAYS = ['https://ipfs.daodao.zone/ipfs/', 'https://dweb.link/ipfs/', 'https://ipfs.io/ipfs/', 'https://gateway.pinata.cloud/ipfs/', 'https://w3s.link/ipfs/'];
+// 2026-08-25 (owner HAR): ipfs.daodao.zone resets, dweb.link + ipfs.io answer 403 NotSameOrigin to embedded <img>
+// (cross-origin resource policy) — kept last as a courtesy; hotlink-tolerant gateways go first after DAODAO's.
+const IPFS_GATEWAYS = ['https://ipfs.daodao.zone/ipfs/', 'https://w3s.link/ipfs/', 'https://gateway.pinata.cloud/ipfs/', 'https://ipfs.filebase.io/ipfs/', 'https://nftstorage.link/ipfs/', 'https://4everland.io/ipfs/', 'https://dweb.link/ipfs/', 'https://ipfs.io/ipfs/'];
 const ipfsCidOf = (u) => { const m = String(u || '').match(/\/ipfs\/(.+)$/); return m ? m[1] : null; };
 // On <img> error: try the next gateway for the same CID; returns false when exhausted.
 window.ipfsNext = function (img) {
@@ -741,6 +751,9 @@ window.ipfsNext = function (img) {
 function getImageUrl(img) {
     if (!img) return null;
     if (!isValidImage(img)) return null;
+    // 2026-08-25: Stargaze's image-resize host (i.stargaze-apis.com) does not resolve; its URLs embed the
+    // real ipfs path after "/plain/ipfs://" — take that and go through the gateway chain like any other CID.
+    const sg = String(img).match(/\/plain\/ipfs:\/\/(.+)$/); if (sg) img = 'ipfs://' + sg[1];
     if (img.startsWith('ipfs://')) {
         // Rev 1.9 (owner HAR 2026-08-22): ipfs.io answers 403 to this site's member images
         // and cloudflare-ipfs.com no longer resolves (gateway retired). Gateways rotate on
@@ -1254,12 +1267,41 @@ function renderPropCard(p, idx) {
         <!-- EXPANDED SECTION -->
         <div id="expand-${p.id}" class="expand-section">
             <div class="border-t border-zinc-800 p-5 space-y-5">
+                <div id="audit-${String(p.id).replace(/[^a-z0-9]/gi, '')}-${String(p.daoId || 'adao').replace(/[^a-z0-9]/gi, '')}" class="text-sm" data-audit-for="${p.daoId || 'adao'}|${p.id}"><div class="text-xs text-zinc-600"><i class="fas fa-magnifying-glass mr-1"></i>quick audit loads on expand…</div></div>
                 ${renderExpandedContent(p, issues)}
             </div>
         </div>
     </div>`;
 }
 
+// 2026-08-25: Quick audit on every proposal card (aDAO, Lion DAO, PixelLions) — the SAME engine index.html uses
+// (lib/prop-audit.js): every counterparty named from the registries or flagged, amounts in human units, precedent
+// vs this DAO's past proposals, and the decoded-messages view. Fills after expand; never blocks the card.
+function daoPropCard(p) {
+    const daoName = p.daoId === 'lion' || /lion/i.test(p.daoId || '') && !/pixel/i.test(p.daoId || '') ? 'Lion DAO' : /pixel/i.test(p.daoId || '') ? 'PixelLions' : 'aDAO';
+    return { dao: daoName, id: p.id, title: p.title || '', status: p.status || p.outcome || '', rawMsgs: Array.isArray(p.rawMsgs) ? p.rawMsgs : [], date: p.fetchedAt || '' };
+}
+function daoPastFor(p) {
+    const src = /pixel/i.test(p.daoId || '') ? pixelProposals : (/lion/i.test(p.daoId || '') ? lionProposals : proposals);
+    return Object.values(src || {}).filter(q => q && q.id !== p.id).map(daoPropCard);
+}
+window.fillPropAudit = async function (elId, key) {
+    const el = document.getElementById(elId); if (!el || !window.PropAudit) return;
+    // key = "<daoId>|<proposal id>" — ids repeat across DAOs (aDAO a26 and Lion a26 are different proposals)
+    const [daoId, propKey] = String(key).split('|');
+    const src = /pixel/i.test(daoId || '') ? pixelProposals : /lion/i.test(daoId || '') ? lionProposals : proposals;
+    const p = src[propKey] || Object.values(src || {}).find(q => String(q.id) === String(propKey));
+    if (!p) { el.innerHTML = '<div class="text-xs text-zinc-600">audit: proposal not in memory</div>'; return; }
+    try {
+        const R = await PropAudit.resolvers();
+        const card = daoPropCard(p); const past = daoPastFor(p);
+        const shapes = past.map(q => PropAudit.msgShape(q.rawMsgs));
+        const lg = PropAudit.ledgerOf(card, R, shapes); const prec = PropAudit.precedentOf(card, past);
+        const bandCls = { match: 'border-emerald-500/30 text-emerald-200', near: 'border-amber-500/30 text-amber-200', novel: 'border-orange-500/30 text-orange-200', none: 'border-zinc-700 text-zinc-400' };
+        const precHtml = prec ? `<div class="mt-1.5 rounded border ${bandCls[prec.band] || bandCls.none} bg-white/[0.02] px-2 py-1.5 text-[11px]"><div class="text-[10px] uppercase tracking-wider font-bold mb-0.5">Precedent · compared with ${prec.compared} past ${card.dao} proposal${prec.compared === 1 ? '' : 's'}</div><div>${prec.reading}</div>${(prec.top || []).slice(0, 4).map(r => `<div class="text-[10px] text-zinc-500">#${r.card.id} ${r.score}% · ${String(r.card.status).toLowerCase()}</div>`).join('')}<div class="text-[9px] text-zinc-600 mt-1">Shape match = same contracts, actions, addresses and denoms with amounts stripped. Precedent is not chain proof: a matching shape only says this pattern was voted on before and how that vote went.</div></div>` : '';
+        el.innerHTML = PropAudit.ledgerHtml(lg, card) + precHtml;
+    } catch (e) { el.innerHTML = '<div class="text-xs text-zinc-600">audit unavailable: ' + (e && e.message ? e.message : e) + '</div>'; }
+};
 function renderExpandedContent(p, issues) {
     const votes = p.votes || {};
     const total = votes.yes + votes.no + votes.abstain;
@@ -1466,6 +1508,8 @@ function toggleProp(id) {
     if (el) {
         el.classList.toggle('open');
         if (chev) chev.style.transform = el.classList.contains('open') ? 'rotate(180deg)' : '';
+        // 2026-08-25: quick audit fills once, on first expand
+        if (el.classList.contains('open')) { const slot = el.querySelector('[data-audit-for]'); if (slot && !slot.dataset.filled) { slot.dataset.filled = '1'; fillPropAudit(slot.id, String(slot.getAttribute('data-audit-for'))); } }
     }
 }
 
@@ -1719,18 +1763,19 @@ function renderPodium(view) {
         else if (filter === 'lion') filtered = filtered.filter(v => v.lionProps > 0 && v.pixelProps === 0);
         else if (filter === 'pixel') filtered = filtered.filter(v => v.pixelProps > 0 && v.lionProps === 0);
         
-        // Sort by combinedScore
-        filtered.sort((a, b) => b.combinedScore - a.combinedScore);
+        const view = window.__partnerView || 'both';   // 2026-08-25: podium grades by the selected view
+        filtered = filtered.filter(v => view === 'both' ? true : view === 'lion' ? v.lionProps > 0 : v.pixelProps > 0);
+        filtered.sort((a, b) => partnerGrade(b, view) - partnerGrade(a, view));
         
         top3 = filtered.slice(0, 3).map(v => ({
             name: partnerDisplayName(v),
             address: v.address,
-            rate: v.combinedScore,
-            votes: v.lionProps + v.pixelProps,
+            rate: partnerGrade(v, view),
+            votes: view === 'both' ? v.lionProps + v.pixelProps : view === 'lion' ? v.lionProps : v.pixelProps,
             currentStreak: v.combinedStreak || 0
         }));
-        total = Object.keys(lionProposals).length + Object.keys(pixelProposals).length;
-        title = filter === 'both' ? 'Dual DAO Champions' : (filter === 'lion' ? 'Lion DAO Champions' : (filter === 'pixel' ? 'PixelLion Champions' : 'Partner DAO Champions'));
+        total = view === 'both' ? Object.keys(lionProposals).length + Object.keys(pixelProposals).length : view === 'lion' ? Object.keys(lionProposals).length : Object.keys(pixelProposals).length;
+        title = view === 'lion' ? 'Lion DAO Champions' : view === 'pixel' ? 'PixelLion Champions' : (filter === 'both' ? 'Dual DAO Champions' : 'Ally Champions');
         accentColor = 'amber';
     } else if (view === 'alliance') {
         // Get current filter setting and apply same filter as leaderboard
@@ -2768,90 +2813,82 @@ function switchMemberView(view) {
     if (view === 'alliance') renderAllianceMembers();
 }
 
+window.__partnerView = window.__partnerView || 'both';
+window.setPartnerView = function (v) { window.__partnerView = v; document.querySelectorAll('#partner-view button').forEach(b => { const on = b.dataset.view === v; b.className = 'px-3 py-2 ' + (on ? (v === 'lion' ? 'bg-amber-500/20 text-amber-300' : v === 'pixel' ? 'bg-pink-500/20 text-pink-300' : 'bg-violet-500/20 text-violet-300') : 'text-zinc-400 hover:text-zinc-200'); }); renderPartnerMembers(); };
+// Per-view grade for a partner voter: BOTH = combinedScore (mean of the two participation rates — the Ally
+// grade Allies consumes); LION / PIXEL = that DAO's own rate. Same people, three honest numbers.
+function partnerGrade(v, view) {
+    const lionTotal = (v.lionPropIds || []).length, pixelTotal = (v.pixelPropIds || []).length;
+    if (view === 'lion') return lionTotal ? v.lionProps / lionTotal * 100 : 0;
+    if (view === 'pixel') return pixelTotal ? v.pixelProps / pixelTotal * 100 : 0;
+    return v.combinedScore || 0;
+}
+function partnerTitle(v, view) {   // same vocabulary as the aDAO board, on the view's numbers
+    const rate = partnerGrade(v, view); const streak = partnerCurrentStreak(v);
+    const all = Object.values(v.lionVoteByProp || {}).concat(Object.values(v.pixelVoteByProp || {}));
+    const yes = all.filter(x => x === 'yes').length, no = all.filter(x => x === 'no').length, n = all.length;
+    if (rate >= 100) return '🌟 Perfect Record';
+    if (streak >= 10) return '🔥 On Fire';
+    if (no > yes && n >= 10) return '🛡️ The Skeptic';
+    if (yes > no * 3 && n >= 10) return '✨ The Optimist';
+    if (rate >= 90) return '💪 Dedicated';
+    if (rate >= 75) return '🎯 Consistent';
+    if (rate >= 50) return '👍 Active';
+    return '';
+}
 function renderPartnerMembers() {
     const container = document.getElementById('partner-members-list');
     const search = (document.getElementById('partner-search')?.value || '').toLowerCase();
     const filter = document.getElementById('partner-filter')?.value || 'all';
-    
-    // Update podium to match filter
+    const view = window.__partnerView || 'both';
     renderPodium('partner');
-    
-    let filtered = partnerVoters;
-    
-    // Apply filter
+    let filtered = partnerVoters.filter(v => view === 'both' ? true : view === 'lion' ? v.lionProps > 0 : v.pixelProps > 0);
     if (filter === 'both') filtered = filtered.filter(v => v.inBoth);
     else if (filter === 'lion') filtered = filtered.filter(v => v.lionProps > 0 && v.pixelProps === 0);
     else if (filter === 'pixel') filtered = filtered.filter(v => v.pixelProps > 0 && v.lionProps === 0);
-    
-    // Apply search
-    if (search) {
-        filtered = filtered.filter(v => 
-            v.address.toLowerCase().includes(search) || 
-            (v.name && v.name.toLowerCase().includes(search))
-        );
-    }
-    
-    if (filtered.length === 0) {
-        container.innerHTML = '<div class="text-center text-zinc-600 py-8">No matching voters found</div>';
-        return;
-    }
-    
-    container.innerHTML = filtered.slice(0, 100).map((v, i) => {
-        const badges = [];
-        if (v.lionProps > 0) badges.push(`<span class="text-amber-400">🦁 ${v.lionProps}</span>`);
-        if (v.pixelProps > 0) badges.push(`<span class="text-pink-400">🎨 ${v.pixelProps}</span>`);
+    if (search) filtered = filtered.filter(v => v.address.toLowerCase().includes(search) || (v.name && v.name.toLowerCase().includes(search)));
+    filtered = filtered.map(v => ({ v, rate: partnerGrade(v, view) })).sort((a, b) => b.rate - a.rate || ((b.v.lionProps + b.v.pixelProps) - (a.v.lionProps + a.v.pixelProps)));
+    if (!filtered.length) { container.innerHTML = '<div class="text-center text-zinc-600 py-8">No matching voters found</div>'; return; }
+    const seq = partnerSequence().slice().reverse().map(r => [r.dao, r.id]);   // oldest → newest
+    const seqView = view === 'both' ? seq : seq.filter(([d]) => d === view);
+    const viewLabel = view === 'both' ? 'Ally grade · both DAOs' : view === 'lion' ? 'Lion DAO grade' : 'PixelLions grade';
+    container.innerHTML = filtered.slice(0, 100).map(({ v, rate }, i) => {
+        const rank = i + 1; const tier = getTier(rate); const title = partnerTitle(v, view);
         const memberId = `partner-${v.address.slice(-8)}`;
-        
-        // Generate voting dots for Lion DAO
-        const lionDots = (v.lionPropIds || []).map(propId => {
-            const vote = v.lionVoteByProp?.[propId];
-            return voteDot(vote, propId, 'sm');
-        }).join('');
-        
-        // Generate voting dots for PixelLions
-        const pixelDots = (v.pixelPropIds || []).map(propId => {
-            const vote = v.pixelVoteByProp?.[propId];
-            return voteDot(vote, propId, 'sm');
-        }).join('');
-        
-        // Profile image
+        const dot = ([d, id]) => voteDot(d === 'lion' ? v.lionVoteByProp?.[id] : v.pixelVoteByProp?.[id], (d === 'lion' ? '🦁 ' : '🎨 ') + id, 'sm');
+        const allDots = seqView.map(dot).join(''), last20 = seqView.slice(-20).map(dot).join('');
+        const votesIn = (view === 'both' ? (v.lionProps || 0) + (v.pixelProps || 0) : view === 'lion' ? v.lionProps : v.pixelProps), totalIn = seqView.length;
+        const pick = (which) => Object.values(view === 'lion' ? (v.lionVoteByProp || {}) : view === 'pixel' ? (v.pixelVoteByProp || {}) : Object.assign({}, v.lionVoteByProp || {}, v.pixelVoteByProp || {})).filter(x => x === which).length;
+        const yesN = pick('yes'), noN = pick('no'), absN = pick('abstain'); const streak = partnerCurrentStreak(v);
         const imgUrl = getImageUrl(memberImages[v.address]);
-        const daoIcon = v.inBoth ? '<span class="text-purple-400">🤝</span>' : (v.lionProps > 0 ? '<span class="text-amber-400">🦁</span>' : '<span class="text-pink-400">🎨</span>');
-        const profileImg = imgUrl ? 
-            `<img src="${imgUrl}" data-cid="${ipfsCidOf(imgUrl) || ''}" alt="" class="w-8 h-8 rounded-lg object-cover border border-zinc-700" onerror="if(ipfsNext(this))return;this.outerHTML='${daoIcon}'" />` :
-            daoIcon;
-        
-        const combinedPropIds = partnerSequence().slice().reverse().map(r => [r.dao, r.id]);   // oldest → newest (newest at the right)
-        const allDots = combinedPropIds.map(([d, id]) => voteDot(d === 'lion' ? v.lionVoteByProp?.[id] : v.pixelVoteByProp?.[id], (d === 'lion' ? '🦁 ' : '🎨 ') + id, 'sm')).join('');
-        const last20 = combinedPropIds.slice(-20).map(([d, id]) => voteDot(d === 'lion' ? v.lionVoteByProp?.[id] : v.pixelVoteByProp?.[id], (d === 'lion' ? '🦁 ' : '🎨 ') + id, 'sm')).join('');
-        const yesN = Object.values(v.lionVoteByProp || {}).concat(Object.values(v.pixelVoteByProp || {})).filter(x => x === 'yes').length;
-        const noN  = Object.values(v.lionVoteByProp || {}).concat(Object.values(v.pixelVoteByProp || {})).filter(x => x === 'no').length;
-        const absN = Object.values(v.lionVoteByProp || {}).concat(Object.values(v.pixelVoteByProp || {})).filter(x => x === 'abstain').length;
-        const streak = partnerCurrentStreak(v);
-        const totalProps = combinedPropIds.length, votedProps = (v.lionProps || 0) + (v.pixelProps || 0);
-        const rate = v.combinedScore;
-        const rateColor = rate >= 90 ? 'text-yellow-400' : rate >= 75 ? 'text-cyan-400' : rate >= 50 ? 'text-violet-400' : 'text-zinc-400';
+        const profileImg = imgUrl
+            ? `<img src="${imgUrl}" data-cid="${ipfsCidOf(imgUrl) || ''}" alt="" class="w-10 h-10 md:w-12 md:h-12 rounded-xl object-cover flex-shrink-0 border-2 border-zinc-700" onerror="if(ipfsNext(this))return;this.outerHTML='<div class=\\'w-10 h-10 md:w-12 md:h-12 rounded-xl ${tier.bg} flex items-center justify-center text-xl md:text-2xl flex-shrink-0\\'>${tier.icon}</div>'">`
+            : `<div class="w-10 h-10 md:w-12 md:h-12 rounded-xl ${tier.bg} flex items-center justify-center text-xl md:text-2xl flex-shrink-0">${tier.icon}</div>`;
         const displayName = isValidName(v.name) ? v.name : (window.__catalogHandles && window.__catalogHandles[v.address]) || null;
+        const daoChip = v.inBoth ? '<span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300">Lion + Pixel</span>' : (v.lionProps > 0 ? '<span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300">Lion DAO</span>' : '<span class="text-xs px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-300">PixelLions</span>');
+        const otherGrades = view === 'both' ? `<span title="each DAO's own grade">🦁 ${partnerGrade(v, 'lion').toFixed(0)}% · 🎨 ${partnerGrade(v, 'pixel').toFixed(0)}%</span>` : `<span title="the combined Ally grade">🤝 Ally ${partnerGrade(v, 'both').toFixed(0)}%</span>`;
         return `
-            <div class="card cursor-pointer hover:border-violet-500/30" onclick="toggleMemberExpand('${memberId}')">
-                <div class="p-3 md:p-4">
-                <div class="flex items-center gap-3 md:gap-4">
-                    <span class="text-zinc-600 text-sm w-8">#${i + 1}</span>
+        <div class="card animate-in hover:border-violet-500/50 transition-all cursor-pointer" style="animation-delay:${i * 0.02}s" onclick="toggleMemberExpand('${memberId}')">
+            <div class="p-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 text-center flex-shrink-0">${rank <= 3 ? `<span class="text-2xl">${rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉'}</span>` : `<span class="text-lg text-zinc-500 mono">#${rank}</span>`}</div>
                     ${profileImg}
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2">
-                            ${displayName ? `<span class="font-bold ${rateColor} truncate">${displayName}</span>` : `<span class="font-bold text-zinc-400 mono text-sm truncate">${v.address}</span>`}
-                            ${v.inBoth ? '<span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300">Lion + Pixel</span>' : (v.lionProps > 0 ? '<span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300">Lion DAO</span>' : '<span class="text-xs px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-300">Pixel Lions</span>')}
+                            ${displayName ? `<span class="font-bold ${tier.color} truncate">${displayName}</span>` : `<span class="font-bold text-zinc-400 mono text-sm truncate">${v.address}</span>`}
+                            ${title ? `<span class="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">${title}</span>` : ''}
+                            ${daoChip}
                         </div>
                         <div class="flex items-center gap-2 md:gap-3 text-xs text-zinc-500 mt-1">
                             ${displayName ? `<span class="mono text-zinc-600 hidden md:inline">${shortAddr(v.address)}</span><span class="hidden md:inline">•</span>` : `<span class="text-zinc-500">Unregistered</span><span>•</span>`}
-                            <span>${votedProps}/${totalProps}</span>
-                            ${badges.join(' ')}
+                            <span>${tier.name}</span><span>•</span>
+                            <span>${votesIn}/${totalIn}</span>
                             ${streak > 0 ? `<span class="text-orange-400">🔥${streak}</span>` : ''}
+                            <span>•</span>${otherGrades}
                         </div>
-                        <div class="hidden lg:flex items-center gap-0.5 mt-2" title="Last 20 proposals (🦁 Lion DAO · 🎨 Pixel Lions)">${last20}</div>
+                        <div class="hidden lg:flex items-center gap-0.5 mt-2" title="Last 20 proposals in this view (🦁 Lion DAO · 🎨 Pixel Lions)">${last20}</div>
                     </div>
-                    <div class="text-right flex-shrink-0"><div class="text-xl md:text-2xl font-bold ${rateColor}">${rate.toFixed(1)}%</div></div>
+                    <div class="text-right flex-shrink-0"><div class="text-xl md:text-2xl font-bold ${tier.color}">${rate.toFixed(1)}%</div><div class="text-[10px] text-zinc-600">${viewLabel}</div></div>
                     <div class="hidden sm:flex flex-col gap-1 text-xs min-w-[50px] flex-shrink-0">
                         <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-green-500"></div><span class="text-green-400">${yesN}</span></div>
                         <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-yellow-400"></div><span class="text-yellow-300">${noN}</span></div>
@@ -2859,15 +2896,14 @@ function renderPartnerMembers() {
                     </div>
                     <div class="text-zinc-600 text-sm" id="${memberId}-arrow">▼</div>
                 </div>
-                <div class="mt-3 h-1.5 bg-zinc-800 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r ${rate >= 90 ? 'from-yellow-500 to-amber-500' : rate >= 75 ? 'from-cyan-500 to-blue-500' : 'from-violet-500 to-purple-500'}" style="width:${Math.min(100, rate).toFixed(1)}%"></div></div>
-                </div>
-                <div id="${memberId}" class="hidden border-t border-zinc-800 p-3 bg-zinc-900/50">
-                    <div class="text-xs text-zinc-500 mb-2">${DOT_LEGEND}</div>
-                    <div class="text-xs text-amber-400 mb-1">🦁 Lion DAO (${v.lionProps}/${v.lionPropIds?.length || 0}) · <span class="text-pink-400">🎨 Pixel Lions (${v.pixelProps}/${v.pixelPropIds?.length || 0})</span></div>
-                    <div class="flex flex-wrap gap-1">${allDots}</div>
-                </div>
+                <div class="mt-3 h-1.5 bg-zinc-800 rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r ${rate >= 90 ? 'from-yellow-500 to-amber-500' : rate >= 75 ? 'from-cyan-500 to-blue-500' : rate >= 50 ? 'from-violet-500 to-purple-500' : 'from-zinc-600 to-zinc-500'}" style="width:${Math.min(100, rate)}%"></div></div>
             </div>
-        `;
+            <div id="${memberId}" class="hidden border-t border-zinc-800 p-3 bg-zinc-900/50">
+                <div class="text-xs text-zinc-500 mb-2">${DOT_LEGEND}</div>
+                <div class="text-xs text-amber-400 mb-1">🦁 Lion DAO (${v.lionProps}/${v.lionPropIds?.length || 0}) · <span class="text-pink-400">🎨 Pixel Lions (${v.pixelProps}/${v.pixelPropIds?.length || 0})</span> · <span class="text-purple-300">🤝 Ally grade ${partnerGrade(v, 'both').toFixed(1)}%</span></div>
+                <div class="flex flex-wrap gap-1">${allDots}</div>
+            </div>
+        </div>`;
     }).join('');
 }
 

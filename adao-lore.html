@@ -88,7 +88,7 @@
             top: -28px;
         }
         
-        .distant-galaxy-bnb { position: fixed; top: 25%; right: 12%; width: 90px; height: 90px; background-image: url('/assets/planets/BNB%20logo.png?v=2'); background-size: contain; background-repeat: no-repeat; opacity: 0.45; z-index: 0; animation: slow-pulse 7s ease-in-out infinite; }
+        .distant-galaxy-bnb { position: fixed; top: 25%; right: 12%; width: 90px; height: 90px; background-image: url('/assets/planets/bnb.png?v=3'); background-size: contain; background-repeat: no-repeat; opacity: 0.45; z-index: 0; animation: slow-pulse 7s ease-in-out infinite; }
         @keyframes slow-pulse { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.05); opacity: 0.6; } }
         .star { position: fixed; background-color: white; border-radius: 50%; box-shadow: 0 0 4px white; animation: twinkle linear infinite; z-index: 0; }
         @keyframes twinkle { 0%, 100% { opacity: 0.1; transform: scale(0.8); } 50% { opacity: 0.8; transform: scale(1.1); } }
@@ -257,7 +257,7 @@
         <img src="/assets/planets/Terra.PNG?v=1" alt="Terra Galaxy" class="h-12 w-12 mx-auto">
         <p class="font-bold text-gray-400 mt-1 text-sm">Galaxy Lore</p>
     </div>
-     <div id="comparePlanetsTrigger" class="fixed bottom-6 right-6 z-20 bg-neutral-800 text-gray-400 font-bold py-2 px-4 rounded-lg cursor-pointer hover:bg-neutral-700 transition-colors">
+     <div id="comparePlanetsTrigger" class="fixed bottom-6 right-36 z-20 bg-neutral-800 text-gray-400 font-bold py-2 px-4 rounded-lg cursor-pointer hover:bg-neutral-700 transition-colors">
         Compare Planets
     </div>
 
@@ -314,7 +314,7 @@
                     
                     <div class="flex flex-col sm:flex-row items-center gap-6 mt-6">
                         <div class="flex-shrink-0">
-                            <img src="/assets/images/Phoenix%20Example.png" alt="Phoenix Navigator" class="w-32 h-32 object-contain rounded-lg bg-black/20 p-1 clickable-image">
+                            <img src="/assets/images/phoenix-example.webp" alt="Phoenix Navigator" class="w-32 h-32 object-contain rounded-lg bg-black/20 p-1 clickable-image">
                         </div>
                         <div>
                             <h4 class="text-lg font-semibold text-gray-300 mb-2">The Navigators (The Phoenix Rising)</h4>
@@ -324,7 +324,7 @@
 
                     <div class="flex flex-col sm:flex-row items-center gap-6 mt-6">
                         <div class="flex-shrink-0">
-                             <img src="/assets/images/Sindarin%20Fire%20Saber.png" alt="Sindarin Fire Saber" class="w-32 h-32 object-contain clickable-image">
+                             <img src="/assets/images/sindarin-fire-saber.webp" alt="Sindarin Fire Saber" class="w-32 h-32 object-contain clickable-image">
                         </div>
                         <div>
                             <h4 class="text-lg font-semibold text-gray-300 mb-2">The Catalysts (The Sindarin Fire Saber)</h4>
@@ -369,9 +369,9 @@
                     <h4 class="text-xl font-bold text-cyan-400">Inner Ring: The Triad Alliance (Core Infrastructure & DeFi)</h4>
                     <div class="pl-4 mt-4 space-y-6">
                         <div>
-                            <p><strong class="text-lg text-gray-200">Planet: Crystall</strong></p>
+                            <p><strong class="text-lg text-gray-200">Planet: Cristall</strong></p>
                             <p class="ml-4 mt-1"><strong class="text-gray-400">Public Lore Theme:</strong> Keepers of knowledge, scholars of the Cosmos Protocol.</p>
-                            <p class="ml-4 mt-3"><strong class="text-gray-400">Strategic Target:</strong> Cosmos Hub (ATOM) Community & Tooling. The Crystallians represent the core developers, educators, and infrastructure providers (wallets, explorers, documentation) of the Cosmos ecosystem. An alliance here means deeper integration with the core community and supporting public goods.</p>
+                            <p class="ml-4 mt-3"><strong class="text-gray-400">Strategic Target:</strong> Cosmos Hub (ATOM) Community & Tooling. The Cristallians represent the core developers, educators, and infrastructure providers (wallets, explorers, documentation) of the Cosmos ecosystem. An alliance here means deeper integration with the core community and supporting public goods.</p>
                         </div>
                         <div>
                             <p><strong class="text-lg text-gray-200">Planet: Gredica</strong></p>
@@ -501,27 +501,27 @@
 
             const allPlanetsData = [
                 { 
-                    name: "Crystall", sizeCategory: "Large", ring: 1, position: { top: '14%', left: '49%' }, image: "/assets/planets/Crystall.png?v=17",
+                    name: "Cristall", sizeCategory: "Large", ring: 1, position: { top: '14%', left: '49%' }, image: "/assets/planets/Crystall.png?v=17",
                     description: "Technologically Advanced Crystal World",
                     stats: { "Circumference": "40,075", "Distance from Sun": "2.5", "Alliance Status": "Triad Alliance (Seat of Governance)" },
                     astroData: { size: "40,075 AU", distance: "2.5 LY", faction: "Triad Alliance" },
                     circumferenceRaw: 40075,
                     distanceRaw: 2.5,
                     profile: {
-                        text: "Crystall is the crown jewel of the Triad Alliance, a world of breathtaking beauty where mountains of amethyst and quartz crystals grow like ancient forests. Its environment is a fusion of natural geological wonder and advanced technology. The Crystallians are the intellectual and philosophical leaders of the galaxy, the foremost scholars of the ancient Lattice network that connects all worlds. Their entire society is dedicated to understanding, restoring, and perfecting this fundamental network of reality.",
-                        alliances: "As the seat of the Triad Alliance, Crystall actively manages the diplomatic and technological relationships with Minas and Gredica. Since the Warp, they have become the de facto leaders in the effort to understand the Lattice, reaching out to the newly discovered worlds with offers of knowledge and integration, though some view their guidance as control.",
+                        text: "Cristall is the crown jewel of the Triad Alliance, a world of breathtaking beauty where mountains of amethyst and quartz crystals grow like ancient forests. Its environment is a fusion of natural geological wonder and advanced technology. The Cristallians are the intellectual and philosophical leaders of the galaxy, the foremost scholars of the ancient Lattice network that connects all worlds. Their entire society is dedicated to understanding, restoring, and perfecting this fundamental network of reality.",
+                        alliances: "As the seat of the Triad Alliance, Cristall actively manages the diplomatic and technological relationships with Minas and Gredica. Since the Warp, they have become the de facto leaders in the effort to understand the Lattice, reaching out to the newly discovered worlds with offers of knowledge and integration, though some view their guidance as control.",
                         regions: [
                             {
                                 name: "The Archives (North)",
                                 image: "/assets/planets/Cristall%20North.png",
-                                environment: "Crystall North is a valley of giant, perfectly formed quartz crystals. The landscape is serene and ordered, with crystalline structures that have been meticulously integrated with advanced technology, serving as massive data storage and transmission hubs. The air itself seems to hum with information.",
+                                environment: "Cristall North is a valley of giant, perfectly formed quartz crystals. The landscape is serene and ordered, with crystalline structures that have been meticulously integrated with advanced technology, serving as massive data storage and transmission hubs. The air itself seems to hum with information.",
                                 culture: "The North is home to the 'Archivists,' the galaxy's keepers of knowledge. They are a society of scholars, historians, and data scientists who dedicate their lives to studying the history of the Lattice. They maintain the 'Great Crystalline Archive,' a decentralized network that stores the galaxy's most important historical and scientific data. They are the authors of the 'Amethyst Principles,' a set of foundational guidelines for ethical and stable network development."
                             },
                             {
                                 name: "The Resonators (South)",
                                 image: "/assets/planets/Cristall%20South.png",
                                 environment: "The southern hemisphere is a wild, untamed landscape of vibrant, purple amethyst formations. These crystals are not inert; they resonate with the energy of the Lattice, creating strange and beautiful light displays in the sky. The environment is more chaotic and experimental than the orderly North.",
-                                culture: "The South is inhabited by the 'Resonators,' the visionary engineers and explorers of Crystallian society. They live in experimental bio-domes nestled among the amethyst peaks. They are the ones who build the tools that allow others to navigate the Lattice. While the Archivists study the past, the Resonators build the future, constantly pushing the boundaries of what is possible."
+                                culture: "The South is inhabited by the 'Resonators,' the visionary engineers and explorers of Cristallian society. They live in experimental bio-domes nestled among the amethyst peaks. They are the ones who build the tools that allow others to navigate the Lattice. While the Archivists study the past, the Resonators build the future, constantly pushing the boundaries of what is possible."
                             }
                         ]
                     }
@@ -845,7 +845,7 @@
 
                 // Generate comparative size description
                 let sizeDescription = '';
-                if (planet.name === 'Crystall') {
+                if (planet.name === 'Cristall') {
                      sizeDescription = `(Mid-sized within the Inner Ring, average for the galaxy)`;
                 } else if (planet.name === 'Minas') {
                     sizeDescription = `(Smallest within the Inner Ring, smallest in the galaxy)`;
