@@ -41,7 +41,23 @@
         .chip { font-size: .7rem; padding: .2rem .55rem; border-radius: 9999px; border: 1px solid #333; color: #9ca3af; cursor: pointer; }
         .chip:hover, .chip.on { color: #67e8f9; border-color: #67e8f9; }
         input[type=range] { accent-color: #22d3ee; width: 100%; }
-        .screen { display: none; } .screen.on { display: block; }
+        .screen { display: none; position: relative; } .screen.on { display: block; }
+        /* the web (home) */
+        #web { width: 100%; height: auto; display: block; }
+        #web .hub, #web .leaf { cursor: pointer; }
+        #web .hub:hover rect, #web .leaf:hover rect { filter: brightness(1.25); }
+        #web text { font-family: 'Inter', sans-serif; fill: #e5e7eb; }
+        #web .num { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+        #web .lbl { fill: #9ca3af; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+        #web .edge { fill: none; stroke-width: 2; opacity: .85; }
+        #web .e-good { stroke: #22c55e; } #web .e-bad { stroke: #ef4444; } #web .e-warn { stroke: #f59e0b; } #web .e-route { stroke-width: 3; }
+        #web .box { fill: #121212; stroke: #2a2a2a; }
+        #web .hub rect { fill: #111; stroke-width: 1.5; }
+        @media (min-width: 900px) { #home-cards, #home-center, #home-center + div, #home-center + div + .line { display: none; } } @media (max-width: 899px) { #web-wrap { display: none; } }
+        /* spokes on route screens */
+        .spokes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+        .spokes line { stroke-width: 2; opacity: .55; }
+        .screen > *:not(.spokes) { position: relative; z-index: 1; }
         dialog { background: #141414; color: #e5e7eb; border: 1px solid #333; border-radius: 1rem; max-width: 42rem; width: calc(100% - 2rem); padding: 1.2rem 1.4rem; }
         dialog::backdrop { background: rgba(0,0,0,.65); }
         .drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(34rem, 100%); background: #111; border-left: 1px solid #333; transform: translateX(100%); transition: transform .2s; z-index: 60; overflow-y: auto; }
@@ -94,14 +110,15 @@
                 <p class="text-gray-400 mt-3 max-w-3xl mx-auto text-sm md:text-base">Pick a route to see what it pays for <span class="num text-cyan-200" id="h-amt">10,000 LUNA</span>, what it costs you, and how you get out. Every number below is live from chain or from this site's own captures — nothing here is a promise.</p>
             </div>
 
-            <div class="node center max-w-sm mx-auto">
+            <div class="node center max-w-sm mx-auto" id="home-center">
                 <div class="text-[11px] uppercase tracking-[.15em] text-gray-500">Input = tokens</div>
                 <div class="num text-2xl text-cyan-200" id="c-amt">10,000 LUNA</div>
                 <div class="text-[11px] text-gray-500" id="c-usd">≈ —</div>
             </div>
             <div class="max-w-5xl mx-auto mt-1 mb-1 flex justify-center"><div class="w-px h-8 bg-[#2a2a2a]"></div></div>
             <div class="max-w-5xl mx-auto line"></div>
-            <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+            <div id="web-wrap" class="max-w-6xl mx-auto mt-4"><svg id="web" viewBox="0 0 1200 690" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Your LUNA and its four routes"></svg></div>
+            <div id="home-cards" class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
                 <div class="spoke"><div class="card route r-native p-4" data-route="native">
                     <div class="text-[10px] uppercase tracking-[.15em] tag border-b inline-block pb-0.5">Native staking</div>
                     <div class="num text-2xl mt-2" id="t-native">—</div>
@@ -290,11 +307,11 @@
         const apyOfDaily = (a) => a == null ? null : Math.pow(1 + a, DAYS_IN_YEAR) - 1;
 
         // ---------------- state (URL-backed) ----------------
-        const S = { luna: 10000, horizon: 'monthly', route: 'home', lst: 'ampLUNA', weeks: 104, pool: null, vault: null, disc: 0.10, apr: null, comm: 0.05 };   // apr: manual override (annual fraction) or null = chain-derived; comm: validator commission
+        const S = { luna: 10000, horizon: 'monthly', route: 'home', lst: 'ampLUNA', weeks: 104, pools: {}, vault: null, disc: 0.10, apr: null, comm: 0.05 };   // pools: { bucket: poolKey } — VP allocates ONCE PER BUCKET, so one pick per bucket   // apr: manual override (annual fraction) or null = chain-derived; comm: validator commission
         const HDAYS = { weekly: 7, monthly: DAYS_IN_YEAR / 12, yearly: DAYS_IN_YEAR };
         const HLBL = { weekly: 'per week', monthly: 'per month', yearly: 'per year' };
-        function readUrl() { const p = new URLSearchParams(location.search); if (p.get('luna')) S.luna = Math.max(0, num(p.get('luna')) || 10000); if (p.get('h')) S.horizon = p.get('h'); if (p.get('path')) S.route = p.get('path'); if (p.get('lst')) S.lst = p.get('lst'); if (p.get('lock')) S.weeks = Math.min(MAX_WEEKS, Math.max(1, num(p.get('lock')) || 104)); if (p.get('pool')) S.pool = p.get('pool'); if (p.get('vault')) S.vault = p.get('vault'); if (p.get('disc')) S.disc = Math.min(.9, Math.max(0, (num(p.get('disc')) || 10) / 100)); if (p.get('apr') != null && num(p.get('apr')) != null) S.apr = Math.min(5, Math.max(0, num(p.get('apr')) / 100)); if (p.get('comm') != null && num(p.get('comm')) != null) S.comm = Math.min(1, Math.max(0, num(p.get('comm')) / 100)); }
-        function writeUrl() { const p = new URLSearchParams(); p.set('luna', String(S.luna)); p.set('h', S.horizon); if (S.route !== 'home') p.set('path', S.route); if (S.route === 'tla') { p.set('lst', S.lst); p.set('lock', String(S.weeks)); if (S.pool) p.set('pool', S.pool); p.set('disc', String(Math.round(S.disc * 100))); } if (S.route === 'votion' && S.vault) p.set('vault', S.vault); if (S.apr != null) p.set('apr', String(Math.round(S.apr * 10000) / 100)); if (S.comm !== 0.05) p.set('comm', String(Math.round(S.comm * 10000) / 100)); history.replaceState(null, '', location.pathname + '?' + p.toString()); }
+        function readUrl() { const p = new URLSearchParams(location.search); if (p.get('luna')) S.luna = Math.max(0, num(p.get('luna')) || 10000); if (p.get('h')) S.horizon = p.get('h'); if (p.get('path')) S.route = p.get('path'); if (p.get('lst')) S.lst = p.get('lst'); if (p.get('lock')) S.weeks = Math.min(MAX_WEEKS, Math.max(1, num(p.get('lock')) || 104)); if (p.get('pools')) { for (const kv of p.get('pools').split(',')) { const i = kv.indexOf(':'); if (i > 0) S.pools[kv.slice(0, i)] = kv.slice(i + 1); } } if (p.get('vault')) S.vault = p.get('vault'); if (p.get('disc')) S.disc = Math.min(.9, Math.max(0, (num(p.get('disc')) || 10) / 100)); if (p.get('apr') != null && num(p.get('apr')) != null) S.apr = Math.min(5, Math.max(0, num(p.get('apr')) / 100)); if (p.get('comm') != null && num(p.get('comm')) != null) S.comm = Math.min(1, Math.max(0, num(p.get('comm')) / 100)); }
+        function writeUrl() { const p = new URLSearchParams(); p.set('luna', String(S.luna)); p.set('h', S.horizon); if (S.route !== 'home') p.set('path', S.route); if (S.route === 'tla') { p.set('lst', S.lst); p.set('lock', String(S.weeks)); const pk = Object.entries(S.pools).map(([b, k]) => b + ':' + k).join(','); if (pk) p.set('pools', pk); p.set('disc', String(Math.round(S.disc * 100))); } if (S.route === 'votion' && S.vault) p.set('vault', S.vault); if (S.apr != null) p.set('apr', String(Math.round(S.apr * 10000) / 100)); if (S.comm !== 0.05) p.set('comm', String(Math.round(S.comm * 10000) / 100)); history.replaceState(null, '', location.pathname + '?' + p.toString()); }
 
         // ---------------- data ----------------
         const D = { lunaUsd: null, lunaSrc: null, ratios: {}, ratioSrc: {}, yields: null, opt: null, snapshot: null, credia: null, vaults: null, stakingCsv: null, errors: [] };
@@ -321,7 +338,7 @@
         //   manual  = S.apr if the reader typed one (there is NO verified live feed — the page says so)
         //   applied = (manual ?? base) × (1 − S.comm)   ← what a delegation at that validator earns
         function nativeBase() { const n = D.yields && D.yields.native_staking;
-            if (n && n.apr_stakers != null) return { apr: n.apr_stakers, source: 'chain: provisions ÷ bonded ÷ alliance weights', ref: D.stakingCsv, gross: n.apr_gross, inputs: n.inputs, refs: n.references, crosscheck: n.apr_daily_est != null ? n.apr_daily_est * DAYS_IN_YEAR : null };
+            if (n && n.apr_stakers != null) return { apr: n.apr_stakers, source: 'chain: provisions ÷ bonded ÷ alliance weights', ref: D.stakingCsv, gross: n.apr_gross, inputs: n.inputs, refs: n.references, amp: n.ampluna_realized_apr_30d != null ? n.ampluna_realized_apr_30d : null, takeRate: n.take_rate_leg };
             if (n && n.apr_daily_est != null) return { apr: n.apr_daily_est * DAYS_IN_YEAR, source: 'chain estimate (ampLUNA hub grossed up)', ref: D.stakingCsv };
             if (D.stakingCsv) return { apr: D.stakingCsv.apr, source: 'SmartStake CSV ' + D.stakingCsv.date + ' (manual reference)', ref: D.stakingCsv };
             return null; }
@@ -342,7 +359,13 @@
             return { period: o.period, voteBefore: o.voteBefore, capturedAt: o.capturedAt, rows };
         }
         function bribeShare(row, vp) { if (!row || row.potUsd <= 0 || vp <= 0) return 0; return row.potUsd * vp / (row.votes + vp); }   // Votion's reward model: bribe × a/(V+a), weekly
-        function bestPool(vp) { const r = pools().rows.map(x => ({ ...x, mine: bribeShare(x, vp) })).sort((a, b) => b.mine - a.mine); return r[0] && r[0].mine > 0 ? r[0] : null; }
+        // Per bucket: the pool that pays this VP most (VP allocates once per bucket — 100% in each of the 4 buckets).
+        function bestPerBucket(vp) { const out = {}; for (const r of pools().rows) { const mine = bribeShare(r, vp); if (mine > 0 && (!out[r.bucket] || mine > out[r.bucket].mine)) out[r.bucket] = { ...r, mine }; } return out; }
+        // The reader's picks per bucket (or the best where none picked) → { bucket: row+mine }, and the weekly total
+        function bribePlan(vp) { const P = pools(); const best = bestPerBucket(vp); const plan = {}; const buckets = [...new Set(P.rows.map(r => r.bucket))];
+            for (const b of buckets) { const chosen = S.pools[b] && P.rows.find(r => r.key === S.pools[b]); plan[b] = chosen ? { ...chosen, mine: bribeShare(chosen, vp), picked: true } : (best[b] ? { ...best[b], picked: false } : null); }
+            const total = Object.values(plan).reduce((s, r) => s + (r ? r.mine : 0), 0); return { plan, total, buckets, period: P.period, voteBefore: P.voteBefore, capturedAt: P.capturedAt }; }
+        function bestPool(vp) { const b = bestPerBucket(vp); const r = Object.values(b).sort((a, c) => c.mine - a.mine); return r[0] || null; }   // kept for the teaser
         function vaultRows() { const y = D.yields; if (!y || !Array.isArray(y.vaults)) return []; return y.vaults.map(v => ({ address: v.address, label: v.label || v.address.slice(0, 12), lst: v.lst_symbol, apy: v.headline && v.headline[30] ? v.headline[30].total_apy : null, votion: v.headline && v.headline[30] ? v.headline[30].votion_apy : null, asset: v.headline && v.headline[30] ? v.headline[30].asset_apy : null, w7: v.windows && v.windows[7] ? (v.windows[7].apy_contract ?? v.windows[7].apy_measured) : null })).filter(v => v.apy != null).sort((a, b) => b.apy - a.apy); }
         function crediaLuna() { const c = D.credia; if (!c || !Array.isArray(c.pools)) return null; const m = c.pools.find(p => p.raw && p.raw.info && p.raw.info.native === 'uluna') || c.pools.find(p => /^LUNA/.test(String(p.pool_name))); if (!m || !m.raw) return null; const r = m.raw; const sup = num(r.total_supplied), bor = num(r.total_borrowed); return { supplyApy: num(r.supply_apy), borrowApy: num(r.borrow_apy), util: num(r.utilization), availLuna: (sup != null && bor != null) ? (sup - bor) / 1e6 : null, at: c.meta && c.meta.captured_at }; }
         function crediaMarket(cw20) { const c = D.credia; const m = c && Array.isArray(c.pools) && c.pools.find(p => p.raw && p.raw.info && p.raw.info.cw20 === cw20); return m && m.raw ? { ltv: num(m.raw.state && m.raw.state.ltv), liqT: num(m.raw.state && m.raw.state.liquidation_threshold), borrowApy: num(m.raw.borrow_apy) } : null; }
@@ -354,9 +377,9 @@
         function totals() {   // the compare strip: LUNA gained over the horizon per route, for S.luna
             const days = HDAYS[S.horizon]; const out = {};
             const n = nativeApr(); out.native = n ? growComp(S.luna, n.daily, days) : null;
-            const a = assetApy(S.lst); const vp = vpFor(S.luna, S.weeks); const row = S.pool ? pools().rows.find(r => r.key === S.pool) : bestPool(vp);
-            const bribeLuna = (row && D.lunaUsd) ? bribeShare(row, vp) / D.lunaUsd * (days / 7) : 0;
-            out.tla = a ? growComp(S.luna, a.daily, days) + bribeLuna : null; out.tlaBribeLuna = bribeLuna; out.tlaPool = row ? row.name : null;
+            const a = assetApy(S.lst); const vp = vpFor(S.luna, S.weeks); const bp = bribePlan(vp);
+            const bribeLuna = D.lunaUsd ? bp.total / D.lunaUsd * (days / 7) : 0;
+            out.tla = a ? growComp(S.luna, a.daily, days) + bribeLuna : null; out.tlaBribeLuna = bribeLuna; out.tlaBuckets = Object.values(bp.plan).filter(Boolean).length; out.tlaPool = out.tlaBuckets ? out.tlaBuckets + ' buckets' : null;
             const v = vaultRows(); const vr = (S.vault && v.find(x => x.address === S.vault)) || v[0]; out.votion = vr ? growComp(S.luna, dailyOfApy(vr.apy), days) : null; out.votionVault = vr ? vr.label : null;
             const c = crediaLuna(); out.credia = c && c.supplyApy != null ? growComp(S.luna, dailyOfApy(c.supplyApy), days) : null;
             return out;
@@ -379,7 +402,7 @@
             $('n-apr').textContent = n ? pct(n.apr, 2) : '—'; $('n-apr-sub').innerHTML = (n ? (n.manual ? 'your figure' : 'chain-derived') + ' × (1 − ' + Math.round(S.comm * 100) + '% commission)' : 'no APR available') + ' <span class="how" data-how="native-apr">how?</span>';
             if (document.activeElement !== $('apr-in')) $('apr-in').value = n ? (n.before * 100).toFixed(2) : ''; if (document.activeElement !== $('comm-in')) $('comm-in').value = String(Math.round(S.comm * 1000) / 10);
             $('apr-reset').style.visibility = S.apr != null ? 'visible' : 'hidden'; document.querySelectorAll('.chip[data-comm]').forEach(c => c.classList.toggle('on', Number(c.dataset.comm) / 100 === S.comm));
-            $('n-note').innerHTML = (S.apr != null ? `<span class="warn">Using your figure, ${pct(S.apr, 2)}.</span> ` : '') + `There is no verified live feed for Terra's staking APR — every site derives its own. Ours is derived from chain each hour${b && b.gross != null ? ` (gross ${pct(b.gross, 2)}, ${pct(b.apr, 2)} to stakers before commission)` : ''} and may still be off; if you know a more accurate figure, type it above and everything on this page follows it.`;
+            $('n-note').innerHTML = (S.apr != null ? `<span class="warn">Using your figure, ${pct(S.apr, 2)}.</span> ` : '') + `There is no verified live feed for Terra's staking APR — every site derives its own. Ours is derived from chain each hour${b && b.gross != null ? ` (gross ${pct(b.gross, 2)}, ${pct(b.apr, 2)} to stakers before commission)` : ''} and counts only the LUNA-provisions leg${b && b.amp != null ? ` — delegators also receive alliance take-rate rewards in other assets, which we do not measure yet; ampLUNA's realized ${pct(b.amp, 1)} (everything included) is the ceiling` : ''}. If you know a more accurate figure, type it above and everything on this page follows it.`;
             $('n-claim').textContent = n ? '+' + fmt(growSimple(S.luna, n.daily, days), 1) + ' LUNA' : '—'; $('n-claim-sub').textContent = n ? HLBL[S.horizon] + ' claimed as it comes' + (D.lunaUsd ? ' · ≈ ' + usd(growSimple(S.luna, n.daily, days) * D.lunaUsd) : '') : 'no APR source';
             $('n-comp').textContent = n ? '+' + fmt(growComp(S.luna, n.daily, days), 1) + ' LUNA' : '—'; $('n-comp-sub').textContent = n ? HLBL[S.horizon] + ' re-staked daily · ' + pct(n.apy, 2) + ' APY · ' + n.source + (n.ref ? ' · SmartStake ref ' + pct(n.ref.apr, 1) + ' (' + n.ref.date + ')' : '') : '';
         }
@@ -389,10 +412,13 @@
             $('l-weeks').textContent = S.weeks + (S.weeks >= MAX_WEEKS ? ' weeks (max)' : S.weeks === 1 ? ' week' : ' weeks'); $('lock-range').value = S.weeks;
             const vp = vpFor(S.luna, S.weeks); $('l-vp').textContent = fmt(vp) + ' VP';
             const a = assetApy(sym); const days = HDAYS[S.horizon]; $('l-yield').textContent = a ? '+' + fmt(growComp(S.luna, a.daily, days), 1) + ' LUNA' : '—'; $('l-yield-sub').textContent = a ? HLBL[S.horizon] + ' · ' + sym + ' ' + pct(a.apy, 2) + ' APY · ' + a.source + (a.stale ? ' (' + a.stale + 'd old)' : '') : 'yields product not published yet';
-            const P = pools(); const row = S.pool ? P.rows.find(r => r.key === S.pool) : null; const best = bestPool(vp);
-            if (row) { const mine = bribeShare(row, vp); $('l-bribe').textContent = usd(mine, 2) + ' / wk'; $('l-bribe-sub').textContent = row.name + ' · ' + usd(row.potUsd, 0) + ' pot · ' + fmt(row.votes) + ' votes' + (D.lunaUsd ? ' · ≈ ' + fmt(mine / D.lunaUsd, 1) + ' LUNA/wk' : ''); $('pool-name').textContent = row.name; $('pool-detail').innerHTML = `Your ${fmt(vp)} VP in a pool with ${fmt(row.votes)} votes takes <b class="num">${pct(vp / (row.votes + vp), 2)}</b> of its ${usd(row.potUsd, 0)} pot → <b class="num good">${usd(mine, 2)}</b> per epoch, paid in the bribe token at the epoch start. Period ${P.period}, cast deadline ${String(P.voteBefore || '').slice(0, 10)}.`; }
-            else { $('l-bribe').textContent = best ? usd(best.mine, 2) + ' / wk' : '—'; $('l-bribe-sub').textContent = best ? 'best pool right now: ' + best.name + ' — choose one →' : (P.rows.length ? 'no funded pots this period' : 'Votion worksheet not available'); $('pool-name').textContent = 'none chosen'; $('pool-detail').textContent = best ? `With ${fmt(vp)} VP the best pot right now is ${best.name} at ${usd(best.mine, 2)} per epoch. Choose a pool to see any of them.` : 'Choose a pool to see what your VP would earn there this epoch.'; }
-            $('pool-src').textContent = P.capturedAt ? 'pots + votes: Votion worksheet ' + String(P.capturedAt).slice(0, 16) + ' · period ' + P.period + ' · reward = pot × your VP ÷ (votes + your VP)' : '';
+            const P = pools(); const bp = bribePlan(vp); const picked = Object.values(bp.plan).filter(r => r && r.picked).length;
+            const rows = bp.buckets.map(b => bp.plan[b]).filter(Boolean);
+            $('l-bribe').textContent = rows.length ? usd(bp.total, 2) + ' / wk' : '—';
+            $('l-bribe-sub').textContent = rows.length ? `${rows.length} buckets, 100% of your VP in each` + (D.lunaUsd ? ` · ≈ ${fmt(bp.total / D.lunaUsd, 1)} LUNA/wk` : '') + (picked ? ` · ${picked} picked` : ' · best pot per bucket') : (P.rows.length ? 'no funded pots this period' : 'Votion worksheet not available');
+            $('pool-name').textContent = rows.length ? (picked ? `${picked} of ${bp.buckets.length} buckets picked` : 'best pot in each bucket') : 'no pools';
+            $('pool-detail').innerHTML = rows.length ? `<div class="text-[10px] text-gray-500 mb-1">Your ${fmt(vp)} VP votes in every bucket at once — one pool per bucket:</div>` + bp.buckets.map(b => { const r = bp.plan[b]; return r ? `<div class="flex justify-between gap-2 py-0.5 border-b border-[#1f1f1f]"><span><span class="text-gray-500">${b}</span> ${r.name}${r.picked ? '' : ' <span class="text-gray-600">(best)</span>'}</span><span class="num good whitespace-nowrap">${usd(r.mine, 2)}</span></div>` : `<div class="flex justify-between py-0.5 text-gray-600"><span>${b}</span><span>no pot</span></div>`; }).join('') + `<div class="text-[10px] text-gray-500 mt-1">share = pot × VP ÷ (votes + VP) · period ${bp.period}, cast by ${String(bp.voteBefore || '').slice(0, 10)}</div>` : 'Choose pools to see what your VP would earn this epoch.';
+            $('pool-src').textContent = P.capturedAt ? 'pots + votes: Votion worksheet ' + String(P.capturedAt).slice(0, 16) + ' · period ' + P.period : '';
             $('l-decay').textContent = fmt(vpAfter(S.luna, S.weeks, 26)) + ' VP'; 
             const res = D.lunaUsd ? S.luna * D.lunaUsd * (1 - S.disc) : null; $('l-resale').textContent = res != null ? usd(res) : '—'; $('disc-v').textContent = Math.round(S.disc * 100) + '%'; $('disc-range').value = Math.round(S.disc * 100);
             const lp = crediaAmpLp(); $('l-credia').textContent = lp && lp.ltv != null ? 'up to ' + pct(lp.ltv, 0) + ' LTV' : '—';
@@ -415,27 +441,78 @@
             if (c && m && m.ltv != null) { const L = 1 / (1 - m.ltv); const net = (a ? a.apy * L : null) != null ? a.apy * L - c.borrowApy * (L - 1) : null; $('cr-loop').innerHTML = `Post ${S.lst} as collateral (${pct(m.ltv, 0)} LTV, liquidation at ${pct(m.liqT, 0)}), borrow LUNA at <b class="num">${pct(c.borrowApy, 2)}</b>, bond it, repeat. Fully looped that is ${L.toFixed(2)}× your LST${a ? ` earning ${pct(a.apy, 2)} — net ≈ <b class="num ${net > (a.apy) ? 'good' : 'bad'}">${pct(net, 2)}</b> vs ${pct(a.apy, 2)} unlevered` : ''}. ${a && net != null && net <= a.apy ? 'At today’s borrow rate the loop does not pay — it adds liquidation and rate risk for less than nothing.' : 'It pays only while the borrow rate stays well under the LST yield; utilization spikes flip it negative.'}`; }
             else $('cr-loop').textContent = '—';
         }
+        // ---------------- the web: center → 4 route hubs → 3 leaves each (edges colored like the owner's sketch) ----------------
+        const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        function webModel() {
+            const n = nativeApr(), a = assetApy(S.lst), v = vaultRows()[0], c = crediaLuna(), vp = vpFor(S.luna, MAX_WEEKS), bp = bribePlan(vp);
+            return {
+                center: { l1: fmt(S.luna) + ' LUNA', l2: D.lunaUsd ? '≈ ' + usd(S.luna * D.lunaUsd) : '' },
+                routes: [
+                    { id: 'native', color: '#a3e635', title: 'Native staking', big: n ? pct(n.apr, 1) + ' / yr' : '—', sub: n ? 'after ' + Math.round(S.comm * 100) + '% commission' : 'no APR source',
+                      leaves: [{ k: 'good', l: 'Your validator, your chain vote' }, { k: 'warn', l: '21-day unbond to exit' }, { k: 'bad', l: 'No TLA vote, no bribes' }] },
+                    { id: 'tla', color: '#22d3ee', title: 'TLA lock', big: fmt(vp) + ' VP', sub: 'at max lock' + (a ? ' · ' + S.lst + ' ' + pct(a.apy, 1) + '/yr' : ''),
+                      leaves: [{ k: 'good', l: bp.total ? 'Best pots pay ' + usd(bp.total, 0) + ' / wk' : 'Direct emissions or bribes' }, { k: 'warn', l: 'Lock 1 week – 2 years' }, { k: 'bad', l: 'Eris picks the validators' }] },
+                    { id: 'votion', color: '#fb923c', title: 'Votion vault', big: v ? pct(v.apy, 1) + ' / yr' : '—', sub: v ? v.label.replace(/^Votion /, '') + ' · LST + boost' : 'yields not published yet',
+                      leaves: [{ k: 'good', l: 'Boost compounds into your LST' }, { k: 'warn', l: 'Its own lock, nothing to sell' }, { k: 'bad', l: 'Votion votes for you' }] },
+                    { id: 'credia', color: '#c084fc', title: 'Lend on Credia', big: c && c.supplyApy != null ? pct(c.supplyApy, 1) + ' / yr' : '—', sub: c ? pct(c.util, 0) + ' utilized · variable' : 'snapshot not available',
+                      leaves: [{ k: 'good', l: 'No lock — withdraw any time' }, { k: 'warn', l: 'Rate moves with borrowers' }, { k: 'bad', l: 'No vote anywhere · protocol risk' }] },
+                ] };
+        }
+        function renderWeb() {
+            const svg = $('web'); if (!svg) return; const M = webModel();
+            const W = 1200, C = { x: 600, y: 345 }; const HUB = { native: { x: 335, y: 160 }, tla: { x: 865, y: 160 }, votion: { x: 335, y: 530 }, credia: { x: 865, y: 530 } };
+            const LEAF = { native: [[180, 40], [80, 165], [200, 280]], tla: [[1020, 40], [1120, 165], [1000, 280]], votion: [[180, 410], [80, 535], [200, 655]], credia: [[1020, 410], [1120, 535], [1000, 655]] };
+            const clampX = (x, w) => Math.min(W - 8 - w / 2, Math.max(8 + w / 2, x));
+            const box = (x, y, w, h, extra = '') => `<rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="10" class="box" ${extra}/>`;
+            let out = '';
+            // edges first (under the boxes)
+            for (const r of M.routes) { const h = HUB[r.id]; out += `<line class="edge e-route" x1="${C.x}" y1="${C.y}" x2="${h.x}" y2="${h.y}" style="stroke:${r.color}"/>`;
+                r.leaves.forEach((lf, i) => { const [lx0, ly] = LEAF[r.id][i]; const w = Math.min(250, 20 + lf.l.length * 6.6); const lx = clampX(lx0, w); out += `<line class="edge e-${lf.k}" x1="${h.x}" y1="${h.y}" x2="${lx}" y2="${ly}"/>`; }); }
+            // center
+            out += `<g>${box(C.x, C.y, 230, 86, 'style="stroke:#22d3ee;stroke-width:1.5;filter:drop-shadow(0 0 18px rgba(34,211,238,.35))"')}<text x="${C.x}" y="${C.y - 22}" text-anchor="middle" class="lbl">Input = tokens</text><text x="${C.x}" y="${C.y + 6}" text-anchor="middle" class="num" style="font-size:24px;fill:#a5f3fc">${esc(M.center.l1)}</text><text x="${C.x}" y="${C.y + 28}" text-anchor="middle" style="font-size:11px;fill:#6b7280">${esc(M.center.l2)}</text></g>`;
+            // hubs + leaves
+            for (const r of M.routes) { const h = HUB[r.id];
+                out += `<g class="hub" data-route="${r.id}">${box(h.x, h.y, 250, 96, `style="stroke:${r.color}"`)}<text x="${h.x}" y="${h.y - 26}" text-anchor="middle" class="lbl" style="fill:${r.color}">${esc(r.title)}</text><text x="${h.x}" y="${h.y + 4}" text-anchor="middle" class="num" style="font-size:22px">${esc(r.big)}</text><text x="${h.x}" y="${h.y + 26}" text-anchor="middle" style="font-size:10.5px;fill:#9ca3af">${esc(r.sub)}</text><text x="${h.x}" y="${h.y + 41}" text-anchor="middle" style="font-size:10px;fill:${r.color}">Explore →</text></g>`;
+                r.leaves.forEach((lf, i) => { const [lx0, ly] = LEAF[r.id][i]; const col = lf.k === 'good' ? '#4ade80' : lf.k === 'bad' ? '#f87171' : '#fbbf24'; const w = Math.min(250, 20 + lf.l.length * 6.6); const lx = clampX(lx0, w);
+                    out += `<g class="leaf" data-route="${r.id}">${box(lx, ly, w, 32, `style="stroke:${col};stroke-opacity:.5"`)}<text x="${lx}" y="${ly + 4}" text-anchor="middle" style="font-size:11px;fill:${col}">${esc(lf.l)}</text></g>`; }); }
+            svg.innerHTML = out;
+        }
+        // ---------------- spokes: on each route screen, join the hub node to its tiles with colored lines ----------------
+        function drawSpokes() {
+            for (const sec of document.querySelectorAll('.screen.on')) {
+                let svg = sec.querySelector('svg.spokes'); if (!svg) { svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('class', 'spokes'); sec.prepend(svg); }
+                const hub = sec.querySelector('.node.center'); const tiles = [...sec.querySelectorAll('.tile')].filter(t => !t.closest('#n-ctl') && t.id !== 'n-ctl').slice(0, 6);
+                if (!hub || !tiles.length) { svg.innerHTML = ''; continue; }
+                const R = sec.getBoundingClientRect(), H = hub.getBoundingClientRect(); if (!R.width || !H.width) { svg.innerHTML = ''; continue; }
+                svg.setAttribute('viewBox', `0 0 ${R.width} ${R.height}`); const hx = H.left - R.left + H.width / 2, hy = H.bottom - R.top;
+                svg.innerHTML = tiles.map(t => { const T = t.getBoundingClientRect(); const v = t.querySelector('.v'); const col = v && v.classList.contains('good') ? '#22c55e' : v && v.classList.contains('bad') ? '#ef4444' : v && v.classList.contains('warn') ? '#f59e0b' : '#3a3a3a'; return `<line x1="${hx}" y1="${hy}" x2="${T.left - R.left + T.width / 2}" y2="${T.top - R.top}" stroke="${col}"/>`; }).join('');
+            }
+        }
+        window.addEventListener('resize', () => drawSpokes());
         function renderCompare() {
             const t = totals(); const days = HDAYS[S.horizon]; const html = `<div class="text-[10px] uppercase tracking-[.15em] text-gray-500 mb-2">All four, same ${fmt(S.luna)} LUNA, ${HLBL[S.horizon]}</div><div class="compare">` +
-                [['native', 'Native staking', t.native, 'compounded'], ['tla', 'TLA lock', t.tla, (t.tlaPool ? 'LST + bribes in ' + t.tlaPool : 'LST yield only')], ['votion', 'Votion', t.votion, t.votionVault || ''], ['credia', 'Credia lend', t.credia, 'variable']]
+                [['native', 'Native staking', t.native, 'compounded'], ['tla', 'TLA lock', t.tla, (t.tlaPool ? 'LST + best pots in ' + t.tlaPool : 'LST yield only')], ['votion', 'Votion', t.votion, t.votionVault || ''], ['credia', 'Credia lend', t.credia, 'variable']]
                 .map(([k, n, v, s]) => `<div class="cmp r-${k}${S.route === k ? ' on' : ''}"><div class="t">${n}</div><div class="v">${v == null ? '—' : '+' + fmt(v, 1) + ' LUNA'}</div><div class="s">${v != null && D.lunaUsd ? '≈ ' + usd(v * D.lunaUsd) + ' · ' : ''}${s}</div></div>`).join('') + `</div><div class="src mt-2">Bribes converted at LUNA ${usd(D.lunaUsd, 4)}; LST and Votion at the 30-day window; Credia at today's rate. Governance, lock and risk are not in these numbers — they are in the screens.</div>`;
             document.querySelectorAll('[data-compare]').forEach(el => el.innerHTML = html);
         }
-        function render() { renderHeader(); renderHome(); renderNative(); renderTla(); renderVotion(); renderCredia(); renderCompare(); document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 'screen-' + S.route)); writeUrl(); }
+        function render() { renderHeader(); renderHome(); renderWeb(); renderNative(); renderTla(); renderVotion(); renderCredia(); renderCompare(); document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 'screen-' + S.route)); writeUrl(); requestAnimationFrame(() => drawSpokes()); }
 
         // ---------------- pool picker ----------------
-        function openPicker() { const P = pools(); const vp = vpFor(S.luna, S.weeks); $('drawer-sub').textContent = P.period ? `period ${P.period} · your VP ${fmt(vp)}` : 'worksheet not available'; $('pool-rows').innerHTML = P.rows.map(r => { const mine = bribeShare(r, vp); return `<div class="pool-row${S.pool === r.key ? ' on' : ''}" data-key="${r.key}"><div>${r.name}<div class="src">${r.bucket}</div></div><div class="text-right num">${r.potUsd ? usd(r.potUsd, 0) : '<span class="text-gray-600">none</span>'}</div><div class="text-right num text-gray-400">${fmt(r.votes)}</div><div class="text-right num ${mine ? 'good' : 'text-gray-600'}">${mine ? usd(mine, 2) : '—'}</div></div>`; }).join(''); $('drawer-src').textContent = P.capturedAt ? 'Votion worksheet ' + String(P.capturedAt).slice(0, 16) + ' · pots are what is funded for this period; a pool with no pot still earns emissions for its LPs' : ''; $('drawer').classList.add('on'); $('drawer').setAttribute('aria-hidden', 'false'); }
+        function openPicker() { const P = pools(); const vp = vpFor(S.luna, S.weeks); const bp = bribePlan(vp); $('drawer-sub').textContent = P.period ? `period ${P.period} · your VP ${fmt(vp)} in EACH bucket · one pool per bucket` : 'worksheet not available';
+            $('pool-rows').innerHTML = bp.buckets.map(b => { const rows = P.rows.filter(r => r.bucket === b).map(r => ({ ...r, mine: bribeShare(r, vp) })).sort((x, y) => y.mine - x.mine || y.votes - x.votes); const cur = bp.plan[b];
+                return `<div class="text-[10px] uppercase tracking-[.15em] text-cyan-400 px-2 pt-3 pb-1 flex justify-between"><span>${b}</span><span class="normal-case tracking-normal text-gray-500">${cur ? (cur.picked ? 'picked: ' : 'best: ') + cur.name : ''}</span></div>` + rows.map(r => `<div class="pool-row${S.pools[b] === r.key ? ' on' : ''}" data-key="${r.key}" data-bucket="${b}"><div>${r.name}${cur && !cur.picked && cur.key === r.key ? ' <span class="text-gray-600 text-[10px]">best</span>' : ''}</div><div class="text-right num">${r.potUsd ? usd(r.potUsd, 0) : '<span class="text-gray-600">none</span>'}</div><div class="text-right num text-gray-400">${fmt(r.votes)}</div><div class="text-right num ${r.mine ? 'good' : 'text-gray-600'}">${r.mine ? usd(r.mine, 2) : '—'}</div></div>`).join(''); }).join('');
+            $('drawer-src').textContent = P.capturedAt ? 'Votion worksheet ' + String(P.capturedAt).slice(0, 16) + ' · pots are what is funded for this period; a pool with no pot still earns emissions for its LPs · tap a picked pool again to go back to "best"' : ''; $('drawer').classList.add('on'); $('drawer').setAttribute('aria-hidden', 'false'); }
         function closePicker() { $('drawer').classList.remove('on'); $('drawer').setAttribute('aria-hidden', 'true'); }
 
         // ---------------- how? popups ----------------
         const HOW = {
-            'native-apr': ['Where the staking APR comes from', () => { const n = nativeApr(); const i = n && n.inputs; return `<p>Derived from chain, every hour: <b>annual provisions ÷ bonded LUNA</b>${n && n.gross != null ? ` = <b class="num">${pct(n.gross, 2)}</b>` : ''} is the gross number validator sites quote. LUNA stakers do not get all of it: the Alliance module splits provisions by reward weight (native = 1, the alliances add up to ${i && i.total_reward_weight != null ? (i.total_reward_weight - 1).toFixed(3) : '…'}), and the community tax comes off first. What reaches stakers, before your validator's commission: <b class="num">${n ? pct(n.before, 2) : '—'}</b>; after ${Math.round(S.comm * 100)}% commission: <b class="num">${n ? pct(n.apr, 2) : '—'}</b>${n && n.manual ? ' — <span class="warn">using the figure you typed</span>' : ''}.</p><p><b>No verified live feed exists for this number.</b> If you have a better one, type it on the screen and every result follows it.</p><p>References on 2026-08-26: Allnodes 37.78% (gross), Stakely 28.13%, SmartStake ${n && n.ref ? pct(n.ref.apr, 2) + ' (' + n.ref.date + ')' : '—'}. The gross matches Allnodes; the stakers' figure matches SmartStake. Cross-check: the ampLUNA hub's own growth grossed up by its fee${n && n.crosscheck != null ? ` = ${pct(n.crosscheck, 2)}` : ''}.</p>${i ? `<p class="src">inputs: provisions ${fmt(i.annual_provisions_luna)} LUNA/yr · bonded ${fmt(i.bonded_luna)} LUNA · community tax ${pct(i.community_tax, 2)} · ${i.alliances_active} active alliances</p>` : ''}`; }, 'tla-docs.html#staking'],
+            'native-apr': ['Where the staking APR comes from', () => { const n = nativeApr(); const i = n && n.inputs; return `<p>Derived from chain, every hour: <b>annual provisions ÷ bonded LUNA</b>${n && n.gross != null ? ` = <b class="num">${pct(n.gross, 2)}</b>` : ''} is the gross number validator sites quote. LUNA stakers do not get all of it: the Alliance module splits provisions by reward weight (native = 1, the alliances add up to ${i && i.total_reward_weight != null ? (i.total_reward_weight - 1).toFixed(3) : '…'}), and the community tax comes off first. What reaches stakers, before your validator's commission: <b class="num">${n ? pct(n.before, 2) : '—'}</b>; after ${Math.round(S.comm * 100)}% commission: <b class="num">${n ? pct(n.apr, 2) : '—'}</b>${n && n.manual ? ' — <span class="warn">using the figure you typed</span>' : ''}.</p><p><b>No verified live feed exists for this number.</b> If you have a better one, type it on the screen and every result follows it.</p><p>References on 2026-08-26: Allnodes 37.78% (gross), Stakely 28.13%, SmartStake ${n && n.ref ? pct(n.ref.apr, 2) + ' (' + n.ref.date + ')' : '—'}. The gross matches Allnodes; the stakers' figure matches SmartStake. What this leaves out: delegators also get the <b>Alliance take-rate rewards</b>, paid in the alliance assets — not measured here yet. ampLUNA's realized 30-day rate${n && n.amp != null ? `, <b class="num">${pct(n.amp, 2)}</b>,` : ''} includes everything, so it bounds the true native figure from above.</p>${i ? `<p class="src">inputs: provisions ${fmt(i.annual_provisions_luna)} LUNA/yr · bonded ${fmt(i.bonded_luna)} LUNA · community tax ${pct(i.community_tax, 2)} · ${i.alliances_active} active alliances</p>` : ''}`; }, 'tla-docs.html#staking'],
             'native-claim': ['Claim vs compound', `<p><b>Withdraw</b> = claim rewards as they come and hold them liquid: amount × daily rate × days. <b>Compound</b> = restake every day: amount × ((1 + daily)^days − 1). Over a year the difference is the compounding gain; over a week it is nothing.</p>`, null],
             'native-vs': ['Why the other routes pay more', `<p>They all start from the same chain rewards. A TLA lock adds bribes and directed emissions on top; a Votion vault adds those and compounds them into the LST; Credia is a different animal entirely (borrowers pay you). The extra pay is bought with something — lock, governance, or protocol risk — and that is what each screen shows.</p>`, null],
             'bond': ['Bonding into an LST', `<p>You do not lock LUNA in TLA — you lock a liquid-staking token: ampLUNA, arbLUNA or bLUNA. Bond LUNA at the hub and you get LST at the hub's exchange rate (1 LST is worth more than 1 LUNA because the rate compounds rewards). Unbonding back takes 21 days; swapping on a DEX skips the wait at the cost of slippage — the Trade Planner sizes that.</p>`, 'slippage.html?from=ampLUNA&to=LUNA'],
             'vp': ['How VP is computed', `<p>Eris's escrow gives a lock two parts: a <b>fixed</b> amount (your LUNA-equivalent) and a <b>boost</b> of up to 9× the fixed amount at the full 2-year lock, scaling with lock length. Max lock = 10× your LUNA-equivalent in VP; a 1-week lock is 1× (no boost) — both read straight off real locks on chain. In between it is linear on the weeks beyond the first.</p>`, 'tla-docs.html#vp'],
             'lst-apy': ['The LST yield', `<p>The hub's exchange rate is the yield: it compounds chain rewards (minus the hub's fee) every day. The 30-day daily rate from the hub's own <code>exchange_rates</code> history, compounded over 365.25 days, is the APY shown — the same arithmetic Eris uses on its site.</p>`, null],
-            'bribes': ['How bribes pay', `<p>Protocols post a pot on a pool for the epoch. Everyone who votes for that pool splits it by VP share: <b>your reward = pot × your VP ÷ (pool votes + your VP)</b>, paid in the pot's token at the start of the next epoch. Big pot, few votes = good rate; the auction runs until the cast deadline and Votion re-optimizes every ~15 minutes, so today's rate is not next week's.</p>`, 'tla-stats.html#vote-market'],
+            'bribes': ['How bribes pay', `<p>Your VP is not spent — it votes in <b>every bucket at once</b> (stable, project, bluechip, single), 100% in each, one pool per bucket. Protocols post a pot on a pool for the epoch; everyone who votes for that pool splits it by VP share: <b>your reward = pot × your VP ÷ (pool votes + your VP)</b>, paid in the pot's token at the start of the next epoch. Four buckets, four pots. Big pot, few votes = good rate; the auction runs until the cast deadline and Votion re-optimizes every ~15 minutes, so today's rate is not next week's.</p>`, 'tla-stats.html#vote-market'],
             'decay': ['VP decays', `<p>The boost is on the time <i>remaining</i>. A max lock created today is 10×; six months later, untouched, it is worth what a 78-week lock is worth. To keep VP paired with your LUNA you extend or top up regularly — the DAO does this every epoch.</p>`, null],
             'resale': ['Selling a lock', `<p>A TLA lock is an NFT-like position that can be listed on Atrium or Boost. Buyers who want VP now pay a discount to the underlying LUNA value; you get liquidity without the 2-year wait. The slider is the discount you accept — 10% is a common ask, the market decides.</p>`, 'https://atrium.zone'],
             'credia-lp': ['Your TLA LP as collateral', `<p>Credia lists the three TLA ampLP tokens as collateral markets (45% LTV, with a 2% take rate on what you post). You keep the LP, keep voting, and borrow LUNA against it — at the market's borrow rate, and with liquidation risk if the LP's value falls.</p>`, 'tla-docs.html#credia'],
@@ -449,7 +526,7 @@
         // ---------------- events ----------------
         function parseLuna(s) { const n = Number(String(s).replace(/[^0-9.]/g, '')); return Number.isFinite(n) && n > 0 ? n : S.luna; }
         document.addEventListener('click', (e) => {
-            const r = e.target.closest('.route'); if (r) { S.route = r.dataset.route; render(); window.scrollTo(0, 0); return; }
+            const r = e.target.closest('.route, #web .hub, #web .leaf'); if (r) { S.route = r.dataset.route || r.getAttribute('data-route'); render(); window.scrollTo(0, 0); return; }
             if (e.target.closest('[data-back]')) { e.preventDefault(); S.route = 'home'; render(); return; }
             const how = e.target.closest('.how'); if (how) { openHow(how.dataset.how); return; }
             const chip = e.target.closest('.chip[data-luna]'); if (chip) { S.luna = Number(chip.dataset.luna); render(); return; }
@@ -460,7 +537,7 @@
             const hb = e.target.closest('#horizon button'); if (hb) { S.horizon = hb.dataset.h; render(); return; }
             if (e.target.closest('#open-picker')) { openPicker(); return; }
             if (e.target.closest('#close-picker')) { closePicker(); return; }
-            const pr = e.target.closest('.pool-row[data-key]'); if (pr) { S.pool = pr.dataset.key; closePicker(); render(); return; }
+            const pr = e.target.closest('.pool-row[data-key]'); if (pr) { const b = pr.dataset.bucket; if (S.pools[b] === pr.dataset.key) delete S.pools[b]; else S.pools[b] = pr.dataset.key; render(); openPicker(); return; }
             if (e.target.closest('#how-x')) { $('how').close && $('how').close(); $('how').removeAttribute('open'); }
         });
         $('luna-in').addEventListener('change', () => { S.luna = parseLuna($('luna-in').value); render(); });
@@ -471,7 +548,7 @@
             $('comm-in').addEventListener(ev, (e) => { if (ev === 'keydown' && e.key !== 'Enter') return; const v = pctIn($('comm-in').value); if (v != null) S.comm = Math.min(1, Math.max(0, v)); render(); }); }
         $('disc-range').addEventListener('input', () => { S.disc = Number($('disc-range').value) / 100; render(); });
 
-        window.__nh = { S, D, REV, vpFor, vpAfter, bribeShare, bestPool, pools, totals, assetApy, nativeApr, nativeBase, vaultRows, crediaLuna, lstAmount, render, growComp, growSimple, dailyOfApy };
+        window.__nh = { webModel, renderWeb, S, D, REV, vpFor, vpAfter, bribeShare, bestPool, bestPerBucket, bribePlan, pools, totals, assetApy, nativeApr, nativeBase, vaultRows, crediaLuna, lstAmount, render, growComp, growSimple, dailyOfApy };
         readUrl(); render(); load().then(render);
     })();
     </script>

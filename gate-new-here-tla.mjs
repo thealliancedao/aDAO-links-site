@@ -53,14 +53,16 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
   const P = T.pools(); const vp = T.vpFor(10000, 104); const funded = P.rows.filter(r => r.potUsd > 0);
   check('N6 pools from Votion worksheet: period + rows + funded pots, votes from aggregate', P.period && P.rows.length > 10 && funded.length >= 3 && funded.every(r => r.votes > 0), [P.period, P.rows.length, funded.length]);
   const r0 = funded[0]; const share = T.bribeShare(r0, vp);
+  const best = T.bestPerBucket(vp); const bp = T.bribePlan(vp);
+  check('N6b VP votes in EVERY bucket: best pot per bucket, total = Σ buckets (> any single pool)', Object.keys(best).length >= 2 && Math.abs(bp.total - Object.values(best).reduce((s, r) => s + r.mine, 0)) < 1e-9 && bp.total > Math.max(...Object.values(best).map(r => r.mine)), { buckets: Object.keys(best), total: bp.total });
   check('N7 bribe share = pot × a/(V+a) on the top pot', Math.abs(share - r0.potUsd * vp / (r0.votes + vp)) < 1e-9 && share > 0, { pool: r0.name, pot: r0.potUsd, V: r0.votes, share });
   check('N8 owner example: $100 pot, 900K votes, 100K VP → $10.00/wk', Math.abs(T.bribeShare({ potUsd: 100, votes: 900000 }, 100000) - 10) < 1e-9);
   // TLA screen
   S.route = 'tla'; T.render();
-  check('N9 TLA screen: LST amount = LUNA ÷ hub rate, VP tile 100,000, best pool named when none chosen', Math.abs(T.lstAmount(10000, 'ampLUNA') - 10000 / D.ratios.ampLUNA) < 1e-9 && /100,000 VP/.test(d.getElementById('l-vp').textContent) && /best pool right now/.test(d.getElementById('l-bribe-sub').textContent), d.getElementById('l-bribe-sub').textContent);
-  S.pool = r0.key; T.render();
-  check('N10 choosing a pool: tile shows that pool\'s weekly share and the detail sentence carries the a/(V+a) percentage', d.getElementById('pool-name').textContent === r0.name && /per epoch/.test(d.getElementById('pool-detail').textContent) && Math.abs(num(d.getElementById('l-bribe').textContent.split(' /')[0]) - share) < 0.01, d.getElementById('l-bribe').textContent);
-  check('N11 URL state carries path/lock/pool/lst', /path=tla/.test(w.location.search) && /lock=104/.test(w.location.search) && /pool=/.test(w.location.search) && /lst=ampLUNA/.test(w.location.search), w.location.search);
+  check('N9 TLA screen: LST amount = LUNA ÷ hub rate, VP tile 100,000, best pool named when none chosen', Math.abs(T.lstAmount(10000, 'ampLUNA') - 10000 / D.ratios.ampLUNA) < 1e-9 && /100,000 VP/.test(d.getElementById('l-vp').textContent) && /best pot per bucket/.test(d.getElementById('l-bribe-sub').textContent), d.getElementById('l-bribe-sub').textContent);
+  S.pools[r0.bucket] = r0.key; T.render();
+  check('N10 picking a pool in one bucket: that bucket uses the pick, the others stay on their best; tile = Σ; card lists one line per bucket', /1 of \d buckets picked/.test(d.getElementById('pool-name').textContent) && Math.abs(num(d.getElementById('l-bribe').textContent.split(' /')[0]) - T.bribePlan(vp).total) < 0.01 && d.getElementById('pool-detail').querySelectorAll('.flex').length >= 2, [d.getElementById('pool-name').textContent, d.getElementById('l-bribe').textContent]);
+  check('N11 URL state carries path/lock/pool/lst', /path=tla/.test(w.location.search) && /lock=104/.test(w.location.search) && /pools=/.test(w.location.search) && /lst=ampLUNA/.test(w.location.search), w.location.search);
   S.weeks = 52; T.render();
   check('N12 lock slider → VP = vpFor(52w); 6-month decay tile = vpFor(26w)', num(d.getElementById('l-vp').textContent) === Math.round(T.vpFor(10000, 52)) && num(d.getElementById('l-decay').textContent) === Math.round(T.vpFor(10000, 26)), [d.getElementById('l-vp').textContent, d.getElementById('l-decay').textContent]);
   S.weeks = 104; S.disc = 0.10; T.render();
@@ -95,10 +97,15 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
   check('N21 loop verdict follows the numbers (borrow > LST yield today → "does not pay")', /does not pay|pays only/.test(d.getElementById('cr-loop').textContent), d.getElementById('cr-loop').textContent.slice(0, 120));
   // compare strip
   const tot = T.totals();
-  check('N22 compare strip: all four routes carry a number for the same LUNA + horizon, and TLA includes the chosen pool\'s bribes', tot.native > 0 && tot.tla > 0 && tot.votion > 0 && tot.credia > 0 && tot.tlaBribeLuna > 0 && tot.tlaPool === r0.name && d.querySelectorAll('#screen-credia .cmp').length === 4, tot);
+  check('N22 compare strip: all four routes carry a number for the same LUNA + horizon, and TLA includes the chosen pool\'s bribes', tot.native > 0 && tot.tla > 0 && tot.votion > 0 && tot.credia > 0 && tot.tlaBribeLuna > 0 && /buckets/.test(tot.tlaPool) && d.querySelectorAll('#screen-credia .cmp').length === 4, tot);
   // input
   S.luna = 1000000; T.render();
   check('N23 1M LUNA: VP 10,000,000 at max; compare scales linearly', /10,000,000 VP/.test(d.getElementById('t-tla').textContent) && Math.abs(T.totals().native / tot.native - 100) < 1e-6);
+  // the web
+  S.route = 'home'; T.render();
+  check('N22b web: center + 4 hubs + 12 leaves, hubs carry live numbers, edges colored good/warn/bad', d.querySelectorAll('#web .hub').length === 4 && d.querySelectorAll('#web .leaf').length === 12 && /VP/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && d.querySelectorAll('#web .e-good').length === 4 && d.querySelectorAll('#web .e-bad').length === 4, d.querySelector('#web .hub[data-route="tla"]').textContent);
+  d.querySelector('#web .hub[data-route="credia"]').dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  check('N22c clicking a web hub shifts to that route screen', T.S.route === 'credia' && d.getElementById('screen-credia').classList.contains('on'));
   // how? popup
   d.querySelector('.how[data-how="vp"]').click();
   check('N24 how? popup opens with the VP explanation', d.getElementById('how').hasAttribute('open') && /fixed/.test(d.getElementById('how-b').textContent));
@@ -106,6 +113,6 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
 {
   const w = await boot('?luna=250000&path=tla&lock=52', { yields: false }); const d = w.document; const T = w.__nh;
   check('N25 deep link: ?luna=250000&path=tla&lock=52 → TLA screen, 250,000 LUNA, 52 weeks', T.S.luna === 250000 && T.S.route === 'tla' && T.S.weeks === 52 && d.getElementById('screen-tla').classList.contains('on') && num(d.getElementById('l-vp').textContent) === Math.round(T.vpFor(250000, 52)), d.getElementById('l-vp').textContent);
-  check('N26 yields product ABSENT → LST yield / Votion tiles blank with a "not published" note, native falls to the SmartStake reference (labeled), nothing fabricated', /not published/.test(d.getElementById('l-yield-sub').textContent) && d.getElementById('t-votion').textContent === '—' && /SmartStake CSV/.test(T.nativeApr().source) && T.totals().votion === null, [d.getElementById('l-yield-sub').textContent, T.nativeApr().source]);
+  check('N26 yields product ABSENT → LST yield / Votion tiles blank with a "not published" note, native falls to the SmartStake reference (labeled), nothing fabricated', /not published/.test(d.getElementById('l-yield-sub').textContent) && d.getElementById('t-votion').textContent === '—' && /SmartStake CSV/.test(T.nativeBase().source) && T.totals().votion === null, [d.getElementById('l-yield-sub').textContent, T.nativeApr().source]);
 }
 console.log(`\n${PASS} passed, ${FAIL} failed`); process.exit(FAIL ? 1 : 0);
