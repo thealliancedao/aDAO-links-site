@@ -51,10 +51,12 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
   check('N4b VP reproduces the REAL vaults: max vaults 10.0× LUNA-equivalent, 1-week vault 1.0×', (() => { const rows = vaultsDoc.vaults.filter(v => v.staked_lst_human > 100 && v.lst_luna_hub_rate && v.lock_vp_human); const mx = rows.filter(v => /^max\//.test(v.label)), wk = rows.filter(v => /^1\//.test(v.label)); return mx.length >= 2 && mx.every(v => Math.abs(v.lock_vp_human / (v.staked_lst_human * v.lst_luna_hub_rate) - 10) < 0.02) && wk.length >= 1 && wk.every(v => Math.abs(v.lock_vp_human / (v.staked_lst_human * v.lst_luna_hub_rate) - 1) < 0.02); })(), vaultsDoc.vaults.map(v => [v.label, Math.round(v.lock_vp_human / Math.max(1, v.staked_lst_human * (v.lst_luna_hub_rate || 1)) * 1000) / 1000]));
   check('N5 home teaser: TLA shows 100,000 VP for 10K', /100,000 VP/.test(d.getElementById('t-tla').textContent), d.getElementById('t-tla').textContent);
   // pool picker math
-  const P = T.pools(); const vp = T.vpFor(10000, 104); const funded = P.rows.filter(r => r.potUsd > 0);
-  check('N6 pools from Votion worksheet: period + rows + funded pots, votes from aggregate', P.period && P.rows.length > 10 && funded.length >= 3 && funded.every(r => r.votes > 0), [P.period, P.rows.length, funded.length]);
+  const P = T.pools(); const vp = T.vpFor(10000, 104); const funded = P.rows.filter(r => r.potUsd > 0); const bp = T.bribePlan(vp);
+  const VB = T.bucketVp(); const ea = JSON.parse(read('dex-data/eris-apr/current.json')); const la = ea.pools.find(x => x.pool_name === 'LUNA-ASTRO'); const laRow = P.rows.find(r => r.name === 'LUNA-ASTRO');
+  check('N6 pools: every gauge pool from eris-apr; votes = distribution × bucket VP (gauge truth, NOT Votion\'s own votes); pots from the worksheet', P.period && P.rows.length > 15 && funded.length >= 3 && Math.abs(laRow.votes - la.distribution * VB.project) < 1e-6 && laRow.votes > 900000 && laRow.bucketVotes === VB.project, [P.rows.length, funded.length, laRow && laRow.votes]);
+  check('N6c realism: 100K VP earns a few dollars a week across the buckets, not tens (V is millions)', bp.total > 0.5 && bp.total < 15, bp.total);
   const r0 = funded[0]; const share = T.bribeShare(r0, vp);
-  const best = T.bestPerBucket(vp); const bp = T.bribePlan(vp);
+  const best = T.bestPerBucket(vp);
   check('N6b VP votes in EVERY bucket: best pot per bucket, total = Σ buckets (> any single pool)', Object.keys(best).length >= 2 && Math.abs(bp.total - Object.values(best).reduce((s, r) => s + r.mine, 0)) < 1e-9 && bp.total > Math.max(...Object.values(best).map(r => r.mine)), { buckets: Object.keys(best), total: bp.total });
   check('N7 bribe share = pot × a/(V+a) on the top pot', Math.abs(share - r0.potUsd * vp / (r0.votes + vp)) < 1e-9 && share > 0, { pool: r0.name, pot: r0.potUsd, V: r0.votes, share });
   check('N8 owner example: $100 pot, 900K votes, 100K VP → $10.00/wk', Math.abs(T.bribeShare({ potUsd: 100, votes: 900000 }, 100000) - 10) < 1e-9);
@@ -68,7 +70,7 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
   check('N12 lock slider → VP = vpFor(52w); 6-month decay tile = vpFor(26w)', num(d.getElementById('l-vp').textContent) === Math.round(T.vpFor(10000, 52)) && num(d.getElementById('l-decay').textContent) === Math.round(T.vpFor(10000, 26)), [d.getElementById('l-vp').textContent, d.getElementById('l-decay').textContent]);
   S.weeks = 104; S.disc = 0.10; T.render();
   check('N13 resale = LUNA × price × (1 − 10%)', Math.abs(num(d.getElementById('l-resale').textContent) - Math.round(10000 * D.lunaUsd * 0.9)) <= 1, d.getElementById('l-resale').textContent);
-  check('N14 Credia collateral tile reads the ampLP LTV from the Credia snapshot (45%)', /45% LTV/.test(d.getElementById('l-credia').textContent), d.getElementById('l-credia').textContent);
+  check('N14 Credia collateral tile says coming soon while the flag is off', d.getElementById('l-credia').textContent === 'coming soon', d.getElementById('l-credia').textContent);
   // yields-backed tiles (fixture)
   const a = T.assetApy('ampLUNA');
   check('N15 ampLUNA APY from the yields product (hub_exchange_rates), LST yield tile filled', a && a.source === 'hub_exchange_rates' && a.apy > 0 && /LUNA/.test(d.getElementById('l-yield').textContent), a);
@@ -94,31 +96,32 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
   check('N19 Votion: vault chips from yields, headline = LST + Votion (additive), ampLUNA-MAX first (highest)', vr.length >= 2 && d.querySelectorAll('#vault-chips .chip').length === vr.length && /\+ Votion/.test(d.getElementById('v-apy-parts').textContent) && Math.abs(vr[0].apy - (vr[0].asset + vr[0].votion)) < 1e-9, vr[0]);
   // Credia screen
   S.route = 'credia'; T.render(); const c = T.crediaLuna();
-  check('N20 Credia: LUNA market supply APY, utilization, available liquidity (supplied − borrowed) from the snapshot', c && c.supplyApy > 0 && c.util > 0 && c.availLuna > 0 && /%$/.test(d.getElementById('cr-apy').textContent) && /LUNA$/.test(d.getElementById('cr-liq').textContent), c);
+  check('N20 Credia is COMING SOON: screen shows the placeholder, live panel hidden, data still captured behind it', !T.CREDIA_LIVE && !d.getElementById('credia-soon').classList.contains('hidden') && d.getElementById('credia-live').classList.contains('hidden') && c && c.supplyApy > 0, c);
   const rg = T.crediaRange('uluna');
-  check('N20b 7-day borrow range from the indexer sidecar shown on the Credia screen (labeled, off-chain) and in the loop tile', rg && rg.borrow_apr && /this week 9\.0%–14\.2%/.test(d.getElementById('cr-util-sub').textContent) && /ranged/.test(d.getElementById('cr-loop').textContent) && /week's high/.test(d.getElementById('cr-loop').textContent), d.getElementById('cr-util-sub').textContent);
-  check('N21 loop verdict follows the numbers (borrow > LST yield today → "does not pay")', /does not pay|pays only/.test(d.getElementById('cr-loop').textContent), d.getElementById('cr-loop').textContent.slice(0, 120));
+  check('N20b the rate-history sidecar is read (range ready behind the flag)', rg && rg.borrow_apr && /this week 9\.0%–14\.2%/.test(d.getElementById('cr-util-sub').textContent), d.getElementById('cr-util-sub').textContent);
+  check('N20c home card, web hub, TLA tile, Votion tile and compare strip all say coming soon; compare carries no Credia number', /Coming soon/.test(d.getElementById('t-credia').textContent) && /Coming soon/.test(d.querySelector('#web .hub[data-route="credia"]').textContent) && d.getElementById('l-credia').textContent === 'coming soon' && d.getElementById('v-loop').textContent === 'coming soon' && T.totals().credia === null && /coming soon/.test([...d.querySelectorAll('#screen-credia .cmp')].map(x => x.textContent).join(' ')));
+  check('N21 loop tile still computes behind the flag (verdict follows the numbers)', /does not pay|pays only/.test(d.getElementById('cr-loop').textContent), d.getElementById('cr-loop').textContent.slice(0, 120));
   // compare strip
   const tot = T.totals();
-  check('N22 compare strip: all four routes carry a number for the same LUNA + horizon, and TLA includes the chosen pool\'s bribes', tot.native > 0 && tot.tla > 0 && tot.votion > 0 && tot.credia > 0 && tot.tlaBribeLuna > 0 && /buckets/.test(tot.tlaPool) && d.querySelectorAll('#screen-credia .cmp').length === 4, tot);
+  check('N22 compare strip: all four routes carry a number for the same LUNA + horizon, and TLA includes the chosen pool\'s bribes', tot.native > 0 && tot.tla > 0 && tot.votion > 0 && tot.credia === null && tot.tlaBribeLuna > 0 && /buckets/.test(tot.tlaPool) && d.querySelectorAll('#screen-credia .cmp').length === 4, tot);
   // input
   S.luna = 1000000; T.render();
   check('N23 1M LUNA: VP 10,000,000 at max; compare scales linearly', /10,000,000 VP/.test(d.getElementById('t-tla').textContent) && Math.abs(T.totals().native / tot.native - 100) < 1e-6);
   // the web
   S.route = 'home'; S.luna = 10000; T.render();
-  check('N22b web: 4 hubs, 12 leaves + 2 sub-leaves; loop on the CREDIA hub; TLA hub shows LST yield AND VP', d.querySelectorAll('#web .hub').length === 4 && d.querySelectorAll('#web .leaf').length === 14 && /Borrow LUNA/.test([...d.querySelectorAll('#web .leaf[data-route="credia"]')].map(x => x.textContent).join(' ')) && ![...d.querySelectorAll('#web .leaf[data-route="votion"]')].some(x => /loop/i.test(x.textContent)) && /\/ yr/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && /\+ 100,000 VP/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && /Boost \/ Atrium/.test(d.getElementById('web').textContent) && /worst case 4 years/.test(d.getElementById('web').textContent) && /governance VP concentrated/.test(d.getElementById('web').textContent) && d.querySelectorAll('#web .e-good').length === 4, d.querySelector('#web .hub[data-route="tla"]').textContent);
+  check('N22b web: 4 hubs, 12 leaves + 2 sub-leaves; Credia hub = Coming soon with placeholder leaves; TLA hub shows LST yield AND VP', d.querySelectorAll('#web .hub').length === 4 && d.querySelectorAll('#web .leaf').length === 14 && /Not yet audited/.test([...d.querySelectorAll('#web .leaf[data-route="credia"]')].map(x => x.textContent).join(' ')) && ![...d.querySelectorAll('#web .leaf[data-route="votion"]')].some(x => /loop/i.test(x.textContent)) && /\/ yr/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && /\+ 100,000 VP/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && /Boost \/ Atrium/.test(d.getElementById('web').textContent) && /worst case 4 years/.test(d.getElementById('web').textContent) && /governance VP concentrated/.test(d.getElementById('web').textContent) && d.querySelectorAll('#web .e-good').length === 4, d.querySelector('#web .hub[data-route="tla"]').textContent);
   d.getElementById('luna-in2').value = '250,000'; d.getElementById('luna-in2').dispatchEvent(new w.Event('change'));
   check('N22d the amount is editable inside the diagram: 250,000 → TLA hub 2,500,000 VP, header input follows', /2,500,000 VP/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && d.getElementById('luna-in').value === '250,000', d.getElementById('luna-in').value);
   S.luna = 10000; T.render();
-  d.querySelector('#web .leaf[data-how="leaf-loop"]').dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
-  check('N22c clicking a leaf opens its mini popup (the loop, with live LTV + borrow rate), route unchanged', T.S.route === 'home' && d.getElementById('how').hasAttribute('open') && /70% LTV/.test(d.getElementById('how-b').textContent) && /45%/.test(d.getElementById('how-b').textContent) && /supply-only/.test(d.getElementById('how-b').textContent) && /3\.33×/.test(d.getElementById('how-b').textContent), d.getElementById('how-b').textContent.slice(0, 160));
+  d.querySelector('#web .leaf[data-how="credia-soon"]').dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  check('N22c clicking a Credia leaf opens the coming-soon popup, route unchanged', T.S.route === 'home' && d.getElementById('how').hasAttribute('open') && /not yet audited/.test(d.getElementById('how-b').textContent), d.getElementById('how-b').textContent.slice(0, 160));
   d.getElementById('how-x').click();
   d.querySelector('#web .hub[data-route="credia"]').dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
   check('N22e clicking a web hub shifts to that route screen', T.S.route === 'credia' && d.getElementById('screen-credia').classList.contains('on'));
   // LP boost simulator
   S.route = 'tla'; S.luna = 10000; S.weeks = 104; T.render();
   const sp = T.simPools(); const big = sp.sort((a, b) => b.tvl - a.tvl)[0]; const sim = T.simulate(big.key, 1000, 100000);
-  check('N27 simulator: pools from eris-apr; re-derived pool APR matches eris-apr incentive_apr within 2%', sp.length > 10 && sim && sim.sanity != null && sim.sanity < 0.02, sim && { pool: big.name, apr0: sim.apr0, eris: big.aprNow });
+  check('N27 simulator: pools from eris-apr; re-derived pool APR EQUALS eris-apr incentive_apr (same distribution, same bucket VP) — the owner\'s LUNA-ASTRO 267% is gone', sp.length > 10 && sim && sim.sanity != null && sim.sanity < 1e-3 && (() => { const s2 = T.simulate(sp.find(p => p.name === 'LUNA-ASTRO').key, 514, 100000); return s2 && s2.apy0 < 0.9 && s2.apy1 < 2 && s2.apy1 > s2.apyDep; })(), sim && { pool: big.name, apr0: sim.apr0, eris: big.aprNow });
   check('N27b adding 100K VP raises the pool\'s emission share and APR; your $1,000 LP earns more with votes than without; bribe from the same pool reported', sim.share1 > sim.share0 && sim.apr1 > sim.aprDep && sim.yourYr1 > sim.yourYr0 && typeof sim.bribeWk === 'number', { share0: sim.share0, share1: sim.share1, y0: sim.yourYr0, y1: sim.yourYr1 });
   check('N27c share math: (v + a)/(V_b + a)', Math.abs(sim.share1 - (sim.votes + 100000) / (sim.bucketVotes + 100000)) < 1e-12);
   check('N27d simulator renders three tiles + the bribes sentence', d.querySelectorAll('#sim-out .tile').length === 3 && /Bribes from this pool/.test(d.getElementById('sim-out').textContent));
