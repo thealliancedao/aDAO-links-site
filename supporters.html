@@ -58,13 +58,20 @@
         denomSym['uluna'] = 'LUNA'; denomDec['uluna'] = 6;
         const px = (sym) => { const p = prices && prices.token_prices && prices.token_prices[sym]; return p ? (p.final_price_usd || p.price || 0) : 0; };
         const nameOf = {}; for (const e of (trusted && (trusted.addresses || trusted.entries) || [])) if (e.address && (e.name || e.label)) nameOf[e.address] = e.name || e.label;
-        // chain: newest transfers into the wallet
-        let txs = null;
-        // SDK 0.47 LCDs take `events=`, 0.50 takes `query=` — try both on each endpoint
-        outer: for (const lcd of LCDS) for (const param of ['events', 'query']) { const r = await getJ(`${lcd}/cosmos/tx/v1beta1/txs?${param}=transfer.recipient%3D%27${ADDR}%27&order_by=ORDER_BY_DESC&limit=100`); if (r && Array.isArray(r.tx_responses)) { txs = r; break outer; } }
-        if (!txs) { $('list').innerHTML = '<div class="text-sm text-gray-500">The chain read failed just now — refresh in a minute.</div>'; return; }
+        // the permanent record first (member-data supporters duty, write-once); live LCD only when it is missing
+        const product = await getJ(`${CORE}/member-data/supporters/current.json?t=${T}`);
         const gifts = [];
-        txs.tx_responses.forEach((tr, i) => {
+        if (product && Array.isArray(product.gifts)) {
+            for (const g of product.gifts) { const bare = String(g.denom).replace(/^cw20:/, ''); gifts.push({ from: g.from, denom: g.denom, amount: Number(g.amount_raw) / 10 ** (denomDec[bare] ?? denomDec[g.denom] ?? 6), sym: denomSym[bare] || denomSym[g.denom] || bare.slice(0, 10) + '…', ts: g.ts, hash: g.tx_hash }); }
+            document.querySelector('main > p.text-\\[11px\\]').textContent = 'The permanent record: every gift with the memo, walked from the chain by the site\'s own cron and kept write-once (last updated ' + String(product.generated_at || '').slice(0, 16).replace('T', ' ') + ' UTC). Names come from the public address catalog when the sender is registered.';
+        }
+        let txs = null;
+        if (!gifts.length && !product) {
+            // SDK 0.47 LCDs take `events=`, 0.50 takes `query=` — try both on each endpoint
+            outer: for (const lcd of LCDS) for (const param of ['events', 'query']) { const r = await getJ(`${lcd}/cosmos/tx/v1beta1/txs?${param}=transfer.recipient%3D%27${ADDR}%27&order_by=ORDER_BY_DESC&limit=100`); if (r && Array.isArray(r.tx_responses)) { txs = r; break outer; } }
+            if (!txs) { $('list').innerHTML = '<div class="text-sm text-gray-500">The record has not published yet and the chain read failed just now — refresh in a minute.</div>'; return; }
+        }
+        (txs ? txs.tx_responses : []).forEach((tr, i) => {
             const memo = (txs.txs[i] && txs.txs[i].body && txs.txs[i].body.memo || tr.tx && tr.tx.body && tr.tx.body.memo || '').trim();
             if (memo.toLowerCase() !== MEMO) return;
             for (const m of (txs.txs[i] && txs.txs[i].body && txs.txs[i].body.messages) || (tr.tx && tr.tx.body && tr.tx.body.messages) || []) {
