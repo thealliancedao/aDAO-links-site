@@ -244,6 +244,7 @@
             <a class="text-[12px] text-gray-400 hover:text-cyan-300" href="#" data-back>← back to your LUNA</a>
             <div class="node center max-w-lg mx-auto mt-4 r-votion">
                 <div class="text-[10px] uppercase tracking-[.15em] text-green-400">Votion vault</div>
+                <div class="flex justify-center mt-2"><div class="seg flex" id="vault-lst"></div></div>
                 <div class="flex flex-wrap justify-center gap-1 mt-2" id="vault-chips"></div>
                 <div class="num text-3xl mt-2" id="v-apy">—</div>
                 <div class="text-[11px] text-gray-500"><span id="v-apy-parts">—</span> <span class="how" data-how="votion-apy">how?</span></div>
@@ -481,7 +482,8 @@
             const P = pools(); const bp = bribePlan(vp); const picked = Object.values(bp.plan).filter(r => r && r.picked).length;
             const rows = bp.buckets.map(b => bp.plan[b]).filter(Boolean);
             $('l-bribe').textContent = rows.length ? usd(bp.total, 2) + ' / wk' : '—';
-            $('l-bribe-sub').textContent = rows.length ? `${rows.length} buckets, 100% of your VP in each` + (D.lunaUsd ? ` · ≈ ${fmt(bp.total / D.lunaUsd, 1)} LUNA/wk` : '') + (picked ? ` · ${picked} picked` : ' · best pot per bucket') : (P.rows.length ? 'no funded pots this period' : 'Votion worksheet not available');
+            const bestTotal = Object.values(bestPerBucket(vp)).reduce((s2, r) => s2 + r.mine, 0);
+            $('l-bribe-sub').textContent = rows.length ? `${rows.length} buckets, 100% of your VP in each` + (D.lunaUsd ? ` · ≈ ${fmt(bp.total / D.lunaUsd, 1)} LUNA/wk` : '') + (picked ? ` · your ${picked} pick${picked > 1 ? 's' : ''}${Math.abs(bestTotal - bp.total) > 0.005 ? ` — best pots would pay ${usd(bestTotal, 2)}` : ' (= the best pots)'}` : ' · best pot per bucket') : (P.rows.length ? 'no funded pots this period' : 'Votion worksheet not available');
             $('pool-name').textContent = rows.length ? (picked ? `${picked} of ${bp.buckets.length} buckets picked` : 'best pot in each bucket') : 'no pools';
             $('pool-detail').innerHTML = rows.length ? `<div class="text-[10px] text-gray-500 mb-1">Your ${fmt(vp)} VP votes in every bucket at once — one pool per bucket:</div>` + bp.buckets.map(b => { const r = bp.plan[b]; return r ? `<div class="flex justify-between gap-2 py-0.5 border-b border-[#1f1f1f]"><span><span class="text-gray-500">${b}</span> ${r.name}${r.picked ? '' : ' <span class="text-gray-600">(best)</span>'}</span><span class="num good whitespace-nowrap">${usd(r.mine, 2)}</span></div>` : `<div class="flex justify-between py-0.5 text-gray-600"><span>${b}</span><span>no pot</span></div>`; }).join('') + `<div class="text-[10px] text-gray-500 mt-1">share = pot × VP ÷ (votes + VP) · period ${bp.period}, cast by ${String(bp.voteBefore || '').slice(0, 10)}</div>` : 'Choose pools to see what your VP would earn this epoch.';
             $('pool-src').textContent = P.rows.length ? 'pots: Votion worksheet ' + String(P.capturedAt || '').slice(0, 16) + ' · period ' + P.period + ' · votes: ' + P.votesSource : (P.reason || '');
@@ -491,8 +493,12 @@
             const plan = P.rows.filter(r => r.planned > 0).sort((a, b) => b.planned - a.planned).slice(0, 4); $('votion-plan').innerHTML = plan.length ? plan.map(r => `<div class="flex justify-between"><span>${r.name}</span><span class="num text-gray-400">${fmt(r.planned)} VP</span></div>`).join('') + `<div class="src mt-1">Votion's current plan for period ${P.period} — it re-optimizes every ~15 min until ${String(P.voteBefore || '').slice(0, 10)}</div>` : '—';
         }
         function renderVotion() {
-            const v = vaultRows(); const chips = $('vault-chips'); chips.innerHTML = v.map(x => `<span class="chip${(S.vault ? S.vault === x.address : v[0] === x) ? ' on' : ''}" data-vault="${x.address}">${x.label.replace(/^Votion /, '')}</span>`).join('') || '<span class="text-[11px] text-gray-500">yields product not published yet</span>';
-            const vr = (S.vault && v.find(x => x.address === S.vault)) || v[0]; const days = HDAYS[S.horizon];
+            const v = vaultRows(); const days = HDAYS[S.horizon];
+            const tierOf = (x) => /^max/.test(x.label.replace(/^Votion /, '')) ? 'MAX · 2 yr' : /^12/.test(x.label.replace(/^Votion /, '')) ? '3 months' : /^1\//.test(x.label.replace(/^Votion /, '')) ? '1 week' : x.label.replace(/^Votion /, '');
+            const lsts = [...new Set(v.map(x => x.lst).filter(Boolean))]; const vr0 = (S.vault && v.find(x => x.address === S.vault)) || v[0]; const curLst = vr0 ? vr0.lst : lsts[0];
+            $('vault-lst').innerHTML = lsts.map(l => `<button data-vlst="${l}" class="${l === curLst ? 'on' : ''}">${l}</button>`).join('') || '';
+            const chips = $('vault-chips'); chips.innerHTML = v.filter(x => x.lst === curLst).map(x => `<span class="chip${vr0 === x ? ' on' : ''}" data-vault="${x.address}">${tierOf(x)}</span>`).join('') || '<span class="text-[11px] text-gray-500">yields product not published yet</span>';
+            const vr = vr0;
             $('v-apy').textContent = vr ? pct(vr.apy, 2) : '—'; $('v-apy-parts').textContent = vr ? `${vr.lst || 'LST'} ${pct(vr.asset, 2)} + Votion ${pct(vr.votion, 2)} · 30-day window` : '—';
             if (vr) { const g = growComp(S.luna, dailyOfApy(vr.apy), days), b = growComp(S.luna, dailyOfApy(vr.votion), days); $('v-gain').textContent = '+' + fmt(g, 1) + ' LUNA-equiv'; $('v-gain-sub').textContent = HLBL[S.horizon] + (D.lunaUsd ? ' · ≈ ' + usd(g * D.lunaUsd) : ''); $('v-boost').textContent = '+' + fmt(b, 1) + ' LUNA-equiv'; $('v-luna').textContent = fmt(S.luna + g, 0) + ' LUNA'; }
             else { $('v-gain').textContent = '—'; $('v-boost').textContent = '—'; $('v-luna').textContent = '—'; }
@@ -535,11 +541,11 @@
                     { k: 'good', l: 'No lock — withdraw any time', x: 1010, y: 430, how: 'credia' },
                     { k: 'warn', l: 'Borrow LUNA' + (c ? ' at ' + pct(c.borrowApy, 1) : '') + ' against ' + S.lst + (m && m.ltv != null ? ' (' + pct(m.ltv, 0) + ' LTV)' : '') + ' or TLA ampLP' + (lp && lp.ltv != null ? ' (' + pct(lp.ltv, 0) + ')' : '') + ' — a loop pays only while the LST yield beats the rate', x: 1130, y: 585, how: 'leaf-loop', narrow: true },
                     { k: 'bad', l: 'No vote anywhere · protocol + liquidation risk', x: 880, y: 700, how: 'credia' }] }
-                : { id: 'credia', color: '#c084fc', title: 'Credia lending', big: 'Coming soon', sub: 'a lending market for LUNA, LSTs and TLA LPs — numbers when we can stand behind them', hub: { x: 855, y: 560 },
+                : { id: 'credia', color: '#c084fc', title: 'Credia lending', big: 'Coming soon', sub: 'lending for LUNA, LSTs, TLA LPs · numbers when audited', hub: { x: 855, y: 560 },
                   leaves: [
                     { k: 'good', l: 'Supply and borrow — no lock', x: 1010, y: 430, how: 'credia-soon' },
-                    { k: 'warn', l: 'Rates move with utilization', x: 1120, y: 585, how: 'credia-soon' },
-                    { k: 'bad', l: 'Not yet audited by us — we capture it, we do not explain it yet', x: 900, y: 700, how: 'credia-soon' }] },
+                    { k: 'warn', l: 'Rates move with utilization', x: 1130, y: 580, how: 'credia-soon', narrow: true },
+                    { k: 'bad', l: 'Not yet audited by us — captured, not explained yet', x: 880, y: 700, how: 'credia-soon' }] },
             ] };
         }
         function renderWeb() {
@@ -568,7 +574,7 @@
                 if (!hub || !tiles.length) { svg.innerHTML = ''; continue; }
                 const R = sec.getBoundingClientRect(), H = hub.getBoundingClientRect(); if (!R.width || !H.width) { svg.innerHTML = ''; continue; }
                 svg.setAttribute('viewBox', `0 0 ${R.width} ${R.height}`); const hx = H.left - R.left + H.width / 2, hy = H.bottom - R.top;
-                svg.innerHTML = tiles.map(t => { const T = t.getBoundingClientRect(); const v = t.querySelector('.v'); const col = v && v.classList.contains('good') ? '#22c55e' : v && v.classList.contains('bad') ? '#ef4444' : v && v.classList.contains('warn') ? '#f59e0b' : '#3a3a3a'; return `<line x1="${hx}" y1="${hy}" x2="${T.left - R.left + T.width / 2}" y2="${T.top - R.top}" stroke="${col}"/>`; }).join('');
+                svg.innerHTML = tiles.map(t => { const T = t.getBoundingClientRect(); const v = t.querySelector('.v') || t.querySelector('.lbl'); const col = v && v.classList.contains('good') ? '#22c55e' : v && v.classList.contains('bad') ? '#ef4444' : v && v.classList.contains('warn') ? '#f59e0b' : '#3a3a3a'; return `<line x1="${hx}" y1="${hy}" x2="${T.left - R.left + T.width / 2}" y2="${T.top - R.top}" stroke="${col}"/>`; }).join('');
             }
         }
         window.addEventListener('resize', () => drawSpokes());
@@ -625,6 +631,7 @@
             if (e.target.closest('#apr-reset')) { S.apr = null; render(); return; }
             const lst = e.target.closest('.chip[data-lst]'); if (lst) { S.lst = lst.dataset.lst; render(); return; }
             const vt = e.target.closest('.chip[data-vault]'); if (vt) { S.vault = vt.dataset.vault; render(); return; }
+            const vl = e.target.closest('#vault-lst button'); if (vl) { const first = vaultRows().find(x => x.lst === vl.dataset.vlst); if (first) S.vault = first.address; render(); return; }
             const hb = e.target.closest('#horizon button'); if (hb) { S.horizon = hb.dataset.h; render(); return; }
             if (e.target.closest('#open-picker')) { openPicker(); return; }
             if (e.target.closest('#close-picker')) { closePicker(); return; }
