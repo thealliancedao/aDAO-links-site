@@ -37,7 +37,7 @@
 
     <!-- chapter progress -->
     <nav class="prog sticky top-0 z-30 bg-[#0D0D0D]/90 backdrop-blur border-b border-white/5 px-3 py-1.5 flex gap-1 overflow-x-auto" id="prog">
-        <a href="#c1">1 · The NFT</a><a href="#c2">2 · How the backing works</a><a href="#c3">3 · Breaking</a><a href="#c4">4 · Art &amp; lore</a><a href="#c5">5 · The DAO</a><a href="#c6">6 · Terra DeFi in plain words</a><a href="#c7">7 · How to read this site</a>
+        <a href="#c1">1 · The NFT</a><a href="#c2">2 · How the backing works</a><a href="#c3">3 · Breaking</a><a href="#c3b">Try it</a><a href="#c4">4 · Art &amp; lore</a><a href="#c5">5 · The DAO</a><a href="#c6">6 · Terra DeFi in plain words</a><a href="#c7">7 · How to read this site</a>
     </nav>
 
     <main class="hero-bg">
@@ -88,7 +88,7 @@
                 <div class="card p-4"><div class="flex items-center gap-2 mb-2"><span class="stepnum">1</span><b>Claim</b></div><p class="text-sm text-gray-400">Around 00:50 UTC, a bot calls the NFT contract and collects all the LUNA rewards the chain has accrued to Ally since yesterday.</p></div>
                 <div class="card p-4"><div class="flex items-center gap-2 mb-2"><span class="stepnum">2</span><b>Bond to ampLUNA</b></div><p class="text-sm text-gray-400">In the same transaction, every LUNA is staked again through Eris into <b class="text-gray-200">ampLUNA</b> — LUNA that keeps earning staking yield by itself. The backing isn't idle coins; it is staked coins.</p></div>
                 <div class="card p-4"><div class="flex items-center gap-2 mb-2"><span class="stepnum">3</span><b>90% to holders</b></div><p class="text-sm text-gray-400">Nine-tenths stays in the NFT contract as the <b class="text-gray-200">backing</b>, shared equally by every unbroken NFT.</p></div>
-                <div class="card p-4"><div class="flex items-center gap-2 mb-2"><span class="stepnum">4</span><b>10% to the DAO</b></div><p class="text-sm text-gray-400">One-tenth goes to the DAO wallet as operating funds — the money that builds this site and the DAO's TLA positions (chapter 5).</p></div>
+                <div class="card p-4"><div class="flex items-center gap-2 mb-2"><span class="stepnum">4</span><b>10% to the DAO treasury</b></div><p class="text-sm text-gray-400">One-tenth goes to the DAO's treasury wallet, where it sits and compounds. It cannot be spent by anyone — not the council, not the builder — unless the NFT holders vote to spend it. (This site is built and paid for out of one person's pocket; none of the treasury has ever gone to it.)</p></div>
             </div>
             <div class="grid md:grid-cols-2 gap-4 mt-6">
                 <div class="card p-5">
@@ -120,12 +120,48 @@
                 </div>
                 <div class="card p-5">
                     <div class="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Where it stands today</div>
+                    <div class="text-center mb-3"><div class="num text-3xl text-cyan-300" id="b-pool">—</div><div class="text-[11px] text-gray-500">ampLUNA in the backing contract right now <span class="text-gray-600" id="b-pool-usd"></span></div></div>
                     <div class="grid grid-cols-2 gap-3 text-center">
-                        <div><div class="num text-2xl text-emerald-300" id="b-unbroken">—</div><div class="text-[11px] text-gray-500">unbroken · still earning</div></div>
+                        <div><div class="num text-2xl text-emerald-300" id="b-unbroken">—</div><div class="text-[11px] text-gray-500">unbroken · sharing it</div></div>
                         <div><div class="num text-2xl text-gray-300" id="b-broken">—</div><div class="text-[11px] text-gray-500">broken · cashed out once</div></div>
                     </div>
                     <p class="text-[11px] text-gray-500 mt-3">Breaking is offered on BoostDAO Ignite and Atrium. The NFT Explorer shows which tokens are broken, and the floor chart tiers Broken / Unbroken / Phoenix separately because they are different assets.</p>
                 </div>
+            </div>
+        </section>
+
+        <!-- 3b. TRY IT — last NFT standing -->
+        <section id="c3b" class="chapter max-w-5xl mx-auto px-5 pb-12">
+            <div class="card p-5 glow">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><div class="font-bold text-cyan-300"><i class="fas fa-sliders mr-2"></i>Try it: what happens to each NFT's daily gain as others break</div><div class="text-[11px] text-gray-500">the same daily claim, divided among fewer NFTs</div></div>
+                <p class="text-sm text-gray-400">Drag to set how many NFTs are still unbroken. The daily inflow is the last 7 days' measured average from the recorded backing series — not a forecast of tomorrow's rewards.</p>
+                <div class="flex items-center gap-3 mt-3"><span class="text-[11px] text-gray-500 w-16">1</span><input id="s-unbroken" type="range" min="1" max="8907" value="8907" step="1" class="flex-1 accent-cyan-400"><span class="text-[11px] text-gray-500 w-16 text-right" id="s-max">8,907</span></div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-center">
+                    <div class="card p-3"><div class="num text-xl text-gray-200" id="s-u">—</div><div class="text-[11px] text-gray-500">unbroken NFTs</div></div>
+                    <div class="card p-3"><div class="num text-xl text-amber-300" id="s-inflow">—</div><div class="text-[11px] text-gray-500">LUNA into the pool per day (7-day avg)</div></div>
+                    <div class="card p-3"><div class="num text-xl text-emerald-300" id="s-per">—</div><div class="text-[11px] text-gray-500">LUNA per NFT per day</div></div>
+                    <div class="card p-3"><div class="num text-xl text-emerald-300" id="s-usd">—</div><div class="text-[11px] text-gray-500">≈ USD per NFT per day</div></div>
+                </div>
+                <p class="text-[11px] text-gray-500 mt-2">Today: <span id="s-today">—</span>. Each NFT that breaks takes its share out once and never draws again — everyone else's daily gain steps up. The <a class="text-cyan-300 hover:underline" href="ally.html">Ally page</a> runs the full projection with the real series.</p>
+            </div>
+        </section>
+
+        <!-- 3b. LAST NFT STANDING — try it -->
+        <section class="max-w-5xl mx-auto px-5 pb-12">
+            <div class="card p-5 glow">
+                <div class="text-[11px] uppercase tracking-wider text-gray-500 mb-1">Try it — last NFT standing</div>
+                <p class="text-sm text-gray-400">The pool's daily inflow is what it is; drag how many NFTs are still unbroken and watch what each one earns per day. Inflow = the last 7 days of recorded backing gains, scaled to today's unbroken count.</p>
+                <div class="grid md:grid-cols-3 gap-4 mt-4 items-center">
+                    <div class="md:col-span-2">
+                        <input id="ls-slider" type="range" min="1" max="8907" value="8907" class="w-full accent-cyan-400">
+                        <div class="flex justify-between text-[11px] text-gray-500 mt-1"><span>1 NFT left</span><span id="ls-label">— unbroken</span><span id="ls-max">— (today)</span></div>
+                    </div>
+                    <div class="text-center">
+                        <div class="num text-3xl text-emerald-300" id="ls-luna">—</div><div class="text-[11px] text-gray-500">LUNA per NFT per day</div>
+                        <div class="num text-lg text-emerald-300/80 mt-1" id="ls-usd">—</div><div class="text-[11px] text-gray-500">at today's LUNA price</div>
+                    </div>
+                </div>
+                <div class="text-[11px] text-gray-500 mt-3">Daily pool inflow used: <span class="mono text-gray-300" id="ls-inflow">—</span> LUNA/day. A projection from the recorded series — not a promise; the rewards are a governance grant that a future vote could change.</div>
             </div>
         </section>
 
@@ -149,7 +185,7 @@
             <h2 class="text-3xl font-extrabold">The DAO: what we do with it</h2>
             <div class="grid md:grid-cols-3 gap-4 mt-5">
                 <div class="card p-5"><div class="text-cyan-300 font-bold mb-1"><i class="fas fa-people-group mr-2"></i>Who decides</div><p class="text-sm text-gray-400">Holders stake their NFTs in DAODAO and vote — one staked NFT, one vote, broken or not. Every proposal, every vote and every voter is on the <a class="text-cyan-300 hover:underline" href="dao.html">DAO page</a>, with a quick audit of what each proposal actually does on chain.</p></div>
-                <div class="card p-5"><div class="text-cyan-300 font-bold mb-1"><i class="fas fa-water mr-2"></i>Where the treasury works</div><p class="text-sm text-gray-400">The DAO's 10% goes into the <b class="text-gray-200">Terra Liquidity Alliance</b>: liquidity positions that earn LUNA emissions, and two max-duration locks that give the DAO votes over where those emissions flow. The treasury is worth <span class="num text-amber-300" id="d-total">—</span> today, and that strip on the home page is the four parts of it.</p></div>
+                <div class="card p-5"><div class="text-cyan-300 font-bold mb-1"><i class="fas fa-water mr-2"></i>Where the treasury works</div><p class="text-sm text-gray-400">Everything the DAO holds came from the NFTs themselves. The mint sales — 156,205 LUNA across the phases — came back to the DAO and stayed there, and the daily 10% keeps arriving. The DAO put that to work inside the <b class="text-gray-200">Terra Liquidity Alliance</b>: liquidity positions that earn LUNA emissions, and two max-duration locks that give the DAO votes over where those emissions flow. Future sales and alliance deals go the same way — into the treasury, never out of it without a vote. It is worth <span class="num text-amber-300" id="d-total">—</span> today, and the strip on the home page is its four parts.</p></div>
                 <div class="card p-5"><div class="text-cyan-300 font-bold mb-1"><i class="fas fa-handshake mr-2"></i>Why the unminted matter</div><p class="text-sm text-gray-400"><span class="num text-violet-300" id="d-unminted">—</span> NFTs of the 10,000 were never sold. The DAO holds them to build alliances — with other collections, other chains, other DAOs — and each one it pairs is a new holder pulled into Terra DeFi. That is the mission in one sentence: <b class="text-gray-200">get more people using Terra, by making it worth their while.</b></p></div>
             </div>
             <div class="card p-5 mt-4">
@@ -216,9 +252,33 @@
         if (bk.per_nft_ampluna != null) { $('h-backing').textContent = num(bk.per_nft_ampluna, 2) + ' ampLUNA'; $('f-backing').textContent = num(bk.per_nft_ampluna, 2); }
         if (bk.per_nft_value_usd != null) { $('h-backing-usd').textContent = '· $' + num(bk.per_nft_value_usd, 2); $('f-usd').textContent = '$' + num(bk.per_nft_value_usd, 2); }
         if (last && last.backingInLuna != null) $('f-luna').textContent = num(last.backingInLuna, 1);
+        if (bk.ampluna_balance != null) { $('b-pool').textContent = num(bk.ampluna_balance) + ' ampLUNA'; if (bk.treasury_value_usd != null) $('b-pool-usd').textContent = '· $' + num(bk.treasury_value_usd); }
+        // last-NFT-standing slider: inflow = 7-day average per-NFT LUNA gain × today's unbroken count
+        try {
+            const rows = (bh && bh.rows || []).filter(r => r.backingInLuna != null).slice(-8);
+            const gains = []; for (let i = 1; i < rows.length; i++) { const d = rows[i].backingInLuna - rows[i - 1].backingInLuna; if (d > 0) gains.push(d); }
+            const perNftAvg = gains.length ? gains.reduce((a, b) => a + b, 0) / gains.length : null;
+            const U0 = sum ? Number(sum.unbroken_count) : null; const lunaUsd = (prices && prices.token_prices && prices.token_prices.LUNA && (prices.token_prices.LUNA.final_price_usd || prices.token_prices.LUNA.price)) || null;
+            if (perNftAvg != null && U0) {
+                const inflow = perNftAvg * U0; const sl = $('s-unbroken'); sl.max = String(U0); sl.value = String(U0); $('s-max').textContent = num(U0);
+                const draw = () => { const U = Math.max(1, Number(sl.value)); const per = inflow / U; $('s-u').textContent = num(U); $('s-inflow').textContent = num(inflow, 1); $('s-per').textContent = num(per, 3); $('s-usd').textContent = lunaUsd ? '$' + num(per * lunaUsd, 3) : '—'; };
+                sl.addEventListener('input', draw); draw();
+                $('s-today').textContent = num(perNftAvg, 3) + ' LUNA per NFT per day' + (lunaUsd ? ' (≈ $' + num(perNftAvg * lunaUsd, 3) + ')' : '') + ', measured over the last ' + gains.length + ' recorded days';
+            } else { $('s-today').textContent = 'the backing series is not available right now'; }
+        } catch (e) {}
         if (sum) { $('h-unbroken').textContent = num(sum.unbroken_count); $('b-unbroken').textContent = num(sum.unbroken_count); $('b-broken').textContent = num(sum.broken_count); $('h-unminted').textContent = num(sum.unminted_count); $('d-unminted').textContent = num(sum.unminted_count); $('h-source').textContent = 'live from the collection snapshot · ' + String(sum.capturedAt || '').slice(0, 16).replace('T', ' ') + ' UTC'; }
         const amp = prices && prices.lst_ratios && (prices.lst_ratios.ampLUNA || prices.lst_ratios.ampluna); if (amp) $('t-amp').textContent = num(amp.ratio || amp, 4); else if (last && last.ampLunaRate) $('t-amp').textContent = num(last.ampLunaRate, 4);
         const tv = dd && dd.dashboard && dd.dashboard.total_value; if (tv && tv.total_usd != null) $('d-total').textContent = '$' + num(tv.total_usd);
+        // last NFT standing: inflow = mean of the last 7 daily per-NFT gains (LUNA) × today's unbroken count
+        const rows = (bh && bh.rows || []).filter(r => r.backingInLuna != null); const U = sum ? Number(sum.unbroken_count) : null;
+        const lunaUsd = prices && prices.token_prices && prices.token_prices.LUNA ? (prices.token_prices.LUNA.final_price_usd || prices.token_prices.LUNA.price) : null;
+        if (rows.length > 7 && U) {
+            const last7 = rows.slice(-8); const gains = []; for (let i = 1; i < last7.length; i++) { const d = Number(last7[i].backingInLuna) - Number(last7[i - 1].backingInLuna); if (d > 0) gains.push(d); }
+            const perNft = gains.length ? gains.reduce((a, b) => a + b, 0) / gains.length : 0; const inflow = perNft * U;
+            const sl = $('ls-slider'); sl.max = String(U); sl.value = String(U); $('ls-max').textContent = num(U) + ' (today)'; $('ls-inflow').textContent = num(inflow, 1);
+            const draw = () => { const u = Math.max(1, Number(sl.value)); const g = inflow / u; $('ls-label').textContent = num(u) + ' unbroken'; $('ls-luna').textContent = num(g, 3); $('ls-usd').textContent = lunaUsd ? '$' + num(g * lunaUsd, 3) : '—'; };
+            sl.addEventListener('input', draw); draw();
+        }
         // planets strip from the on-chain trait dictionary spelling
         const P = ['Lusa', 'Cristall', 'Pampas', 'Zando', 'Crutha', 'Kita', 'Ozara', 'Minas', 'Gredica', 'Sindari'];
         const file = { Cristall: 'Crystall' };   // the image file keeps its old name; the word follows the metadata

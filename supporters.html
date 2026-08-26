@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supporters | Alliance DAO · TLA Stats</title>
+    <link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
+    <meta name="description" content="Everyone who has helped keep the lights on — read live from the chain: transfers to the builder's wallet carrying the memo thanks_defi.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+    <script src="/_vercel/insights/script.js" defer></script>
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0D0D0D; color: #EAEAEA; }
+        .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+        .card { background: #141414; border: 1px solid #262626; border-radius: 1rem; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/site-header.js"></script>
+    <script src="/lib/address-picker.js"></script>
+    <script>SiteHeader.mount({ page: 'supporters', mobileTabs: false }); if (window.AddressPicker) AddressPicker.mount({});</script>
+
+    <main class="max-w-4xl mx-auto px-5 py-10">
+        <div class="text-center mb-8">
+            <div class="text-[11px] uppercase tracking-[.2em] text-amber-400 mb-2">Thank you</div>
+            <h1 class="text-3xl md:text-4xl font-extrabold">Supporters</h1>
+            <p class="text-gray-400 mt-3 max-w-2xl mx-auto">Everyone who has helped keep this site running, read <b class="text-gray-200">live from the chain</b>: transfers to the builder's wallet that carry the memo <code class="mono text-amber-300 bg-white/[0.05] px-1.5 py-0.5 rounded">thanks_defi</code>. Any token found in TLA counts. Nothing here is edited by hand — if it's on this page, it's on chain.</p>
+            <div class="mt-4 flex items-center justify-center gap-2 flex-wrap text-[12px]">
+                <span class="text-gray-500">send to</span>
+                <code id="addr" class="mono text-[12px] text-cyan-300 bg-white/[0.05] px-2.5 py-1 rounded">terra1hr8zsfpch47qygc96c8e6rzkd2t7mafqx77ulw</code>
+                <button type="button" id="copy" class="text-gray-400 hover:text-cyan-300"><i class="fas fa-copy mr-1"></i>copy</button>
+                <span class="text-gray-500">· memo <code class="mono text-amber-300">thanks_defi</code></span>
+            </div>
+        </div>
+        <div class="grid md:grid-cols-3 gap-3 mb-6">
+            <div class="card p-4 text-center"><div class="mono text-2xl text-amber-300" id="s-count">—</div><div class="text-[11px] text-gray-500">supporters</div></div>
+            <div class="card p-4 text-center"><div class="mono text-2xl text-emerald-300" id="s-gifts">—</div><div class="text-[11px] text-gray-500">gifts with the memo</div></div>
+            <div class="card p-4 text-center"><div class="mono text-2xl text-cyan-300" id="s-usd">—</div><div class="text-[11px] text-gray-500">total, USD at today's prices</div></div>
+        </div>
+        <div class="card p-4" id="list"><div class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>reading the chain…</div></div>
+        <p class="text-[11px] text-gray-600 mt-4 text-center">Read from the Terra LCD at load: the newest 100 transfers into the wallet, filtered to the memo. Names come from the site's public address catalog when the sender is registered; otherwise the address is shown as-is. If your gift is missing, it either predates the last 100 transfers or didn't carry the memo — say hi on Telegram and it'll get added by hand, marked as such.</p>
+    </main>
+
+    <script>
+    (async () => {
+        const ADDR = 'terra1hr8zsfpch47qygc96c8e6rzkd2t7mafqx77ulw', MEMO = 'thanks_defi';
+        const LCDS = ['https://terra-lcd.publicnode.com', 'https://phoenix-lcd.terra.dev'];
+        const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main'; const T = Math.floor(Date.now() / 900000);
+        const $ = (id) => document.getElementById(id); const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        document.getElementById('copy').onclick = () => { (navigator.clipboard ? navigator.clipboard.writeText(ADDR) : Promise.reject()).then(() => { $('copy').innerHTML = '<i class="fas fa-check mr-1"></i>copied'; setTimeout(() => { $('copy').innerHTML = '<i class="fas fa-copy mr-1"></i>copy'; }, 1500); }).catch(() => {}); };
+        const getJ = async (u) => { try { const r = await fetch(u); return r.ok ? r.json() : null; } catch { return null; } };
+        // names + prices from the site's products
+        const [cat, prices, trusted] = await Promise.all([getJ(`${CORE}/token-catalog/snapshots/current.json?t=${T}`), getJ(`${CORE}/network-and-prices/current.json?t=${T}`), getJ(`${CORE}/catalog/trusted/current.json?t=${T}`)]);
+        const denomSym = {}, denomDec = {}; for (const t of (cat && cat.tokens || [])) { const e = t.effective || t.discovered || {}; if (t.denom && e.symbol) { denomSym[t.denom] = e.symbol; denomDec[t.denom] = e.decimals != null ? e.decimals : 6; } }
+        denomSym['uluna'] = 'LUNA'; denomDec['uluna'] = 6;
+        const px = (sym) => { const p = prices && prices.token_prices && prices.token_prices[sym]; return p ? (p.final_price_usd || p.price || 0) : 0; };
+        const nameOf = {}; for (const e of (trusted && (trusted.addresses || trusted.entries) || [])) if (e.address && (e.name || e.label)) nameOf[e.address] = e.name || e.label;
+        // chain: newest transfers into the wallet
+        let txs = null;
+        // SDK 0.47 LCDs take `events=`, 0.50 takes `query=` — try both on each endpoint
+        outer: for (const lcd of LCDS) for (const param of ['events', 'query']) { const r = await getJ(`${lcd}/cosmos/tx/v1beta1/txs?${param}=transfer.recipient%3D%27${ADDR}%27&order_by=ORDER_BY_DESC&limit=100`); if (r && Array.isArray(r.tx_responses)) { txs = r; break outer; } }
+        if (!txs) { $('list').innerHTML = '<div class="text-sm text-gray-500">The chain read failed just now — refresh in a minute.</div>'; return; }
+        const gifts = [];
+        txs.tx_responses.forEach((tr, i) => {
+            const memo = (txs.txs[i] && txs.txs[i].body && txs.txs[i].body.memo || tr.tx && tr.tx.body && tr.tx.body.memo || '').trim();
+            if (memo.toLowerCase() !== MEMO) return;
+            for (const m of (txs.txs[i] && txs.txs[i].body && txs.txs[i].body.messages) || (tr.tx && tr.tx.body && tr.tx.body.messages) || []) {
+                const t = m['@type'] || '';
+                if (/MsgSend$/.test(t) && m.to_address === ADDR) for (const c of m.amount || []) gifts.push({ from: m.from_address, denom: c.denom, amount: Number(c.amount) / 10 ** (denomDec[c.denom] ?? 6), sym: denomSym[c.denom] || c.denom, ts: tr.timestamp, hash: tr.txhash });
+                if (/MsgExecuteContract$/.test(t)) { const msg = m.msg || {}; const tr2 = msg.transfer; if (tr2 && tr2.recipient === ADDR) gifts.push({ from: m.sender, denom: m.contract, amount: Number(tr2.amount) / 10 ** (denomDec[m.contract] ?? 6), sym: denomSym[m.contract] || (m.contract || '').slice(0, 10) + '…', ts: tr.timestamp, hash: tr.txhash }); }
+            }
+        });
+        const usd = (g) => g.amount * px(g.sym); const total = gifts.reduce((s, g) => s + usd(g), 0); const who = new Set(gifts.map(g => g.from));
+        $('s-count').textContent = who.size.toLocaleString(); $('s-gifts').textContent = gifts.length.toLocaleString(); $('s-usd').textContent = '$' + total.toLocaleString('en-US', { maximumFractionDigits: 0 });
+        if (!gifts.length) { $('list').innerHTML = '<div class="text-sm text-gray-400 text-center py-4">No gifts with the memo yet — the first name here will be remembered.</div>'; return; }
+        $('list').innerHTML = gifts.map(g => `<div class="flex items-center justify-between gap-3 py-2 border-t border-white/[0.04] first:border-0 text-sm">
+            <div class="min-w-0"><div class="font-medium truncate">${esc(nameOf[g.from] || (g.from.slice(0, 12) + '…' + g.from.slice(-4)))}</div><div class="text-[11px] text-gray-500">${esc(String(g.ts).slice(0, 10))} · <a class="hover:text-cyan-300" href="https://chainsco.pe/terra2/tx/${esc(g.hash)}" target="_blank" rel="noopener">tx ↗</a></div></div>
+            <div class="text-right shrink-0"><div class="mono text-amber-300">${g.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${esc(g.sym)}</div><div class="text-[11px] text-gray-500">${usd(g) ? '≈ $' + usd(g).toLocaleString('en-US', { maximumFractionDigits: 2 }) : ''}</div></div>
+        </div>`).join('');
+    })();
+    </script>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>SiteFooter.mount({ rev: '1.0', revDate: '2026-08-25', page: 'supporters' });</script>
+</body>
+</html>
