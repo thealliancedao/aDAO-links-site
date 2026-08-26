@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New here? → TLA | Alliance DAO</title>
+    <link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
+    <meta name="description" content="You have LUNA. Four routes — native staking, a TLA lock, a Votion vault, lending on Credia — with live numbers for your amount, what each pays, what each costs you, and how to get out.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+    <script src="/_vercel/insights/script.js" defer></script>
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0D0D0D; color: #EAEAEA; }
+        .mono, .num { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+        .num { font-weight: 600; }
+        .card { background: #141414; border: 1px solid #262626; border-radius: 1rem; }
+        .hero-bg { background: radial-gradient(1200px 500px at 50% -10%, rgba(34,211,238,.14), transparent 60%), radial-gradient(800px 400px at 80% 30%, rgba(251,146,60,.10), transparent 60%); }
+        /* the diagram */
+        .node { background: #111; border: 1px solid #333; border-radius: .8rem; padding: .7rem 1rem; text-align: center; }
+        .node.center { border-color: rgba(34,211,238,.6); box-shadow: 0 0 60px rgba(34,211,238,.12); }
+        .spoke { position: relative; }
+        .route { cursor: pointer; transition: transform .12s, border-color .12s; }
+        .route:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.35); }
+        .r-native { --c: #a3e635; } .r-tla { --c: #22d3ee; } .r-votion { --c: #fb923c; } .r-credia { --c: #c084fc; }
+        .route .tag { color: var(--c); border-color: var(--c); }
+        .route.on { border-color: var(--c); box-shadow: 0 0 40px color-mix(in srgb, var(--c) 18%, transparent); }
+        .line { height: 2px; background: #2a2a2a; }
+        .line.good { background: #22c55e; } .line.bad { background: #ef4444; } .line.neutral { background: #444; }
+        .tile { background: #121212; border: 1px solid #262626; border-radius: .8rem; padding: .8rem .9rem; }
+        .tile .lbl { font-size: .68rem; text-transform: uppercase; letter-spacing: .12em; color: #6b7280; }
+        .tile .v { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 1.35rem; margin-top: .15rem; }
+        .tile .sub { font-size: .72rem; color: #9ca3af; margin-top: .2rem; }
+        .good { color: #4ade80; } .bad { color: #f87171; } .warn { color: #fbbf24; }
+        .how { font-size: .68rem; color: #67e8f9; cursor: pointer; border: 1px solid rgba(34,211,238,.35); border-radius: 9999px; padding: .1rem .5rem; margin-left: .35rem; white-space: nowrap; }
+        .how:hover { background: rgba(34,211,238,.12); }
+        .seg button { font-size: .72rem; padding: .3rem .7rem; border: 1px solid #333; background: #141414; color: #9ca3af; }
+        .seg button:first-child { border-radius: 9999px 0 0 9999px; } .seg button:last-child { border-radius: 0 9999px 9999px 0; }
+        .seg button.on { color: #0D0D0D; background: #67e8f9; border-color: #67e8f9; font-weight: 700; }
+        .chip { font-size: .7rem; padding: .2rem .55rem; border-radius: 9999px; border: 1px solid #333; color: #9ca3af; cursor: pointer; }
+        .chip:hover, .chip.on { color: #67e8f9; border-color: #67e8f9; }
+        input[type=range] { accent-color: #22d3ee; width: 100%; }
+        .screen { display: none; } .screen.on { display: block; }
+        dialog { background: #141414; color: #e5e7eb; border: 1px solid #333; border-radius: 1rem; max-width: 42rem; width: calc(100% - 2rem); padding: 1.2rem 1.4rem; }
+        dialog::backdrop { background: rgba(0,0,0,.65); }
+        .drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(34rem, 100%); background: #111; border-left: 1px solid #333; transform: translateX(100%); transition: transform .2s; z-index: 60; overflow-y: auto; }
+        .drawer.on { transform: translateX(0); }
+        .pool-row { display: grid; grid-template-columns: 1.5fr .8fr .8fr 1fr; gap: .4rem; align-items: center; font-size: .78rem; padding: .45rem .5rem; border-bottom: 1px solid #1f1f1f; cursor: pointer; }
+        .pool-row:hover { background: rgba(255,255,255,.03); } .pool-row.on { background: rgba(34,211,238,.08); }
+        .pool-row .h { font-size: .64rem; color: #6b7280; text-transform: uppercase; letter-spacing: .1em; cursor: default; }
+        .src { font-size: .66rem; color: #6b7280; }
+        .compare { display: grid; grid-template-columns: repeat(2, 1fr); gap: .6rem; }
+        @media (min-width: 768px) { .compare { grid-template-columns: repeat(4, 1fr); } }
+        .cmp { border: 1px solid #262626; border-radius: .8rem; padding: .7rem .8rem; background: #111; }
+        .cmp.on { border-color: var(--c); }
+        .cmp .t { font-size: .68rem; color: var(--c); text-transform: uppercase; letter-spacing: .12em; }
+        .cmp .v { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 1.15rem; }
+        .cmp .s { font-size: .68rem; color: #6b7280; }
+        .note { font-size: .74rem; color: #9ca3af; line-height: 1.45; }
+        .prose p { margin: .5rem 0; font-size: .86rem; color: #d1d5db; line-height: 1.55; }
+        .prose b { color: #f3f4f6; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/site-header.js"></script>
+    <script src="/lib/address-picker.js"></script>
+    <script>SiteHeader.mount({ page: 'new-here-tla', mobileTabs: false }); if (window.AddressPicker) AddressPicker.mount({});</script>
+
+    <!-- control bar: the one input + the horizon -->
+    <div class="sticky top-0 z-30 bg-[#0D0D0D]/92 backdrop-blur border-b border-white/5">
+        <div class="max-w-6xl mx-auto px-4 py-2 flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2">
+                <span class="text-[11px] uppercase tracking-[.15em] text-gray-500">You have</span>
+                <input id="luna-in" type="text" inputmode="decimal" value="10,000" class="num bg-[#141414] border border-[#333] rounded-lg px-3 py-1.5 w-36 text-cyan-200 text-right focus:outline-none focus:border-cyan-400" aria-label="LUNA amount">
+                <span class="text-sm text-gray-400">LUNA</span>
+                <span class="text-[11px] text-gray-500" id="luna-usd">—</span>
+            </div>
+            <div class="flex gap-1"><span class="chip" data-luna="10000">10K</span><span class="chip" data-luna="100000">100K</span><span class="chip" data-luna="1000000">1M</span></div>
+            <div class="ml-auto flex items-center gap-2">
+                <span class="text-[11px] uppercase tracking-[.15em] text-gray-500 hidden sm:inline">Horizon</span>
+                <div class="seg flex" id="horizon"><button data-h="weekly">Weekly</button><button data-h="monthly" class="on">Monthly</button><button data-h="yearly">Yearly</button></div>
+            </div>
+        </div>
+    </div>
+
+    <main class="hero-bg">
+        <!-- ===================== SCREEN: HOME (the diagram) ===================== -->
+        <section id="screen-home" class="screen on max-w-6xl mx-auto px-4 pt-10 pb-8">
+            <div class="text-center mb-6">
+                <div class="text-[11px] uppercase tracking-[.2em] text-cyan-400 mb-2">New here? · TLA edition</div>
+                <h1 class="text-3xl md:text-5xl font-black tracking-tight">You have LUNA. Four things you can do with it.</h1>
+                <p class="text-gray-400 mt-3 max-w-3xl mx-auto text-sm md:text-base">Pick a route to see what it pays for <span class="num text-cyan-200" id="h-amt">10,000 LUNA</span>, what it costs you, and how you get out. Every number below is live from chain or from this site's own captures — nothing here is a promise.</p>
+            </div>
+
+            <div class="node center max-w-sm mx-auto">
+                <div class="text-[11px] uppercase tracking-[.15em] text-gray-500">Input = tokens</div>
+                <div class="num text-2xl text-cyan-200" id="c-amt">10,000 LUNA</div>
+                <div class="text-[11px] text-gray-500" id="c-usd">≈ —</div>
+            </div>
+            <div class="max-w-5xl mx-auto mt-1 mb-1 flex justify-center"><div class="w-px h-8 bg-[#2a2a2a]"></div></div>
+            <div class="max-w-5xl mx-auto line"></div>
+            <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                <div class="spoke"><div class="card route r-native p-4" data-route="native">
+                    <div class="text-[10px] uppercase tracking-[.15em] tag border-b inline-block pb-0.5">Native staking</div>
+                    <div class="num text-2xl mt-2" id="t-native">—</div>
+                    <div class="text-[11px] text-gray-500" id="t-native-sub">per year, chain rewards</div>
+                    <ul class="text-[12px] text-gray-300 mt-3 space-y-1"><li class="good">✓ your validator, your chain vote</li><li class="warn">21-day unbond to exit</li><li class="bad">✗ no TLA vote, no bribes</li></ul>
+                    <div class="text-[11px] text-cyan-300 mt-3">Explore →</div>
+                </div></div>
+                <div class="spoke"><div class="card route r-tla p-4" data-route="tla">
+                    <div class="text-[10px] uppercase tracking-[.15em] tag border-b inline-block pb-0.5">TLA lock</div>
+                    <div class="num text-2xl mt-2" id="t-tla">—</div>
+                    <div class="text-[11px] text-gray-500" id="t-tla-sub">VP at max lock + LST yield</div>
+                    <ul class="text-[12px] text-gray-300 mt-3 space-y-1"><li class="good">✓ vote emissions to your LPs, or farm bribes</li><li class="warn">lock 1 week – 2 years; VP fixed at lock</li><li class="bad">✗ Eris picks the validators</li></ul>
+                    <div class="text-[11px] text-cyan-300 mt-3">Explore →</div>
+                </div></div>
+                <div class="spoke"><div class="card route r-votion p-4" data-route="votion">
+                    <div class="text-[10px] uppercase tracking-[.15em] tag border-b inline-block pb-0.5">Votion vault</div>
+                    <div class="num text-2xl mt-2" id="t-votion">—</div>
+                    <div class="text-[11px] text-gray-500" id="t-votion-sub">per year, LST + Votion boost</div>
+                    <ul class="text-[12px] text-gray-300 mt-3 space-y-1"><li class="good">✓ the boost compounds into your LST</li><li class="warn">its own lock; nothing to sell</li><li class="bad">✗ Votion votes for you</li></ul>
+                    <div class="text-[11px] text-cyan-300 mt-3">Explore →</div>
+                </div></div>
+                <div class="spoke"><div class="card route r-credia p-4" data-route="credia">
+                    <div class="text-[10px] uppercase tracking-[.15em] tag border-b inline-block pb-0.5">Lend on Credia</div>
+                    <div class="num text-2xl mt-2" id="t-credia">—</div>
+                    <div class="text-[11px] text-gray-500" id="t-credia-sub">per year, variable supply rate</div>
+                    <ul class="text-[12px] text-gray-300 mt-3 space-y-1"><li class="good">✓ no lock — withdraw when there's liquidity</li><li class="warn">rate moves with utilization</li><li class="bad">✗ no vote anywhere, protocol risk</li></ul>
+                    <div class="text-[11px] text-cyan-300 mt-3">Explore →</div>
+                </div></div>
+            </div>
+            <p class="text-center src mt-5" id="home-src">loading live sources…</p>
+        </section>
+
+        <!-- ===================== SCREEN: NATIVE ===================== -->
+        <section id="screen-native" class="screen max-w-6xl mx-auto px-4 pt-8 pb-8">
+            <a class="text-[12px] text-gray-400 hover:text-cyan-300" href="#" data-back>← back to your LUNA</a>
+            <div class="node center max-w-md mx-auto mt-4 r-native">
+                <div class="text-[10px] uppercase tracking-[.15em] text-lime-400">Native staking</div>
+                <div class="num text-3xl" id="n-apr">—</div>
+                <div class="text-[11px] text-gray-500" id="n-apr-sub">staking APR after commission <span class="how" data-how="native-apr">how?</span></div>
+            </div>
+            <div class="tile max-w-2xl mx-auto mt-3" id="n-ctl">
+                <div class="flex flex-wrap items-end gap-4">
+                    <label class="text-[11px] text-gray-500">APR before commission<br><span class="flex items-center gap-1"><input id="apr-in" type="text" inputmode="decimal" class="num bg-[#141414] border border-[#333] rounded-lg px-2 py-1 w-24 text-right text-cyan-200 focus:outline-none focus:border-cyan-400" aria-label="Staking APR percent"><span class="text-gray-400">%</span><button id="apr-reset" class="text-[10px] text-gray-500 hover:text-cyan-300 ml-1" title="Back to the chain-derived figure">reset</button></span></label>
+                    <label class="text-[11px] text-gray-500">Your validator's commission<br><span class="flex items-center gap-1"><input id="comm-in" type="text" inputmode="decimal" class="num bg-[#141414] border border-[#333] rounded-lg px-2 py-1 w-20 text-right text-cyan-200 focus:outline-none focus:border-cyan-400" aria-label="Validator commission percent"><span class="text-gray-400">%</span></span></label>
+                    <div class="flex gap-1 pb-1"><span class="chip" data-comm="5">5% (Stakely)</span><span class="chip" data-comm="10">10% (Allnodes)</span><span class="chip" data-comm="0">0%</span></div>
+                </div>
+                <p class="note mt-2" id="n-note"></p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
+                <div class="tile"><div class="lbl">Withdraw rewards <span class="how" data-how="native-claim">how?</span></div><div class="v good" id="n-claim">—</div><div class="sub" id="n-claim-sub">claimable LUNA over the horizon, no compounding</div></div>
+                <div class="tile"><div class="lbl">Compound rewards</div><div class="v good" id="n-comp">—</div><div class="sub" id="n-comp-sub">re-staked every day; the yearly view shows the compounding gain</div></div>
+                <div class="tile"><div class="lbl">Make it liquid</div><div class="v warn">21 days</div><div class="sub">unbonding period — no rewards while unbonding, no way to sell the wait</div></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                <div class="tile"><div class="lbl good">What you keep</div><div class="note mt-1">A decentralised voice in chain governance — your validator, your vote on every proposal. Only dependent on the chain, not on Eris, TLA, Votion or PD.</div></div>
+                <div class="tile"><div class="lbl bad">What you give up</div><div class="note mt-1">No VP in TLA, so no say in where liquidity emissions go and no bribe income. Lower than the amplified routes below <span class="how" data-how="native-vs">why?</span></div></div>
+            </div>
+            <div class="mt-6" data-compare></div>
+        </section>
+
+        <!-- ===================== SCREEN: TLA ===================== -->
+        <section id="screen-tla" class="screen max-w-6xl mx-auto px-4 pt-8 pb-8">
+            <a class="text-[12px] text-gray-400 hover:text-cyan-300" href="#" data-back>← back to your LUNA</a>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+                <div class="lg:col-span-2">
+                    <div class="node center r-tla">
+                        <div class="text-[10px] uppercase tracking-[.15em] text-cyan-400">TLA lock</div>
+                        <div class="flex flex-wrap justify-center gap-1 mt-2" id="lst-chips"><span class="chip on" data-lst="ampLUNA">ampLUNA</span><span class="chip" data-lst="arbLUNA">arbLUNA</span><span class="chip" data-lst="bLUNA">bLUNA</span></div>
+                        <div class="num text-2xl mt-2" id="l-lst">—</div>
+                        <div class="text-[11px] text-gray-500" id="l-lst-sub">bond first: 1 LUNA → ? LST at the hub rate <span class="how" data-how="bond">how?</span></div>
+                        <div class="mt-3 text-left">
+                            <div class="flex justify-between text-[11px] text-gray-500"><span>Lock length</span><span class="num text-cyan-200" id="l-weeks">104 weeks (max)</span></div>
+                            <input id="lock-range" type="range" min="1" max="104" value="104" step="1" aria-label="Lock length in weeks">
+                            <div class="flex justify-between text-[10px] text-gray-600"><span>1 week</span><span>3 mo</span><span>1 yr</span><span>2 yr</span></div>
+                        </div>
+                        <div class="num text-3xl mt-2 text-cyan-200" id="l-vp">—</div>
+                        <div class="text-[11px] text-gray-500">voting power (VP) <span class="how" data-how="vp">how?</span></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+                        <div class="tile"><div class="lbl">LST yield <span class="how" data-how="lst-apy">how?</span></div><div class="v good" id="l-yield">—</div><div class="sub" id="l-yield-sub">the hub ratio compounds chain rewards into your LST</div></div>
+                        <div class="tile"><div class="lbl">Bribes if you vote <span class="how" data-how="bribes">how?</span></div><div class="v good" id="l-bribe">—</div><div class="sub" id="l-bribe-sub">pick a pool →</div></div>
+                        <div class="tile"><div class="lbl">Or direct emissions</div><div class="v text-cyan-200">your LPs</div><div class="sub">vote for the pools you are deposited in — the LUNA emissions boost your own positions instead</div></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                        <div class="tile"><div class="lbl warn">VP decays <span class="how" data-how="decay">how?</span></div><div class="v warn" id="l-decay">—</div><div class="sub">VP in 6 months if you never touch the lock</div></div>
+                        <div class="tile"><div class="lbl">Sell the lock instead of waiting <span class="how" data-how="resale">how?</span></div><div class="v" id="l-resale">—</div><div class="sub"><label class="flex items-center gap-2">discount <input id="disc-range" type="range" min="0" max="40" value="10" step="1" class="w-28"><span class="num" id="disc-v">10%</span></label></div></div>
+                        <div class="tile"><div class="lbl">Borrow against it later <span class="how" data-how="credia-lp">how?</span></div><div class="v" id="l-credia">—</div><div class="sub">Credia takes TLA ampLP as collateral — keep the LP and the VP, pull LUNA out</div></div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                        <div class="tile"><div class="lbl good">What you get</div><div class="note mt-1">A vote on which liquidity Terra DeFi rewards. Direct emissions to your own LPs (redeem as LUNA, or amplify and grow the LP), or place VP where the bribes are and get paid weekly in the bribe token. Your LST keeps earning chain rewards underneath.</div></div>
+                        <div class="tile"><div class="lbl bad">What you give up</div><div class="note mt-1">Chain governance: your stake weight sits with the validators Eris chooses, and that weight is concentrated. Liquidity: 1 week to 2 years locked — the only early exit is selling the lock at a discount. Attention: VP is fixed at lock time; keep adding or extending or it drifts down.</div></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="card p-4">
+                        <div class="text-[10px] uppercase tracking-[.15em] text-gray-500">Your pool</div>
+                        <div class="text-sm font-semibold mt-1" id="pool-name">none chosen</div>
+                        <div class="text-[11px] text-gray-500 mt-1" id="pool-detail">Choose a pool to see what your VP would earn there this epoch.</div>
+                        <button class="mt-3 text-[12px] px-3 py-1.5 rounded-full border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10" id="open-picker">Choose a pool →</button>
+                        <div class="src mt-3" id="pool-src"></div>
+                    </div>
+                    <div class="card p-4 mt-3">
+                        <div class="text-[10px] uppercase tracking-[.15em] text-gray-500">What Votion would do with this VP</div>
+                        <div class="text-[12px] text-gray-300 mt-1" id="votion-plan">—</div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6" data-compare></div>
+        </section>
+
+        <!-- ===================== SCREEN: VOTION ===================== -->
+        <section id="screen-votion" class="screen max-w-6xl mx-auto px-4 pt-8 pb-8">
+            <a class="text-[12px] text-gray-400 hover:text-cyan-300" href="#" data-back>← back to your LUNA</a>
+            <div class="node center max-w-lg mx-auto mt-4 r-votion">
+                <div class="text-[10px] uppercase tracking-[.15em] text-orange-400">Votion vault</div>
+                <div class="flex flex-wrap justify-center gap-1 mt-2" id="vault-chips"></div>
+                <div class="num text-3xl mt-2" id="v-apy">—</div>
+                <div class="text-[11px] text-gray-500"><span id="v-apy-parts">—</span> <span class="how" data-how="votion-apy">how?</span></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
+                <div class="tile"><div class="lbl">Your LST grows</div><div class="v good" id="v-gain">—</div><div class="sub" id="v-gain-sub">over the horizon, LST + boost compounded</div></div>
+                <div class="tile"><div class="lbl">Of which the boost</div><div class="v good" id="v-boost">—</div><div class="sub">the Votion leg alone — bribes and emissions the vault earns with its VP, compounded into the vault's exchange rate</div></div>
+                <div class="tile"><div class="lbl">Underlying LUNA</div><div class="v" id="v-luna">—</div><div class="sub">what your position redeems for in LUNA after the horizon, at today's hub rate + growth</div></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                <div class="tile"><div class="lbl good">What you get</div><div class="note mt-1">The highest LST growth on offer: Votion's optimizer votes the vault's VP wherever bribes and emissions pay best (re-optimizing every ~15 minutes until the cast deadline), claims, and compounds into the vault's exchange rate. You hold a receipt token; its value in LST only goes up.</div></div>
+                <div class="tile"><div class="lbl bad">What you give up</div><div class="note mt-1">Your TLA voice — Votion votes, not you. Liquidity — the vault has its own lock schedule on top of the LST, and there is no Atrium/Boost market to sell out of it early. And the 7-day number moves in steps: rewards land at each epoch, so short windows mislead <span class="how" data-how="window">why?</span></div></div>
+            </div>
+            <div class="mt-6" data-compare></div>
+        </section>
+
+        <!-- ===================== SCREEN: CREDIA ===================== -->
+        <section id="screen-credia" class="screen max-w-6xl mx-auto px-4 pt-8 pb-8">
+            <a class="text-[12px] text-gray-400 hover:text-cyan-300" href="#" data-back>← back to your LUNA</a>
+            <div class="node center max-w-md mx-auto mt-4 r-credia">
+                <div class="text-[10px] uppercase tracking-[.15em] text-purple-400">Lend LUNA on Credia</div>
+                <div class="num text-3xl" id="cr-apy">—</div>
+                <div class="text-[11px] text-gray-500">supply APY right now <span class="how" data-how="credia">how?</span></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
+                <div class="tile"><div class="lbl">You earn</div><div class="v good" id="cr-gain">—</div><div class="sub" id="cr-gain-sub">over the horizon at today's rate — it will not stay today's rate</div></div>
+                <div class="tile"><div class="lbl">Utilization</div><div class="v" id="cr-util">—</div><div class="sub" id="cr-util-sub">borrowed ÷ supplied — the rate rises with it</div></div>
+                <div class="tile"><div class="lbl">Exit</div><div class="v" id="cr-liq">—</div><div class="sub">LUNA available to withdraw right now (supplied − borrowed). No unbond, but you queue if it runs dry.</div></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                <div class="tile"><div class="lbl good">What you get</div><div class="note mt-1">Yield with no lock. Withdraw whenever the market has liquidity. Your supplied LUNA can also back a borrow.</div></div>
+                <div class="tile"><div class="lbl bad">What you give up</div><div class="note mt-1">Every vote — no chain governance, no TLA VP. A variable rate that moves with borrowers. Smart-contract and oracle risk of a lending protocol; your LUNA is lent out, not staked.</div></div>
+            </div>
+            <div class="tile mt-3"><div class="lbl">The loop people talk about <span class="how" data-how="loop">how?</span></div><div class="note mt-1" id="cr-loop">—</div></div>
+            <div class="mt-6" data-compare></div>
+        </section>
+    </main>
+
+    <!-- pool picker drawer -->
+    <div class="drawer" id="drawer" aria-hidden="true">
+        <div class="p-4 border-b border-[#222] flex items-center justify-between sticky top-0 bg-[#111]">
+            <div><div class="text-sm font-semibold">Choose a pool</div><div class="text-[11px] text-gray-500" id="drawer-sub">this epoch's pots and votes</div></div>
+            <button class="text-gray-400 hover:text-white" id="close-picker" aria-label="Close">✕</button>
+        </div>
+        <div class="p-2">
+            <div class="pool-row"><div class="h">Pool</div><div class="h text-right">Pot</div><div class="h text-right">Votes</div><div class="h text-right">Your share / wk</div></div>
+            <div id="pool-rows"></div>
+            <p class="src p-2" id="drawer-src"></p>
+        </div>
+    </div>
+
+    <dialog id="how"><div class="flex justify-between items-start"><div class="text-sm font-semibold" id="how-t"></div><button class="text-gray-400 hover:text-white" id="how-x" aria-label="Close">✕</button></div><div class="prose mt-2" id="how-b"></div><div class="text-[11px] text-gray-500 mt-3" id="how-l"></div></dialog>
+
+    <script>
+    (() => {
+        const REV = '1.0';
+        const RAW = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/';
+        const LCDS = ['https://terra-lcd.publicnode.com', 'https://phoenix-lcd.terra.dev', 'https://terra-lcd.stakely.io'];   // Stakely LB added 2026-08-26 as third fallback (owner-found; 6-node LCD LB)
+        const DAYS_IN_YEAR = 365.25;
+        const HUBS = {   // symbol → { hub, cw20 } — single source: platform-crons config/contracts.js LST_HUBS (copied, chain facts)
+            ampLUNA: { hub: 'terra10788fkzah89xrdm27zkj5yvhj9x3494lxawzm5qq3vvxcqz2yzaqyd3enk', cw20: 'terra1ecgazyd0waaj3g7l9cmy5gulhxkps2gmxu9ghducvuypjq68mq2s5lvsct', q: { exchange_rates: {} }, read: d => Number(d?.exchange_rates?.[0]?.[1]) },
+            arbLUNA: { hub: 'terra1r9gls56glvuc4jedsvc3uwh6vj95mqm9efc7hnweqxa2nlme5cyqxygy5m', cw20: 'terra1se7rvuerys4kd2snt6vqswh9wugu49vhyzls8ymc02wl37g2p2ms5yz490', q: { state: {} }, read: d => (d?.last_exchange_rate != null && d?.share_exchange_rate != null) ? Number(d.last_exchange_rate) * Number(d.share_exchange_rate) : Number(d?.exchange_rate) },
+            bLUNA:   { hub: 'terra1l2nd99yze5fszmhl5svyh5fky9wm4nz4etlgnztfu4e8809gd52q04n3ea', cw20: 'terra17aj4ty4sz4yhgm08na8drc0v03v2jwr3waxcqrwhajj729zhl7zqnpc0ml', q: { state: {} }, read: d => Number(d?.exchange_rate) },
+        };
+        const VP_MAX_MULT = 10, MAX_WEEKS = 104;   // Eris escrow: VP = fixed + boost. Observed on real locks (votion/snapshots/vaults.json 2026-08-26): 1-week lock = 1.0× LUNA-equivalent (no boost), MAX = 10.0× → boost = 9 × fixed × (weeks − 1)/(104 − 1). Mid-range pending a real 3-month lock (SPEC VERIFY).
+        const $ = (id) => document.getElementById(id);
+        const num = (x) => { const n = Number(x); return Number.isFinite(n) ? n : null; };
+        const fmt = (x, d = 0) => x == null ? '—' : x.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
+        const pct = (x, d = 2) => x == null ? '—' : (x * 100).toFixed(d) + '%';
+        const usd = (x, d = 0) => x == null ? '—' : '$' + fmt(x, d);
+        const apyOfDaily = (a) => a == null ? null : Math.pow(1 + a, DAYS_IN_YEAR) - 1;
+
+        // ---------------- state (URL-backed) ----------------
+        const S = { luna: 10000, horizon: 'monthly', route: 'home', lst: 'ampLUNA', weeks: 104, pool: null, vault: null, disc: 0.10, apr: null, comm: 0.05 };   // apr: manual override (annual fraction) or null = chain-derived; comm: validator commission
+        const HDAYS = { weekly: 7, monthly: DAYS_IN_YEAR / 12, yearly: DAYS_IN_YEAR };
+        const HLBL = { weekly: 'per week', monthly: 'per month', yearly: 'per year' };
+        function readUrl() { const p = new URLSearchParams(location.search); if (p.get('luna')) S.luna = Math.max(0, num(p.get('luna')) || 10000); if (p.get('h')) S.horizon = p.get('h'); if (p.get('path')) S.route = p.get('path'); if (p.get('lst')) S.lst = p.get('lst'); if (p.get('lock')) S.weeks = Math.min(MAX_WEEKS, Math.max(1, num(p.get('lock')) || 104)); if (p.get('pool')) S.pool = p.get('pool'); if (p.get('vault')) S.vault = p.get('vault'); if (p.get('disc')) S.disc = Math.min(.9, Math.max(0, (num(p.get('disc')) || 10) / 100)); if (p.get('apr') != null && num(p.get('apr')) != null) S.apr = Math.min(5, Math.max(0, num(p.get('apr')) / 100)); if (p.get('comm') != null && num(p.get('comm')) != null) S.comm = Math.min(1, Math.max(0, num(p.get('comm')) / 100)); }
+        function writeUrl() { const p = new URLSearchParams(); p.set('luna', String(S.luna)); p.set('h', S.horizon); if (S.route !== 'home') p.set('path', S.route); if (S.route === 'tla') { p.set('lst', S.lst); p.set('lock', String(S.weeks)); if (S.pool) p.set('pool', S.pool); p.set('disc', String(Math.round(S.disc * 100))); } if (S.route === 'votion' && S.vault) p.set('vault', S.vault); if (S.apr != null) p.set('apr', String(Math.round(S.apr * 10000) / 100)); if (S.comm !== 0.05) p.set('comm', String(Math.round(S.comm * 10000) / 100)); history.replaceState(null, '', location.pathname + '?' + p.toString()); }
+
+        // ---------------- data ----------------
+        const D = { lunaUsd: null, lunaSrc: null, ratios: {}, ratioSrc: {}, yields: null, opt: null, snapshot: null, credia: null, vaults: null, stakingCsv: null, errors: [] };
+        const jget = (u) => fetch(u + (u.includes('?') ? '&' : '?') + 't=' + Math.floor(Date.now() / 600000)).then(r => r.ok ? r.json() : null).catch(() => null);
+        const tget = (u) => fetch(u + '?t=' + Math.floor(Date.now() / 600000)).then(r => r.ok ? r.text() : null).catch(() => null);
+        async function smart(addr, q) { const b64 = btoa(JSON.stringify(q)); for (const lcd of LCDS) { try { const r = await fetch(`${lcd}/cosmwasm/wasm/v1/contract/${addr}/smart/${b64}`); if (r.ok) { const j = await r.json(); return j.data; } } catch (e) { /* next */ } } return null; }
+        function priceFromCatalog(cat, denom) { const t = cat && Array.isArray(cat.tokens) && cat.tokens.find(x => x.denom === denom); const p = t && t.prices; if (!p) return { usd: null, source: null }; for (const s of ['tla', 'coingecko', 'astroport', 'skeletonswap']) if (p[s] && p[s].status === 'ok' && p[s].usd != null) return { usd: Number(p[s].usd), source: 'token-catalog/' + s }; return { usd: null, source: null }; }
+        async function load() {
+            const [cat, yields, opt, snap, credia, vaults, csv] = await Promise.all([
+                jget(RAW + 'token-catalog/snapshots/current.json'), jget(RAW + 'votion/yields/current.json'), jget(RAW + 'votion/optimization/current.json'),
+                jget(RAW + 'member-data/tla-snapshot/current.json'), jget(RAW + 'dex-data/credia/snapshots/current.json'), jget(RAW + 'votion/snapshots/vaults.json'), tget(RAW + 'docs/Staking%20APR.csv'),
+            ]);
+            const lp = priceFromCatalog(cat, 'uluna'); D.lunaUsd = lp.usd; D.lunaSrc = lp.source; D.yields = yields; D.opt = opt; D.snapshot = snap; D.credia = credia; D.vaults = vaults; D.catalog = cat;
+            if (csv) { const rows = csv.trim().split(/\r?\n/).slice(1).map(l => l.replace(/"/g, '').split(',')).filter(r => r.length >= 2 && r[1] !== ''); const last = rows[rows.length - 1]; D.stakingCsv = last ? { date: last[0], apr: Number(last[1]) / 100 } : null; }
+            // LST ratios: live hub first; votion vaults.json (hourly) as fallback for amp/arb; blank last
+            await Promise.all(Object.entries(HUBS).map(async ([sym, h]) => { const d = await smart(h.hub, h.q); const r = d && h.read(d); if (r && r > 0.5 && r < 20) { D.ratios[sym] = r; D.ratioSrc[sym] = 'hub live'; return; }
+                const v = vaults && vaults.vaults && vaults.vaults.find(x => x.lst_contract === h.cw20 && x.lst_luna_hub_rate); if (v) { D.ratios[sym] = Number(v.lst_luna_hub_rate); D.ratioSrc[sym] = 'votion/vaults.json ' + String(vaults.meta && vaults.meta.generated_at || '').slice(0, 16); } }));
+        }
+
+        // ---------------- derived numbers (pure, exposed for the gate) ----------------
+        function assetApy(sym) { const a = D.yields && D.yields.assets && D.yields.assets[sym]; const w = a && a.windows && a.windows[30]; if (!w) return null; return { apy: w.apy_contract ?? w.apy_measured, daily: w.apr_daily_contract ?? w.apr_daily_measured, source: a.source, stale: a.stale_days }; }
+        // Native APR, three layers, every one labeled:
+        //   base    = chain-derived stakers' rate (before commission) → else ampLUNA-hub estimate → else SmartStake CSV → null
+        //   manual  = S.apr if the reader typed one (there is NO verified live feed — the page says so)
+        //   applied = (manual ?? base) × (1 − S.comm)   ← what a delegation at that validator earns
+        function nativeBase() { const n = D.yields && D.yields.native_staking;
+            if (n && n.apr_stakers != null) return { apr: n.apr_stakers, source: 'chain: provisions ÷ bonded ÷ alliance weights', ref: D.stakingCsv, gross: n.apr_gross, inputs: n.inputs, refs: n.references, crosscheck: n.apr_daily_est != null ? n.apr_daily_est * DAYS_IN_YEAR : null };
+            if (n && n.apr_daily_est != null) return { apr: n.apr_daily_est * DAYS_IN_YEAR, source: 'chain estimate (ampLUNA hub grossed up)', ref: D.stakingCsv };
+            if (D.stakingCsv) return { apr: D.stakingCsv.apr, source: 'SmartStake CSV ' + D.stakingCsv.date + ' (manual reference)', ref: D.stakingCsv };
+            return null; }
+        function nativeApr() { const b = nativeBase(); const before = S.apr != null ? S.apr : (b ? b.apr : null); if (before == null) return null;
+            const apr = before * (1 - S.comm); const daily = apr / DAYS_IN_YEAR;
+            return { ...(b || {}), before, apr, daily, apy: Math.pow(1 + daily, DAYS_IN_YEAR) - 1, comm: S.comm, manual: S.apr != null, source: S.apr != null ? 'your figure' : (b ? b.source : '') }; }
+        function vpFor(luna, weeks) { return luna * (1 + (VP_MAX_MULT - 1) * Math.min(1, Math.max(0, weeks - 1) / (MAX_WEEKS - 1))); }
+        function vpAfter(luna, weeks, elapsed) { return vpFor(luna, Math.max(0, weeks - elapsed)); }
+        function lstAmount(luna, sym) { const r = D.ratios[sym]; return r ? luna / r : null; }
+        // pools for the picker: pots + votes for the period Votion is voting into, from its captured worksheet
+        function pools() {
+            const o = D.opt; if (!o || !o.aggregate) return { period: null, voteBefore: null, rows: [] };
+            const pots = {}; for (const v of Object.values(o.vaults || {})) for (const op of (v.optimizations || [])) for (const q of (op.votingOptions || [])) pots[op.id + '|' + q.id] = Math.max(pots[op.id + '|' + q.id] || 0, num(q.usdIncentives) || 0);
+            const names = {}; for (const p of (D.snapshot && D.snapshot.pools) || []) if (p.gauge_pool_id) names[p.gauge_pool_id.replace(/^(cw20|native):/, '')] = p.name;
+            const rows = [];
+            for (const [bucket, g] of Object.entries(o.aggregate)) for (const [pid, pp] of Object.entries(g.pools || {})) rows.push({ key: bucket + '|' + pid, bucket, pid, name: pp.title || names[pid] || pid.slice(0, 14) + '…', potUsd: pots[bucket + '|' + pid] || 0, votes: num(pp.current_vp) || 0, planned: num(pp.planned_vp) || 0 });
+            rows.sort((a, b) => b.potUsd - a.potUsd || b.votes - a.votes);
+            return { period: o.period, voteBefore: o.voteBefore, capturedAt: o.capturedAt, rows };
+        }
+        function bribeShare(row, vp) { if (!row || row.potUsd <= 0 || vp <= 0) return 0; return row.potUsd * vp / (row.votes + vp); }   // Votion's reward model: bribe × a/(V+a), weekly
+        function bestPool(vp) { const r = pools().rows.map(x => ({ ...x, mine: bribeShare(x, vp) })).sort((a, b) => b.mine - a.mine); return r[0] && r[0].mine > 0 ? r[0] : null; }
+        function vaultRows() { const y = D.yields; if (!y || !Array.isArray(y.vaults)) return []; return y.vaults.map(v => ({ address: v.address, label: v.label || v.address.slice(0, 12), lst: v.lst_symbol, apy: v.headline && v.headline[30] ? v.headline[30].total_apy : null, votion: v.headline && v.headline[30] ? v.headline[30].votion_apy : null, asset: v.headline && v.headline[30] ? v.headline[30].asset_apy : null, w7: v.windows && v.windows[7] ? (v.windows[7].apy_contract ?? v.windows[7].apy_measured) : null })).filter(v => v.apy != null).sort((a, b) => b.apy - a.apy); }
+        function crediaLuna() { const c = D.credia; if (!c || !Array.isArray(c.pools)) return null; const m = c.pools.find(p => p.raw && p.raw.info && p.raw.info.native === 'uluna') || c.pools.find(p => /^LUNA/.test(String(p.pool_name))); if (!m || !m.raw) return null; const r = m.raw; const sup = num(r.total_supplied), bor = num(r.total_borrowed); return { supplyApy: num(r.supply_apy), borrowApy: num(r.borrow_apy), util: num(r.utilization), availLuna: (sup != null && bor != null) ? (sup - bor) / 1e6 : null, at: c.meta && c.meta.captured_at }; }
+        function crediaMarket(cw20) { const c = D.credia; const m = c && Array.isArray(c.pools) && c.pools.find(p => p.raw && p.raw.info && p.raw.info.cw20 === cw20); return m && m.raw ? { ltv: num(m.raw.state && m.raw.state.ltv), liqT: num(m.raw.state && m.raw.state.liquidation_threshold), borrowApy: num(m.raw.borrow_apy) } : null; }
+        function crediaAmpLp() { const c = D.credia; const rows = (c && Array.isArray(c.pools) ? c.pools : []).filter(p => /amplp/.test(String(p.pool_name))); return rows.length ? { ltv: num(rows[0].raw.state.ltv), takeRate: rows[0].raw.state.take_rate, markets: rows.map(r => r.pool_name) } : null; }
+        // horizon math: simple (claim) and compounded (daily) growth of an amount at a daily rate
+        const growSimple = (amt, daily, days) => amt * daily * days;
+        const growComp = (amt, daily, days) => amt * (Math.pow(1 + daily, days) - 1);
+        const dailyOfApy = (apy) => apy == null ? null : Math.pow(1 + apy, 1 / DAYS_IN_YEAR) - 1;
+        function totals() {   // the compare strip: LUNA gained over the horizon per route, for S.luna
+            const days = HDAYS[S.horizon]; const out = {};
+            const n = nativeApr(); out.native = n ? growComp(S.luna, n.daily, days) : null;
+            const a = assetApy(S.lst); const vp = vpFor(S.luna, S.weeks); const row = S.pool ? pools().rows.find(r => r.key === S.pool) : bestPool(vp);
+            const bribeLuna = (row && D.lunaUsd) ? bribeShare(row, vp) / D.lunaUsd * (days / 7) : 0;
+            out.tla = a ? growComp(S.luna, a.daily, days) + bribeLuna : null; out.tlaBribeLuna = bribeLuna; out.tlaPool = row ? row.name : null;
+            const v = vaultRows(); const vr = (S.vault && v.find(x => x.address === S.vault)) || v[0]; out.votion = vr ? growComp(S.luna, dailyOfApy(vr.apy), days) : null; out.votionVault = vr ? vr.label : null;
+            const c = crediaLuna(); out.credia = c && c.supplyApy != null ? growComp(S.luna, dailyOfApy(c.supplyApy), days) : null;
+            return out;
+        }
+
+        // ---------------- render ----------------
+        function renderHeader() { $('luna-in').value = fmt(S.luna); $('luna-usd').textContent = D.lunaUsd ? '≈ ' + usd(S.luna * D.lunaUsd) + ' · LUNA ' + usd(D.lunaUsd, 4) : ''; document.querySelectorAll('#horizon button').forEach(b => b.classList.toggle('on', b.dataset.h === S.horizon)); document.querySelectorAll('.chip[data-luna]').forEach(c => c.classList.toggle('on', Number(c.dataset.luna) === S.luna)); }
+        function renderHome() {
+            $('h-amt').textContent = fmt(S.luna) + ' LUNA'; $('c-amt').textContent = fmt(S.luna) + ' LUNA'; $('c-usd').textContent = D.lunaUsd ? '≈ ' + usd(S.luna * D.lunaUsd) : '≈ —';
+            const n = nativeApr(); $('t-native').textContent = n ? pct(n.apy, 1) : '—'; $('t-native-sub').textContent = n ? 'per year compounded · ' + n.source : 'staking APR not available';
+            const vp = vpFor(S.luna, MAX_WEEKS); const a = assetApy(S.lst); $('t-tla').textContent = fmt(vp) + ' VP'; $('t-tla-sub').textContent = 'at max lock' + (a ? ' · ' + S.lst + ' ' + pct(a.apy, 1) + '/yr underneath' : '');
+            const v = vaultRows(); $('t-votion').textContent = v[0] ? pct(v[0].apy, 1) : '—'; $('t-votion-sub').textContent = v[0] ? 'per year · ' + v[0].label + ' (30-day window)' : 'yields product not published yet';
+            const c = crediaLuna(); $('t-credia').textContent = c && c.supplyApy != null ? pct(c.supplyApy, 1) : '—'; $('t-credia-sub').textContent = c ? 'supply APY · ' + pct(c.util, 0) + ' utilized' : 'Credia snapshot not available';
+            const srcs = []; if (D.lunaSrc) srcs.push('LUNA ' + D.lunaSrc); if (D.yields) srcs.push('yields ' + String(D.yields.meta && D.yields.meta.generated_at || '').slice(0, 16)); else srcs.push('yields: not yet published — LST / Votion / native tiles blank until org-votion 1.4.0 runs'); if (D.opt) srcs.push('pots+votes: Votion worksheet ' + String(D.opt.capturedAt || '').slice(0, 16) + ' for period ' + D.opt.period); if (D.credia) srcs.push('Credia ' + String(D.credia.meta && D.credia.meta.captured_at || '').slice(0, 16));
+            $('home-src').textContent = srcs.join(' · ');
+            document.querySelectorAll('.route').forEach(r => r.classList.toggle('on', r.dataset.route === S.route));
+        }
+        function renderNative() {
+            const n = nativeApr(); const days = HDAYS[S.horizon]; const b = nativeBase();
+            $('n-apr').textContent = n ? pct(n.apr, 2) : '—'; $('n-apr-sub').innerHTML = (n ? (n.manual ? 'your figure' : 'chain-derived') + ' × (1 − ' + Math.round(S.comm * 100) + '% commission)' : 'no APR available') + ' <span class="how" data-how="native-apr">how?</span>';
+            if (document.activeElement !== $('apr-in')) $('apr-in').value = n ? (n.before * 100).toFixed(2) : ''; if (document.activeElement !== $('comm-in')) $('comm-in').value = String(Math.round(S.comm * 1000) / 10);
+            $('apr-reset').style.visibility = S.apr != null ? 'visible' : 'hidden'; document.querySelectorAll('.chip[data-comm]').forEach(c => c.classList.toggle('on', Number(c.dataset.comm) / 100 === S.comm));
+            $('n-note').innerHTML = (S.apr != null ? `<span class="warn">Using your figure, ${pct(S.apr, 2)}.</span> ` : '') + `There is no verified live feed for Terra's staking APR — every site derives its own. Ours is derived from chain each hour${b && b.gross != null ? ` (gross ${pct(b.gross, 2)}, ${pct(b.apr, 2)} to stakers before commission)` : ''} and may still be off; if you know a more accurate figure, type it above and everything on this page follows it.`;
+            $('n-claim').textContent = n ? '+' + fmt(growSimple(S.luna, n.daily, days), 1) + ' LUNA' : '—'; $('n-claim-sub').textContent = n ? HLBL[S.horizon] + ' claimed as it comes' + (D.lunaUsd ? ' · ≈ ' + usd(growSimple(S.luna, n.daily, days) * D.lunaUsd) : '') : 'no APR source';
+            $('n-comp').textContent = n ? '+' + fmt(growComp(S.luna, n.daily, days), 1) + ' LUNA' : '—'; $('n-comp-sub').textContent = n ? HLBL[S.horizon] + ' re-staked daily · ' + pct(n.apy, 2) + ' APY · ' + n.source + (n.ref ? ' · SmartStake ref ' + pct(n.ref.apr, 1) + ' (' + n.ref.date + ')' : '') : '';
+        }
+        function renderTla() {
+            const sym = S.lst; document.querySelectorAll('#lst-chips .chip').forEach(c => c.classList.toggle('on', c.dataset.lst === sym));
+            const amt = lstAmount(S.luna, sym); $('l-lst').textContent = amt ? fmt(amt, 2) + ' ' + sym : '—'; $('l-lst-sub').innerHTML = D.ratios[sym] ? `1 ${sym} = ${D.ratios[sym].toFixed(4)} LUNA · ${D.ratioSrc[sym]} <span class="how" data-how="bond">how?</span>` : `${sym} hub rate not available <span class="how" data-how="bond">how?</span>`;
+            $('l-weeks').textContent = S.weeks + (S.weeks >= MAX_WEEKS ? ' weeks (max)' : S.weeks === 1 ? ' week' : ' weeks'); $('lock-range').value = S.weeks;
+            const vp = vpFor(S.luna, S.weeks); $('l-vp').textContent = fmt(vp) + ' VP';
+            const a = assetApy(sym); const days = HDAYS[S.horizon]; $('l-yield').textContent = a ? '+' + fmt(growComp(S.luna, a.daily, days), 1) + ' LUNA' : '—'; $('l-yield-sub').textContent = a ? HLBL[S.horizon] + ' · ' + sym + ' ' + pct(a.apy, 2) + ' APY · ' + a.source + (a.stale ? ' (' + a.stale + 'd old)' : '') : 'yields product not published yet';
+            const P = pools(); const row = S.pool ? P.rows.find(r => r.key === S.pool) : null; const best = bestPool(vp);
+            if (row) { const mine = bribeShare(row, vp); $('l-bribe').textContent = usd(mine, 2) + ' / wk'; $('l-bribe-sub').textContent = row.name + ' · ' + usd(row.potUsd, 0) + ' pot · ' + fmt(row.votes) + ' votes' + (D.lunaUsd ? ' · ≈ ' + fmt(mine / D.lunaUsd, 1) + ' LUNA/wk' : ''); $('pool-name').textContent = row.name; $('pool-detail').innerHTML = `Your ${fmt(vp)} VP in a pool with ${fmt(row.votes)} votes takes <b class="num">${pct(vp / (row.votes + vp), 2)}</b> of its ${usd(row.potUsd, 0)} pot → <b class="num good">${usd(mine, 2)}</b> per epoch, paid in the bribe token at the epoch start. Period ${P.period}, cast deadline ${String(P.voteBefore || '').slice(0, 10)}.`; }
+            else { $('l-bribe').textContent = best ? usd(best.mine, 2) + ' / wk' : '—'; $('l-bribe-sub').textContent = best ? 'best pool right now: ' + best.name + ' — choose one →' : (P.rows.length ? 'no funded pots this period' : 'Votion worksheet not available'); $('pool-name').textContent = 'none chosen'; $('pool-detail').textContent = best ? `With ${fmt(vp)} VP the best pot right now is ${best.name} at ${usd(best.mine, 2)} per epoch. Choose a pool to see any of them.` : 'Choose a pool to see what your VP would earn there this epoch.'; }
+            $('pool-src').textContent = P.capturedAt ? 'pots + votes: Votion worksheet ' + String(P.capturedAt).slice(0, 16) + ' · period ' + P.period + ' · reward = pot × your VP ÷ (votes + your VP)' : '';
+            $('l-decay').textContent = fmt(vpAfter(S.luna, S.weeks, 26)) + ' VP'; 
+            const res = D.lunaUsd ? S.luna * D.lunaUsd * (1 - S.disc) : null; $('l-resale').textContent = res != null ? usd(res) : '—'; $('disc-v').textContent = Math.round(S.disc * 100) + '%'; $('disc-range').value = Math.round(S.disc * 100);
+            const lp = crediaAmpLp(); $('l-credia').textContent = lp && lp.ltv != null ? 'up to ' + pct(lp.ltv, 0) + ' LTV' : '—';
+            const plan = P.rows.filter(r => r.planned > 0).sort((a, b) => b.planned - a.planned).slice(0, 4); $('votion-plan').innerHTML = plan.length ? plan.map(r => `<div class="flex justify-between"><span>${r.name}</span><span class="num text-gray-400">${fmt(r.planned)} VP</span></div>`).join('') + `<div class="src mt-1">Votion's current plan for period ${P.period} — it re-optimizes every ~15 min until ${String(P.voteBefore || '').slice(0, 10)}</div>` : '—';
+        }
+        function renderVotion() {
+            const v = vaultRows(); const chips = $('vault-chips'); chips.innerHTML = v.map(x => `<span class="chip${(S.vault ? S.vault === x.address : v[0] === x) ? ' on' : ''}" data-vault="${x.address}">${x.label.replace(/^Votion /, '')}</span>`).join('') || '<span class="text-[11px] text-gray-500">yields product not published yet</span>';
+            const vr = (S.vault && v.find(x => x.address === S.vault)) || v[0]; const days = HDAYS[S.horizon];
+            $('v-apy').textContent = vr ? pct(vr.apy, 2) : '—'; $('v-apy-parts').textContent = vr ? `${vr.lst || 'LST'} ${pct(vr.asset, 2)} + Votion ${pct(vr.votion, 2)} · 30-day window` : '—';
+            if (vr) { const g = growComp(S.luna, dailyOfApy(vr.apy), days), b = growComp(S.luna, dailyOfApy(vr.votion), days); $('v-gain').textContent = '+' + fmt(g, 1) + ' LUNA-equiv'; $('v-gain-sub').textContent = HLBL[S.horizon] + (D.lunaUsd ? ' · ≈ ' + usd(g * D.lunaUsd) : ''); $('v-boost').textContent = '+' + fmt(b, 1) + ' LUNA-equiv'; $('v-luna').textContent = fmt(S.luna + g, 0) + ' LUNA'; }
+            else { $('v-gain').textContent = '—'; $('v-boost').textContent = '—'; $('v-luna').textContent = '—'; }
+        }
+        function renderCredia() {
+            const c = crediaLuna(); const days = HDAYS[S.horizon];
+            $('cr-apy').textContent = c && c.supplyApy != null ? pct(c.supplyApy, 2) : '—';
+            $('cr-gain').textContent = c && c.supplyApy != null ? '+' + fmt(growComp(S.luna, dailyOfApy(c.supplyApy), days), 1) + ' LUNA' : '—'; $('cr-gain-sub').textContent = c ? HLBL[S.horizon] + ' · captured ' + String(c.at || '').slice(0, 16) : 'Credia snapshot not available';
+            $('cr-util').textContent = c ? pct(c.util, 1) : '—'; $('cr-util-sub').textContent = c ? 'borrow APY ' + pct(c.borrowApy, 2) + ' — supply ≈ borrow × utilization × (1 − reserve)' : '';
+            $('cr-liq').textContent = c && c.availLuna != null ? fmt(c.availLuna) + ' LUNA' : '—';
+            const m = crediaMarket(HUBS[S.lst].cw20); const a = assetApy(S.lst);
+            if (c && m && m.ltv != null) { const L = 1 / (1 - m.ltv); const net = (a ? a.apy * L : null) != null ? a.apy * L - c.borrowApy * (L - 1) : null; $('cr-loop').innerHTML = `Post ${S.lst} as collateral (${pct(m.ltv, 0)} LTV, liquidation at ${pct(m.liqT, 0)}), borrow LUNA at <b class="num">${pct(c.borrowApy, 2)}</b>, bond it, repeat. Fully looped that is ${L.toFixed(2)}× your LST${a ? ` earning ${pct(a.apy, 2)} — net ≈ <b class="num ${net > (a.apy) ? 'good' : 'bad'}">${pct(net, 2)}</b> vs ${pct(a.apy, 2)} unlevered` : ''}. ${a && net != null && net <= a.apy ? 'At today’s borrow rate the loop does not pay — it adds liquidation and rate risk for less than nothing.' : 'It pays only while the borrow rate stays well under the LST yield; utilization spikes flip it negative.'}`; }
+            else $('cr-loop').textContent = '—';
+        }
+        function renderCompare() {
+            const t = totals(); const days = HDAYS[S.horizon]; const html = `<div class="text-[10px] uppercase tracking-[.15em] text-gray-500 mb-2">All four, same ${fmt(S.luna)} LUNA, ${HLBL[S.horizon]}</div><div class="compare">` +
+                [['native', 'Native staking', t.native, 'compounded'], ['tla', 'TLA lock', t.tla, (t.tlaPool ? 'LST + bribes in ' + t.tlaPool : 'LST yield only')], ['votion', 'Votion', t.votion, t.votionVault || ''], ['credia', 'Credia lend', t.credia, 'variable']]
+                .map(([k, n, v, s]) => `<div class="cmp r-${k}${S.route === k ? ' on' : ''}"><div class="t">${n}</div><div class="v">${v == null ? '—' : '+' + fmt(v, 1) + ' LUNA'}</div><div class="s">${v != null && D.lunaUsd ? '≈ ' + usd(v * D.lunaUsd) + ' · ' : ''}${s}</div></div>`).join('') + `</div><div class="src mt-2">Bribes converted at LUNA ${usd(D.lunaUsd, 4)}; LST and Votion at the 30-day window; Credia at today's rate. Governance, lock and risk are not in these numbers — they are in the screens.</div>`;
+            document.querySelectorAll('[data-compare]').forEach(el => el.innerHTML = html);
+        }
+        function render() { renderHeader(); renderHome(); renderNative(); renderTla(); renderVotion(); renderCredia(); renderCompare(); document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 'screen-' + S.route)); writeUrl(); }
+
+        // ---------------- pool picker ----------------
+        function openPicker() { const P = pools(); const vp = vpFor(S.luna, S.weeks); $('drawer-sub').textContent = P.period ? `period ${P.period} · your VP ${fmt(vp)}` : 'worksheet not available'; $('pool-rows').innerHTML = P.rows.map(r => { const mine = bribeShare(r, vp); return `<div class="pool-row${S.pool === r.key ? ' on' : ''}" data-key="${r.key}"><div>${r.name}<div class="src">${r.bucket}</div></div><div class="text-right num">${r.potUsd ? usd(r.potUsd, 0) : '<span class="text-gray-600">none</span>'}</div><div class="text-right num text-gray-400">${fmt(r.votes)}</div><div class="text-right num ${mine ? 'good' : 'text-gray-600'}">${mine ? usd(mine, 2) : '—'}</div></div>`; }).join(''); $('drawer-src').textContent = P.capturedAt ? 'Votion worksheet ' + String(P.capturedAt).slice(0, 16) + ' · pots are what is funded for this period; a pool with no pot still earns emissions for its LPs' : ''; $('drawer').classList.add('on'); $('drawer').setAttribute('aria-hidden', 'false'); }
+        function closePicker() { $('drawer').classList.remove('on'); $('drawer').setAttribute('aria-hidden', 'true'); }
+
+        // ---------------- how? popups ----------------
+        const HOW = {
+            'native-apr': ['Where the staking APR comes from', () => { const n = nativeApr(); const i = n && n.inputs; return `<p>Derived from chain, every hour: <b>annual provisions ÷ bonded LUNA</b>${n && n.gross != null ? ` = <b class="num">${pct(n.gross, 2)}</b>` : ''} is the gross number validator sites quote. LUNA stakers do not get all of it: the Alliance module splits provisions by reward weight (native = 1, the alliances add up to ${i && i.total_reward_weight != null ? (i.total_reward_weight - 1).toFixed(3) : '…'}), and the community tax comes off first. What reaches stakers, before your validator's commission: <b class="num">${n ? pct(n.before, 2) : '—'}</b>; after ${Math.round(S.comm * 100)}% commission: <b class="num">${n ? pct(n.apr, 2) : '—'}</b>${n && n.manual ? ' — <span class="warn">using the figure you typed</span>' : ''}.</p><p><b>No verified live feed exists for this number.</b> If you have a better one, type it on the screen and every result follows it.</p><p>References on 2026-08-26: Allnodes 37.78% (gross), Stakely 28.13%, SmartStake ${n && n.ref ? pct(n.ref.apr, 2) + ' (' + n.ref.date + ')' : '—'}. The gross matches Allnodes; the stakers' figure matches SmartStake. Cross-check: the ampLUNA hub's own growth grossed up by its fee${n && n.crosscheck != null ? ` = ${pct(n.crosscheck, 2)}` : ''}.</p>${i ? `<p class="src">inputs: provisions ${fmt(i.annual_provisions_luna)} LUNA/yr · bonded ${fmt(i.bonded_luna)} LUNA · community tax ${pct(i.community_tax, 2)} · ${i.alliances_active} active alliances</p>` : ''}`; }, 'tla-docs.html#staking'],
+            'native-claim': ['Claim vs compound', `<p><b>Withdraw</b> = claim rewards as they come and hold them liquid: amount × daily rate × days. <b>Compound</b> = restake every day: amount × ((1 + daily)^days − 1). Over a year the difference is the compounding gain; over a week it is nothing.</p>`, null],
+            'native-vs': ['Why the other routes pay more', `<p>They all start from the same chain rewards. A TLA lock adds bribes and directed emissions on top; a Votion vault adds those and compounds them into the LST; Credia is a different animal entirely (borrowers pay you). The extra pay is bought with something — lock, governance, or protocol risk — and that is what each screen shows.</p>`, null],
+            'bond': ['Bonding into an LST', `<p>You do not lock LUNA in TLA — you lock a liquid-staking token: ampLUNA, arbLUNA or bLUNA. Bond LUNA at the hub and you get LST at the hub's exchange rate (1 LST is worth more than 1 LUNA because the rate compounds rewards). Unbonding back takes 21 days; swapping on a DEX skips the wait at the cost of slippage — the Trade Planner sizes that.</p>`, 'slippage.html?from=ampLUNA&to=LUNA'],
+            'vp': ['How VP is computed', `<p>Eris's escrow gives a lock two parts: a <b>fixed</b> amount (your LUNA-equivalent) and a <b>boost</b> of up to 9× the fixed amount at the full 2-year lock, scaling with lock length. Max lock = 10× your LUNA-equivalent in VP; a 1-week lock is 1× (no boost) — both read straight off real locks on chain. In between it is linear on the weeks beyond the first.</p>`, 'tla-docs.html#vp'],
+            'lst-apy': ['The LST yield', `<p>The hub's exchange rate is the yield: it compounds chain rewards (minus the hub's fee) every day. The 30-day daily rate from the hub's own <code>exchange_rates</code> history, compounded over 365.25 days, is the APY shown — the same arithmetic Eris uses on its site.</p>`, null],
+            'bribes': ['How bribes pay', `<p>Protocols post a pot on a pool for the epoch. Everyone who votes for that pool splits it by VP share: <b>your reward = pot × your VP ÷ (pool votes + your VP)</b>, paid in the pot's token at the start of the next epoch. Big pot, few votes = good rate; the auction runs until the cast deadline and Votion re-optimizes every ~15 minutes, so today's rate is not next week's.</p>`, 'tla-stats.html#vote-market'],
+            'decay': ['VP decays', `<p>The boost is on the time <i>remaining</i>. A max lock created today is 10×; six months later, untouched, it is worth what a 78-week lock is worth. To keep VP paired with your LUNA you extend or top up regularly — the DAO does this every epoch.</p>`, null],
+            'resale': ['Selling a lock', `<p>A TLA lock is an NFT-like position that can be listed on Atrium or Boost. Buyers who want VP now pay a discount to the underlying LUNA value; you get liquidity without the 2-year wait. The slider is the discount you accept — 10% is a common ask, the market decides.</p>`, 'https://atrium.zone'],
+            'credia-lp': ['Your TLA LP as collateral', `<p>Credia lists the three TLA ampLP tokens as collateral markets (45% LTV, with a 2% take rate on what you post). You keep the LP, keep voting, and borrow LUNA against it — at the market's borrow rate, and with liquidation risk if the LP's value falls.</p>`, 'tla-docs.html#credia'],
+            'votion-apy': ['How the Votion number is built', `<p>Two legs, added: the <b>asset APY</b> is the LST hub's exchange-rate growth; the <b>Votion APY</b> is the vault's own exchange-rate growth — bribes and emissions it earns with its VP, claimed and compounded into the vault. Both come from the contracts' <code>exchange_rates</code> history over 30 days: daily rate = (end ÷ start − 1) ÷ days, APY = (1 + daily)^365.25 − 1. Exactly what the Votion site does.</p>`, 'tla-stats.html#vote-market'],
+            'window': ['Why the window matters', `<p>Rewards land once per epoch, so the vault's exchange rate moves in weekly steps. A 7-day window that straddles a step reads high; one that misses it reads near zero. Eris recommends 14–30 days; this page uses 30.</p>`, null],
+            'credia': ['Lending on Credia', `<p>Credia is an Aave-style lending market on Terra. Supply LUNA, earn the supply rate, which is borrow rate × utilization × (1 − reserve factor) and moves every block with demand. No lock: you withdraw whenever the market has un-borrowed liquidity. Your LUNA is lent, not staked — it earns no chain rewards and casts no votes.</p>`, 'tla-docs.html#credia'],
+            'loop': ['The LST loop', `<p>Post LST as collateral, borrow LUNA, bond it into more LST, post that too. At LTV <i>L</i> the maximum leverage is 1 ÷ (1 − L). The loop pays only when the LST yield is comfortably above the borrow rate; today's numbers are on the screen, and the verdict follows them, not a story.</p>`, null],
+        };
+        function openHow(k) { const h = HOW[k]; if (!h) return; $('how-t').textContent = h[0]; $('how-b').innerHTML = typeof h[1] === 'function' ? h[1]() : h[1]; $('how-l').innerHTML = h[2] ? `<a class="text-cyan-300 hover:underline" href="${h[2]}" ${/^http/.test(h[2]) ? 'target="_blank" rel="noopener"' : ''}>Read more →</a>` : ''; const d = $('how'); if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', ''); }
+
+        // ---------------- events ----------------
+        function parseLuna(s) { const n = Number(String(s).replace(/[^0-9.]/g, '')); return Number.isFinite(n) && n > 0 ? n : S.luna; }
+        document.addEventListener('click', (e) => {
+            const r = e.target.closest('.route'); if (r) { S.route = r.dataset.route; render(); window.scrollTo(0, 0); return; }
+            if (e.target.closest('[data-back]')) { e.preventDefault(); S.route = 'home'; render(); return; }
+            const how = e.target.closest('.how'); if (how) { openHow(how.dataset.how); return; }
+            const chip = e.target.closest('.chip[data-luna]'); if (chip) { S.luna = Number(chip.dataset.luna); render(); return; }
+            const cc = e.target.closest('.chip[data-comm]'); if (cc) { S.comm = Number(cc.dataset.comm) / 100; render(); return; }
+            if (e.target.closest('#apr-reset')) { S.apr = null; render(); return; }
+            const lst = e.target.closest('.chip[data-lst]'); if (lst) { S.lst = lst.dataset.lst; render(); return; }
+            const vt = e.target.closest('.chip[data-vault]'); if (vt) { S.vault = vt.dataset.vault; render(); return; }
+            const hb = e.target.closest('#horizon button'); if (hb) { S.horizon = hb.dataset.h; render(); return; }
+            if (e.target.closest('#open-picker')) { openPicker(); return; }
+            if (e.target.closest('#close-picker')) { closePicker(); return; }
+            const pr = e.target.closest('.pool-row[data-key]'); if (pr) { S.pool = pr.dataset.key; closePicker(); render(); return; }
+            if (e.target.closest('#how-x')) { $('how').close && $('how').close(); $('how').removeAttribute('open'); }
+        });
+        $('luna-in').addEventListener('change', () => { S.luna = parseLuna($('luna-in').value); render(); });
+        $('luna-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') { S.luna = parseLuna($('luna-in').value); render(); } });
+        $('lock-range').addEventListener('input', () => { S.weeks = Number($('lock-range').value); render(); });
+        const pctIn = (v) => { const n = Number(String(v).replace(/[^0-9.]/g, '')); return Number.isFinite(n) ? n / 100 : null; };
+        for (const ev of ['change', 'keydown']) { $('apr-in').addEventListener(ev, (e) => { if (ev === 'keydown' && e.key !== 'Enter') return; const v = pctIn($('apr-in').value); const b = nativeBase(); S.apr = (v == null || (b && Math.abs(v - b.apr) < 1e-6)) ? null : Math.min(5, Math.max(0, v)); render(); });
+            $('comm-in').addEventListener(ev, (e) => { if (ev === 'keydown' && e.key !== 'Enter') return; const v = pctIn($('comm-in').value); if (v != null) S.comm = Math.min(1, Math.max(0, v)); render(); }); }
+        $('disc-range').addEventListener('input', () => { S.disc = Number($('disc-range').value) / 100; render(); });
+
+        window.__nh = { S, D, REV, vpFor, vpAfter, bribeShare, bestPool, pools, totals, assetApy, nativeApr, nativeBase, vaultRows, crediaLuna, lstAmount, render, growComp, growSimple, dailyOfApy };
+        readUrl(); render(); load().then(render);
+    })();
+    </script>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>SiteFooter.mount({ rev: '1.0', revDate: '2026-08-26', page: 'new-here-tla' });</script>
+</body>
+</html>
