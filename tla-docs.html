@@ -86,11 +86,15 @@
             { id: 'terra-depeg-and-fork', file: 'terra-depeg-and-fork.md', title: 'The depeg and the fork' },
             { id: 'audits',               file: 'AUDITS.md',               title: 'Audits registry' },
             { id: 'foundations',          file: 'FOUNDATIONS-SOURCES.md',  title: 'Foundational sources' },
+            { grp: 'Making things' },
+            { id: 'new-here-kit',         file: '../onboarding/NEW-HERE-KIT.md', title: 'New Here? production kit (scripts, prompts, cut list)' },
+            { id: 'cron-fleet',           file: '../CRON-FLEET.md',        title: 'The cron fleet (what runs, when)' },
         ];
         const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         const state = { guide: null, kb: {}, current: null };
         const side = document.getElementById('side'), doc = document.getElementById('doc');
         document.getElementById('page-rev').textContent = `Rev ${REV} · ${REV_DATE}`;
+        const docPath = (e) => e.file.startsWith('../') ? 'docs/' + e.file.slice(3) : 'docs/ecosystem-knowledge/' + e.file;
         const inline = (t) => (window.marked && marked.parseInline) ? marked.parseInline(esc(t)) : esc(t);
         const parse = (t) => (window.marked && marked.parse) ? marked.parse(t) : '<pre>' + esc(t) + '</pre>';
 
@@ -130,9 +134,9 @@
                 const s = state.guide.sections.find(x => 'guide-' + x.id === id); doc.innerHTML = s ? highlight(renderGuideSection(s)) : '<div class="text-sm text-gray-500">not found</div>'; return;
             }
             const e = KB.find(x => x.id === id); if (!e) { doc.innerHTML = '<div class="text-sm text-gray-500">not found</div>'; return; }
-            if (state.kb[id] == null) { doc.innerHTML = '<div class="text-sm text-gray-500">loading…</div>'; try { const r = await fetch(`${CORE}/docs/ecosystem-knowledge/${e.file}?t=${T}`); state.kb[id] = r.ok ? await r.text() : ''; } catch { state.kb[id] = ''; } }
+            if (state.kb[id] == null) { doc.innerHTML = '<div class="text-sm text-gray-500">loading…</div>'; try { const r = await fetch(`${CORE}/${docPath(e)}?t=${T}`); state.kb[id] = r.ok ? await r.text() : ''; } catch { state.kb[id] = ''; } }
             const md = state.kb[id];
-            doc.innerHTML = md ? highlight(parse(md)) + `<p class="text-[11px] text-gray-600 mt-6 border-t border-white/5 pt-3">Source: <a href="https://github.com/thealliancedao/tla-core/blob/main/docs/ecosystem-knowledge/${esc(e.file)}" target="_blank" rel="noopener">tla-core/docs/ecosystem-knowledge/${esc(e.file)} ↗</a></p>` : '<div class="text-sm text-gray-500">this document is unavailable right now</div>';
+            doc.innerHTML = md ? highlight(parse(md)) + `<p class="text-[11px] text-gray-600 mt-6 border-t border-white/5 pt-3">Source: <a href="https://github.com/thealliancedao/tla-core/blob/main/${esc(docPath(e))}" target="_blank" rel="noopener">tla-core/${esc(docPath(e))} ↗</a></p>` : '<div class="text-sm text-gray-500">this document is unavailable right now</div>';
             doc.querySelectorAll('a[href^="http"]').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
         }
         const route = () => { const id = (location.hash || '').slice(1) || (state.guide ? 'guide-' + state.guide.sections[0].id : 'lp-grades-and-voting'); show(id); };
@@ -142,7 +146,7 @@
         (async () => {
             try { const r = await fetch(`${CORE}/docs/tla-docs-content.json?t=${T}`); state.guide = r.ok ? await r.json() : null; } catch { state.guide = null; }
             route();
-            for (const e of KB) { if (e.grp || state.kb[e.id] != null) continue; try { const r = await fetch(`${CORE}/docs/ecosystem-knowledge/${e.file}?t=${T}`); state.kb[e.id] = r.ok ? await r.text() : ''; } catch { state.kb[e.id] = ''; } }
+            for (const e of KB) { if (e.grp || state.kb[e.id] != null) continue; try { const r = await fetch(`${CORE}/${docPath(e)}?t=${T}`); state.kb[e.id] = r.ok ? await r.text() : ''; } catch { state.kb[e.id] = ''; } }
             buildSide();
         })();
         window.__docsTest = { state, KB, show, buildSide };
