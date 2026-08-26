@@ -105,6 +105,10 @@
       <span class="chip" onclick="chipAsk(this)"><i class="fas fa-wallet"></i>Check my wallet (paste your terra1… address)</span>
       <span class="chip" onclick="chipAsk(this)" title="Paste a proposal's messages JSON — every address is checked against the platform registries with an evidence tier"><i class="fas fa-magnifying-glass-dollar"></i>Audit a proposal (paste its messages JSON)</span>
     </div>
+    <div id="others-asked" class="mb-3 rounded-xl border border-dashed border-cyan-500/25 px-3 py-2 text-xs text-gray-400">
+      <div class="text-[10px] uppercase tracking-[.12em] text-cyan-300 mb-1">What others asked</div>
+      <div id="others-list">loading…</div>
+    </div>
     <div class="chat-shell">
       <div id="chat-log"></div>
       <div class="composer">
@@ -201,7 +205,7 @@
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
 <script>
-const REV='1.4', REV_DATE='2026-08-21';
+const REV = '1.5', REV_DATE='2026-08-21';
 SiteFooter.mount({ rev: REV, revDate: REV_DATE, page: 'help' });
 
 // ---- direct GitHub path (kept from v0 — must always work with the service
@@ -354,6 +358,23 @@ function renderDraftCard(draft){
   chatLog.appendChild(card); chatLog.scrollTop=chatLog.scrollHeight;
 }
 
+// What others asked (Rev 1.5, 2026-08-26 owner ask): the agent's privacy-preserving question log in
+// tla-core (help-agent/questions/<yyyy-mm>.json — time, page, redacted question; never IP, wallet or
+// answer). Real questions only (mode 'chat'); the site's own audit prompts are skipped. Tap to ask it.
+(function(){
+  const RAW='https://raw.githubusercontent.com/thealliancedao/tla-core/main/help-agent/questions/';
+  const rel=(iso)=>{const ms=Date.now()-Date.parse(iso); if(!(ms>=0)) return ''; const m=Math.round(ms/60000); if(m<60) return m+' min ago'; const h=Math.round(m/60); if(h<48) return h+' h ago'; return Math.round(h/24)+' d ago';};
+  const esc=(x)=>String(x==null?'':x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const months=[]; const m=new Date(); for(let i=0;i<2;i++){ months.push(m.toISOString().slice(0,7)); m.setUTCMonth(m.getUTCMonth()-1); }
+  Promise.all(months.map(ym=>fetch(RAW+ym+'.json?t='+Math.floor(Date.now()/900000)).then(r=>r.ok?r.json():null).catch(()=>null))).then(docs=>{
+    let qs=[]; docs.forEach(d=>{ if(d&&d.questions) qs=qs.concat(d.questions); });
+    qs=qs.filter(q=>q&&q.mode==='chat'&&q.question).sort((a,b)=>a.at<b.at?1:-1).slice(0,8);
+    const list=document.getElementById('others-list'); if(!list) return;
+    if(!qs.length){ list.innerHTML='<span class="text-gray-600">No questions yet this month — yours could be the first.</span>'; return; }
+    list.innerHTML=qs.map((q,i)=>`<div class="other-q cursor-pointer py-1 border-t border-white/5 text-gray-300 leading-snug" data-i="${i}">${esc(String(q.question).slice(0,180))}${q.question.length>180?'…':''}<div class="text-[10px] text-gray-600 mt-0.5">${rel(q.at)} · on ${esc((q.page||'').replace(/^\//,'').replace(/\.html$/,'')||'home')}</div></div>`).join('')+'<div class="text-[10px] text-gray-600 mt-1">questions only — no wallets, no answers kept · tap one to ask it yourself</div>';
+    list.querySelectorAll('.other-q').forEach(n=>{ n.onclick=()=>{ const inp=document.getElementById('chat-input'); inp.value=qs[Number(n.dataset.i)].question; autoGrow(inp); inp.focus(); }; });
+  });
+})();
 function askAgent(){
   const inp=document.getElementById('chat-input');
   const q=inp.value.trim(); if(!q) return;

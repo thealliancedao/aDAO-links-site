@@ -541,7 +541,7 @@
                     { k: 'good', l: 'No lock — withdraw any time', x: 1010, y: 430, how: 'credia' },
                     { k: 'warn', l: 'Borrow LUNA' + (c ? ' at ' + pct(c.borrowApy, 1) : '') + ' against ' + S.lst + (m && m.ltv != null ? ' (' + pct(m.ltv, 0) + ' LTV)' : '') + ' or TLA ampLP' + (lp && lp.ltv != null ? ' (' + pct(lp.ltv, 0) + ')' : '') + ' — a loop pays only while the LST yield beats the rate', x: 1130, y: 585, how: 'leaf-loop', narrow: true },
                     { k: 'bad', l: 'No vote anywhere · protocol + liquidation risk', x: 880, y: 700, how: 'credia' }] }
-                : { id: 'credia', color: '#c084fc', title: 'Credia lending', big: 'Coming soon', sub: 'lending for LUNA, LSTs, TLA LPs · numbers when audited', hub: { x: 855, y: 560 },
+                : { id: 'credia', color: '#c084fc', title: 'Credia lending', big: 'Coming soon', sub: 'LUNA, LSTs, TLA LPs · numbers when audited', hub: { x: 855, y: 560 },
                   leaves: [
                     { k: 'good', l: 'Supply and borrow — no lock', x: 1010, y: 430, how: 'credia-soon' },
                     { k: 'warn', l: 'Rates move with utilization', x: 1130, y: 580, how: 'credia-soon', narrow: true },
