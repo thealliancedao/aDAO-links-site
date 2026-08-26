@@ -23,7 +23,7 @@
         .spoke { position: relative; }
         .route { cursor: pointer; transition: transform .12s, border-color .12s; }
         .route:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.35); }
-        .r-native { --c: #a3e635; } .r-tla { --c: #22d3ee; } .r-votion { --c: #fb923c; } .r-credia { --c: #c084fc; }
+        .r-native { --c: #fb923c; } .r-tla { --c: #facc15; } .r-votion { --c: #4ade80; } .r-credia { --c: #c084fc; }
         .route .tag { color: var(--c); border-color: var(--c); }
         .route.on { border-color: var(--c); box-shadow: 0 0 40px color-mix(in srgb, var(--c) 18%, transparent); }
         .line { height: 2px; background: #2a2a2a; }
@@ -117,7 +117,7 @@
             </div>
             <div class="max-w-5xl mx-auto mt-1 mb-1 flex justify-center"><div class="w-px h-8 bg-[#2a2a2a]"></div></div>
             <div class="max-w-5xl mx-auto line"></div>
-            <div id="web-wrap" class="max-w-6xl mx-auto mt-4 relative"><div id="web-center" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center" style="width:19%"><div class="text-[10px] uppercase tracking-[.15em] text-gray-500">Input = tokens</div><div class="flex items-center justify-center gap-1"><input id="luna-in2" type="text" inputmode="decimal" class="num bg-transparent border-b border-cyan-500/50 text-cyan-200 text-center focus:outline-none focus:border-cyan-300" style="font-size:clamp(14px,1.9vw,24px);width:70%" aria-label="LUNA amount"><span class="text-cyan-200 num" style="font-size:clamp(11px,1.3vw,16px)">LUNA</span></div><div class="text-[11px] text-gray-500" id="c-usd2">≈ —</div><div class="flex justify-center gap-1 mt-1"><span class="chip" data-luna="10000" style="font-size:.6rem;padding:.1rem .4rem">10K</span><span class="chip" data-luna="100000" style="font-size:.6rem;padding:.1rem .4rem">100K</span><span class="chip" data-luna="1000000" style="font-size:.6rem;padding:.1rem .4rem">1M</span></div><div class="text-[9px] text-gray-600 mt-1">type any amount</div></div><svg id="web" viewBox="0 0 1200 690" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Your LUNA and its four routes"></svg></div>
+            <div id="web-wrap" class="max-w-6xl mx-auto mt-4 relative"><div id="web-center" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center rounded-2xl border border-cyan-400/70 bg-[#0f1416]" style="width:22%;padding:.7em .8em;box-shadow:0 0 40px rgba(34,211,238,.22)"><div class="text-[10px] uppercase tracking-[.15em] text-gray-500">Input = tokens</div><div class="flex items-center justify-center gap-1"><input id="luna-in2" type="text" inputmode="decimal" class="num bg-transparent border-b border-cyan-500/50 text-cyan-200 text-center focus:outline-none focus:border-cyan-300" style="font-size:clamp(14px,1.9vw,24px);width:70%" aria-label="LUNA amount"><span class="text-cyan-200 num" style="font-size:clamp(11px,1.3vw,16px)">LUNA</span></div><div class="text-[11px] text-gray-500" id="c-usd2">≈ —</div><div class="flex justify-center gap-1 mt-1"><span class="chip" data-luna="10000" style="font-size:.6rem;padding:.1rem .4rem">10K</span><span class="chip" data-luna="100000" style="font-size:.6rem;padding:.1rem .4rem">100K</span><span class="chip" data-luna="1000000" style="font-size:.6rem;padding:.1rem .4rem">1M</span></div><div class="text-[9px] text-gray-600 mt-1">type any amount</div></div><svg id="web" viewBox="0 0 1200 740" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Your LUNA and its four routes"></svg></div>
             <div id="home-cards" class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
                 <div class="spoke"><div class="card route r-native p-4" data-route="native">
                     <div class="text-[10px] uppercase tracking-[.15em] tag border-b inline-block pb-0.5">Native staking</div>
@@ -155,7 +155,7 @@
         <section id="screen-native" class="screen max-w-6xl mx-auto px-4 pt-8 pb-8">
             <a class="text-[12px] text-gray-400 hover:text-cyan-300" href="#" data-back>← back to your LUNA</a>
             <div class="node center max-w-md mx-auto mt-4 r-native">
-                <div class="text-[10px] uppercase tracking-[.15em] text-lime-400">Native staking</div>
+                <div class="text-[10px] uppercase tracking-[.15em] text-orange-400">Native staking</div>
                 <div class="num text-3xl" id="n-apr">—</div>
                 <div class="text-[11px] text-gray-500" id="n-apr-sub">staking APR after commission <span class="how" data-how="native-apr">how?</span></div>
             </div>
@@ -185,7 +185,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
                 <div class="lg:col-span-2">
                     <div class="node center r-tla">
-                        <div class="text-[10px] uppercase tracking-[.15em] text-cyan-400">TLA lock</div>
+                        <div class="text-[10px] uppercase tracking-[.15em] text-yellow-400">TLA lock</div>
                         <div class="flex flex-wrap justify-center gap-1 mt-2" id="lst-chips"><span class="chip on" data-lst="ampLUNA">ampLUNA</span><span class="chip" data-lst="arbLUNA">arbLUNA</span><span class="chip" data-lst="bLUNA">bLUNA</span></div>
                         <div class="num text-2xl mt-2" id="l-lst">—</div>
                         <div class="text-[11px] text-gray-500" id="l-lst-sub">bond first: 1 LUNA → ? LST at the hub rate <span class="how" data-how="bond">how?</span></div>
@@ -220,6 +220,16 @@
                         <button class="mt-3 text-[12px] px-3 py-1.5 rounded-full border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10" id="open-picker">Choose a pool →</button>
                         <div class="src mt-3" id="pool-src"></div>
                     </div>
+                    <div class="card p-4 mt-3" id="sim">
+                        <div class="text-[10px] uppercase tracking-[.15em] text-gray-500">Boost your own LP with this VP</div>
+                        <div class="text-[11px] text-gray-500 mt-1" id="sim-who">No wallet selected — simulate a deposit into any pool.</div>
+                        <div class="flex flex-wrap items-end gap-2 mt-2">
+                            <label class="text-[11px] text-gray-500">Pool<br><select id="sim-pool" class="bg-[#141414] border border-[#333] rounded-lg px-2 py-1 text-sm text-gray-200 max-w-[13rem]"></select></label>
+                            <label class="text-[11px] text-gray-500">LP deposit (USD)<br><input id="sim-usd" type="text" inputmode="decimal" value="1,000" class="num bg-[#141414] border border-[#333] rounded-lg px-2 py-1 w-24 text-right text-cyan-200"></label>
+                        </div>
+                        <div id="sim-out" class="mt-3 text-[12px] text-gray-300"></div>
+                        <div class="src mt-2" id="sim-src"></div>
+                    </div>
                     <div class="card p-4 mt-3">
                         <div class="text-[10px] uppercase tracking-[.15em] text-gray-500">What Votion would do with this VP</div>
                         <div class="text-[12px] text-gray-300 mt-1" id="votion-plan">—</div>
@@ -233,7 +243,7 @@
         <section id="screen-votion" class="screen max-w-6xl mx-auto px-4 pt-8 pb-8">
             <a class="text-[12px] text-gray-400 hover:text-cyan-300" href="#" data-back>← back to your LUNA</a>
             <div class="node center max-w-lg mx-auto mt-4 r-votion">
-                <div class="text-[10px] uppercase tracking-[.15em] text-orange-400">Votion vault</div>
+                <div class="text-[10px] uppercase tracking-[.15em] text-green-400">Votion vault</div>
                 <div class="flex flex-wrap justify-center gap-1 mt-2" id="vault-chips"></div>
                 <div class="num text-3xl mt-2" id="v-apy">—</div>
                 <div class="text-[11px] text-gray-500"><span id="v-apy-parts">—</span> <span class="how" data-how="votion-apy">how?</span></div>
@@ -318,16 +328,17 @@
         function writeUrl() { const p = new URLSearchParams(); p.set('luna', String(S.luna)); p.set('h', S.horizon); if (S.route !== 'home') p.set('path', S.route); if (S.route === 'tla') { p.set('lst', S.lst); p.set('lock', String(S.weeks)); const pk = Object.entries(S.pools).map(([b, k]) => b + ':' + k).join(','); if (pk) p.set('pools', pk); p.set('disc', String(Math.round(S.disc * 100))); } if (S.route === 'votion' && S.vault) p.set('vault', S.vault); if (S.apr != null) p.set('apr', String(Math.round(S.apr * 10000) / 100)); if (S.comm !== 0.05) p.set('comm', String(Math.round(S.comm * 10000) / 100)); history.replaceState(null, '', location.pathname + '?' + p.toString()); }
 
         // ---------------- data ----------------
-        const D = { lunaUsd: null, lunaSrc: null, ratios: {}, ratioSrc: {}, yields: null, opt: null, snapshot: null, credia: null, vaults: null, stakingCsv: null, errors: [] };
+        const D = { lunaUsd: null, lunaSrc: null, ratios: {}, ratioSrc: {}, yields: null, opt: null, snapshot: null, credia: null, vaults: null, stakingCsv: null, erisApr: null, participants: null, wallet: null, errors: [] };
         const jget = (u) => fetch(u + (u.includes('?') ? '&' : '?') + 't=' + Math.floor(Date.now() / 600000)).then(r => r.ok ? r.json() : null).catch(() => null);
         const tget = (u) => fetch(u + '?t=' + Math.floor(Date.now() / 600000)).then(r => r.ok ? r.text() : null).catch(() => null);
         async function smart(addr, q) { const b64 = btoa(JSON.stringify(q)); for (const lcd of LCDS) { try { const r = await fetch(`${lcd}/cosmwasm/wasm/v1/contract/${addr}/smart/${b64}`); if (r.ok) { const j = await r.json(); return j.data; } } catch (e) { /* next */ } } return null; }
         function priceFromCatalog(cat, denom) { const t = cat && Array.isArray(cat.tokens) && cat.tokens.find(x => x.denom === denom); const p = t && t.prices; if (!p) return { usd: null, source: null }; for (const s of ['tla', 'coingecko', 'astroport', 'skeletonswap']) if (p[s] && p[s].status === 'ok' && p[s].usd != null) return { usd: Number(p[s].usd), source: 'token-catalog/' + s }; return { usd: null, source: null }; }
         async function load() {
-            const [cat, yields, opt, snap, credia, vaults, csv] = await Promise.all([
+            const [cat, yields, opt, snap, credia, vaults, csv, erisApr] = await Promise.all([
                 jget(RAW + 'token-catalog/snapshots/current.json'), jget(RAW + 'votion/yields/current.json'), jget(RAW + 'votion/optimization/current.json'),
-                jget(RAW + 'member-data/tla-snapshot/current.json'), jget(RAW + 'dex-data/credia/snapshots/current.json'), jget(RAW + 'votion/snapshots/vaults.json'), tget(RAW + 'docs/Staking%20APR.csv'),
+                jget(RAW + 'member-data/tla-snapshot/current.json'), jget(RAW + 'dex-data/credia/snapshots/current.json'), jget(RAW + 'votion/snapshots/vaults.json'), tget(RAW + 'docs/Staking%20APR.csv'), jget(RAW + 'dex-data/eris-apr/current.json'),
             ]);
+            D.erisApr = erisApr;
             const lp = priceFromCatalog(cat, 'uluna'); D.lunaUsd = lp.usd; D.lunaSrc = lp.source; D.yields = yields; D.opt = opt; D.snapshot = snap; D.credia = credia; D.vaults = vaults; D.catalog = cat;
             if (csv) { const rows = csv.trim().split(/\r?\n/).slice(1).map(l => l.replace(/"/g, '').split(',')).filter(r => r.length >= 2 && r[1] !== ''); const last = rows[rows.length - 1]; D.stakingCsv = last ? { date: last[0], apr: Number(last[1]) / 100 } : null; }
             // LST ratios: live hub first; votion vaults.json (hourly) as fallback for amp/arb; blank last
@@ -371,6 +382,40 @@
             const total = Object.values(plan).reduce((s, r) => s + (r ? r.mine : 0), 0); return { plan, total, buckets, period: P.period, voteBefore: P.voteBefore, capturedAt: P.capturedAt }; }
         function bestPool(vp) { const b = bestPerBucket(vp); const r = Object.values(b).sort((a, c) => c.mine - a.mine); return r[0] || null; }   // kept for the teaser
         function vaultRows() { const y = D.yields; if (!y || !Array.isArray(y.vaults)) return []; return y.vaults.map(v => ({ address: v.address, label: v.label || v.address.slice(0, 12), lst: v.lst_symbol, apy: v.headline && v.headline[30] ? v.headline[30].total_apy : null, votion: v.headline && v.headline[30] ? v.headline[30].votion_apy : null, asset: v.headline && v.headline[30] ? v.headline[30].asset_apy : null, w7: v.windows && v.windows[7] ? (v.windows[7].apy_contract ?? v.windows[7].apy_measured) : null })).filter(v => v.apy != null).sort((a, b) => b.apy - a.apy); }
+        // ---------------- LP boost simulator ----------------
+        // Emissions to a pool = bucket rewards/yr × its vote share. Add your VP (100% of it, in that bucket) to the pool:
+        // share' = (v + a) ÷ (V_b + a). Your LP earns the pool's incentive APR on your deposit; the pool's TVL grows by it.
+        // Eris's own display convention (eris-apr product, verbatim): apy = aprToApy(incentive × 0.92) + trading − take.
+        const aprToApy = (apr, f = DAYS_IN_YEAR) => Math.pow(1 + apr / f, f) - 1;
+        function simPools() { const E = D.erisApr; if (!E || !Array.isArray(E.pools)) return []; return E.pools.filter(p => p.gauge && p.tla_staked_usd > 0).map(p => ({ key: p.gauge + '|' + String(p.gauge_pool_id).replace(/^(cw20|native):/, ''), bucket: p.gauge, name: p.pool_name, incentives_luna_yr: num(p.incentives_luna_per_year), tvl: num(p.tla_staked_usd), dist: num(p.distribution), take: num(p.yearly_take_rate_pct) / 100, trading: (num(p.trading_apr_pct) || 0) / 100, cut: (num(p.eris_cut_pct) ?? 8) / 100, aprNow: num(p.incentive_apr_pct) / 100, apyNow: num(p.eris_apy_pct) / 100 })); }
+        function simulate(poolKey, depositUsd, vp) {
+            const E = D.erisApr; const pool = simPools().find(p => p.key === poolKey); if (!E || !pool) return null;
+            const R = num(E.alliance && E.alliance.per_gauge && E.alliance.per_gauge[pool.bucket] && E.alliance.per_gauge[pool.bucket].rewards_per_year_luna); if (!R || !D.lunaUsd) return null;
+            const rows = pools().rows; const Vb = rows.filter(r => r.bucket === pool.bucket).reduce((s, r) => s + r.votes, 0); const row = rows.find(r => r.key === poolKey); const v = row ? row.votes : pool.dist * Vb;
+            if (!Vb) return null;
+            const share0 = v / Vb, share1 = (v + vp) / (Vb + vp);
+            const inc0 = R * share0 * D.lunaUsd, inc1 = R * share1 * D.lunaUsd; const tvl0 = pool.tvl, tvl1 = pool.tvl + depositUsd;
+            const apr0 = inc0 / tvl0, aprDep = inc0 / tvl1, apr1 = inc1 / tvl1;   // now · after your deposit alone · after deposit + votes
+            const apy = (apr) => aprToApy(apr * (1 - pool.cut)) + pool.trading - pool.take;
+            const bribe = row ? bribeShare(row, vp) : 0; const best = bestPerBucket(vp)[pool.bucket];
+            return { pool, share0, share1, votes: v, bucketVotes: Vb, apr0, aprDep, apr1, apy0: apy(apr0), apyDep: apy(aprDep), apy1: apy(apr1), yourYr0: depositUsd * apy(aprDep), yourYr1: depositUsd * apy(apr1), poolGainLuna: R * (share1 - share0), bribeWk: bribe, bestWk: best ? best.mine : 0, bestName: best ? best.name : null, isBest: best ? best.key === poolKey : false, sanity: pool.aprNow != null ? Math.abs(pool.aprNow - apr0) : null };
+        }
+        let simSel = null;   // chosen pool key (falls back to the wallet's largest position, then the first pool)
+        async function loadWallet(addr) { D.wallet = addr || null; if (!addr) { renderSim(); return; } if (!D.participants) D.participants = await jget(RAW + 'member-data/participants/current.json'); renderSim(); }
+        function walletPositions() { const P = D.participants; if (!P || !D.wallet || !Array.isArray(P.members)) return []; const m = P.members.find(x => x.wallet === D.wallet); return m ? (m.lp_positions || []).filter(x => x.pool_gauge_id).map(x => ({ key: x.bucket + '|' + String(x.pool_gauge_id).replace(/^(cw20|native):/, ''), name: x.pool_name, usd: num(x.estimated_position_usd), pct: num(x.user_pct_of_pool) })) : []; }
+        function renderSim() {
+            const el = $('sim'); if (!el) return; const P = simPools(); const sel = $('sim-pool'); const wp = walletPositions(); const vp = vpFor(S.luna, S.weeks);
+            if (!P.length) { $('sim-out').textContent = 'eris-apr product not available'; return; }
+            if (!simSel || !P.find(p => p.key === simSel)) simSel = (wp.find(w => w.usd) && wp.sort((a, b) => (b.usd || 0) - (a.usd || 0))[0].key) || P.sort((a, b) => b.tvl - a.tvl)[0].key;
+            sel.innerHTML = (wp.length ? `<optgroup label="Your TLA positions">${wp.map(w => `<option value="${w.key}"${w.key === simSel ? ' selected' : ''}>${esc(w.name)}${w.usd ? ' · ' + usd(w.usd) : ''}</option>`).join('')}</optgroup>` : '') + `<optgroup label="All pools">${P.sort((a, b) => b.tvl - a.tvl).map(p => `<option value="${p.key}"${p.key === simSel ? ' selected' : ''}>${esc(p.name)} · ${p.bucket}</option>`).join('')}</optgroup>`;
+            const mine = wp.find(w => w.key === simSel); if (mine && mine.usd && document.activeElement !== $('sim-usd') && !$('sim-usd').dataset.touched) $('sim-usd').value = fmt(mine.usd, 0);
+            $('sim-who').textContent = D.wallet ? (wp.length ? `${D.wallet.slice(0, 10)}… · ${wp.length} TLA position${wp.length > 1 ? 's' : ''} found — deposit prefilled from the selected one` : `${D.wallet.slice(0, 10)}… has no TLA LP positions in the current capture — simulate a deposit instead`) : 'No wallet selected — simulate a deposit into any pool.';
+            const dep = Number(String($('sim-usd').value).replace(/[^0-9.]/g, '')) || 0; const r = simulate(simSel, dep, vp);
+            if (!r) { $('sim-out').textContent = 'no votes / rewards data for this pool yet'; return; }
+            $('sim-out').innerHTML = `<div class="grid grid-cols-3 gap-2 text-center"><div class="tile p-2"><div class="lbl">Pool APY now</div><div class="v text-base">${pct(r.apy0, 1)}</div><div class="sub">${fmt(r.votes)} votes · ${pct(r.share0, 1)} of ${r.pool.bucket} emissions</div></div><div class="tile p-2"><div class="lbl">With your ${fmt(vp)} VP</div><div class="v text-base ${r.apy1 > r.apyDep ? 'good' : ''}">${pct(r.apy1, 1)}</div><div class="sub">${pct(r.share1, 1)} of emissions · +${fmt(r.poolGainLuna, 0)} LUNA/yr to the pool</div></div><div class="tile p-2"><div class="lbl">Your LP earns</div><div class="v text-base good">${usd(r.yourYr1, 0)}/yr</div><div class="sub">on ${usd(dep, 0)} · vs ${usd(r.yourYr0, 0)} without your votes</div></div></div>
+                <div class="mt-2">Bribes from this pool with the same VP: <b class="num ${r.bribeWk ? 'good' : ''}">${usd(r.bribeWk, 2)}/wk</b>${r.isBest ? ' — it is the best pot in its bucket' : (r.bestName ? ` — the best pot in ${r.pool.bucket} pays ${usd(r.bestWk, 2)}/wk (${esc(r.bestName)}): voting your own LP costs you that difference in bribes and gains you the emissions above` : '')}.</div>`;
+            $('sim-src').textContent = `eris-apr ${String(D.erisApr.meta && D.erisApr.meta.generated_at || '').slice(0, 16)} · apy = aprToApy(incentive × 0.92) + trading − take (Eris convention) · votes from the Votion worksheet` + (r.sanity != null && r.sanity > 0.02 ? ` · ⚠ our re-derived APR differs from eris-apr's by ${pct(r.sanity, 1)} — votes snapshot may be behind` : '');
+        }
         function crediaLuna() { const c = D.credia; if (!c || !Array.isArray(c.pools)) return null; const m = c.pools.find(p => p.raw && p.raw.info && p.raw.info.native === 'uluna') || c.pools.find(p => /^LUNA/.test(String(p.pool_name))); if (!m || !m.raw) return null; const r = m.raw; const sup = num(r.total_supplied), bor = num(r.total_borrowed); return { supplyApy: num(r.supply_apy), borrowApy: num(r.borrow_apy), util: num(r.utilization), availLuna: (sup != null && bor != null) ? (sup - bor) / 1e6 : null, at: c.meta && c.meta.captured_at }; }
         function crediaMarket(cw20) { const c = D.credia; const m = c && Array.isArray(c.pools) && c.pools.find(p => p.raw && p.raw.info && p.raw.info.cw20 === cw20); return m && m.raw ? { ltv: num(m.raw.state && m.raw.state.ltv), liqT: num(m.raw.state && m.raw.state.liquidation_threshold), borrowApy: num(m.raw.borrow_apy) } : null; }
         function crediaAmpLp() { const c = D.credia; const rows = (c && Array.isArray(c.pools) ? c.pools : []).filter(p => /amplp/.test(String(p.pool_name))); return rows.length ? { ltv: num(rows[0].raw.state.ltv), takeRate: rows[0].raw.state.take_rate, markets: rows.map(r => r.pool_name) } : null; }
@@ -449,47 +494,48 @@
         // ---------------- the web: center → 4 route hubs → 3 leaves each (edges colored like the owner's sketch) ----------------
         const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
         function webModel() {
-            const n = nativeApr(), a = assetApy(S.lst), v = vaultRows()[0], c = crediaLuna(), vp = vpFor(S.luna, MAX_WEEKS), bp = bribePlan(vp), lp = crediaAmpLp();
-            const lstY = a ? pct(a.apy, 1) + ' / yr' : null;
-            return {
-                center: { l2: D.lunaUsd ? '≈ ' + usd(S.luna * D.lunaUsd) : '' },
-                routes: [
-                    { id: 'native', color: '#a3e635', title: 'Native staking', big: n ? pct(n.apr, 1) + ' / yr' : '—', sub: n ? 'after ' + Math.round(S.comm * 100) + '% commission' : 'no APR source', hub: { x: 335, y: 160 },
-                      leaves: [{ k: 'good', l: 'Your validator, your chain vote', x: 180, y: 40 }, { k: 'warn', l: '21-day unbond to exit', x: 80, y: 165 }, { k: 'bad', l: 'No TLA vote, no bribes', x: 200, y: 280 }] },
-                    { id: 'tla', color: '#22d3ee', title: 'TLA lock', big: lstY ? lstY : '—', big2: '+ ' + fmt(vp) + ' VP', sub: (lstY ? 'same staking yield as native · VP at max lock' : 'LST yield not published yet · VP at max lock'), hub: { x: 865, y: 160 },
-                      leaves: [{ k: 'good', l: 'Send emissions to your LPs and/or take bribes' + (bp.total ? ' — best pots ' + usd(bp.total, 0) + ' / wk' : ''), x: 1000, y: 40 },
-                               { k: 'warn', l: 'Lock 1 week – 2 years', x: 1120, y: 165, sub: { k: 'warn', l: 'or sell the lock on Boost / Atrium at a discount', x: 1115, y: 228 } },
-                               { k: 'bad', l: 'Eris picks the validators — LUNA-governance VP concentrated in one protocol', x: 990, y: 290 }] },
-                    { id: 'votion', color: '#fb923c', title: 'Votion vault', big: v ? pct(v.apy, 1) + ' / yr' : '—', sub: v ? v.label.replace(/^Votion /, '') + ' · LST + boost' : 'yields not published yet', hub: { x: 335, y: 530 },
-                      leaves: [{ k: 'good', l: 'Boost compounds into your LST', x: 180, y: 410 },
-                               { k: 'warn', l: 'Max lock: 2 years to unlock', x: 80, y: 535, sub: { k: 'bad', l: 'then the TLA lock: sell it on Boost / Atrium, or another 2-year clock — worst case 4 years', x: 90, y: 602 } },
-                               { k: 'bad', l: 'Votion votes for you', x: 225, y: 660 },
-                               { k: 'warn', l: 'Degen: loop it — TLA ampLP is Credia collateral' + (lp && lp.ltv != null ? ' (' + pct(lp.ltv, 0) + ' LTV)' : '') + '; more yield, more risk', x: 480, y: 660 }] },
-                    { id: 'credia', color: '#c084fc', title: 'Lend on Credia', big: c && c.supplyApy != null ? pct(c.supplyApy, 1) + ' / yr' : '—', sub: c ? pct(c.util, 0) + ' utilized · variable' : 'snapshot not available', hub: { x: 865, y: 530 },
-                      leaves: [{ k: 'good', l: 'No lock — withdraw any time', x: 1020, y: 410 }, { k: 'warn', l: 'Rate moves with borrowers', x: 1120, y: 535 }, { k: 'bad', l: 'No vote anywhere · protocol risk', x: 1000, y: 660 }] },
-                ] };
+            const n = nativeApr(), a = assetApy(S.lst), v = vaultRows()[0], c = crediaLuna(), vp = vpFor(S.luna, MAX_WEEKS), bp = bribePlan(vp), lp = crediaAmpLp(), days = HDAYS[S.horizon];
+            const lstY = a ? pct(a.apy, 1) + ' / yr' : null; const m = crediaMarket(HUBS[S.lst].cw20);
+            return { routes: [
+                { id: 'native', color: '#fb923c', title: 'Native staking', big: n ? pct(n.apr, 1) + ' / yr' : '—', sub: n ? `≈ +${fmt(growComp(S.luna, n.daily, days), 0)} LUNA ${HLBL[S.horizon]} · after ${Math.round(S.comm * 100)}% commission` : 'no APR source', hub: { x: 345, y: 175 },
+                  leaves: [
+                    { k: 'good', l: 'Your validator, your chain vote', x: 175, y: 45, how: 'leaf-native-vote' },
+                    { k: 'warn', l: '21-day unbond to exit', x: 75, y: 180, how: 'leaf-native-exit' },
+                    { k: 'bad', l: 'No TLA vote, no bribes', x: 200, y: 310, how: 'native-vs' }] },
+                { id: 'tla', color: '#facc15', title: 'TLA lock', big: lstY || '—', big2: '+ ' + fmt(vp) + ' VP', sub: (lstY ? 'same staking yield as native' : 'LST yield not published yet') + ' · VP at max lock', hub: { x: 855, y: 175 },
+                  leaves: [
+                    { k: 'good', l: 'Emissions to your LPs and/or bribes' + (bp.total ? ' — best pots ' + usd(bp.total, 0) + ' / wk' : ''), x: 1010, y: 45, how: 'bribes' },
+                    { k: 'warn', l: 'Lock 1 week – 2 years', x: 1125, y: 180, how: 'vp', sub: { k: 'warn', l: 'or sell the lock on Boost / Atrium at a discount', x: 1115, y: 245, how: 'resale' } },
+                    { k: 'bad', l: 'Eris picks the validators — LUNA-governance VP concentrated in one protocol', x: 985, y: 320, how: 'leaf-eris' }] },
+                { id: 'votion', color: '#4ade80', title: 'Votion vault', big: v ? pct(v.apy, 1) + ' / yr' : '—', sub: v ? `${v.label.replace(/^Votion /, '').replace(/^max\/v/, 'max ')} · ${v.lst || 'LST'} ${pct(v.asset, 1)} + Votion ${pct(v.votion, 1)}`.slice(0, 44) : 'yields not published yet', hub: { x: 345, y: 560 },
+                  leaves: [
+                    { k: 'good', l: 'The boost compounds into your LST', x: 175, y: 430, how: 'votion-apy' },
+                    { k: 'warn', l: 'Max lock: 2 years to unlock', x: 75, y: 565, how: 'leaf-votion-clock', sub: { k: 'bad', l: 'then the TLA lock: sell it on Boost / Atrium, or another 2-year clock — worst case 4 years', x: 90, y: 640, how: 'leaf-votion-clock' } },
+                    { k: 'bad', l: 'Votion votes for you', x: 330, y: 700, how: 'leaf-votion-votes' }] },
+                { id: 'credia', color: '#c084fc', title: 'Lend / borrow on Credia', big: c && c.supplyApy != null ? pct(c.supplyApy, 1) + ' / yr' : '—', sub: c ? `lend LUNA · ${pct(c.util, 0)} utilized · borrow ${pct(c.borrowApy, 1)}` : 'snapshot not available', hub: { x: 855, y: 560 },
+                  leaves: [
+                    { k: 'good', l: 'No lock — withdraw any time', x: 1010, y: 430, how: 'credia' },
+                    { k: 'warn', l: 'Borrow LUNA' + (c ? ' at ' + pct(c.borrowApy, 1) : '') + ' against ' + S.lst + (m && m.ltv != null ? ' (' + pct(m.ltv, 0) + ' LTV)' : '') + ' or TLA ampLP' + (lp && lp.ltv != null ? ' (' + pct(lp.ltv, 0) + ')' : '') + ' — a loop pays only while the LST yield beats the rate', x: 1130, y: 585, how: 'leaf-loop', narrow: true },
+                    { k: 'bad', l: 'No vote anywhere · protocol + liquidation risk', x: 880, y: 700, how: 'credia' }] },
+            ] };
         }
         function renderWeb() {
             const svg = $('web'); if (!svg) return; const M = webModel();
-            const W = 1200, C = { x: 600, y: 345 };
+            const W = 1200, C = { x: 600, y: 368 };
             const clampX = (x, w) => Math.min(W - 8 - w / 2, Math.max(8 + w / 2, x));
-            const box = (x, y, w, h, extra = '') => `<rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="10" class="box" ${extra}/>`;
+            const box = (x, y, w, h, extra = '') => `<rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="11" class="box" ${extra}/>`;
             const col = (k) => k === 'good' ? '#4ade80' : k === 'bad' ? '#f87171' : '#fbbf24';
-            // leaf text wraps at ~34 chars → up to 2 lines
-            const wrap = (t, n = 34) => { if (t.length <= n) return [t]; const words = t.split(' '); const lines = ['']; for (const w of words) { if ((lines[lines.length - 1] + ' ' + w).trim().length > n && lines[lines.length - 1]) lines.push(w); else lines[lines.length - 1] = (lines[lines.length - 1] + ' ' + w).trim(); } return lines.slice(0, 4); };
-            const leafGeom = (lf, narrow) => { const lines = wrap(lf.l, narrow ? 24 : 34); const w = Math.min(narrow ? 178 : 250, 24 + Math.max(...lines.map(l => l.length)) * 6.4); const h = 14 + lines.length * 14; return { lines, w, h, x: clampX(lf.x, w), y: lf.y }; };
+            const wrap = (t, n) => { if (t.length <= n) return [t]; const words = t.split(' '); const lines = ['']; for (const w of words) { if ((lines[lines.length - 1] + ' ' + w).trim().length > n && lines[lines.length - 1]) lines.push(w); else lines[lines.length - 1] = (lines[lines.length - 1] + ' ' + w).trim(); } return lines.slice(0, 5); };
+            const leafGeom = (lf, narrow) => { const lines = wrap(lf.l, narrow ? 24 : 32); const w = Math.min(narrow ? 185 : 265, 28 + Math.max(...lines.map(l => l.length)) * 6.9); const h = 16 + lines.length * 15; return { lines, w, h, x: clampX(lf.x, w), y: lf.y }; };
+            const leafSvg = (r, lf, g, dashed) => `<g class="leaf" data-route="${r.id}" data-how="${lf.how || ''}">${box(g.x, g.y, g.w, g.h, `style="stroke:${col(lf.k)};stroke-opacity:.55${dashed ? ';stroke-dasharray:4 3' : ''}"`)}${g.lines.map((ln, i) => `<text x="${g.x}" y="${g.y - (g.lines.length - 1) * 7.5 + i * 15 + 4}" text-anchor="middle" style="font-size:11.5px;fill:${col(lf.k)}">${esc(ln)}</text>`).join('')}${lf.how ? `<text x="${g.x + g.w / 2 - 9}" y="${g.y - g.h / 2 + 11}" text-anchor="middle" style="font-size:9px;fill:#67e8f9">?</text>` : ''}</g>`;
             let edges = '', nodes = '';
             for (const r of M.routes) { const h = r.hub; edges += `<line class="edge e-route" x1="${C.x}" y1="${C.y}" x2="${h.x}" y2="${h.y}" style="stroke:${r.color}"/>`;
-                for (const lf of r.leaves) { const g = leafGeom(lf); edges += `<line class="edge e-${lf.k}" x1="${h.x}" y1="${h.y}" x2="${g.x}" y2="${g.y}"/>`;
-                    nodes += `<g class="leaf" data-route="${r.id}">${box(g.x, g.y, g.w, g.h, `style="stroke:${col(lf.k)};stroke-opacity:.5"`)}${g.lines.map((ln, i) => `<text x="${g.x}" y="${g.y - (g.lines.length - 1) * 7 + i * 14 + 4}" text-anchor="middle" style="font-size:11px;fill:${col(lf.k)}">${esc(ln)}</text>`).join('')}</g>`;
-                    if (lf.sub) { const sg = leafGeom(lf.sub, true); edges += `<line class="edge e-${lf.sub.k}" x1="${g.x}" y1="${g.y + g.h / 2}" x2="${sg.x}" y2="${sg.y - sg.h / 2}" style="stroke-dasharray:4 3"/>`;
-                        nodes += `<g class="leaf" data-route="${r.id}">${box(sg.x, sg.y, sg.w, sg.h, `style="stroke:${col(lf.sub.k)};stroke-opacity:.5;stroke-dasharray:4 3"`)}${sg.lines.map((ln, i) => `<text x="${sg.x}" y="${sg.y - (sg.lines.length - 1) * 7 + i * 14 + 4}" text-anchor="middle" style="font-size:10.5px;fill:${col(lf.sub.k)}">${esc(ln)}</text>`).join('')}</g>`; } }
-                const two = !!r.big2; const H = two ? 118 : 100;
-                nodes += `<g class="hub" data-route="${r.id}">${box(h.x, h.y, 270, H, `style="stroke:${r.color}"`)}<text x="${h.x}" y="${h.y - H / 2 + 18}" text-anchor="middle" class="lbl" style="fill:${r.color}">${esc(r.title)}</text><text x="${h.x}" y="${h.y - H / 2 + (two ? 44 : 50)}" text-anchor="middle" class="num" style="font-size:${two ? 20 : 22}px">${esc(r.big)}</text>${two ? `<text x="${h.x}" y="${h.y - H / 2 + 66}" text-anchor="middle" class="num" style="font-size:20px;fill:#a5f3fc">${esc(r.big2)}</text>` : ''}<text x="${h.x}" y="${h.y + H / 2 - 24}" text-anchor="middle" style="font-size:10.5px;fill:#9ca3af">${esc(r.sub)}</text><text x="${h.x}" y="${h.y + H / 2 - 9}" text-anchor="middle" style="font-size:10px;fill:${r.color}">Explore →</text></g>`; }
-            // center: box only — the amount is a real input overlaid in HTML (#web-center)
-            nodes += `<g>${box(C.x, C.y, 236, 96, 'style="stroke:#22d3ee;stroke-width:1.5;filter:drop-shadow(0 0 18px rgba(34,211,238,.35))"')}</g>`;
+                for (const lf of r.leaves) { const g = leafGeom(lf, !!lf.narrow); edges += `<line class="edge e-${lf.k}" x1="${h.x}" y1="${h.y}" x2="${g.x}" y2="${g.y}"/>`; nodes += leafSvg(r, lf, g, false);
+                    if (lf.sub) { const sg = leafGeom(lf.sub, true); edges += `<line class="edge e-${lf.sub.k}" x1="${g.x}" y1="${g.y + g.h / 2}" x2="${sg.x}" y2="${sg.y - sg.h / 2}" style="stroke-dasharray:4 3"/>`; nodes += leafSvg(r, lf.sub, sg, true); } }
+                const two = !!r.big2; const H = two ? 128 : 110, Wd = 280;
+                nodes += `<g class="hub" data-route="${r.id}">${box(h.x, h.y, Wd, H, `style="stroke:${r.color};stroke-width:2;filter:drop-shadow(0 0 14px ${r.color}55)"`)}<text x="${h.x}" y="${h.y - H / 2 + 20}" text-anchor="middle" class="lbl" style="fill:${r.color};font-size:11px">${esc(r.title)}</text><text x="${h.x}" y="${h.y - H / 2 + (two ? 48 : 56)}" text-anchor="middle" class="num" style="font-size:${two ? 23 : 26}px">${esc(r.big)}</text>${two ? `<text x="${h.x}" y="${h.y - H / 2 + 73}" text-anchor="middle" class="num" style="font-size:22px;fill:#fde68a">${esc(r.big2)}</text>` : ''}<text x="${h.x}" y="${h.y + H / 2 - 26}" text-anchor="middle" style="font-size:11px;fill:#9ca3af">${esc(r.sub)}</text><text x="${h.x}" y="${h.y + H / 2 - 10}" text-anchor="middle" style="font-size:11px;fill:${r.color}">Explore the route →</text></g>`; }
             svg.innerHTML = edges + nodes;
-            const wc = $('c-usd2'); if (wc) wc.textContent = M.center.l2 || '≈ —'; const i2 = $('luna-in2'); if (i2 && document.activeElement !== i2) i2.value = fmt(S.luna);
+            const wc = $('c-usd2'); if (wc) wc.textContent = D.lunaUsd ? '≈ ' + usd(S.luna * D.lunaUsd) : '≈ —'; const i2 = $('luna-in2'); if (i2 && document.activeElement !== i2) i2.value = fmt(S.luna);
         }
         // ---------------- spokes: on each route screen, join the hub node to its tiles with colored lines ----------------
         function drawSpokes() {
@@ -509,7 +555,7 @@
                 .map(([k, n, v, s]) => `<div class="cmp r-${k}${S.route === k ? ' on' : ''}"><div class="t">${n}</div><div class="v">${v == null ? '—' : '+' + fmt(v, 1) + ' LUNA'}</div><div class="s">${v != null && D.lunaUsd ? '≈ ' + usd(v * D.lunaUsd) + ' · ' : ''}${s}</div></div>`).join('') + `</div><div class="src mt-2">Bribes converted at LUNA ${usd(D.lunaUsd, 4)}; LST and Votion at the 30-day window; Credia at today's rate. Governance, lock and risk are not in these numbers — they are in the screens.</div>`;
             document.querySelectorAll('[data-compare]').forEach(el => el.innerHTML = html);
         }
-        function render() { renderHeader(); renderHome(); renderWeb(); renderNative(); renderTla(); renderVotion(); renderCredia(); renderCompare(); document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 'screen-' + S.route)); writeUrl(); requestAnimationFrame(() => drawSpokes()); }
+        function render() { renderHeader(); renderHome(); renderWeb(); renderNative(); renderTla(); renderSim(); renderVotion(); renderCredia(); renderCompare(); document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === 'screen-' + S.route)); writeUrl(); requestAnimationFrame(() => drawSpokes()); }
 
         // ---------------- pool picker ----------------
         function openPicker() { const P = pools(); const vp = vpFor(S.luna, S.weeks); const bp = bribePlan(vp); $('drawer-sub').textContent = P.period ? `period ${P.period} · your VP ${fmt(vp)} in EACH bucket · one pool per bucket` : 'worksheet not available';
@@ -533,6 +579,12 @@
             'votion-apy': ['How the Votion number is built', `<p>Two legs, added: the <b>asset APY</b> is the LST hub's exchange-rate growth; the <b>Votion APY</b> is the vault's own exchange-rate growth — bribes and emissions it earns with its VP, claimed and compounded into the vault. Both come from the contracts' <code>exchange_rates</code> history over 30 days: daily rate = (end ÷ start − 1) ÷ days, APY = (1 + daily)^365.25 − 1. Exactly what the Votion site does.</p>`, 'tla-stats.html#vote-market'],
             'window': ['Why the window matters', `<p>Rewards land once per epoch, so the vault's exchange rate moves in weekly steps. A 7-day window that straddles a step reads high; one that misses it reads near zero. Eris recommends 14–30 days; this page uses 30.</p>`, null],
             'credia': ['Lending on Credia', `<p>Credia is an Aave-style lending market on Terra. Supply LUNA, earn the supply rate, which is borrow rate × utilization × (1 − reserve factor) and moves every block with demand. No lock: you withdraw whenever the market has un-borrowed liquidity. Your LUNA is lent, not staked — it earns no chain rewards and casts no votes.</p>`, 'tla-docs.html#credia'],
+            'leaf-native-vote': ['Your validator, your chain vote', () => { const n = nativeApr(); return `<p>Delegating LUNA yourself means <b>you</b> choose the validator (and its commission — ${Math.round(S.comm * 100)}% in this example) and your stake weight votes on every chain proposal the way you say. Nothing sits between you and the chain.</p><p>For ${fmt(S.luna)} LUNA that is ${n ? `about <b class="num">+${fmt(growComp(S.luna, n.daily, HDAYS.yearly), 0)} LUNA</b> a year compounded` : 'a yield we cannot show yet'}.</p>`; }, null],
+            'leaf-native-exit': ['21-day unbond', `<p>Undelegating starts a 21-day clock: no rewards while you wait, no way to sell the wait, and the LUNA lands only at the end. The LST routes hide that clock inside the hub (bond in, bonded LUNA out on the same 21 days) — or you swap the LST on a DEX and pay slippage instead of time.</p>`, 'slippage.html?from=ampLUNA&to=LUNA'],
+            'leaf-eris': ['Eris picks the validators', `<p>Every LUNA behind ampLUNA / arbLUNA / bLUNA is delegated by the hub, to the validator set the hub chooses. The TLA locks add up to tens of millions of LUNA-equivalent, so a large slice of LUNA's chain-governance weight ends up with one protocol's choices. That is the price of the yield and the VP — worth knowing before you lock.</p>`, 'tla-docs.html#governance'],
+            'leaf-votion-clock': ['The 2 + 2 year clock', `<p>A max Votion vault lock is <b>2 years</b>. When it unlocks you do not get LUNA — you get the <b>TLA lock</b> the vault held for you. From there: sell that lock on Boost / Atrium at a discount, or start its own unlock — up to another 2 years. Max in both = up to <b>4 years</b> before the LUNA is liquid. Shorter vault tiers (1 week, 3 months) shorten the first leg only.</p>`, null],
+            'leaf-votion-votes': ['Votion votes for you', `<p>Your VP is inside the vault; Votion's optimizer places it wherever bribes and emissions pay best, every ~15 minutes until the cast deadline. You get the boost, you give up the say — including the option of sending emissions to your own LPs.</p>`, 'tla-stats.html#vote-market'],
+            'leaf-loop': ['The loop, as far as chain verifies it', () => { const c = crediaLuna(), lp = crediaAmpLp(), m = crediaMarket(HUBS[S.lst].cw20), a = assetApy(S.lst); const L = m && m.ltv != null ? 1 / (1 - m.ltv) : null; const net = (a && c && L) ? a.apy * L - c.borrowApy * (L - 1) : null; return `<p>On Credia today: <b>${S.lst}</b> is collateral at ${m && m.ltv != null ? `<b class="num">${pct(m.ltv, 0)} LTV</b>` : '—'} (liquidation at ${m && m.liqT != null ? pct(m.liqT, 0) : '—'}); the three <b>TLA ampLP</b> tokens are collateral at ${lp && lp.ltv != null ? pct(lp.ltv, 0) : '—'} LTV — supply-only, nothing is borrowed <i>as</i> ampLP; LUNA is borrowable at <b class="num">${c ? pct(c.borrowApy, 2) : '—'}</b>. Credia's own "supply APY" on ${S.lst} is the LST yield passing through (their 36.8% ≈ our hub reading).</p><p>The loop that is real: post ${S.lst} → borrow LUNA → bond it → post again. Fully looped at that LTV is ${L ? L.toFixed(2) + '×' : '—'} your LST${a && net != null ? `; at today's rates that nets ≈ <b class="num ${net > a.apy ? 'good' : 'bad'}">${pct(net, 1)}</b> against ${pct(a.apy, 1)} unlevered — ${net > a.apy ? 'positive carry while the LST yield stays above the borrow rate' : 'it does not pay right now'}` : ''}. The ampLP version (post your LP, borrow LUNA, lock again) is the same idea at a lower LTV and with the TLA lock clock underneath. What we do not verify: anything beyond that — wBTC legs, Solid, second protocols. Every turn adds a liquidation line and a rate that moves with utilization.</p>`; }, 'tla-docs.html#credia'],
             'loop': ['The LST loop', `<p>Post LST as collateral, borrow LUNA, bond it into more LST, post that too. At LTV <i>L</i> the maximum leverage is 1 ÷ (1 − L). The loop pays only when the LST yield is comfortably above the borrow rate; today's numbers are on the screen, and the verdict follows them, not a story.</p>`, null],
         };
         function openHow(k) { const h = HOW[k]; if (!h) return; $('how-t').textContent = h[0]; $('how-b').innerHTML = typeof h[1] === 'function' ? h[1]() : h[1]; $('how-l').innerHTML = h[2] ? `<a class="text-cyan-300 hover:underline" href="${h[2]}" ${/^http/.test(h[2]) ? 'target="_blank" rel="noopener"' : ''}>Read more →</a>` : ''; const d = $('how'); if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', ''); }
@@ -540,7 +592,8 @@
         // ---------------- events ----------------
         function parseLuna(s) { const n = Number(String(s).replace(/[^0-9.]/g, '')); return Number.isFinite(n) && n > 0 ? n : S.luna; }
         document.addEventListener('click', (e) => {
-            const r = e.target.closest('.route, #web .hub, #web .leaf'); if (r) { S.route = r.dataset.route || r.getAttribute('data-route'); render(); window.scrollTo(0, 0); return; }
+            const lf = e.target.closest('#web .leaf'); if (lf) { const k = lf.getAttribute('data-how'); if (k && HOW[k]) openHow(k); else { S.route = lf.getAttribute('data-route'); render(); window.scrollTo(0, 0); } return; }
+            const r = e.target.closest('.route, #web .hub'); if (r) { S.route = r.dataset.route || r.getAttribute('data-route'); render(); window.scrollTo(0, 0); return; }
             if (e.target.closest('[data-back]')) { e.preventDefault(); S.route = 'home'; render(); return; }
             const how = e.target.closest('.how'); if (how) { openHow(how.dataset.how); return; }
             const chip = e.target.closest('.chip[data-luna]'); if (chip) { S.luna = Number(chip.dataset.luna); render(); return; }
@@ -563,8 +616,12 @@
         for (const ev of ['change', 'keydown']) { $('apr-in').addEventListener(ev, (e) => { if (ev === 'keydown' && e.key !== 'Enter') return; const v = pctIn($('apr-in').value); const b = nativeBase(); S.apr = (v == null || (b && Math.abs(v - b.apr) < 1e-6)) ? null : Math.min(5, Math.max(0, v)); render(); });
             $('comm-in').addEventListener(ev, (e) => { if (ev === 'keydown' && e.key !== 'Enter') return; const v = pctIn($('comm-in').value); if (v != null) S.comm = Math.min(1, Math.max(0, v)); render(); }); }
         $('disc-range').addEventListener('input', () => { S.disc = Number($('disc-range').value) / 100; render(); });
+        $('sim-pool').addEventListener('change', () => { simSel = $('sim-pool').value; delete $('sim-usd').dataset.touched; renderSim(); });
+        $('sim-usd').addEventListener('input', () => { $('sim-usd').dataset.touched = '1'; renderSim(); });
+        window.addEventListener('tla:wallet', (e) => { simSel = null; loadWallet(e.detail && e.detail.wallet); });
+        if (window.AddressPicker && AddressPicker.get && AddressPicker.get()) loadWallet(AddressPicker.get().wallet);
 
-        window.__nh = { webModel, renderWeb, S, D, REV, vpFor, vpAfter, bribeShare, bestPool, bestPerBucket, bribePlan, pools, totals, assetApy, nativeApr, nativeBase, vaultRows, crediaLuna, lstAmount, render, growComp, growSimple, dailyOfApy };
+        window.__nh = { webModel, renderWeb, simulate, simPools, loadWallet, walletPositions, S, D, REV, vpFor, vpAfter, bribeShare, bestPool, bestPerBucket, bribePlan, pools, totals, assetApy, nativeApr, nativeBase, vaultRows, crediaLuna, lstAmount, render, growComp, growSimple, dailyOfApy };
         readUrl(); render(); load().then(render);
     })();
     </script>

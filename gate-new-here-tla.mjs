@@ -103,12 +103,26 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
   check('N23 1M LUNA: VP 10,000,000 at max; compare scales linearly', /10,000,000 VP/.test(d.getElementById('t-tla').textContent) && Math.abs(T.totals().native / tot.native - 100) < 1e-6);
   // the web
   S.route = 'home'; S.luna = 10000; T.render();
-  check('N22b web: 4 hubs, 13 leaves + 2 sub-leaves (sell-the-lock, the 4-year clock); TLA hub shows LST yield AND VP; edges good/warn/bad', d.querySelectorAll('#web .hub').length === 4 && d.querySelectorAll('#web .leaf').length === 15 && /\/ yr/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && /\+ 100,000 VP/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && /Boost \/ Atrium/.test(d.getElementById('web').textContent) && /worst case 4 years/.test(d.getElementById('web').textContent) && /governance VP concentrated/.test(d.getElementById('web').textContent) && d.querySelectorAll('#web .e-good').length === 4, d.querySelector('#web .hub[data-route="tla"]').textContent);
+  check('N22b web: 4 hubs, 12 leaves + 2 sub-leaves; loop on the CREDIA hub; TLA hub shows LST yield AND VP', d.querySelectorAll('#web .hub').length === 4 && d.querySelectorAll('#web .leaf').length === 14 && /Borrow LUNA/.test([...d.querySelectorAll('#web .leaf[data-route="credia"]')].map(x => x.textContent).join(' ')) && ![...d.querySelectorAll('#web .leaf[data-route="votion"]')].some(x => /loop/i.test(x.textContent)) && /\/ yr/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && /\+ 100,000 VP/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && /Boost \/ Atrium/.test(d.getElementById('web').textContent) && /worst case 4 years/.test(d.getElementById('web').textContent) && /governance VP concentrated/.test(d.getElementById('web').textContent) && d.querySelectorAll('#web .e-good').length === 4, d.querySelector('#web .hub[data-route="tla"]').textContent);
   d.getElementById('luna-in2').value = '250,000'; d.getElementById('luna-in2').dispatchEvent(new w.Event('change'));
   check('N22d the amount is editable inside the diagram: 250,000 → TLA hub 2,500,000 VP, header input follows', /2,500,000 VP/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && d.getElementById('luna-in').value === '250,000', d.getElementById('luna-in').value);
   S.luna = 10000; T.render();
+  d.querySelector('#web .leaf[data-how="leaf-loop"]').dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+  check('N22c clicking a leaf opens its mini popup (the loop, with live LTV + borrow rate), route unchanged', T.S.route === 'home' && d.getElementById('how').hasAttribute('open') && /70% LTV/.test(d.getElementById('how-b').textContent) && /45%/.test(d.getElementById('how-b').textContent) && /supply-only/.test(d.getElementById('how-b').textContent) && /3\.33×/.test(d.getElementById('how-b').textContent), d.getElementById('how-b').textContent.slice(0, 160));
+  d.getElementById('how-x').click();
   d.querySelector('#web .hub[data-route="credia"]').dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
-  check('N22c clicking a web hub shifts to that route screen', T.S.route === 'credia' && d.getElementById('screen-credia').classList.contains('on'));
+  check('N22e clicking a web hub shifts to that route screen', T.S.route === 'credia' && d.getElementById('screen-credia').classList.contains('on'));
+  // LP boost simulator
+  S.route = 'tla'; S.luna = 10000; S.weeks = 104; T.render();
+  const sp = T.simPools(); const big = sp.sort((a, b) => b.tvl - a.tvl)[0]; const sim = T.simulate(big.key, 1000, 100000);
+  check('N27 simulator: pools from eris-apr; re-derived pool APR matches eris-apr incentive_apr within 2%', sp.length > 10 && sim && sim.sanity != null && sim.sanity < 0.02, sim && { pool: big.name, apr0: sim.apr0, eris: big.aprNow });
+  check('N27b adding 100K VP raises the pool\'s emission share and APR; your $1,000 LP earns more with votes than without; bribe from the same pool reported', sim.share1 > sim.share0 && sim.apr1 > sim.aprDep && sim.yourYr1 > sim.yourYr0 && typeof sim.bribeWk === 'number', { share0: sim.share0, share1: sim.share1, y0: sim.yourYr0, y1: sim.yourYr1 });
+  check('N27c share math: (v + a)/(V_b + a)', Math.abs(sim.share1 - (sim.votes + 100000) / (sim.bucketVotes + 100000)) < 1e-12);
+  check('N27d simulator renders three tiles + the bribes sentence', d.querySelectorAll('#sim-out .tile').length === 3 && /Bribes from this pool/.test(d.getElementById('sim-out').textContent));
+  // wallet path: pick a participant with positions
+  const parts = JSON.parse(read('member-data/participants/current.json')); const pm = parts.members.find(m => (m.lp_positions || []).some(x => x.estimated_position_usd > 0));
+  await T.loadWallet(pm.wallet); await new Promise(r => setTimeout(r, 50));
+  check('N27e wallet selected → its TLA positions listed, deposit prefilled from the largest', /TLA position/.test(d.getElementById('sim-who').textContent) && d.querySelectorAll('#sim-pool optgroup').length === 2 && Number(d.getElementById('sim-usd').value.replace(/[^0-9.]/g, '')) > 0, [d.getElementById('sim-who').textContent, d.getElementById('sim-usd').value]);
   // how? popup
   d.querySelector('.how[data-how="vp"]').click();
   check('N24 how? popup opens with the VP explanation', d.getElementById('how').hasAttribute('open') && /fixed/.test(d.getElementById('how-b').textContent));
