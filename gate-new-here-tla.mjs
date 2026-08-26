@@ -14,7 +14,7 @@ import { JSDOM } from 'jsdom';
 import fs from 'fs';
 import path from 'path';
 const CORE = process.env.TLA_CORE_DIR; if (!CORE) { console.error('TLA_CORE_DIR required'); process.exit(1); }
-const YF = process.env.YIELDS_FIXTURE || null;
+const YF = process.env.YIELDS_FIXTURE || null; const RF = process.env.RATES_FIXTURE || null;
 const here = path.dirname(new URL(import.meta.url).pathname);
 let PASS = 0, FAIL = 0;
 const check = (n, ok, x) => { if (ok) { PASS++; console.log('  ✓ ' + n); } else { FAIL++; console.log('  ✗ ' + n + (x != null ? '  ← ' + JSON.stringify(x).slice(0, 300) : '')); } };
@@ -30,6 +30,7 @@ async function boot(search = '', { yields = true } = {}) {
     w.HTMLDialogElement && (w.HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); });
     w.fetch = async (url) => { const u = String(url).split('?')[0]; const ok = (b) => ({ ok: true, status: 200, json: async () => JSON.parse(b), text: async () => b }); const nope = { ok: false, status: 404, json: async () => null, text: async () => null };
       if (u.endsWith('votion/yields/current.json')) return (yields && YF) ? ok(fs.readFileSync(YF, 'utf8')) : nope;
+      if (u.endsWith('dex-data/credia/rates/current.json')) return (yields && RF) ? ok(fs.readFileSync(RF, 'utf8')) : nope;
       const m = /tla-core\/main\/(.+)$/.exec(u); if (m) { const b = read(decodeURIComponent(m[1])); return b == null ? nope : ok(b); }
       const sm = /\/contract\/(terra1[0-9a-z]+)\/smart\//.exec(u);
       if (sm) { const a = sm[1]; if (a.startsWith('terra10788fkzah')) return ok(JSON.stringify({ data: { exchange_rates: [[1787738399, String(hubRate(AMP_CW20))]] } })); if (a.startsWith('terra1r9gls56')) return ok(JSON.stringify({ data: { last_exchange_rate: String(hubRate(ARB_CW20)), share_exchange_rate: '1' } })); if (a.startsWith('terra1l2nd99')) return ok(JSON.stringify({ data: { exchange_rate: '1.7699' } })); }
@@ -94,6 +95,8 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
   // Credia screen
   S.route = 'credia'; T.render(); const c = T.crediaLuna();
   check('N20 Credia: LUNA market supply APY, utilization, available liquidity (supplied − borrowed) from the snapshot', c && c.supplyApy > 0 && c.util > 0 && c.availLuna > 0 && /%$/.test(d.getElementById('cr-apy').textContent) && /LUNA$/.test(d.getElementById('cr-liq').textContent), c);
+  const rg = T.crediaRange('uluna');
+  check('N20b 7-day borrow range from the indexer sidecar shown on the Credia screen (labeled, off-chain) and in the loop tile', rg && rg.borrow_apr && /this week 9\.0%–14\.2%/.test(d.getElementById('cr-util-sub').textContent) && /ranged/.test(d.getElementById('cr-loop').textContent) && /week's high/.test(d.getElementById('cr-loop').textContent), d.getElementById('cr-util-sub').textContent);
   check('N21 loop verdict follows the numbers (borrow > LST yield today → "does not pay")', /does not pay|pays only/.test(d.getElementById('cr-loop').textContent), d.getElementById('cr-loop').textContent.slice(0, 120));
   // compare strip
   const tot = T.totals();
@@ -130,6 +133,7 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
 {
   const w = await boot('?luna=250000&path=tla&lock=52', { yields: false }); const d = w.document; const T = w.__nh;
   check('N25 deep link: ?luna=250000&path=tla&lock=52 → TLA screen, 250,000 LUNA, 52 weeks', T.S.luna === 250000 && T.S.route === 'tla' && T.S.weeks === 52 && d.getElementById('screen-tla').classList.contains('on') && num(d.getElementById('l-vp').textContent) === Math.round(T.vpFor(250000, 52)), d.getElementById('l-vp').textContent);
+  check('N26b rates sidecar ABSENT → no range text, nothing fabricated', !/this week/.test(d.getElementById('cr-util-sub').textContent) && T.crediaRange('uluna') === null);
   check('N26 yields product ABSENT → LST yield / Votion tiles blank with a "not published" note, native falls to the SmartStake reference (labeled), nothing fabricated', /not published/.test(d.getElementById('l-yield-sub').textContent) && d.getElementById('t-votion').textContent === '—' && /SmartStake CSV/.test(T.nativeBase().source) && T.totals().votion === null, [d.getElementById('l-yield-sub').textContent, T.nativeApr().source]);
 }
 console.log(`\n${PASS} passed, ${FAIL} failed`); process.exit(FAIL ? 1 : 0);
