@@ -146,25 +146,6 @@
             </div>
         </section>
 
-        <!-- 3b. LAST NFT STANDING — try it -->
-        <section class="max-w-5xl mx-auto px-5 pb-12">
-            <div class="card p-5 glow">
-                <div class="text-[11px] uppercase tracking-wider text-gray-500 mb-1">Try it — last NFT standing</div>
-                <p class="text-sm text-gray-400">The pool's daily inflow is what it is; drag how many NFTs are still unbroken and watch what each one earns per day. Inflow = the last 7 days of recorded backing gains, scaled to today's unbroken count.</p>
-                <div class="grid md:grid-cols-3 gap-4 mt-4 items-center">
-                    <div class="md:col-span-2">
-                        <input id="ls-slider" type="range" min="1" max="8907" value="8907" class="w-full accent-cyan-400">
-                        <div class="flex justify-between text-[11px] text-gray-500 mt-1"><span>1 NFT left</span><span id="ls-label">— unbroken</span><span id="ls-max">— (today)</span></div>
-                    </div>
-                    <div class="text-center">
-                        <div class="num text-3xl text-emerald-300" id="ls-luna">—</div><div class="text-[11px] text-gray-500">LUNA per NFT per day</div>
-                        <div class="num text-lg text-emerald-300/80 mt-1" id="ls-usd">—</div><div class="text-[11px] text-gray-500">at today's LUNA price</div>
-                    </div>
-                </div>
-                <div class="text-[11px] text-gray-500 mt-3">Daily pool inflow used: <span class="mono text-gray-300" id="ls-inflow">—</span> LUNA/day. A projection from the recorded series — not a promise; the rewards are a governance grant that a future vote could change.</div>
-            </div>
-        </section>
-
         <!-- 4. ART & LORE -->
         <section id="c4" class="chapter max-w-5xl mx-auto px-5 py-12">
             <div class="text-[11px] uppercase tracking-[.2em] text-cyan-400 mb-2">Chapter 4</div>
@@ -269,16 +250,6 @@
         if (sum) { $('h-unbroken').textContent = num(sum.unbroken_count); $('b-unbroken').textContent = num(sum.unbroken_count); $('b-broken').textContent = num(sum.broken_count); $('h-unminted').textContent = num(sum.unminted_count); $('d-unminted').textContent = num(sum.unminted_count); $('h-source').textContent = 'live from the collection snapshot · ' + String(sum.capturedAt || '').slice(0, 16).replace('T', ' ') + ' UTC'; }
         const amp = prices && prices.lst_ratios && (prices.lst_ratios.ampLUNA || prices.lst_ratios.ampluna); if (amp) $('t-amp').textContent = num(amp.ratio || amp, 4); else if (last && last.ampLunaRate) $('t-amp').textContent = num(last.ampLunaRate, 4);
         const tv = dd && dd.dashboard && dd.dashboard.total_value; if (tv && tv.total_usd != null) $('d-total').textContent = '$' + num(tv.total_usd);
-        // last NFT standing: inflow = mean of the last 7 daily per-NFT gains (LUNA) × today's unbroken count
-        const rows = (bh && bh.rows || []).filter(r => r.backingInLuna != null); const U = sum ? Number(sum.unbroken_count) : null;
-        const lunaUsd = prices && prices.token_prices && prices.token_prices.LUNA ? (prices.token_prices.LUNA.final_price_usd || prices.token_prices.LUNA.price) : null;
-        if (rows.length > 7 && U) {
-            const last7 = rows.slice(-8); const gains = []; for (let i = 1; i < last7.length; i++) { const d = Number(last7[i].backingInLuna) - Number(last7[i - 1].backingInLuna); if (d > 0) gains.push(d); }
-            const perNft = gains.length ? gains.reduce((a, b) => a + b, 0) / gains.length : 0; const inflow = perNft * U;
-            const sl = $('ls-slider'); sl.max = String(U); sl.value = String(U); $('ls-max').textContent = num(U) + ' (today)'; $('ls-inflow').textContent = num(inflow, 1);
-            const draw = () => { const u = Math.max(1, Number(sl.value)); const g = inflow / u; $('ls-label').textContent = num(u) + ' unbroken'; $('ls-luna').textContent = num(g, 3); $('ls-usd').textContent = lunaUsd ? '$' + num(g * lunaUsd, 3) : '—'; };
-            sl.addEventListener('input', draw); draw();
-        }
         // planets strip from the on-chain trait dictionary spelling
         const P = ['Lusa', 'Cristall', 'Pampas', 'Zando', 'Crutha', 'Kita', 'Ozara', 'Minas', 'Gredica', 'Sindari'];
         const file = { Cristall: 'Crystall' };   // the image file keeps its old name; the word follows the metadata
