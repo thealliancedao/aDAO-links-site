@@ -102,8 +102,11 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
   S.luna = 1000000; T.render();
   check('N23 1M LUNA: VP 10,000,000 at max; compare scales linearly', /10,000,000 VP/.test(d.getElementById('t-tla').textContent) && Math.abs(T.totals().native / tot.native - 100) < 1e-6);
   // the web
-  S.route = 'home'; T.render();
-  check('N22b web: center + 4 hubs + 12 leaves, hubs carry live numbers, edges colored good/warn/bad', d.querySelectorAll('#web .hub').length === 4 && d.querySelectorAll('#web .leaf').length === 12 && /VP/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && d.querySelectorAll('#web .e-good').length === 4 && d.querySelectorAll('#web .e-bad').length === 4, d.querySelector('#web .hub[data-route="tla"]').textContent);
+  S.route = 'home'; S.luna = 10000; T.render();
+  check('N22b web: 4 hubs, 13 leaves + 2 sub-leaves (sell-the-lock, the 4-year clock); TLA hub shows LST yield AND VP; edges good/warn/bad', d.querySelectorAll('#web .hub').length === 4 && d.querySelectorAll('#web .leaf').length === 15 && /\/ yr/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && /\+ 100,000 VP/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && /Boost \/ Atrium/.test(d.getElementById('web').textContent) && /worst case 4 years/.test(d.getElementById('web').textContent) && /governance VP concentrated/.test(d.getElementById('web').textContent) && d.querySelectorAll('#web .e-good').length === 4, d.querySelector('#web .hub[data-route="tla"]').textContent);
+  d.getElementById('luna-in2').value = '250,000'; d.getElementById('luna-in2').dispatchEvent(new w.Event('change'));
+  check('N22d the amount is editable inside the diagram: 250,000 → TLA hub 2,500,000 VP, header input follows', /2,500,000 VP/.test(d.querySelector('#web .hub[data-route="tla"]').textContent) && d.getElementById('luna-in').value === '250,000', d.getElementById('luna-in').value);
+  S.luna = 10000; T.render();
   d.querySelector('#web .hub[data-route="credia"]').dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
   check('N22c clicking a web hub shifts to that route screen', T.S.route === 'credia' && d.getElementById('screen-credia').classList.contains('on'));
   // how? popup

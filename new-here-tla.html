@@ -117,7 +117,7 @@
             </div>
             <div class="max-w-5xl mx-auto mt-1 mb-1 flex justify-center"><div class="w-px h-8 bg-[#2a2a2a]"></div></div>
             <div class="max-w-5xl mx-auto line"></div>
-            <div id="web-wrap" class="max-w-6xl mx-auto mt-4"><svg id="web" viewBox="0 0 1200 690" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Your LUNA and its four routes"></svg></div>
+            <div id="web-wrap" class="max-w-6xl mx-auto mt-4 relative"><div id="web-center" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center" style="width:19%"><div class="text-[10px] uppercase tracking-[.15em] text-gray-500">Input = tokens</div><div class="flex items-center justify-center gap-1"><input id="luna-in2" type="text" inputmode="decimal" class="num bg-transparent border-b border-cyan-500/50 text-cyan-200 text-center focus:outline-none focus:border-cyan-300" style="font-size:clamp(14px,1.9vw,24px);width:70%" aria-label="LUNA amount"><span class="text-cyan-200 num" style="font-size:clamp(11px,1.3vw,16px)">LUNA</span></div><div class="text-[11px] text-gray-500" id="c-usd2">≈ —</div><div class="flex justify-center gap-1 mt-1"><span class="chip" data-luna="10000" style="font-size:.6rem;padding:.1rem .4rem">10K</span><span class="chip" data-luna="100000" style="font-size:.6rem;padding:.1rem .4rem">100K</span><span class="chip" data-luna="1000000" style="font-size:.6rem;padding:.1rem .4rem">1M</span></div><div class="text-[9px] text-gray-600 mt-1">type any amount</div></div><svg id="web" viewBox="0 0 1200 690" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Your LUNA and its four routes"></svg></div>
             <div id="home-cards" class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
                 <div class="spoke"><div class="card route r-native p-4" data-route="native">
                     <div class="text-[10px] uppercase tracking-[.15em] tag border-b inline-block pb-0.5">Native staking</div>
@@ -195,7 +195,7 @@
                             <div class="flex justify-between text-[10px] text-gray-600"><span>1 week</span><span>3 mo</span><span>1 yr</span><span>2 yr</span></div>
                         </div>
                         <div class="num text-3xl mt-2 text-cyan-200" id="l-vp">—</div>
-                        <div class="text-[11px] text-gray-500">voting power (VP) <span class="how" data-how="vp">how?</span></div>
+                        <div class="text-[11px] text-gray-500">voting power (VP) <span class="how" data-how="vp">how?</span> · <span id="l-same-yield">plus the same staking yield as native, underneath</span></div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
                         <div class="tile"><div class="lbl">LST yield <span class="how" data-how="lst-apy">how?</span></div><div class="v good" id="l-yield">—</div><div class="sub" id="l-yield-sub">the hub ratio compounds chain rewards into your LST</div></div>
@@ -246,6 +246,10 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                 <div class="tile"><div class="lbl good">What you get</div><div class="note mt-1">The highest LST growth on offer: Votion's optimizer votes the vault's VP wherever bribes and emissions pay best (re-optimizing every ~15 minutes until the cast deadline), claims, and compounds into the vault's exchange rate. You hold a receipt token; its value in LST only goes up.</div></div>
                 <div class="tile"><div class="lbl bad">What you give up</div><div class="note mt-1">Your TLA voice — Votion votes, not you. Liquidity — the vault has its own lock schedule on top of the LST, and there is no Atrium/Boost market to sell out of it early. And the 7-day number moves in steps: rewards land at each epoch, so short windows mislead <span class="how" data-how="window">why?</span></div></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                <div class="tile"><div class="lbl warn">The clock, worst case</div><div class="v warn">2 + 2 years</div><div class="sub">Max-locked in Votion: 2 years to unlock the vault — and what comes out is a TLA lock. Then either sell that lock on Boost / Atrium at a discount, or start its own 2-year unlock. Max in both = up to 4 years to be liquid.</div></div>
+                <div class="tile"><div class="lbl warn">Degen: loop it</div><div class="v" id="v-loop">—</div><div class="sub">The Votion receipt is not Credia collateral today, but TLA ampLP is — so the loop people run is LP → borrow LUNA on Credia → bond → lock again. More yield, liquidation risk, and the clock above. The Credia screen has today's rates.</div></div>
             </div>
             <div class="mt-6" data-compare></div>
         </section>
@@ -430,6 +434,7 @@
             $('v-apy').textContent = vr ? pct(vr.apy, 2) : '—'; $('v-apy-parts').textContent = vr ? `${vr.lst || 'LST'} ${pct(vr.asset, 2)} + Votion ${pct(vr.votion, 2)} · 30-day window` : '—';
             if (vr) { const g = growComp(S.luna, dailyOfApy(vr.apy), days), b = growComp(S.luna, dailyOfApy(vr.votion), days); $('v-gain').textContent = '+' + fmt(g, 1) + ' LUNA-equiv'; $('v-gain-sub').textContent = HLBL[S.horizon] + (D.lunaUsd ? ' · ≈ ' + usd(g * D.lunaUsd) : ''); $('v-boost').textContent = '+' + fmt(b, 1) + ' LUNA-equiv'; $('v-luna').textContent = fmt(S.luna + g, 0) + ' LUNA'; }
             else { $('v-gain').textContent = '—'; $('v-boost').textContent = '—'; $('v-luna').textContent = '—'; }
+            const lp2 = crediaAmpLp(); $('v-loop').textContent = lp2 && lp2.ltv != null ? 'ampLP at ' + pct(lp2.ltv, 0) + ' LTV' : '—';
         }
         function renderCredia() {
             const c = crediaLuna(); const days = HDAYS[S.horizon];
@@ -444,38 +449,47 @@
         // ---------------- the web: center → 4 route hubs → 3 leaves each (edges colored like the owner's sketch) ----------------
         const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
         function webModel() {
-            const n = nativeApr(), a = assetApy(S.lst), v = vaultRows()[0], c = crediaLuna(), vp = vpFor(S.luna, MAX_WEEKS), bp = bribePlan(vp);
+            const n = nativeApr(), a = assetApy(S.lst), v = vaultRows()[0], c = crediaLuna(), vp = vpFor(S.luna, MAX_WEEKS), bp = bribePlan(vp), lp = crediaAmpLp();
+            const lstY = a ? pct(a.apy, 1) + ' / yr' : null;
             return {
-                center: { l1: fmt(S.luna) + ' LUNA', l2: D.lunaUsd ? '≈ ' + usd(S.luna * D.lunaUsd) : '' },
+                center: { l2: D.lunaUsd ? '≈ ' + usd(S.luna * D.lunaUsd) : '' },
                 routes: [
-                    { id: 'native', color: '#a3e635', title: 'Native staking', big: n ? pct(n.apr, 1) + ' / yr' : '—', sub: n ? 'after ' + Math.round(S.comm * 100) + '% commission' : 'no APR source',
-                      leaves: [{ k: 'good', l: 'Your validator, your chain vote' }, { k: 'warn', l: '21-day unbond to exit' }, { k: 'bad', l: 'No TLA vote, no bribes' }] },
-                    { id: 'tla', color: '#22d3ee', title: 'TLA lock', big: fmt(vp) + ' VP', sub: 'at max lock' + (a ? ' · ' + S.lst + ' ' + pct(a.apy, 1) + '/yr' : ''),
-                      leaves: [{ k: 'good', l: bp.total ? 'Best pots pay ' + usd(bp.total, 0) + ' / wk' : 'Direct emissions or bribes' }, { k: 'warn', l: 'Lock 1 week – 2 years' }, { k: 'bad', l: 'Eris picks the validators' }] },
-                    { id: 'votion', color: '#fb923c', title: 'Votion vault', big: v ? pct(v.apy, 1) + ' / yr' : '—', sub: v ? v.label.replace(/^Votion /, '') + ' · LST + boost' : 'yields not published yet',
-                      leaves: [{ k: 'good', l: 'Boost compounds into your LST' }, { k: 'warn', l: 'Its own lock, nothing to sell' }, { k: 'bad', l: 'Votion votes for you' }] },
-                    { id: 'credia', color: '#c084fc', title: 'Lend on Credia', big: c && c.supplyApy != null ? pct(c.supplyApy, 1) + ' / yr' : '—', sub: c ? pct(c.util, 0) + ' utilized · variable' : 'snapshot not available',
-                      leaves: [{ k: 'good', l: 'No lock — withdraw any time' }, { k: 'warn', l: 'Rate moves with borrowers' }, { k: 'bad', l: 'No vote anywhere · protocol risk' }] },
+                    { id: 'native', color: '#a3e635', title: 'Native staking', big: n ? pct(n.apr, 1) + ' / yr' : '—', sub: n ? 'after ' + Math.round(S.comm * 100) + '% commission' : 'no APR source', hub: { x: 335, y: 160 },
+                      leaves: [{ k: 'good', l: 'Your validator, your chain vote', x: 180, y: 40 }, { k: 'warn', l: '21-day unbond to exit', x: 80, y: 165 }, { k: 'bad', l: 'No TLA vote, no bribes', x: 200, y: 280 }] },
+                    { id: 'tla', color: '#22d3ee', title: 'TLA lock', big: lstY ? lstY : '—', big2: '+ ' + fmt(vp) + ' VP', sub: (lstY ? 'same staking yield as native · VP at max lock' : 'LST yield not published yet · VP at max lock'), hub: { x: 865, y: 160 },
+                      leaves: [{ k: 'good', l: 'Send emissions to your LPs and/or take bribes' + (bp.total ? ' — best pots ' + usd(bp.total, 0) + ' / wk' : ''), x: 1000, y: 40 },
+                               { k: 'warn', l: 'Lock 1 week – 2 years', x: 1120, y: 165, sub: { k: 'warn', l: 'or sell the lock on Boost / Atrium at a discount', x: 1115, y: 228 } },
+                               { k: 'bad', l: 'Eris picks the validators — LUNA-governance VP concentrated in one protocol', x: 990, y: 290 }] },
+                    { id: 'votion', color: '#fb923c', title: 'Votion vault', big: v ? pct(v.apy, 1) + ' / yr' : '—', sub: v ? v.label.replace(/^Votion /, '') + ' · LST + boost' : 'yields not published yet', hub: { x: 335, y: 530 },
+                      leaves: [{ k: 'good', l: 'Boost compounds into your LST', x: 180, y: 410 },
+                               { k: 'warn', l: 'Max lock: 2 years to unlock', x: 80, y: 535, sub: { k: 'bad', l: 'then the TLA lock: sell it on Boost / Atrium, or another 2-year clock — worst case 4 years', x: 90, y: 602 } },
+                               { k: 'bad', l: 'Votion votes for you', x: 225, y: 660 },
+                               { k: 'warn', l: 'Degen: loop it — TLA ampLP is Credia collateral' + (lp && lp.ltv != null ? ' (' + pct(lp.ltv, 0) + ' LTV)' : '') + '; more yield, more risk', x: 480, y: 660 }] },
+                    { id: 'credia', color: '#c084fc', title: 'Lend on Credia', big: c && c.supplyApy != null ? pct(c.supplyApy, 1) + ' / yr' : '—', sub: c ? pct(c.util, 0) + ' utilized · variable' : 'snapshot not available', hub: { x: 865, y: 530 },
+                      leaves: [{ k: 'good', l: 'No lock — withdraw any time', x: 1020, y: 410 }, { k: 'warn', l: 'Rate moves with borrowers', x: 1120, y: 535 }, { k: 'bad', l: 'No vote anywhere · protocol risk', x: 1000, y: 660 }] },
                 ] };
         }
         function renderWeb() {
             const svg = $('web'); if (!svg) return; const M = webModel();
-            const W = 1200, C = { x: 600, y: 345 }; const HUB = { native: { x: 335, y: 160 }, tla: { x: 865, y: 160 }, votion: { x: 335, y: 530 }, credia: { x: 865, y: 530 } };
-            const LEAF = { native: [[180, 40], [80, 165], [200, 280]], tla: [[1020, 40], [1120, 165], [1000, 280]], votion: [[180, 410], [80, 535], [200, 655]], credia: [[1020, 410], [1120, 535], [1000, 655]] };
+            const W = 1200, C = { x: 600, y: 345 };
             const clampX = (x, w) => Math.min(W - 8 - w / 2, Math.max(8 + w / 2, x));
             const box = (x, y, w, h, extra = '') => `<rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="10" class="box" ${extra}/>`;
-            let out = '';
-            // edges first (under the boxes)
-            for (const r of M.routes) { const h = HUB[r.id]; out += `<line class="edge e-route" x1="${C.x}" y1="${C.y}" x2="${h.x}" y2="${h.y}" style="stroke:${r.color}"/>`;
-                r.leaves.forEach((lf, i) => { const [lx0, ly] = LEAF[r.id][i]; const w = Math.min(250, 20 + lf.l.length * 6.6); const lx = clampX(lx0, w); out += `<line class="edge e-${lf.k}" x1="${h.x}" y1="${h.y}" x2="${lx}" y2="${ly}"/>`; }); }
-            // center
-            out += `<g>${box(C.x, C.y, 230, 86, 'style="stroke:#22d3ee;stroke-width:1.5;filter:drop-shadow(0 0 18px rgba(34,211,238,.35))"')}<text x="${C.x}" y="${C.y - 22}" text-anchor="middle" class="lbl">Input = tokens</text><text x="${C.x}" y="${C.y + 6}" text-anchor="middle" class="num" style="font-size:24px;fill:#a5f3fc">${esc(M.center.l1)}</text><text x="${C.x}" y="${C.y + 28}" text-anchor="middle" style="font-size:11px;fill:#6b7280">${esc(M.center.l2)}</text></g>`;
-            // hubs + leaves
-            for (const r of M.routes) { const h = HUB[r.id];
-                out += `<g class="hub" data-route="${r.id}">${box(h.x, h.y, 250, 96, `style="stroke:${r.color}"`)}<text x="${h.x}" y="${h.y - 26}" text-anchor="middle" class="lbl" style="fill:${r.color}">${esc(r.title)}</text><text x="${h.x}" y="${h.y + 4}" text-anchor="middle" class="num" style="font-size:22px">${esc(r.big)}</text><text x="${h.x}" y="${h.y + 26}" text-anchor="middle" style="font-size:10.5px;fill:#9ca3af">${esc(r.sub)}</text><text x="${h.x}" y="${h.y + 41}" text-anchor="middle" style="font-size:10px;fill:${r.color}">Explore →</text></g>`;
-                r.leaves.forEach((lf, i) => { const [lx0, ly] = LEAF[r.id][i]; const col = lf.k === 'good' ? '#4ade80' : lf.k === 'bad' ? '#f87171' : '#fbbf24'; const w = Math.min(250, 20 + lf.l.length * 6.6); const lx = clampX(lx0, w);
-                    out += `<g class="leaf" data-route="${r.id}">${box(lx, ly, w, 32, `style="stroke:${col};stroke-opacity:.5"`)}<text x="${lx}" y="${ly + 4}" text-anchor="middle" style="font-size:11px;fill:${col}">${esc(lf.l)}</text></g>`; }); }
-            svg.innerHTML = out;
+            const col = (k) => k === 'good' ? '#4ade80' : k === 'bad' ? '#f87171' : '#fbbf24';
+            // leaf text wraps at ~34 chars → up to 2 lines
+            const wrap = (t, n = 34) => { if (t.length <= n) return [t]; const words = t.split(' '); const lines = ['']; for (const w of words) { if ((lines[lines.length - 1] + ' ' + w).trim().length > n && lines[lines.length - 1]) lines.push(w); else lines[lines.length - 1] = (lines[lines.length - 1] + ' ' + w).trim(); } return lines.slice(0, 4); };
+            const leafGeom = (lf, narrow) => { const lines = wrap(lf.l, narrow ? 24 : 34); const w = Math.min(narrow ? 178 : 250, 24 + Math.max(...lines.map(l => l.length)) * 6.4); const h = 14 + lines.length * 14; return { lines, w, h, x: clampX(lf.x, w), y: lf.y }; };
+            let edges = '', nodes = '';
+            for (const r of M.routes) { const h = r.hub; edges += `<line class="edge e-route" x1="${C.x}" y1="${C.y}" x2="${h.x}" y2="${h.y}" style="stroke:${r.color}"/>`;
+                for (const lf of r.leaves) { const g = leafGeom(lf); edges += `<line class="edge e-${lf.k}" x1="${h.x}" y1="${h.y}" x2="${g.x}" y2="${g.y}"/>`;
+                    nodes += `<g class="leaf" data-route="${r.id}">${box(g.x, g.y, g.w, g.h, `style="stroke:${col(lf.k)};stroke-opacity:.5"`)}${g.lines.map((ln, i) => `<text x="${g.x}" y="${g.y - (g.lines.length - 1) * 7 + i * 14 + 4}" text-anchor="middle" style="font-size:11px;fill:${col(lf.k)}">${esc(ln)}</text>`).join('')}</g>`;
+                    if (lf.sub) { const sg = leafGeom(lf.sub, true); edges += `<line class="edge e-${lf.sub.k}" x1="${g.x}" y1="${g.y + g.h / 2}" x2="${sg.x}" y2="${sg.y - sg.h / 2}" style="stroke-dasharray:4 3"/>`;
+                        nodes += `<g class="leaf" data-route="${r.id}">${box(sg.x, sg.y, sg.w, sg.h, `style="stroke:${col(lf.sub.k)};stroke-opacity:.5;stroke-dasharray:4 3"`)}${sg.lines.map((ln, i) => `<text x="${sg.x}" y="${sg.y - (sg.lines.length - 1) * 7 + i * 14 + 4}" text-anchor="middle" style="font-size:10.5px;fill:${col(lf.sub.k)}">${esc(ln)}</text>`).join('')}</g>`; } }
+                const two = !!r.big2; const H = two ? 118 : 100;
+                nodes += `<g class="hub" data-route="${r.id}">${box(h.x, h.y, 270, H, `style="stroke:${r.color}"`)}<text x="${h.x}" y="${h.y - H / 2 + 18}" text-anchor="middle" class="lbl" style="fill:${r.color}">${esc(r.title)}</text><text x="${h.x}" y="${h.y - H / 2 + (two ? 44 : 50)}" text-anchor="middle" class="num" style="font-size:${two ? 20 : 22}px">${esc(r.big)}</text>${two ? `<text x="${h.x}" y="${h.y - H / 2 + 66}" text-anchor="middle" class="num" style="font-size:20px;fill:#a5f3fc">${esc(r.big2)}</text>` : ''}<text x="${h.x}" y="${h.y + H / 2 - 24}" text-anchor="middle" style="font-size:10.5px;fill:#9ca3af">${esc(r.sub)}</text><text x="${h.x}" y="${h.y + H / 2 - 9}" text-anchor="middle" style="font-size:10px;fill:${r.color}">Explore →</text></g>`; }
+            // center: box only — the amount is a real input overlaid in HTML (#web-center)
+            nodes += `<g>${box(C.x, C.y, 236, 96, 'style="stroke:#22d3ee;stroke-width:1.5;filter:drop-shadow(0 0 18px rgba(34,211,238,.35))"')}</g>`;
+            svg.innerHTML = edges + nodes;
+            const wc = $('c-usd2'); if (wc) wc.textContent = M.center.l2 || '≈ —'; const i2 = $('luna-in2'); if (i2 && document.activeElement !== i2) i2.value = fmt(S.luna);
         }
         // ---------------- spokes: on each route screen, join the hub node to its tiles with colored lines ----------------
         function drawSpokes() {
@@ -542,6 +556,8 @@
         });
         $('luna-in').addEventListener('change', () => { S.luna = parseLuna($('luna-in').value); render(); });
         $('luna-in').addEventListener('keydown', (e) => { if (e.key === 'Enter') { S.luna = parseLuna($('luna-in').value); render(); } });
+        $('luna-in2').addEventListener('change', () => { S.luna = parseLuna($('luna-in2').value); render(); });
+        $('luna-in2').addEventListener('keydown', (e) => { if (e.key === 'Enter') { S.luna = parseLuna($('luna-in2').value); render(); $('luna-in2').blur(); } });
         $('lock-range').addEventListener('input', () => { S.weeks = Number($('lock-range').value); render(); });
         const pctIn = (v) => { const n = Number(String(v).replace(/[^0-9.]/g, '')); return Number.isFinite(n) ? n / 100 : null; };
         for (const ev of ['change', 'keydown']) { $('apr-in').addEventListener(ev, (e) => { if (ev === 'keydown' && e.key !== 'Enter') return; const v = pctIn($('apr-in').value); const b = nativeBase(); S.apr = (v == null || (b && Math.abs(v - b.apr) < 1e-6)) ? null : Math.min(5, Math.max(0, v)); render(); });
