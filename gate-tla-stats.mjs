@@ -55,7 +55,7 @@ check('B2 pot no longer double-counts: total < 1,100 (was 1,163.85 with $139.03 
 check('H1 the dead yearly-file loader is gone (no "historical data" log, no historicalUrls)', !logs.some(l => /historical data/i.test(l)) && !/historicalUrls/.test(html));
 const ov = logs.find(l => /known-token name overrides/.test(l)) || ''; const nOv = Number((ov.match(/Loaded (\d+)/) || [])[1]);
 check('T1 token-name overrides parsed from the org catalog (>20, was 0)', nOv > 20, nOv);
-check('N1 subnav: Member Portfolio is disabled with SOON; Docs is gone', subnavItems && subnavItems.some(t => t.id === 'portfolio' && t.disabled && t.badge === 'SOON') && !subnavItems.some(t => t.id === 'docs'), subnavItems && subnavItems.map(t => t.id));
+check('N1 subnav: Member Portfolio is disabled with SOON; Docs is back as a link to the rebuilt hub', subnavItems && subnavItems.some(t => t.id === 'portfolio' && t.disabled && t.badge === 'SOON') && subnavItems.some(t => t.id === 'docs' && t.href === 'tla-docs.html'), subnavItems && subnavItems.map(t => t.id));
 check('L1 no uncaught page errors', !logs.some(l => /^ERR/.test(l) && !/fetch|network/i.test(l)), logs.filter(l => /^ERR/.test(l)).slice(0, 3));
 console.log('\n=== Batch B — Overview redesign ===');
 const vm = d.getElementById('bounty-board-rows'); const vmSum = d.getElementById('bounty-summary');
