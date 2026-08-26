@@ -1550,7 +1550,8 @@
                  name-only breakdown line below ("Tokens + LPs + Locks + Backing"). No
                  numbers in the mobile breakdown — it just communicates WHAT is summed,
                  since the actual values are visible in the contributing tiles right below. -->
-            <div id="dao-total-value-card" class="stat-card col-span-2 md:col-span-4 px-4 py-3 rounded-xl text-center">
+            <div id="dao-total-value-card" class="stat-card col-span-2 md:col-span-4 px-4 py-3 rounded-xl text-center cursor-pointer hover:border-amber-500/40 transition-all relative" onclick="openChartModal('daoTotalValue_USD')" title="Click: this strip over time">
+                <span class="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300"><i class="fas fa-chart-line"></i></span>
                 <div class="flex items-center justify-center gap-1 mb-1">
                     <i class="fas fa-coins text-amber-400 text-xs"></i>
                     <h3 class="text-xs font-medium text-gray-400 uppercase tracking-wider">DAO Total Value</h3>
@@ -1627,7 +1628,8 @@
             </div>
 
             <!-- NFT Collection Analytics strip: mirrors the DAO Total Value strip styling -->
-            <a id="nft-analytics-strip" href="nft-explorer-index.html?view=analytics" class="stat-card col-span-2 md:col-span-4 px-4 py-3 rounded-xl text-center block hover:border-cyan-500/60 transition-all" style="border:1px solid rgba(34,211,238,.22)">
+            <a id="nft-analytics-strip" href="nft-explorer-index.html?view=analytics" class="stat-card col-span-2 md:col-span-4 px-4 py-3 rounded-xl text-center block hover:border-cyan-500/60 transition-all relative" style="border:1px solid rgba(34,211,238,.22)">
+                <span class="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/30" title="Click: listed / sales / volume over time" onclick="event.preventDefault(); event.stopPropagation(); openChartModal('nftListed');"><i class="fas fa-chart-line"></i></span>
                 <div class="flex items-center justify-center gap-1 mb-1">
                     <i class="fas fa-chart-line text-cyan-400 text-xs"></i>
                     <h3 class="text-xs font-medium text-gray-400 uppercase tracking-wider">NFT Collection Analytics</h3>
@@ -2937,6 +2939,10 @@
                     <option value="backingPerNft_USD">Backing/NFT (USD)</option>
                     <option value="backingPerNft_ampLUNA">Backing/NFT (ampLUNA)</option>
                     <option value="avgDailyGainPerNft_LUNA">Avg Daily Gain</option>
+                    <option value="daoTotalValue_USD">DAO Total Value (USD)</option>
+                    <option value="tlaLocks_USD">TLA Locks (USD)</option>
+                    <option value="nftListed">NFTs Listed</option>
+                    <option value="nftVolumeTotal_USD">NFT Volume, all-time (USD)</option>
                     <option value="treasuryTotal_USD">Treasury (USD)</option>
                     <option value="tlaDepositsTotal_USD">TLA Deposits (USD)</option>
                     <option value="tlaVpTotal_LUNA">TLA Voting Power</option>
@@ -4818,6 +4824,30 @@
                     secondaryColor: '#3b82f6',
                     secondaryFormat: (v) => v.toFixed(2) + ' LUNA'
                 },
+                'daoTotalValue_USD': {
+                    label: 'DAO Total Value (USD)',
+                    format: (v) => '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 }),
+                    color: '#fbbf24', tileId: 'dao-total-value-card',
+                    secondaryKey: 'nftBackingTotal_USD', secondaryLabel: 'of which unminted NFT backing', secondaryColor: '#22c55e', secondaryFormat: (v) => '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 })
+                },
+                'tlaLocks_USD': {
+                    label: 'DAO TLA Locks (USD)',
+                    format: (v) => '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 }),
+                    color: '#a78bfa', tileId: 'dao-tla-vp-card',
+                    secondaryKey: 'lunaPrice_USD', secondaryLabel: 'LUNA Price', secondaryColor: '#f97316', secondaryFormat: (v) => '$' + v.toFixed(4)
+                },
+                'nftListed': {
+                    label: 'NFTs listed (all markets)',
+                    format: (v) => Math.round(v).toLocaleString('en-US'),
+                    color: '#22d3ee', tileId: 'nft-analytics-strip',
+                    secondaryKey: 'nftSalesTotal', secondaryLabel: 'Sales, all-time', secondaryColor: '#fbbf24', secondaryFormat: (v) => Math.round(v).toLocaleString('en-US')
+                },
+                'nftVolumeTotal_USD': {
+                    label: 'NFT volume, all-time (USD at sale)',
+                    format: (v) => '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 }),
+                    color: '#fbbf24', tileId: 'nft-analytics-strip',
+                    secondaryKey: 'nftSalesTotal', secondaryLabel: 'Sales, all-time', secondaryColor: '#22d3ee', secondaryFormat: (v) => Math.round(v).toLocaleString('en-US')
+                },
                 'treasuryTotal_USD': {
                     label: 'DAO Treasury (USD)',
                     format: (v) => '$' + v.toLocaleString('en-US', {maximumFractionDigits: 0}),
@@ -4936,6 +4966,10 @@
                 backingPerNft_USD: "The same backing, in dollars. Because it's converted at LUNA's price, this line can fall even while backing keeps growing in LUNA terms — the orange LUNA-price overlay shows why.",
                 backingPerNft_ampLUNA: "Backing per NFT in ampLUNA — the purest growth signal, rising every epoch as staking rewards compound. The overlay shows either LUNA's staking APR (the engine behind the climb) or the ampLUNA/LUNA ratio.",
                 avgDailyGainPerNft_LUNA: "Average LUNA added to each NFT's backing per day, smoothed across the gap between snapshots. Consistently positive means backing is compounding.",
+                daoTotalValue_USD: "The DAO TOTAL VALUE strip over time: treasury tokens + TLA LP deposits + TLA locks + unminted NFT backing, all in USD at each day's prices. The overlay isolates the NFT backing, usually the largest part. Captured daily since 2026-08-26 (dao-dashboard 1.6); earlier days have the parts but not the strip.",
+                tlaLocks_USD: "USD value of the DAO's two TLA locks (Max ampLUNA + Max arbLUNA) at each day's prices — the VP itself is fixed until the locks change; the dollar line moves with LUNA. Captured daily since 2026-08-26.",
+                nftListed: "How many aDAO NFTs are listed across BBL, Atrium and Boost each day. The overlay is cumulative sales — when listed falls and sales rise together, the market cleared; when listed falls alone, sellers delisted. Captured daily since 2026-08-26.",
+                nftVolumeTotal_USD: "All-time sales volume, USD at the time of each sale, as a running total. Steps are sales; flat stretches are quiet weeks. Captured daily since 2026-08-26.",
                 treasuryTotal_USD: "Total DAO treasury value in USD. It moves with both what the treasury holds and where LUNA's price sits — the overlay isolates the price component.",
                 tlaDepositsTotal_USD: "Total USD the DAO has deposited into TLA liquidity pools. The overlay shows LUNA's price, the main driver of the dollar figure.",
                 tlaDepositsApr: "Estimated APR earned on the DAO's TLA pool deposits. The overlay shows the underlying deposit value those returns are paid on.",
@@ -5171,6 +5205,13 @@
                         cumulativeClaimed_ampLUNA: 0,                        // lifetime harvested (running)
                         rebaseTotal_USD:         (ddb.rebase ? (ddb.rebase.usd ?? null) : null),
                         treasuryTotal_USD:       (ddb.treasury ? (ddb.treasury.total_usd ?? null) : null),
+                        // 4.10 (owner 2026-08-25): the two index strips, captured per day by dao-dashboard 1.6
+                        daoTotalValue_USD:       (ddb.total_value ? (ddb.total_value.total_usd ?? null) : null),
+                        tlaLocks_USD:            (ddb.total_value ? (ddb.total_value.tla_locks_usd ?? null) : null),
+                        nftBackingTotal_USD:     (ddb.total_value ? (ddb.total_value.nft_backing_usd ?? null) : null),
+                        nftListed:               (ddb.nft ? (ddb.nft.listed ?? null) : null),
+                        nftSalesTotal:           (ddb.nft ? (ddb.nft.sales_total ?? null) : null),
+                        nftVolumeTotal_USD:      (ddb.nft ? (ddb.nft.volume_usd_at_sale_total ?? null) : null),
 
                         // NFT collection (nft-inventory v2 daily)
                         daodaoStaked:     (vd && vd.daodao_staked_count != null) ? vd.daodao_staked_count : null,
