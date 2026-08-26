@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New here? | Alliance DAO</title>
+    <link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
+    <meta name="description" content="A ten-minute crash course: the only NFT collection backed by a blockchain's own staking rewards, how the backing grows every day, what the DAO does with it, and how to read everything on this site.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+    <script src="/_vercel/insights/script.js" defer></script>
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0D0D0D; color: #EAEAEA; }
+        .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+        .chapter { scroll-margin-top: 5rem; }
+        .big { font-size: clamp(2.2rem, 6vw, 4.5rem); line-height: 1.02; font-weight: 900; letter-spacing: -0.02em; }
+        .num { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+        .card { background: #141414; border: 1px solid #262626; border-radius: 1rem; }
+        .glow { box-shadow: 0 0 80px rgba(34,211,238,.12), inset 0 0 0 1px rgba(34,211,238,.18); }
+        .stepnum { width: 2.2rem; height: 2.2rem; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; background: rgba(34,211,238,.15); color: #67e8f9; border: 1px solid rgba(34,211,238,.4); flex-shrink: 0; }
+        .prog a { font-size: .72rem; color: #6b7280; padding: .25rem .55rem; border-radius: 9999px; white-space: nowrap; }
+        .prog a.on { color: #67e8f9; background: rgba(34,211,238,.12); }
+        .term { border-left: 3px solid #22d3ee55; padding: .5rem .8rem; background: rgba(255,255,255,.02); border-radius: .4rem; }
+        .term b { color: #e5e7eb; }
+        .hero-bg { background: radial-gradient(1200px 500px at 50% -10%, rgba(34,211,238,.14), transparent 60%), radial-gradient(800px 400px at 80% 30%, rgba(251,146,60,.10), transparent 60%); }
+        .planet { width: 56px; height: 56px; border-radius: 9999px; object-fit: cover; border: 1px solid rgba(255,255,255,.12); }
+        .video { aspect-ratio: 16/9; background: linear-gradient(135deg, #0f172a, #111); border: 1px dashed #334155; border-radius: .8rem; display: flex; align-items: center; justify-content: center; color: #64748b; font-size: .8rem; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/site-header.js"></script>
+    <script src="/lib/address-picker.js"></script>
+    <script>SiteHeader.mount({ page: 'new-here', mobileTabs: false }); if (window.AddressPicker) AddressPicker.mount({});</script>
+
+    <!-- chapter progress -->
+    <nav class="prog sticky top-0 z-30 bg-[#0D0D0D]/90 backdrop-blur border-b border-white/5 px-3 py-1.5 flex gap-1 overflow-x-auto" id="prog">
+        <a href="#c1">1 · The NFT</a><a href="#c2">2 · How the backing works</a><a href="#c3">3 · Breaking</a><a href="#c4">4 · Art &amp; lore</a><a href="#c5">5 · The DAO</a><a href="#c6">6 · Terra DeFi in plain words</a><a href="#c7">7 · How to read this site</a>
+    </nav>
+
+    <main class="hero-bg">
+        <!-- HERO -->
+        <section class="max-w-5xl mx-auto px-5 pt-14 pb-10 text-center">
+            <div class="text-[11px] uppercase tracking-[.2em] text-cyan-400 mb-3">New here? Ten minutes, start to finish.</div>
+            <h1 class="big">An NFT collection backed by a blockchain's own staking rewards.</h1>
+            <p class="text-gray-400 text-lg mt-5 max-w-3xl mx-auto">Not a promise, not a roadmap — a staked position on Terra that has been paying into every unbroken NFT, every day, since the chain voted it in. This page explains what that means, how it works, and how to read everything else on this site — even if you have never touched DeFi.</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8 max-w-4xl mx-auto">
+                <div class="card p-4"><div class="num text-2xl text-cyan-300" id="h-days">—</div><div class="text-[11px] text-gray-500 mt-1">days backed by Terra <span class="text-gray-600">(since gov prop #4801 passed, 2024-02-23)</span></div></div>
+                <div class="card p-4"><div class="num text-2xl text-emerald-300" id="h-backing">—</div><div class="text-[11px] text-gray-500 mt-1">backing per NFT right now <span class="text-gray-600" id="h-backing-usd"></span></div></div>
+                <div class="card p-4"><div class="num text-2xl text-amber-300" id="h-unbroken">—</div><div class="text-[11px] text-gray-500 mt-1">unbroken NFTs sharing it</div></div>
+                <div class="card p-4"><div class="num text-2xl text-violet-300" id="h-unminted">—</div><div class="text-[11px] text-gray-500 mt-1">of 10,000 still unminted, held by the DAO for alliances</div></div>
+            </div>
+            <p class="text-[11px] text-gray-600 mt-3" id="h-source">live from the collection's own on-chain snapshot</p>
+        </section>
+
+        <!-- 1. THE NFT -->
+        <section id="c1" class="chapter max-w-5xl mx-auto px-5 py-12">
+            <div class="text-[11px] uppercase tracking-[.2em] text-cyan-400 mb-2">Chapter 1</div>
+            <h2 class="text-3xl font-extrabold">The NFT that is not a JPEG</h2>
+            <div class="grid md:grid-cols-5 gap-6 mt-5 items-start">
+                <div class="md:col-span-3 space-y-4 text-gray-300 leading-relaxed">
+                    <p>Most NFTs are a picture and a promise. The Alliance DAO NFT is a picture <em>and a stake</em>: the collection's smart contract holds a staked asset called <b class="text-white">Ally</b>, and Terra's governance voted to reward that stake alongside ordinary LUNA staking.</p>
+                    <p>That vote was <b class="text-white">Terra governance proposal #4801</b>, passed <b class="text-white">2024-02-23</b>. It gave Ally a reward weight of <span class="mono text-cyan-300">0.008</span> in the chain's Alliance module — a fixed, pinned share of the LUNA staking rewards the chain pays out. The community pushed the weight up from the 0.003 in the forum draft before it went on chain.</p>
+                    <p>So the collection's rewards don't come from a team, a treasury drip or a token they printed. They come from <b class="text-white">the chain itself</b>, in LUNA, every day — the same source that pays validators and delegators. That is the whole thesis, and it is the part nobody else can copy without a governance vote of their own.</p>
+                    <p class="text-sm text-gray-500 border-l-2 border-amber-500/40 pl-3">The honest caveat, which this site always shows: the rewards are a grant from Terra governance and a future proposal could change or remove them. Everything here is derived from the recorded history, not a promise.</p>
+                </div>
+                <div class="md:col-span-2 card p-4 glow">
+                    <div class="text-[11px] uppercase tracking-wider text-gray-500 mb-2">On the record</div>
+                    <ul class="text-sm space-y-2 text-gray-300">
+                        <li><i class="fas fa-landmark text-cyan-400 mr-2 w-4"></i>Gov prop <b>#4801</b> · passed 2024-02-23</li>
+                        <li><i class="fas fa-weight-scale text-cyan-400 mr-2 w-4"></i>Ally reward weight <span class="mono">0.008</span> · take rate 0 · pinned</li>
+                        <li><i class="fas fa-cubes text-cyan-400 mr-2 w-4"></i>10,000 NFTs · launched 2023-12-12</li>
+                        <li><i class="fas fa-shield-halved text-cyan-400 mr-2 w-4"></i>Contract audited (SCV) · <a class="text-cyan-300 hover:underline" href="verify.html">verify us →</a></li>
+                        <li><i class="fas fa-clock text-cyan-400 mr-2 w-4"></i>Rewards claimed daily ~00:50 UTC, on chain, by a bot anyone can watch</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. HOW THE BACKING WORKS -->
+        <section id="c2" class="chapter max-w-5xl mx-auto px-5 py-12">
+            <div class="text-[11px] uppercase tracking-[.2em] text-cyan-400 mb-2">Chapter 2</div>
+            <h2 class="text-3xl font-extrabold">How the backing grows — four steps, one transaction, every day</h2>
+            <p class="text-gray-400 mt-2 max-w-3xl">You don't have to understand staking to follow this. Read it top to bottom once and you'll recognise every number on the home page.</p>
+            <div class="grid md:grid-cols-4 gap-3 mt-6">
+                <div class="card p-4"><div class="flex items-center gap-2 mb-2"><span class="stepnum">1</span><b>Claim</b></div><p class="text-sm text-gray-400">Around 00:50 UTC, a bot calls the NFT contract and collects all the LUNA rewards the chain has accrued to Ally since yesterday.</p></div>
+                <div class="card p-4"><div class="flex items-center gap-2 mb-2"><span class="stepnum">2</span><b>Bond to ampLUNA</b></div><p class="text-sm text-gray-400">In the same transaction, every LUNA is staked again through Eris into <b class="text-gray-200">ampLUNA</b> — LUNA that keeps earning staking yield by itself. The backing isn't idle coins; it is staked coins.</p></div>
+                <div class="card p-4"><div class="flex items-center gap-2 mb-2"><span class="stepnum">3</span><b>90% to holders</b></div><p class="text-sm text-gray-400">Nine-tenths stays in the NFT contract as the <b class="text-gray-200">backing</b>, shared equally by every unbroken NFT.</p></div>
+                <div class="card p-4"><div class="flex items-center gap-2 mb-2"><span class="stepnum">4</span><b>10% to the DAO</b></div><p class="text-sm text-gray-400">One-tenth goes to the DAO wallet as operating funds — the money that builds this site and the DAO's TLA positions (chapter 5).</p></div>
+            </div>
+            <div class="grid md:grid-cols-2 gap-4 mt-6">
+                <div class="card p-5">
+                    <div class="text-[11px] uppercase tracking-wider text-gray-500 mb-1">The one formula</div>
+                    <div class="mono text-lg text-cyan-300">backing per NFT = contract ampLUNA ÷ unbroken NFTs</div>
+                    <p class="text-sm text-gray-400 mt-2">Right now that is <span class="num text-emerald-300" id="f-backing">—</span> ampLUNA per NFT (≈ <span class="num text-emerald-300" id="f-luna">—</span> LUNA at today's hub rate, <span class="num text-emerald-300" id="f-usd">—</span>). It went up yesterday, it will go up tomorrow, and you can watch it on the <a class="text-cyan-300 hover:underline" href="ally.html">Ally page</a> — the daily gain is the last two rows of a series the site records every day.</p>
+                </div>
+                <div class="card p-5">
+                    <div class="text-[11px] uppercase tracking-wider text-gray-500 mb-1">A real day, decoded from the chain (2026-04-25)</div>
+                    <div class="text-sm text-gray-300 space-y-1 mt-1">
+                        <div>1,874 LUNA claimed →</div>
+                        <div>899 ampLUNA minted →</div>
+                        <div><span class="text-emerald-300">809 to the holders' pool</span> · <span class="text-amber-300">89 to the DAO wallet</span></div>
+                    </div>
+                    <p class="text-[11px] text-gray-500 mt-2">Every day looks like this. The amounts move with LUNA's staking rewards; the split never does.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. BREAKING -->
+        <section id="c3" class="chapter max-w-5xl mx-auto px-5 py-12">
+            <div class="text-[11px] uppercase tracking-[.2em] text-cyan-400 mb-2">Chapter 3</div>
+            <h2 class="text-3xl font-extrabold">Breaking: cashing out your share, once</h2>
+            <div class="grid md:grid-cols-2 gap-6 mt-5">
+                <div class="space-y-3 text-gray-300 leading-relaxed">
+                    <p>At any time, a holder can <b class="text-white">break</b> an NFT. The contract pays that NFT's share of the backing out to the holder — one share of the whole pool — and that NFT stops accruing. It can be done <b class="text-white">once per NFT</b>.</p>
+                    <p>You keep the NFT. It still trades, it still carries its voting power in the DAO, it is still your art. What it gives up is the daily backing.</p>
+                    <p>And here is the part people miss: the daily claim <em>does not shrink</em> when NFTs break. The same 90% is divided among fewer NFTs — so every unbroken NFT's daily gain rises as others break. The Ally page calls this <b class="text-white">"last NFT standing"</b> and projects it from the recorded series.</p>
+                </div>
+                <div class="card p-5">
+                    <div class="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Where it stands today</div>
+                    <div class="grid grid-cols-2 gap-3 text-center">
+                        <div><div class="num text-2xl text-emerald-300" id="b-unbroken">—</div><div class="text-[11px] text-gray-500">unbroken · still earning</div></div>
+                        <div><div class="num text-2xl text-gray-300" id="b-broken">—</div><div class="text-[11px] text-gray-500">broken · cashed out once</div></div>
+                    </div>
+                    <p class="text-[11px] text-gray-500 mt-3">Breaking is offered on BoostDAO Ignite and Atrium. The NFT Explorer shows which tokens are broken, and the floor chart tiers Broken / Unbroken / Phoenix separately because they are different assets.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. ART & LORE -->
+        <section id="c4" class="chapter max-w-5xl mx-auto px-5 py-12">
+            <div class="text-[11px] uppercase tracking-[.2em] text-cyan-400 mb-2">Chapter 4</div>
+            <h2 class="text-3xl font-extrabold">The art, the galaxy, the fun part</h2>
+            <div class="grid md:grid-cols-5 gap-6 mt-5 items-center">
+                <div class="md:col-span-3 space-y-3 text-gray-300 leading-relaxed">
+                    <p>Ten planets orbit the <b class="text-white">Phoenix Sun</b>. Seven million years after a one-way exodus from a dying Earth, the ten tribes of humanity have become ten peoples — the Lusans on their water world, the Kitans in the ice, the Sindarin in the fire, the Cristallians in the crystal — each with its own weapons, weather and light. Every NFT is one of them, and every trait on it is a line of that story.</p>
+                    <p>Rarity is real and it is <em>on chain</em>: each NFT carries a grade from 1 to 40, and grade 40 — <b class="text-white">Phoenix Rising</b> — is the rarest object in the galaxy. The <a class="text-cyan-300 hover:underline" href="rarity-explained.html">rarity page</a> derives every claim from the metadata, and the <a class="text-cyan-300 hover:underline" href="adao-lore.html">Galaxy Lore</a> page lets you fly the system, planet by planet.</p>
+                </div>
+                <div class="md:col-span-2"><img src="/assets/images/aDAO%20Galaxy%20Pic.webp" alt="The Phoenix Sun system" class="rounded-xl border border-white/10 w-full"><div class="text-[11px] text-gray-600 mt-1 text-center">the Phoenix Sun and its ten worlds</div></div>
+            </div>
+            <div class="flex flex-wrap gap-3 mt-5" id="planets"></div>
+        </section>
+
+        <!-- 5. THE DAO -->
+        <section id="c5" class="chapter max-w-5xl mx-auto px-5 py-12">
+            <div class="text-[11px] uppercase tracking-[.2em] text-cyan-400 mb-2">Chapter 5</div>
+            <h2 class="text-3xl font-extrabold">The DAO: what we do with it</h2>
+            <div class="grid md:grid-cols-3 gap-4 mt-5">
+                <div class="card p-5"><div class="text-cyan-300 font-bold mb-1"><i class="fas fa-people-group mr-2"></i>Who decides</div><p class="text-sm text-gray-400">Holders stake their NFTs in DAODAO and vote — one staked NFT, one vote, broken or not. Every proposal, every vote and every voter is on the <a class="text-cyan-300 hover:underline" href="dao.html">DAO page</a>, with a quick audit of what each proposal actually does on chain.</p></div>
+                <div class="card p-5"><div class="text-cyan-300 font-bold mb-1"><i class="fas fa-water mr-2"></i>Where the treasury works</div><p class="text-sm text-gray-400">The DAO's 10% goes into the <b class="text-gray-200">Terra Liquidity Alliance</b>: liquidity positions that earn LUNA emissions, and two max-duration locks that give the DAO votes over where those emissions flow. The treasury is worth <span class="num text-amber-300" id="d-total">—</span> today, and that strip on the home page is the four parts of it.</p></div>
+                <div class="card p-5"><div class="text-cyan-300 font-bold mb-1"><i class="fas fa-handshake mr-2"></i>Why the unminted matter</div><p class="text-sm text-gray-400"><span class="num text-violet-300" id="d-unminted">—</span> NFTs of the 10,000 were never sold. The DAO holds them to build alliances — with other collections, other chains, other DAOs — and each one it pairs is a new holder pulled into Terra DeFi. That is the mission in one sentence: <b class="text-gray-200">get more people using Terra, by making it worth their while.</b></p></div>
+            </div>
+            <div class="card p-5 mt-4">
+                <div class="text-[11px] uppercase tracking-wider text-gray-500 mb-1">What this site is for</div>
+                <p class="text-sm text-gray-300">TLA Stats exists so that a member — or anyone — can see the whole system honestly: what the DAO owns, where the emissions go, who holds the votes, which pools are worth a vote and why, what the biggest briber says versus what it does, and whether the NFT's backing did today what it did yesterday. Every number links to the on-chain product it came from, every rule the DAO votes by is published, and the help bot has read the same documents you can.</p>
+            </div>
+        </section>
+
+        <!-- 6. TERRA DEFI IN PLAIN WORDS -->
+        <section id="c6" class="chapter max-w-5xl mx-auto px-5 py-12">
+            <div class="text-[11px] uppercase tracking-[.2em] text-cyan-400 mb-2">Chapter 6</div>
+            <h2 class="text-3xl font-extrabold">Terra DeFi in plain words — the eight things to know</h2>
+            <div class="grid md:grid-cols-2 gap-3 mt-5 text-sm text-gray-300">
+                <div class="term"><b>Staking.</b> Locking LUNA to help secure the chain; the chain pays you a share of new LUNA for it. Ally is staked this way, which is why the NFTs earn.</div>
+                <div class="term"><b>ampLUNA, arbLUNA, bLUNA (liquid staking tokens).</b> A receipt for staked LUNA that you can still trade or use. It quietly gains value against LUNA as the staking rewards compound — ampLUNA is worth <span class="num" id="t-amp">—</span> LUNA today. The NFT backing is held as ampLUNA for exactly this reason.</div>
+                <div class="term"><b>A liquidity pool (LP).</b> Two tokens deposited together so people can trade between them. Depositors earn trading fees — and on Terra, LUNA emissions steered by TLA.</div>
+                <div class="term"><b>The Terra Liquidity Alliance (TLA).</b> Terra redirects part of its staking emissions to liquidity pools instead of printing a new token. Which pools get it is decided by votes — every week, in four "buckets" (stable, project, bluechip, single).</div>
+                <div class="term"><b>Voting power (VP).</b> Lock a liquid staking token for up to a year and you get votes in TLA. The DAO's two locks are its VP. Votes point emissions at pools.</div>
+                <div class="term"><b>Bribes.</b> Anyone can put a pot on a pool to attract votes; voters who point there share the pot. About a quarter of all TLA votes belong to <b>Votion</b>, which moves mechanically to whatever pays best — this site reproduces its optimizer so you can see what a pot would move.</div>
+                <div class="term"><b>A DAO.</b> A treasury governed by token or NFT holders through proposals executed by a smart contract. Alliance DAO is one; so are Lion DAO and PixelLions, our allies.</div>
+                <div class="term"><b>Take rate vs treasury cut.</b> Two different 10%s that share a name. TLA's take rate is charged on amplified LP rewards; the NFT's 10% is the DAO's share of the daily claim. Never confuse them — this site never says "take rate" unqualified.</div>
+            </div>
+            <p class="text-sm text-gray-500 mt-4">Want more? The <a class="text-cyan-300 hover:underline" href="tla-docs.html">Docs</a> hold the full TLA guide, the grading and voting doctrine, and the knowledge base on every protocol — and the help bot has read all of it.</p>
+        </section>
+
+        <!-- 7. HOW TO READ THIS SITE -->
+        <section id="c7" class="chapter max-w-5xl mx-auto px-5 py-12">
+            <div class="text-[11px] uppercase tracking-[.2em] text-cyan-400 mb-2">Chapter 7</div>
+            <h2 class="text-3xl font-extrabold">How to read this site</h2>
+            <div class="grid md:grid-cols-3 gap-3 mt-5 text-sm">
+                <a href="index.html" class="card p-4 hover:border-cyan-500/40"><div class="font-bold text-cyan-300 mb-1">Home</div><div class="text-gray-400">The DAO's total value in four parts, TLA VP, unminted backing, the pulse of the market, live listings, the news. Click any tile for its history.</div></a>
+                <a href="ally.html" class="card p-4 hover:border-cyan-500/40"><div class="font-bold text-cyan-300 mb-1">Ally</div><div class="text-gray-400">The backing, day by day: how much each NFT earned, the last-NFT-standing projection, where to break or claim.</div></a>
+                <a href="nft-explorer-index.html" class="card p-4 hover:border-cyan-500/40"><div class="font-bold text-cyan-300 mb-1">NFT Explorer</div><div class="text-gray-400">Every token, its rarity, who holds it; the market: floor by tier, sales history, listings, governance concentration.</div></a>
+                <a href="tla-stats.html" class="card p-4 hover:border-cyan-500/40"><div class="font-bold text-cyan-300 mb-1">TLA Stats</div><div class="text-gray-400">The vote market, who moves votes, the pools graded on five lenses, how the DAO decides where its votes go, and what the biggest briber does versus says.</div></a>
+                <a href="dao.html" class="card p-4 hover:border-cyan-500/40"><div class="font-bold text-cyan-300 mb-1">DAO</div><div class="text-gray-400">Proposals with a quick audit, and the leaderboards: who votes, how often, in which DAOs.</div></a>
+                <a href="adao-lore.html" class="card p-4 hover:border-cyan-500/40"><div class="font-bold text-cyan-300 mb-1">Galaxy Lore</div><div class="text-gray-400">The Phoenix Sun system and the story behind every trait.</div></a>
+                <a href="tools.html" class="card p-4 hover:border-cyan-500/40"><div class="font-bold text-cyan-300 mb-1">Tools</div><div class="text-gray-400">Trade cost simulator, ampCAPA and FUEL supply maps, the docs hub.</div></a>
+                <a href="verify.html" class="card p-4 hover:border-cyan-500/40"><div class="font-bold text-cyan-300 mb-1">Verify us</div><div class="text-gray-400">Every contract, audit and data product this site rests on — check it yourself.</div></a>
+                <a href="help.html" class="card p-4 hover:border-cyan-500/40"><div class="font-bold text-cyan-300 mb-1">Help</div><div class="text-gray-400">Ask the assistant anything on these pages; it reads the same documents.</div></a>
+            </div>
+            <div class="mt-8">
+                <div class="text-[11px] uppercase tracking-[.2em] text-cyan-400 mb-2">Video series</div>
+                <div class="grid md:grid-cols-3 gap-3">
+                    <div class="video">Ep. 1 · Backed by a blockchain (coming)</div>
+                    <div class="video">Ep. 2 · One day in the life of the backing (coming)</div>
+                    <div class="video">Ep. 3 · The Phoenix Sun (coming)</div>
+                </div>
+                <p class="text-[11px] text-gray-500 mt-2">Short films are in production; scripts and the visual kit live in the docs.</p>
+            </div>
+        </section>
+        <div class="text-center text-[11px] text-gray-600 pb-10">Rev 1.0 · 2026-08-25 · every figure on this page is live from the site's own on-chain products; the sourced facts are in the Docs.</div>
+    </main>
+
+    <script>
+    (async () => {
+        const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main'; const T = Math.floor(Date.now() / 900000);
+        const $ = (id) => document.getElementById(id);
+        const num = (v, d = 0) => v == null ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: d });
+        // days backed: since prop #4801 passed
+        const days = Math.floor((Date.now() - Date.parse('2024-02-23T00:00:00Z')) / 864e5); $('h-days').textContent = num(days) + ' days';
+        const get = async (p) => { try { const r = await fetch(`${CORE}/${p}?t=${T}`); return r.ok ? r.json() : null; } catch { return null; } };
+        const [sum, bh, prices, dd] = await Promise.all([get('nfts/adao/snapshots/summary.json'), get('nfts/adao/snapshots/backing-history.json'), get('network-and-prices/current.json'), get('member-data/dao-dashboard/current.json')]);
+        const bk = sum && sum.backing || {}; const last = bh && bh.rows && bh.rows[bh.rows.length - 1];
+        if (bk.per_nft_ampluna != null) { $('h-backing').textContent = num(bk.per_nft_ampluna, 2) + ' ampLUNA'; $('f-backing').textContent = num(bk.per_nft_ampluna, 2); }
+        if (bk.per_nft_value_usd != null) { $('h-backing-usd').textContent = '· $' + num(bk.per_nft_value_usd, 2); $('f-usd').textContent = '$' + num(bk.per_nft_value_usd, 2); }
+        if (last && last.backingInLuna != null) $('f-luna').textContent = num(last.backingInLuna, 1);
+        if (sum) { $('h-unbroken').textContent = num(sum.unbroken_count); $('b-unbroken').textContent = num(sum.unbroken_count); $('b-broken').textContent = num(sum.broken_count); $('h-unminted').textContent = num(sum.unminted_count); $('d-unminted').textContent = num(sum.unminted_count); $('h-source').textContent = 'live from the collection snapshot · ' + String(sum.capturedAt || '').slice(0, 16).replace('T', ' ') + ' UTC'; }
+        const amp = prices && prices.lst_ratios && (prices.lst_ratios.ampLUNA || prices.lst_ratios.ampluna); if (amp) $('t-amp').textContent = num(amp.ratio || amp, 4); else if (last && last.ampLunaRate) $('t-amp').textContent = num(last.ampLunaRate, 4);
+        const tv = dd && dd.dashboard && dd.dashboard.total_value; if (tv && tv.total_usd != null) $('d-total').textContent = '$' + num(tv.total_usd);
+        // planets strip from the on-chain trait dictionary spelling
+        const P = ['Lusa', 'Cristall', 'Pampas', 'Zando', 'Crutha', 'Kita', 'Ozara', 'Minas', 'Gredica', 'Sindari'];
+        const file = { Cristall: 'Crystall' };   // the image file keeps its old name; the word follows the metadata
+        $('planets').innerHTML = P.map(p => `<a href="adao-lore.html" class="flex items-center gap-2 text-sm text-gray-300 hover:text-cyan-300"><img class="planet" src="/assets/planets/${file[p] || p}.png" alt="${p}" onerror="this.style.display='none'">${p}</a>`).join('');
+        // progress highlight
+        const links = [...document.querySelectorAll('#prog a')]; const secs = links.map(a => document.querySelector(a.getAttribute('href')));
+        const io = new IntersectionObserver((es) => { es.forEach(e => { if (e.isIntersecting) links.forEach((a, i) => a.classList.toggle('on', secs[i] === e.target)); }); }, { rootMargin: '-40% 0px -55% 0px' });
+        secs.forEach(s => s && io.observe(s));
+    })();
+    </script>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>SiteFooter.mount({ rev: '1.0', revDate: '2026-08-25', page: 'new-here' });</script>
+</body>
+</html>
