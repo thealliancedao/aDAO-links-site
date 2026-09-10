@@ -4840,7 +4840,7 @@
                     secondaryKey: 'nftBackingTotal_USD', secondaryLabel: 'of which unminted NFT backing', secondaryColor: '#22c55e', secondaryFormat: (v) => '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 })
                 },
                 'tlaLocks_USD': {
-                    label: 'DAO TLA Locks (USD)',
+                    label: 'DAO TLA Locks — USD vs LUNA-equivalent',
                     format: (v) => '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 }),
                     color: '#a78bfa', tileId: 'dao-tla-vp-card',
                     secondaryKey: 'lunaPrice_USD', secondaryLabel: 'LUNA Price', secondaryColor: '#f97316', secondaryFormat: (v) => '$' + v.toFixed(4)
@@ -4858,7 +4858,7 @@
                     secondaryKey: 'nftSalesTotal', secondaryLabel: 'Sales, all-time', secondaryColor: '#22d3ee', secondaryFormat: (v) => Math.round(v).toLocaleString('en-US')
                 },
                 'treasuryTotal_USD': {
-                    label: 'DAO Treasury (USD)',
+                    label: 'DAO Treasury — by token + LUNA',
                     format: (v) => '$' + v.toLocaleString('en-US', {maximumFractionDigits: 0}),
                     color: '#8b5cf6', // purple
                     tileId: 'dao-treasury-total',
@@ -4868,7 +4868,7 @@
                     secondaryFormat: (v) => '$' + v.toFixed(4)
                 },
                 'tlaDepositsTotal_USD': {
-                    label: 'TLA Deposits (USD)',
+                    label: 'TLA Deposits — LPs · zLUNA · APR',
                     format: (v) => '$' + v.toLocaleString('en-US', {maximumFractionDigits: 0}),
                     color: '#ec4899', // pink
                     tileId: 'dao-tla-total',
@@ -4878,7 +4878,7 @@
                     secondaryFormat: (v) => '$' + v.toFixed(4)
                 },
                 'voteRewardsTotal_USD': {
-                    label: 'Unclaimed Vote Rewards (USD)',
+                    label: 'Vote rewards — unclaimed by token',
                     format: (v) => '$' + v.toLocaleString('en-US', {maximumFractionDigits: 0}),
                     color: '#fb923c', // orange
                     tileId: 'vote-usd-value',
@@ -4888,7 +4888,7 @@
                     secondaryFormat: (v) => '$' + v.toFixed(4)
                 },
                 'depositRewardsTotal_USD': {
-                    label: 'Unclaimed Deposit Rewards (USD)',
+                    label: 'Deposit rewards — unclaimed vs claimed',
                     format: (v) => '$' + v.toLocaleString('en-US', {maximumFractionDigits: 0}),
                     color: '#22c55e', // green
                     tileId: 'deposit-usd-value',
@@ -5206,6 +5206,12 @@
                             lstRatios: { ampLUNA: ratioAt('ampLUNA', date), arbLUNA: ratioAt('arbLUNA', date), bLUNA: ratioAt('bLUNA', date) }
                         },
                         tlaDepositsTotal_USD:    ddb.tla_deposits ? (ddb.tla_deposits.total_usd ?? null) : null,
+                        // 4.13: composition for the redesigned popups
+                        tlaDepositsLp_USD:       ddb.tla_deposits ? (ddb.tla_deposits.lp_usd ?? null) : null,
+                        tlaDepositsZluna_USD:    ddb.tla_deposits ? (ddb.tla_deposits.zluna_usd ?? null) : null,
+                        tlaDepositsApr_pct:      ddb.tla_deposits ? (ddb.tla_deposits.est_apr_pct ?? null) : null,
+                        treasuryTokens:          ddb.treasury && Array.isArray(ddb.treasury.tokens) ? ddb.treasury.tokens : null,
+                        voteRewardsByToken:      ddb.vote_rewards && ddb.vote_rewards.by_token ? ddb.vote_rewards.by_token : null,
                         voteRewardsTotal_USD:    ddb.vote_rewards ? (ddb.vote_rewards.total_usd ?? null) : null,
                         depositRewardsTotal_USD: (ur.deposit_rewards_usd ?? ur.usd ?? null),
                         unclaimedRewards_ampLUNA: (ur.ampLUNA ?? null),     // for claim-cycle detection
@@ -5378,6 +5384,97 @@
                         return `${sales} sale${sales === 1 ? '' : 's'} for ${fmtUsd0(usd)} in this window; ${fmtInt(b.listed)} listed today (${(b.listed ?? 0) - (a.listed ?? 0) >= 0 ? '+' : ''}${fmtInt((b.listed ?? 0) - (a.listed ?? 0))})` + (fa && fb ? `; floor ${fmtUsd2(fa.floorUsd)} → ${fmtUsd2(fb.floorUsd)}.` : '.'); },
                 },
             };
+            // 4.13 — the remaining dollar popups, same rule
+            const TREASURY_ORDER = ['ampLUNA', 'LUNA', 'bLUNA', 'USDC', 'SOLID'];
+            const TREASURY_COLORS = { ampLUNA: '#8b5cf6', LUNA: '#fbbf24', bLUNA: '#06b6d4', USDC: '#22c55e', SOLID: '#f472b6', other: '#9ca3af' };
+            function treasuryParts(s) { const out = { ampLUNA: 0, LUNA: 0, bLUNA: 0, USDC: 0, SOLID: 0, other: 0 }; let any = false;
+                for (const tk of (s.treasuryTokens || [])) { const u = Number(tk.usd) || 0; any = true; if (out[tk.token] !== undefined) out[tk.token] += u; else out.other += u; }
+                return any ? out : null; }
+            Object.assign(MULTI_CHARTS, {
+                treasuryTotal_USD: {
+                    title: 'DAO Treasury — what it holds',
+                    caption: 'Stacked by token, in dollars at each day\'s prices: ampLUNA, LUNA, bLUNA, USDC, SOLID and the rest. The orange line is LUNA — the treasury is mostly LUNA-family, so most day-to-day movement is price. A step change in one band is the DAO doing something (a proposal, a claim).',
+                    left: { label: 'USD', fmt: fmtUsd0 }, right: { label: 'LUNA price', fmt: (v) => v == null ? '—' : '$' + Number(v).toFixed(4) },
+                    stacked: true,
+                    series: [...TREASURY_ORDER, 'other'].map(k => ({ key: k, label: k === 'other' ? 'Other tokens' : k, color: TREASURY_COLORS[k], axis: 'left', fmt: fmtUsd0, stack: 'v', fill: true }))
+                        .concat([{ key: 'luna', label: 'LUNA price', color: '#f97316', axis: 'right', fmt: (v) => v == null ? '—' : '$' + Number(v).toFixed(4), dash: [4, 3], width: 1.5 }]),
+                    primary: 'total',
+                    derive: (s) => { const p = treasuryParts(s) || {}; return { ...p, total: s.treasuryTotal_USD, luna: s.lunaPrice_USD }; },
+                    tooltipExtra: (s, v) => v.total != null ? ['Total: ' + fmtUsd0(v.total)] : [],
+                    sentence: (rows) => { const a = rows[0], b = rows[rows.length - 1]; if (!a || !b || b.total == null || a.total == null) return ''; const d = b.total - a.total, pl = (a.luna && b.luna) ? (b.luna / a.luna - 1) * 100 : null;
+                        const mv = [...TREASURY_ORDER, 'other'].map(k => [k, (b[k] || 0) - (a[k] || 0)]).sort((x, y) => Math.abs(y[1]) - Math.abs(x[1]))[0];
+                        const top = [...TREASURY_ORDER, 'other'].map(k => [k, b[k] || 0]).sort((x, y) => y[1] - x[1])[0];
+                        return `${fmtUsd0(b.total)} today, ${d >= 0 ? '+' : '−'}${fmtUsd0(Math.abs(d))} over this window` + (pl != null ? ` while LUNA moved ${pl >= 0 ? '+' : ''}${pl.toFixed(1)}%` : '') + `. ${top[0] === 'other' ? 'Other tokens' : top[0]} is ${(top[1] / b.total * 100).toFixed(0)}% of it; biggest mover ${mv[0] === 'other' ? 'other tokens' : mv[0]} (${mv[1] >= 0 ? '+' : '−'}${fmtUsd0(Math.abs(mv[1]))}).`; },
+                },
+                tlaDepositsTotal_USD: {
+                    title: 'DAO TLA Deposits — LPs, zLUNA and the yield they earn',
+                    caption: 'Stacked: the DAO\'s TLA LP deposits and its zLUNA, in dollars at each day\'s prices. The green line is the estimated APR on those deposits (right axis) — read the two together: value moves with LUNA, the APR moves with the gauge vote.',
+                    left: { label: 'USD', fmt: fmtUsd0 }, right: { label: 'est. APR', fmt: fmtPct1 },
+                    stacked: true,
+                    series: [
+                        { key: 'lp',    label: 'TLA LP deposits', color: '#a78bfa', axis: 'left', fmt: fmtUsd0, stack: 'v', fill: true },
+                        { key: 'zluna', label: 'zLUNA',           color: '#22d3ee', axis: 'left', fmt: fmtUsd0, stack: 'v', fill: true },
+                        { key: 'apr',   label: 'est. APR',        color: '#22c55e', axis: 'right', fmt: fmtPct1, dash: [6, 4], width: 1.5, spanGaps: true },
+                    ],
+                    primary: 'total',
+                    derive: (s) => ({ lp: s.tlaDepositsLp_USD, zluna: s.tlaDepositsZluna_USD, apr: s.tlaDepositsApr_pct, total: s.tlaDepositsTotal_USD, luna: s.lunaPrice_USD }),
+                    tooltipExtra: (s, v) => [].concat(v.total != null ? ['Total: ' + fmtUsd0(v.total)] : [], s.lunaPrice_USD != null ? ['LUNA $' + s.lunaPrice_USD.toFixed(4)] : []),
+                    sentence: (rows) => { const a = rows[0], b = rows[rows.length - 1]; if (!a || !b || b.total == null || a.total == null) return ''; const d = b.total - a.total;
+                        return `${fmtUsd0(b.total)} deposited today (${fmtUsd0(b.lp)} in LPs, ${fmtUsd0(b.zluna)} zLUNA), ${d >= 0 ? '+' : '−'}${fmtUsd0(Math.abs(d))} over this window` + (b.apr != null ? `; earning an estimated ${fmtPct1(b.apr)} APR` + (a.apr != null ? ` (was ${fmtPct1(a.apr)})` : '') : '') + '.'; },
+                },
+                depositRewardsTotal_USD: {
+                    title: 'Deposit rewards — unclaimed, and what has been claimed',
+                    caption: 'Green: ampLUNA the DAO has earned on its TLA deposits and not yet claimed — it climbs, then drops to zero on the day a claim is executed. Cyan staircase: lifetime claimed (each step is one claim, detected as a drop in the unclaimed line). Amber: the unclaimed pile in dollars (right axis).',
+                    left: { label: 'ampLUNA', fmt: (v) => v == null ? '—' : Number(v).toFixed(1) + ' ampLUNA' }, right: { label: 'USD', fmt: fmtUsd0 },
+                    series: [
+                        { key: 'unclaimed', label: 'Unclaimed (ampLUNA)',        color: '#22c55e', axis: 'left', fmt: (v) => v == null ? '—' : Number(v).toFixed(1) + ' ampLUNA', width: 2 },
+                        { key: 'claimed',   label: 'Lifetime claimed (ampLUNA)', color: '#22d3ee', axis: 'left', fmt: (v) => v == null ? '—' : Number(v).toFixed(1) + ' ampLUNA', dash: [2, 3], width: 1.5, step: true },
+                        { key: 'usd',       label: 'Unclaimed (USD)',            color: '#f59e0b', axis: 'right', fmt: fmtUsd0, width: 1.5 },
+                    ],
+                    primary: 'usd',
+                    derive: (s) => ({ unclaimed: s.unclaimedRewards_ampLUNA, claimed: s.cumulativeClaimed_ampLUNA, usd: s.depositRewardsTotal_USD, claimEvent: !!s.claimEvent, claimedAmount: s.claimedAmount_ampLUNA }),
+                    tooltipExtra: (s, v) => v.claimEvent ? ['Claim executed this day' + (v.claimedAmount ? ': ' + Number(v.claimedAmount).toFixed(1) + ' ampLUNA' : '')] : [],
+                    sentence: (rows) => { const b = rows[rows.length - 1]; if (!b) return ''; const claims = rows.filter(r => r.claimEvent).length; const harvested = rows.reduce((n, r) => n + (r.claimEvent ? (r.claimedAmount || 0) : 0), 0);
+                        return `${b.unclaimed != null ? Number(b.unclaimed).toFixed(1) + ' ampLUNA' : '—'} unclaimed today (${fmtUsd0(b.usd)})` + (claims ? `; ${claims} claim${claims === 1 ? '' : 's'} in this window harvested ${harvested.toFixed(1)} ampLUNA` : '; no claim in this window') + (b.claimed ? `; ${Number(b.claimed).toFixed(1)} ampLUNA claimed over the series.` : '.'); },
+                },
+                voteRewardsTotal_USD: {
+                    title: 'Vote rewards — unclaimed, by token',
+                    caption: 'Stacked by token: the bribes and vote rewards the DAO\'s TLA locks have earned and not yet claimed, in dollars at each day\'s prices. Grows every epoch the locks vote; drops when the DAO claims.',
+                    left: { label: 'USD', fmt: fmtUsd2 }, right: { label: 'LUNA price', fmt: (v) => v == null ? '—' : '$' + Number(v).toFixed(4) },
+                    stacked: true,
+                    series: [
+                        { key: 'LUNA',  label: 'LUNA',  color: '#fbbf24', axis: 'left', fmt: fmtUsd2, stack: 'v', fill: true },
+                        { key: 'SOLID', label: 'SOLID', color: '#f472b6', axis: 'left', fmt: fmtUsd2, stack: 'v', fill: true },
+                        { key: 'USDC',  label: 'USDC',  color: '#22c55e', axis: 'left', fmt: fmtUsd2, stack: 'v', fill: true },
+                        { key: 'ASTRO', label: 'ASTRO', color: '#60a5fa', axis: 'left', fmt: fmtUsd2, stack: 'v', fill: true },
+                        { key: 'other', label: 'Other', color: '#9ca3af', axis: 'left', fmt: fmtUsd2, stack: 'v', fill: true },
+                        { key: 'luna',  label: 'LUNA price', color: '#f97316', axis: 'right', fmt: (v) => v == null ? '—' : '$' + Number(v).toFixed(4), dash: [4, 3], width: 1.5 },
+                    ],
+                    primary: 'total',
+                    derive: (s) => { const bt = s.voteRewardsByToken || {}; const out = { LUNA: 0, SOLID: 0, USDC: 0, ASTRO: 0, other: 0 }; let any = false;
+                        for (const [k, v] of Object.entries(bt)) { const u = Number(v && v.usd) || 0; any = true; if (out[k] !== undefined) out[k] += u; else out.other += u; }
+                        return { ...(any ? out : {}), total: s.voteRewardsTotal_USD, luna: s.lunaPrice_USD }; },
+                    tooltipExtra: (s, v) => v.total != null ? ['Total: ' + fmtUsd2(v.total)] : [],
+                    sentence: (rows) => { const a = rows[0], b = rows[rows.length - 1]; if (!a || !b || b.total == null) return ''; const d = b.total - (a.total || 0);
+                        const top = ['LUNA', 'SOLID', 'USDC', 'ASTRO', 'other'].map(k => [k, b[k] || 0]).sort((x, y) => y[1] - x[1])[0];
+                        return `${fmtUsd2(b.total)} unclaimed today, ${d >= 0 ? '+' : '−'}${fmtUsd2(Math.abs(d))} over this window; ${top[0] === 'other' ? 'other tokens are' : top[0] + ' is'} ${b.total ? (top[1] / b.total * 100).toFixed(0) : 0}% of it.`; },
+                },
+                tlaLocks_USD: {
+                    title: 'DAO TLA Locks — fixed in LUNA, moving in dollars',
+                    caption: 'Amber: the DAO\'s two TLA locks in dollars. Cyan: the same locks as LUNA-equivalent (dollars ÷ LUNA price) — flat until the locks themselves change, which is the point: every wiggle in the amber line is LUNA\'s price, not the position. LUNA price is the orange line.',
+                    left: { label: 'USD', fmt: fmtUsd0 }, right: { label: 'LUNA-equivalent / LUNA price', fmt: (v) => v == null ? '—' : Number(v) >= 100 ? fmtInt(v) + ' LUNA' : '$' + Number(v).toFixed(4) },
+                    series: [
+                        { key: 'usd',  label: 'Locks (USD)',            color: '#fbbf24', axis: 'left', fmt: fmtUsd0, width: 2 },
+                        { key: 'luna', label: 'Locks (LUNA-equivalent)', color: '#22d3ee', axis: 'right', fmt: (v) => v == null ? '—' : fmtInt(v) + ' LUNA', dash: [6, 4], width: 1.5 },
+                    ],
+                    primary: 'usd',
+                    derive: (s) => ({ usd: s.tlaLocks_USD, luna: (s.tlaLocks_USD != null && s.lunaPrice_USD) ? s.tlaLocks_USD / s.lunaPrice_USD : null, price: s.lunaPrice_USD }),
+                    tooltipExtra: (s, v) => v.price != null ? ['LUNA $' + v.price.toFixed(4)] : [],
+                    sentence: (rows) => { const a = rows[0], b = rows[rows.length - 1]; if (!a || !b || b.usd == null || a.usd == null) return ''; const d = b.usd - a.usd, dl = (a.luna != null && b.luna != null) ? b.luna - a.luna : null;
+                        const flat = dl == null || Math.abs(dl) < Math.abs(b.luna) * 0.02;   // <2% in LUNA terms = price rounding, not a position change
+                        return `${fmtUsd0(b.usd)} today, ${Math.abs(d) < 1 ? 'unchanged' : (d >= 0 ? '+' : '−') + fmtUsd0(Math.abs(d))} over this window` + (dl != null ? `; in LUNA terms ${flat ? 'unchanged' : (dl >= 0 ? '+' : '−') + fmtInt(Math.abs(dl)) + ' LUNA'} (${fmtInt(b.luna)} LUNA-equivalent)` : '') + (flat ? ' — the dollar move is LUNA\'s price.' : ' — the locks themselves changed.'); },
+                },
+            });
             async function renderMultiChart(metricKey, metric, snapshots, chartData, canvas) {
                 const cfg = MULTI_CHARTS[metricKey];
                 const aux = {};
@@ -5395,7 +5492,7 @@
                     type: sr.type || 'line', label: sr.label, data: rows.map(r => r[sr.key] ?? null),
                     borderColor: sr.color, backgroundColor: sr.type === 'bar' ? sr.color : (sr.fill ? sr.color.replace(')', ', 0.28)').replace('rgb(', 'rgba(').replace(/^#([0-9a-f]{6})$/i, (m, h) => `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},0.28)`) : sr.color),
                     yAxisID: sr.axis === 'right' ? 'y1' : 'y', borderWidth: sr.width || 2, borderDash: sr.dash || [], fill: sr.fill ? (sr.stack ? 'stack' : 'origin') : false,
-                    stack: sr.stack || undefined, tension: 0.3, pointRadius: sr.type === 'bar' ? 0 : 3, pointHoverRadius: 5, spanGaps: !!sr.spanGaps, order: sr.type === 'bar' ? 2 : 1,
+                    stack: sr.stack || undefined, tension: sr.step ? 0 : 0.3, stepped: sr.step ? 'before' : false, pointRadius: sr.type === 'bar' ? 0 : 3, pointHoverRadius: 5, spanGaps: !!sr.spanGaps, order: sr.type === 'bar' ? 2 : 1,
                 }));
                 if (historyChart) { historyChart.destroy(); historyChart = null; }
                 canvas.style.display = 'block';
@@ -15668,7 +15765,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '4.12', REV_DATE = '2026-09-10';   // 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
+        const REV = '4.13', REV_DATE = '2026-09-10';   // 4.13: five more popups on the multi-series renderer — Treasury (by token + LUNA), TLA Deposits (LPs · zLUNA · APR), Deposit rewards (unclaimed vs lifetime claimed), Vote rewards (by token), TLA Locks (USD vs LUNA-equivalent); 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
