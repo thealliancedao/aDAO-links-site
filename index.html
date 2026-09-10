@@ -4834,7 +4834,7 @@
                     secondaryFormat: (v) => v.toFixed(2) + ' LUNA'
                 },
                 'daoTotalValue_USD': {
-                    label: 'DAO Total Value (USD)',
+                    label: 'DAO Total Value — composition + LUNA',
                     format: (v) => '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 }),
                     color: '#fbbf24', tileId: 'dao-total-value-card',
                     secondaryKey: 'nftBackingTotal_USD', secondaryLabel: 'of which unminted NFT backing', secondaryColor: '#22c55e', secondaryFormat: (v) => '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 })
@@ -4846,7 +4846,7 @@
                     secondaryKey: 'lunaPrice_USD', secondaryLabel: 'LUNA Price', secondaryColor: '#f97316', secondaryFormat: (v) => '$' + v.toFixed(4)
                 },
                 'nftListed': {
-                    label: 'NFTs listed (all markets)',
+                    label: 'NFT market: floor · listed · sales',
                     format: (v) => Math.round(v).toLocaleString('en-US'),
                     color: '#22d3ee', tileId: 'nft-analytics-strip',
                     secondaryKey: 'nftSalesTotal', secondaryLabel: 'Sales, all-time', secondaryColor: '#fbbf24', secondaryFormat: (v) => Math.round(v).toLocaleString('en-US')
@@ -4986,7 +4986,7 @@
                 depositRewardsTotal_USD: "Unclaimed deposit rewards accruing to the DAO (USD). A sharp drop marks a claim/harvest.",
                 rebaseTotal_USD: "Unclaimed rebase rewards accruing to the DAO (USD). A sharp drop marks a claim/harvest.",
                 tlaVpTotal_LUNA: "The DAO's voting power over time. Current VP (solid) is fixed until the locks are adjusted; Potential VP (dashed) is what it would become if re-locked today — the shaded band between them is the claimable boost. The header shows the DAO's share of total TLA VP.",
-                daodaoStaked: "Number of NFTs staked in DAODAO governance. The overlay shows that count as a share of circulating supply.",
+                daodaoStaked: "NFTs staked in DAODAO governance, with that count as a share of the supply released to the community (minted − the 1,000 DAO-controlled) and the 7-day unstake window shown as bars.",
                 enterpriseStaked: "Number of NFTs staked via Enterprise.",
                 daoMembers: "Number of aDAO members tracked over time.",
                 daoHeldNfts: "NFTs held or broken by the DAO treasury wallet.",
@@ -5224,6 +5224,10 @@
 
                         // NFT collection (nft-inventory v2 daily)
                         daodaoStaked:     (vd && vd.daodao_staked_count != null) ? vd.daodao_staked_count : null,
+                        // 4.12: the unstake window + the parts of the released-supply denominator (Locked/Liquid doctrine)
+                        daodaoUnstaking:  vd ? ((vd.daodao_pending_claim_count || 0) + (vd.daodao_custody_unattributed_count || 0)) : null,
+                        mintedCount:      (vd && vd.unminted_count != null && vd.total_tokens) ? vd.total_tokens - vd.unminted_count : circ,
+                        listedTotal:      vd ? (((vd.bbl_listed_count || 0) + (vd.atrium_listed_count || 0) + (vd.boost_listed_count || 0)) || null) : null,
                         enterpriseStaked: (vd && vd.enterprise_staked_count != null) ? vd.enterprise_staked_count : null,
                         daoHeldNfts:      vd ? (((vd.treasury_held_count || 0) + (vd.dao_wallet_8ywv_held_count || 0) + (vd.enterprise_dao_broken_count || 0)) || null) : null,
                         circulatingSupply: circ,
@@ -5277,6 +5281,157 @@
             }
             
             // --- Open chart modal for a specific metric ---
+            // ═══════════════════════════════════════════════════════════════════════
+            // 4.12 — MULTI-SERIES CHART POPUPS (owner 2026-09-10: "show what the user wants to see")
+            // Each config: series[] drawn from snapshot fields (derive()), two axes, stacked areas or bars where
+            // it helps, and a sentence written from the window's first/last point. Floor + sales come from the
+            // NFT snapshot products (floor-history since 2026-08-17, sales-enriched per sale). The primary series
+            // is what the comparison boxes and Point A/B math use.
+            // ═══════════════════════════════════════════════════════════════════════
+            const _mcCache = {};
+            async function mcJson(url) { if (_mcCache[url] === undefined) { try { _mcCache[url] = await window.__jsonOnce(url); } catch (_) { _mcCache[url] = null; } } return _mcCache[url]; }
+            const MC_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/';
+            async function mcFloorByDate() {   // date → base-tier listing floor USD
+                const fh = await mcJson(MC_BASE + 'floor-history.json'); const m = {};
+                for (const r of (fh && fh.rows) || []) { const v = r.per_tier && r.per_tier.base && r.per_tier.base.listing_floor_usd; if (v != null) m[r.date] = Number(v); }
+                return m;
+            }
+            async function mcSalesByDate() {   // date → { count, usd } (all marketplaces, USD at sale)
+                const se = await mcJson(MC_BASE + 'sales-enriched.json'); const m = {};
+                for (const s of (se && se.sales) || []) { const d = String(s.timestamp || '').slice(0, 10); if (!d) continue; const o = m[d] || (m[d] = { count: 0, usd: 0 }); o.count++; o.usd += Number(s.notional_usd) || 0; }
+                return m;
+            }
+            const fmtUsd0 = (v) => v == null ? '—' : '$' + Math.round(v).toLocaleString('en-US');
+            const fmtUsd2 = (v) => v == null ? '—' : '$' + Number(v).toFixed(2);
+            const fmtInt  = (v) => v == null ? '—' : Math.round(v).toLocaleString('en-US');
+            const fmtPct1 = (v) => v == null ? '—' : Number(v).toFixed(1) + '%';
+            const fmtLuna = (v) => v == null ? '—' : Number(v).toFixed(2) + ' LUNA';
+            const MULTI_CHARTS = {
+                backingPerNft_LUNA: {
+                    title: 'Backing per NFT — LUNA, USD and the floor',
+                    caption: 'Green: what one unbroken NFT is backed by, in LUNA — ampLUNA × the hub rate, rising every day the DAO stakes. Amber: the same backing in dollars, which moves with LUNA. Cyan: the base-tier floor in dollars. Backing-USD above the floor = an NFT sells below what it holds. LUNA price is in the tooltip.',
+                    left: { label: 'LUNA per NFT', fmt: fmtLuna }, right: { label: 'USD', fmt: fmtUsd2 },
+                    series: [
+                        { key: 'backingLuna', label: 'Backing (LUNA)', color: '#22c55e', axis: 'left', fmt: fmtLuna, width: 2 },
+                        { key: 'backingUsd',  label: 'Backing (USD)',  color: '#f59e0b', axis: 'right', fmt: fmtUsd2, width: 2 },
+                        { key: 'floorUsd',    label: 'Floor, base tier (USD)', color: '#22d3ee', axis: 'right', fmt: fmtUsd2, dash: [6, 4], width: 1.5, spanGaps: true },
+                    ],
+                    primary: 'backingLuna',
+                    needs: ['floor'],
+                    derive: (s, aux) => ({ backingLuna: s.backingPerNft_LUNA, backingUsd: s.backingPerNft_USD, floorUsd: aux.floor[s.date] ?? null }),
+                    tooltipExtra: (s) => s.lunaPrice_USD != null ? ['LUNA $' + s.lunaPrice_USD.toFixed(4)] : [],
+                    sentence: (rows) => { const a = rows[0], b = rows[rows.length - 1]; if (!a || !b) return ''; const dl = b.backingLuna - a.backingLuna, du = (b.backingUsd != null && a.backingUsd != null) ? b.backingUsd - a.backingUsd : null;
+                        const prem = (b.floorUsd != null && b.backingUsd != null) ? (b.floorUsd / b.backingUsd - 1) * 100 : null;
+                        return `Backing grew ${dl >= 0 ? '+' : ''}${dl.toFixed(2)} LUNA over this window (${a.backingLuna.toFixed(2)} → ${b.backingLuna.toFixed(2)})` + (du != null ? `; in dollars ${du >= 0 ? '+' : ''}$${du.toFixed(2)} — the difference is LUNA's price` : '') + (prem != null ? (prem >= 100 ? `. Floor is ${(prem / 100 + 1).toFixed(1)}× backing today.` : `. Floor is ${Math.abs(prem).toFixed(0)}% ${prem >= 0 ? 'above' : 'below'} backing today.`) : '.'); },
+                },
+                daodaoStaked: {
+                    title: 'DAODAO staked — count and share of released supply',
+                    caption: 'Cyan: NFTs staked in DAODAO governance. Amber: that count as a share of the supply released to the community (minted − the 1,000 DAO-controlled) — the Locked/Liquid basis, not "% of minted". Grey bars: NFTs sitting in the 7-day unstake window (out of governance, not yet back in a wallet).',
+                    left: { label: 'NFTs', fmt: fmtInt }, right: { label: '% of released', fmt: fmtPct1 },
+                    series: [
+                        { key: 'staked',   label: 'DAODAO staked', color: '#22d3ee', axis: 'left', fmt: fmtInt, width: 2 },
+                        { key: 'pctRel',   label: '% of released supply', color: '#f59e0b', axis: 'right', fmt: fmtPct1, dash: [6, 4], width: 1.5 },
+                        { key: 'unstaking', label: 'In unstake window', color: 'rgba(156,163,175,0.55)', axis: 'left', fmt: fmtInt, type: 'bar' },
+                    ],
+                    primary: 'staked',
+                    derive: (s) => { const released = (s.mintedCount != null && s.daoHeldNfts != null) ? s.mintedCount - s.daoHeldNfts : null;
+                        return { staked: s.daodaoStaked, pctRel: (released > 0 && s.daodaoStaked != null) ? s.daodaoStaked / released * 100 : null, unstaking: s.daodaoUnstaking, released, enterprise: s.enterpriseStaked }; },
+                    tooltipExtra: (s, v) => { const out = []; if (v.released) out.push('Released supply: ' + fmtInt(v.released)); if (v.enterprise != null && v.released) out.push('Staked incl. Enterprise: ' + fmtPct1((s.daodaoStaked + v.enterprise) / v.released * 100)); return out; },
+                    sentence: (rows) => { const a = rows[0], b = rows[rows.length - 1]; if (!a || !b) return ''; const d = b.staked - a.staked;
+                        return `${fmtInt(b.staked)} staked today, ${d >= 0 ? '+' : ''}${fmtInt(d)} over this window` + (b.pctRel != null ? ` — ${fmtPct1(b.pctRel)} of the ${fmtInt(b.released)} NFTs released to the community` : '') + (b.enterprise != null && b.released ? `; ${fmtPct1((b.staked + b.enterprise) / b.released * 100)} counting Enterprise` : '') + (b.unstaking ? `. ${fmtInt(b.unstaking)} in the unstake window.` : '.'); },
+                },
+                daoTotalValue_USD: {
+                    title: 'DAO Total Value — what it is made of',
+                    caption: 'Stacked: treasury tokens, TLA LP deposits, TLA locks and the unminted NFT backing, in dollars at each day\'s prices. The orange line is LUNA — most of this stack is LUNA-denominated, so when the total moves and the parts keep their shape, it was the price, not the DAO.',
+                    left: { label: 'USD', fmt: fmtUsd0 }, right: { label: 'LUNA price', fmt: (v) => v == null ? '—' : '$' + Number(v).toFixed(4) },
+                    stacked: true,
+                    series: [
+                        { key: 'backing', label: 'Unminted NFT backing', color: '#22c55e', axis: 'left', fmt: fmtUsd0, stack: 'v', fill: true },
+                        { key: 'tokens',  label: 'Treasury tokens',      color: '#fbbf24', axis: 'left', fmt: fmtUsd0, stack: 'v', fill: true },
+                        { key: 'lps',     label: 'TLA LP deposits',      color: '#a78bfa', axis: 'left', fmt: fmtUsd0, stack: 'v', fill: true },
+                        { key: 'locks',   label: 'TLA locks',            color: '#22d3ee', axis: 'left', fmt: fmtUsd0, stack: 'v', fill: true },
+                        { key: 'luna',    label: 'LUNA price',           color: '#f97316', axis: 'right', fmt: (v) => v == null ? '—' : '$' + Number(v).toFixed(4), dash: [4, 3], width: 1.5 },
+                    ],
+                    primary: 'total',
+                    derive: (s) => { const tv = (s.dashboard && s.dashboard.total_value) || {}; return { backing: tv.nft_backing_usd ?? null, tokens: tv.tokens_usd ?? null, lps: tv.tla_lps_usd ?? null, locks: tv.tla_locks_usd ?? null, total: tv.total_usd ?? s.daoTotalValue_USD, luna: s.lunaPrice_USD }; },
+                    tooltipExtra: (s, v) => v.total != null ? ['Total: ' + fmtUsd0(v.total)] : [],
+                    sentence: (rows) => { const a = rows[0], b = rows[rows.length - 1]; if (!a || !b || a.total == null || b.total == null) return ''; const d = b.total - a.total, pl = (a.luna && b.luna) ? (b.luna / a.luna - 1) * 100 : null;
+                        const parts = ['backing', 'tokens', 'lps', 'locks'].map(k => [k, (b[k] ?? 0) - (a[k] ?? 0)]).sort((x, y) => Math.abs(y[1]) - Math.abs(x[1]));
+                        const names = { backing: 'NFT backing', tokens: 'treasury tokens', lps: 'TLA LPs', locks: 'TLA locks' };
+                        return `${fmtUsd0(b.total)} today, ${d >= 0 ? '+' : '−'}${fmtUsd0(Math.abs(d))} over this window` + (pl != null ? ` while LUNA moved ${pl >= 0 ? '+' : ''}${pl.toFixed(1)}%` : '') + `. Biggest mover: ${names[parts[0][0]]} (${parts[0][1] >= 0 ? '+' : '−'}${fmtUsd0(Math.abs(parts[0][1]))}).`; },
+                },
+                nftListed: {
+                    title: 'NFT market — floor, listings and sales',
+                    caption: 'Cyan: base-tier floor in dollars (listing floor, from the marketplace snapshots since 2026-08-17). Amber: NFTs listed across BBL, Atrium and Boost. Green bars: sales that day, all marketplaces, in dollars at the time of sale. A rising floor with falling listings is a tightening market; the opposite is supply coming out.',
+                    left: { label: 'USD', fmt: fmtUsd0 }, right: { label: 'count', fmt: fmtInt },
+                    series: [
+                        { key: 'floorUsd', label: 'Floor, base tier (USD)', color: '#22d3ee', axis: 'left', fmt: fmtUsd2, width: 2, spanGaps: true },
+                        { key: 'salesUsd', label: 'Sales that day (USD)', color: 'rgba(34,197,94,0.6)', axis: 'left', fmt: fmtUsd0, type: 'bar' },
+                        { key: 'listed',   label: 'Listed (all markets)', color: '#f59e0b', axis: 'right', fmt: fmtInt, dash: [6, 4], width: 1.5 },
+                    ],
+                    primary: 'listed',
+                    needs: ['floor', 'sales'],
+                    derive: (s, aux) => { const sl = aux.sales[s.date] || null; return { floorUsd: aux.floor[s.date] ?? null, salesUsd: sl ? sl.usd : 0, salesCount: sl ? sl.count : 0, listed: s.listedTotal ?? s.nftListed }; },
+                    tooltipExtra: (s, v) => v.salesCount ? [v.salesCount + ' sale' + (v.salesCount === 1 ? '' : 's') + ' that day'] : ['no sales that day'],
+                    sentence: (rows) => { const b = rows[rows.length - 1], a = rows[0]; if (!b) return ''; const sales = rows.reduce((n, r) => n + (r.salesCount || 0), 0), usd = rows.reduce((n, r) => n + (r.salesUsd || 0), 0);
+                        const fa = rows.find(r => r.floorUsd != null), fb = [...rows].reverse().find(r => r.floorUsd != null);
+                        return `${sales} sale${sales === 1 ? '' : 's'} for ${fmtUsd0(usd)} in this window; ${fmtInt(b.listed)} listed today (${(b.listed ?? 0) - (a.listed ?? 0) >= 0 ? '+' : ''}${fmtInt((b.listed ?? 0) - (a.listed ?? 0))})` + (fa && fb ? `; floor ${fmtUsd2(fa.floorUsd)} → ${fmtUsd2(fb.floorUsd)}.` : '.'); },
+                },
+            };
+            async function renderMultiChart(metricKey, metric, snapshots, chartData, canvas) {
+                const cfg = MULTI_CHARTS[metricKey];
+                const aux = {};
+                if ((cfg.needs || []).includes('floor')) aux.floor = await mcFloorByDate();
+                if ((cfg.needs || []).includes('sales')) aux.sales = await mcSalesByDate();
+                // rows align 1:1 with chartData (same order); derive from the merged snapshot behind each point
+                const byTs = new Map(snapshots.map(s => [s.timestamp, s]));
+                const rows = chartData.map(d => { const s = byTs.get(d.timestamp) || {}; const v = cfg.derive(s, aux); return { ...v, _s: s, date: s.date, epoch: d.epoch, timestamp: d.timestamp }; });
+                // expose the primary as `value` so Point A/B + the delta math keep working; keep metric.format sane
+                chartData.forEach((d, i) => { const pv = rows[i][cfg.primary]; if (pv != null) d.value = pv; d._multi = rows[i]; });
+                const primaryFmt = (cfg.series.find(x => x.key === cfg.primary) || {}).fmt || (cfg.primary === 'total' ? fmtUsd0 : metric.format);
+                metric.format = primaryFmt;
+                const labels = chartData.map(d => { const date = new Date(d.timestamp); return `${formatEpochLabel(d)} (${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`; });
+                const datasets = cfg.series.map(sr => ({
+                    type: sr.type || 'line', label: sr.label, data: rows.map(r => r[sr.key] ?? null),
+                    borderColor: sr.color, backgroundColor: sr.type === 'bar' ? sr.color : (sr.fill ? sr.color.replace(')', ', 0.28)').replace('rgb(', 'rgba(').replace(/^#([0-9a-f]{6})$/i, (m, h) => `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},0.28)`) : sr.color),
+                    yAxisID: sr.axis === 'right' ? 'y1' : 'y', borderWidth: sr.width || 2, borderDash: sr.dash || [], fill: sr.fill ? (sr.stack ? 'stack' : 'origin') : false,
+                    stack: sr.stack || undefined, tension: 0.3, pointRadius: sr.type === 'bar' ? 0 : 3, pointHoverRadius: 5, spanGaps: !!sr.spanGaps, order: sr.type === 'bar' ? 2 : 1,
+                }));
+                if (historyChart) { historyChart.destroy(); historyChart = null; }
+                canvas.style.display = 'block';
+                const ctx = canvas.getContext('2d');
+                const showRight = cfg.series.some(sr => sr.axis === 'right');
+                historyChart = new Chart(ctx, {
+                    type: 'line', data: { labels, datasets },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' },
+                        onClick: (ev, els) => { if (els.length) handlePointClick(chartData[els[0].index], els[0].index); },
+                        plugins: {
+                            legend: { display: true, labels: { color: '#9ca3af', boxWidth: 14 } },
+                            tooltip: { backgroundColor: '#1a1a1a', borderColor: metric.color, borderWidth: 1, titleColor: '#fff', bodyColor: '#9ca3af',
+                                callbacks: { label: (c) => { const sr = cfg.series[c.datasetIndex]; return sr.label + ': ' + sr.fmt(c.raw); },
+                                             afterBody: (items) => { const i = items[0].dataIndex; const r = rows[i]; return cfg.tooltipExtra ? [''].concat(cfg.tooltipExtra(r._s, r)) : []; } } },
+                        },
+                        scales: {
+                            x: { ticks: { color: '#9ca3af', maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 14 }, grid: { color: 'rgba(255,255,255,0.05)' }, stacked: !!cfg.stacked },
+                            y: { type: 'linear', position: 'left', stacked: !!cfg.stacked, ticks: { color: cfg.series.find(s => s.axis !== 'right').color, callback: (v) => cfg.left.fmt(v) }, grid: { color: 'rgba(255,255,255,0.05)' }, title: { display: true, text: cfg.left.label, color: '#9ca3af' } },
+                            ...(showRight ? { y1: { type: 'linear', position: 'right', ticks: { color: cfg.series.find(s => s.axis === 'right').color, callback: (v) => cfg.right.fmt(v) }, grid: { drawOnChartArea: false }, title: { display: true, text: cfg.right.label, color: '#9ca3af' } } } : {}),
+                        },
+                    },
+                });
+                // title + caption + sentence
+                const title = document.getElementById('chart-modal-title'); if (title) title.textContent = cfg.title;
+                const cap = document.getElementById('chart-modal-caption'); if (cap) { cap.textContent = cfg.caption; cap.style.display = ''; }
+                let sent = document.getElementById('chart-mc-sentence');
+                if (!sent && cap) { sent = document.createElement('p'); sent.id = 'chart-mc-sentence'; sent.className = 'text-xs text-cyan-200 mt-1'; cap.insertAdjacentElement('afterend', sent); }
+                if (sent) sent.textContent = cfg.sentence(rows.filter(r => r[cfg.primary] != null));
+                // data table: one column per series, newest first, all rows
+                const tbody = document.getElementById('chart-data-table'); const thead = tbody && tbody.closest('table').querySelector('thead tr');
+                if (thead) thead.innerHTML = '<th class="text-left p-2">Epoch</th><th class="text-left p-2">Date</th>' + cfg.series.map(sr => '<th class="text-right p-2">' + sr.label + '</th>').join('');
+                if (tbody) tbody.innerHTML = [...rows].reverse().map(r => '<tr class="border-t border-gray-800 hover:bg-gray-800/40"><td class="p-2 text-cyan-400 font-mono">E' + r.epoch + '</td><td class="p-2 text-gray-300">' + new Date(r.timestamp).toLocaleDateString() + '</td>' + cfg.series.map(sr => '<td class="p-2 text-right font-mono text-gray-200">' + sr.fmt(r[sr.key]) + '</td>').join('') + '</tr>').join('');
+                window.chartTableFullData = null; window.chartTableMetric = null;   // the load-more row is not rendered on this path
+            }
+
             // Rev 4.11: the DAO Total Value and NFT Collection Analytics strips call this from inline onclick=""
             // (global scope) while the function lives inside the DOMContentLoaded closure — every click threw a
             // ReferenceError and nothing opened. Exposed on window; the tile bindings inside the closure are unchanged.
@@ -5413,6 +5568,15 @@
                         unmintedCount: s.unmintedCount || s.statusSliders?.mint?.unMinted // Store unminted count for market value calc
                     };
                 }).filter(d => d.value !== null && d.value !== undefined);
+
+                // 4.12 — redesigned multi-series popups (backing, DAODAO staked, DAO total value, NFT market).
+                // One generic renderer; the comparison boxes keep working on the primary series.
+                if (MULTI_CHARTS[metricKey]) {
+                    const tg = document.getElementById('chart-secondary-toggle'); if (tg) tg.classList.add('hidden');
+                    if (chartData.length === 0) { noData.classList.remove('hidden'); return; }
+                    await renderMultiChart(metricKey, metric, mergedSnapshots, chartData, canvas);
+                    return;
+                }
                 
                 // Show/hide secondary axis toggle. Two metrics use it:
                 //   - tlaDepositsTotal_USD: toggles between Est APR and LUNA Price
@@ -15504,7 +15668,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '4.11', REV_DATE = '2026-09-10';   // 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
+        const REV = '4.12', REV_DATE = '2026-09-10';   // 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
