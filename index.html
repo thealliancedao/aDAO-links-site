@@ -2225,49 +2225,38 @@
     
     <div id="daodaoModal" class="modal fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden opacity-0">
         <div class="modal-content bg-[#1a1a1a] border border-gray-700 rounded-xl shadow-xl w-full max-w-3xl relative text-white opacity-0 scale-95 p-8 flex flex-col max-h-[90vh] overflow-y-auto"> <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-3xl">&times;</button>
-            <h3 class="text-2xl font-bold text-cyan-400 mb-4 flex-shrink-0">DAODAO Staking & Supply Details</h3> <div id="supply-breakdown" class="grid grid-cols-2 gap-x-8 gap-y-4 mb-6 p-4 bg-gray-800/50 rounded-lg border border-gray-700 text-sm flex-shrink-0"> <div class="flex justify-between border-b border-gray-600 pb-2">
-                    <span class="text-gray-400">Total Minted:</span>
-                    <span id="supply-minted" class="font-bold text-white"><i class="fas fa-spinner fa-spin"></i></span>
+            <h3 class="text-2xl font-bold text-cyan-400 mb-4 flex-shrink-0">DAODAO Staking & Supply Details</h3> <div id="supply-breakdown" class="mb-4 p-4 bg-gray-800/50 rounded-lg border border-gray-700 text-sm flex-shrink-0">
+                <!-- Rev 4.11 (owner 2026-09-10): Locked vs Liquid of the WHOLE collection, then the released slice.
+                     "% of circulating" was rejected — it hid the 5,828 unminted and the 1,000 DAO-held NFTs. -->
+                <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-2">Collection · 10,000</div>
+                <div class="space-y-1 font-mono text-xs">
+                    <div class="flex justify-between"><span class="text-gray-300">Unminted <span class="text-gray-500">(DAO main wallet)</span></span><span><span id="sup-unminted" class="text-white">--</span> <span id="sup-unminted-pct" class="text-gray-500"></span></span></div>
+                    <div class="flex justify-between"><span class="text-gray-300">DAO controlled, broken <span class="text-gray-500">(treasury · enterprise · DAO wallet)</span></span><span><span id="sup-dao-broken" class="text-white">--</span> <span id="sup-dao-broken-pct" class="text-gray-500"></span></span></div>
+                    <div class="flex justify-between"><span class="text-gray-300">DAODAO staked <span class="text-gray-500">(members)</span></span><span><span id="sup-daodao" class="text-white">--</span> <span id="sup-daodao-pct" class="text-gray-500"></span></span></div>
+                    <div class="flex justify-between"><span class="text-gray-300">Enterprise staked <span class="text-gray-500">(holders)</span></span><span><span id="sup-enterprise" class="text-white">--</span> <span id="sup-enterprise-pct" class="text-gray-500"></span></span></div>
+                    <div class="flex justify-between font-bold border-t border-gray-700 pt-1"><span class="text-amber-300">= Locked</span><span><span id="sup-locked" class="text-amber-300">--</span> <span id="sup-locked-pct" class="text-amber-300/70"></span></span></div>
+                    <div class="flex justify-between mt-2"><span class="text-gray-300">Wallet-held, unlisted</span><span><span id="sup-wallet" class="text-white">--</span> <span id="sup-wallet-pct" class="text-gray-500"></span></span></div>
+                    <div class="flex justify-between"><span class="text-gray-300">Listed <span id="sup-listed-where" class="text-gray-500"></span></span><span><span id="sup-listed" class="text-white">--</span> <span id="sup-listed-pct" class="text-gray-500"></span></span></div>
+                    <div class="flex justify-between font-bold border-t border-gray-700 pt-1"><span class="text-green-400">= Liquid <span class="font-normal text-gray-500">(could be sold today)</span></span><span><span id="sup-liquid" class="text-green-400">--</span> <span id="sup-liquid-pct" class="text-green-400/70"></span></span></div>
                 </div>
-                <div class="flex justify-between border-b border-gray-600 pb-2">
-                    <span class="text-gray-400">DAO Controlled (Broken):</span>
-                    <span id="supply-dao-controlled" class="font-bold text-white">1,000</span>
-                </div>
-                 <div class="col-span-2 border-t border-gray-700 my-2"></div>
-                <div class="flex justify-between">
-                    <span class="text-gray-400">Circulating Supply:</span>
-                    <span id="supply-circulating" class="font-bold text-cyan-400"><i class="fas fa-spinner fa-spin"></i></span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-400">Liquid Supply:</span>
-                    <span id="supply-liquid" class="font-bold text-green-400"><i class="fas fa-spinner fa-spin"></i></span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-400">DAODAO Staked:</span>
-                    <span id="supply-daodao-staked" class="font-bold text-white"><i class="fas fa-spinner fa-spin"></i></span>
-                </div>
-                 <div class="flex justify-between">
-                    <span class="text-gray-400">Enterprise Staked:</span>
-                    <span id="supply-enterprise-staked" class="font-bold text-white"><i class="fas fa-spinner fa-spin"></i></span>
-                </div>
+                <p id="sup-sentence" class="text-xs text-gray-400 mt-3">&nbsp;</p>
             </div>
 
-            <!-- Rev 3.44 — % of Circulating formula breakdown.
-                 People care HOW the headline number is derived. This shows the
-                 math step-by-step so anyone can audit it. -->
+            <!-- Rev 4.11 — the released slice: minted − DAO broken. What the community actually holds. -->
             <div class="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-4 flex-shrink-0">
                 <div class="flex items-center justify-between mb-2">
-                    <h4 class="font-bold text-white text-base"><i class="fas fa-calculator text-cyan-400 mr-2"></i>% of Circulating — How It's Calculated</h4>
-                    <span id="daodao-formula-pct" class="text-base font-bold text-cyan-400">--%</span>
+                    <h4 class="font-bold text-white text-base"><i class="fas fa-calculator text-cyan-400 mr-2"></i>Released to the community</h4>
+                    <span id="sup-released" class="text-base font-bold text-cyan-400">--</span>
                 </div>
                 <div class="text-xs text-gray-400 space-y-1 font-mono">
-                    <div class="flex justify-between"><span>Total minted</span>                 <span id="daodao-formula-minted"     class="text-white">--</span></div>
-                    <div class="flex justify-between"><span>− DAO Controlled (Broken)</span>   <span id="daodao-formula-dao"        class="text-amber-300">--</span></div>
-                    <div class="flex justify-between border-t border-gray-700 pt-1"><span class="text-cyan-400">= Circulating Supply</span><span id="daodao-formula-circulating" class="text-cyan-400 font-bold">--</span></div>
-                    <div class="flex justify-between mt-2"><span>DAODAO Staked</span>           <span id="daodao-formula-staked"     class="text-white">--</span></div>
-                    <div class="flex justify-between font-bold border-t border-gray-700 pt-1"><span>÷ Circulating × 100</span> <span id="daodao-formula-final" class="text-cyan-400">--%</span></div>
+                    <div class="flex justify-between"><span>Minted</span><span id="sup-minted" class="text-white">--</span></div>
+                    <div class="flex justify-between"><span>− DAO controlled, broken</span><span id="sup-released-dao" class="text-amber-300">--</span></div>
+                    <div class="flex justify-between border-t border-gray-700 pt-1"><span class="text-cyan-400">= Released</span><span id="sup-released-2" class="text-cyan-400 font-bold">--</span></div>
+                    <div class="flex justify-between mt-2"><span>Staked <span class="text-gray-500">(DAODAO + Enterprise)</span></span><span><span id="sup-rel-staked" class="text-white">--</span> <span id="sup-rel-staked-pct" class="text-amber-300"></span></span></div>
+                    <div class="flex justify-between"><span>Liquid <span class="text-gray-500">(wallet-held + listed)</span></span><span><span id="sup-rel-liquid" class="text-white">--</span> <span id="sup-rel-liquid-pct" class="text-green-400"></span></span></div>
                 </div>
-                <p class="text-[10px] text-gray-500 mt-2 italic"><i class="fas fa-info-circle mr-1"></i>"DAO Controlled (Broken)" is a documented governance count (1,000 NFTs across 3 wallets) — these are excluded from circulating because they can't be sold or transferred by individual holders.</p>
+                <p id="sup-unstaking-note" class="text-[10px] text-gray-500 mt-2 italic"></p>
+                <p class="text-[10px] text-gray-500 mt-1 italic"><i class="fas fa-info-circle mr-1"></i>The 1,000 DAO-controlled NFTs are a documented governance count (treasury 898 · enterprise 100 · DAO wallet 2) — held long-term, never for sale by a holder. Counts come from the live NFT inventory; listings from the marketplace snapshot.</p>
             </div>
 
             <!-- Rev 3.44 — Staker concentration analysis.
@@ -3972,6 +3961,7 @@
                 const usd0 = n => '$' + Math.round(n).toLocaleString('en-US');
                 async function loadCron() {
                     const j = await TileFeed.fetchJson(CRON_URL);
+                    if (j) window._daoDashboard = j;   // Rev 4.11: shared with the marketplace tile (sale-time NFT volume)
                     const dep = j && (j.dashboard?.tla_deposits || j.tla_deposits);
                     if (!dep || typeof dep.lp_usd !== 'number') return null;
                     return { lpUsd: dep.lp_usd, zluna: dep.zluna_usd||0, total: dep.total_usd||0,
@@ -4200,28 +4190,47 @@
                 const result = await fetchSupplyDistribution();
                 if (!result) return;
 
-                const m = result.mintedTotal;
-                const daoBroken = result.daoControlledTotal;   // 1,000
-                const circulating = Math.max(0, m - daoBroken);
-                const staked = result.daodaoStaked;
-                const finalPct = circulating > 0 ? (staked / circulating) * 100 : 0;
-
-                // === % of Circulating formula breakdown ===
-                const ids = {
-                    minted:      'daodao-formula-minted',
-                    dao:         'daodao-formula-dao',
-                    circulating: 'daodao-formula-circulating',
-                    staked:      'daodao-formula-staked',
-                    final:       'daodao-formula-final',
-                    pct:         'daodao-formula-pct',
-                };
                 const setText = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
-                setText(ids.minted,      m.toLocaleString());
-                setText(ids.dao,         '−' + daoBroken.toLocaleString());
-                setText(ids.circulating, circulating.toLocaleString());
-                setText(ids.staked,      staked.toLocaleString());
-                setText(ids.final,       finalPct.toFixed(2) + '%');
-                setText(ids.pct,         finalPct.toFixed(2) + '%');
+                // === Rev 4.11 — Locked vs Liquid (owner doctrine 2026-09-10) ===
+                // Every count from the live inventory walk (fetchSupplyDistribution); listings + the unstake window
+                // from the inventory summary. Identity: unminted + daoBroken + daodaoActive + enterprise + wallet + listed
+                // + unstaking = totalRecords — asserted, and the sentence says so if it fails.
+                const COLLECTION = result.totalRecords || 10000;
+                const m = result.mintedTotal;
+                const daoBroken = result.daoControlledTotal;                 // 1,000
+                const sum = await (async () => { try { return await window.__jsonOnce('https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/summary.json'); } catch (_) { return null; } })();
+                const listedBbl = sum?.bbl_listed_count ?? null, listedAtr = sum?.atrium_listed_count ?? null, listedBoost = sum?.boost_listed_count ?? null;
+                const listed = [listedBbl, listedAtr, listedBoost].some(v => v == null) ? null : listedBbl + listedAtr + listedBoost;
+                const unstaking = sum?.daodao_pending_claim_count != null ? sum.daodao_pending_claim_count + (sum.daodao_custody_unattributed_count || 0) : 0;   // in DAODAO custody but out of governance (7-day window / claimable)
+                const daodaoActive = Math.max(0, result.daodaoStaked - unstaking);   // inventory walk counts custody (1,666) — governance-active is custody − unstaking
+                const enterprise = result.enterpriseUnbroken;                // 403 — holders, DAO's 100 are in daoBroken
+                const walletTotal = result.walletHeld;                       // wallet-held incl. listed (inventory has no listing flag)
+                const walletUnlisted = listed != null ? Math.max(0, walletTotal - listed) : null;
+                const locked = result.unminted + daoBroken + daodaoActive + enterprise;
+                const liquid = walletTotal + unstaking;                      // owner: the unstake window is a week from movable — count it liquid
+                const released = Math.max(0, m - daoBroken);
+                const relStaked = daodaoActive + enterprise, relLiquid = released - relStaked;
+                const pc = (n, d) => d > 0 ? (n / d * 100).toFixed(1) + '%' : '';
+                const L = (n) => n == null ? '—' : n.toLocaleString();
+                setText('sup-unminted', L(result.unminted));      setText('sup-unminted-pct', pc(result.unminted, COLLECTION));
+                setText('sup-dao-broken', L(daoBroken));           setText('sup-dao-broken-pct', pc(daoBroken, COLLECTION));
+                setText('sup-daodao', L(daodaoActive));            setText('sup-daodao-pct', pc(daodaoActive, COLLECTION));
+                setText('sup-enterprise', L(enterprise));          setText('sup-enterprise-pct', pc(enterprise, COLLECTION));
+                setText('sup-locked', L(locked));                  setText('sup-locked-pct', pc(locked, COLLECTION));
+                setText('sup-wallet', L(walletUnlisted != null ? walletUnlisted + unstaking : walletTotal + unstaking)); setText('sup-wallet-pct', pc(walletUnlisted != null ? walletUnlisted + unstaking : walletTotal + unstaking, COLLECTION));
+                setText('sup-listed', L(listed));                  setText('sup-listed-pct', listed != null ? pc(listed, COLLECTION) : '');
+                setText('sup-listed-where', listed != null ? '(BBL ' + listedBbl + ' · Atrium ' + listedAtr + ' · Boost ' + listedBoost + ')' : '(marketplace snapshot unavailable)');
+                setText('sup-liquid', L(liquid));                  setText('sup-liquid-pct', pc(liquid, COLLECTION));
+                setText('sup-minted', L(m)); setText('sup-released-dao', '−' + L(daoBroken)); setText('sup-released', L(released)); setText('sup-released-2', L(released));
+                setText('sup-rel-staked', L(relStaked)); setText('sup-rel-staked-pct', pc(relStaked, released));
+                setText('sup-rel-liquid', L(relLiquid)); setText('sup-rel-liquid-pct', pc(relLiquid, released));
+                setText('sup-unstaking-note', unstaking ? unstaking.toLocaleString() + ' NFT' + (unstaking === 1 ? ' is' : 's are') + ' in the DAODAO unstake window (out of governance, claimable within 7 days) — counted as liquid above, not as staked.' : '');
+                const identityOk = (locked + liquid) === COLLECTION;
+                setText('sup-sentence', identityOk
+                    ? `${pc(locked, COLLECTION)} of the ${COLLECTION.toLocaleString()}-NFT collection is locked — unminted, DAO-held or staked. ${pc(liquid, COLLECTION)} (${liquid.toLocaleString()} NFTs) could be sold today; of the ${released.toLocaleString()} released to the community, ${pc(relLiquid, released)} are liquid.`
+                    : `Counts do not close to ${COLLECTION.toLocaleString()} (locked ${locked.toLocaleString()} + liquid ${liquid.toLocaleString()}) — inventory and summary disagree; refresh or check the NFT explorer.`);
+                setText('daodao-staked-percentage', released > 0 ? `${pc(relStaked, released)} of released supply staked` : '');
+                const staked = daodaoActive;   // concentration below is DAODAO governance stake
 
                 // === Staker concentration ===
                 // Read from window.daodaoStakerCounts (populated when statsData renders).
@@ -5268,6 +5277,10 @@
             }
             
             // --- Open chart modal for a specific metric ---
+            // Rev 4.11: the DAO Total Value and NFT Collection Analytics strips call this from inline onclick=""
+            // (global scope) while the function lives inside the DOMContentLoaded closure — every click threw a
+            // ReferenceError and nothing opened. Exposed on window; the tile bindings inside the closure are unchanged.
+            window.openChartModal = (...a) => openChartModal(...a);
             async function openChartModal(metricKey) {
                 const modal = document.getElementById('chartModal');
                 const loading = document.getElementById('chart-loading');
@@ -7401,15 +7414,9 @@
                         if (s.daodao_staked_count != null) updateTile('daodao-staked', loc(s.daodao_staked_count), true);
                         if (s.dao_members_count != null) updateTile('dao-members', loc(s.dao_members_count), true);
                         if (s.enterprise_staked_count != null) updateTile('enterprise-staked-holder', loc(s.enterprise_staked_count), true, { titleId: 'enterprise-staked-title' });
-                        const circulating = minted != null && s.dao_held_count != null ? minted - s.dao_held_count : null;
-                        if (s.daodao_staked_count != null && circulating > 0) {
-                            setIfLoading('daodao-staked-percentage', `${fix(s.daodao_staked_count / circulating * 100, 2)}% of Circulating`);
-                        }
-                        setIfLoading('supply-minted', minted != null ? loc(minted) : '—');
-                        setIfLoading('supply-circulating', circulating != null ? loc(circulating) : '—');
-                        setIfLoading('supply-liquid', s.user_liquid_count != null ? loc(s.user_liquid_count) : '—');
-                        setIfLoading('supply-daodao-staked', s.daodao_staked_count != null ? loc(s.daodao_staked_count) : '—');
-                        setIfLoading('supply-enterprise-staked', s.enterprise_staked_count != null ? loc(s.enterprise_staked_count) : '—');
+                        // Rev 4.11: the supply modal is filled by applyDaodaoDeepDive (Locked vs Liquid) only — the old
+                        // "% of Circulating" writes that used to live here are gone (they fought the live-inventory path
+                        // and once showed a WALLET count as "Enterprise Staked").
 
                         // Backing per NFT (ampLUNA from the pipeline, LUNA/USD via cron ratio+price)
                         const perAmp = s.backing?.per_nft_ampluna;
@@ -7840,25 +7847,14 @@
                     const liquidSupply = Math.max(0, circulatingSupply - totalLocked);
 
                     updateTile('daodao-staked', daodaoCount.toLocaleString(), true);
-                    const daodaoStakedPercentageEl = document.getElementById('daodao-staked-percentage');
-                    if (daodaoStakedPercentageEl) daodaoStakedPercentageEl.textContent = `${daodaoLockedPercentage.toFixed(2)}% of Circulating`;
-
+                    // Rev 4.11: the "% of Circulating" text, the supply modal cells and the Enterprise tile are NOT
+                    // written from this path any more. `enterpriseStakedByHolder` here is the number of NFTs still
+                    // owned by the old contract in the deduped inventory (81 unattributed) — the product summary
+                    // (enterprise_staked_count = 403 holders) is the truth and its writer above stands. The modal is
+                    // filled by applyDaodaoDeepDive (Locked vs Liquid).
                     updateTile('dao-members', daoMembers.toLocaleString(), true);
-                    updateTile('enterprise-staked-holder', enterpriseStakedByHolder.toLocaleString(), true, { titleId: 'enterprise-staked-title' });
-                    
-                     const supplyMintedEl = document.getElementById('supply-minted');
-                     const supplyCirculatingEl = document.getElementById('supply-circulating');
-                     const supplyLiquidEl = document.getElementById('supply-liquid');
-                     const supplyDaodaoStakedEl = document.getElementById('supply-daodao-staked');
-                     const supplyEnterpriseStakedEl = document.getElementById('supply-enterprise-staked');
                      const daodaoModalHolderCountEl = document.getElementById('daodao-modal-holder-count');
-                     // Helper: format integer for display, or '—' if null/undefined (Rev 3.26 null-safety)
                      const fmt = (v) => (v == null) ? '—' : v.toLocaleString();
-                     if(supplyMintedEl) supplyMintedEl.textContent = fmt(mintedCount);
-                     if(supplyCirculatingEl) supplyCirculatingEl.textContent = fmt(circulatingSupply);
-                     if(supplyLiquidEl) supplyLiquidEl.textContent = fmt(liquidSupply);
-                     if(supplyDaodaoStakedEl) supplyDaodaoStakedEl.textContent = fmt(daodaoCount);
-                     if(supplyEnterpriseStakedEl) supplyEnterpriseStakedEl.textContent = fmt(enterpriseStakedByHolder);
                      if(daodaoModalHolderCountEl) daodaoModalHolderCountEl.textContent = fmt(daodaoCount);
 
                      const unbrokenCountEl = document.getElementById('unbroken-count');
@@ -10167,6 +10163,7 @@
                         const ddResp = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/dao-dashboard/current.json');
                         if (ddResp.ok) {
                             const dd = await ddResp.json();
+                            if (dd) window._daoDashboard = dd;   // Rev 4.11
                             const ageHours = (Date.now() - Date.parse(dd?.meta?.generated_at || 0)) / 36e5;
                             if (dd?.dashboard && ageHours >= 0 && ageHours < 26) {
                                 cachedTlaData = dd;
@@ -12998,22 +12995,37 @@
                 }
                 
                 // Display overview data from cache (NO API CALLS)
+                // Rev 4.11 (pricing doctrine): bLUNA is an LST — price it LUNA × hub ratio, never the CoinGecko market
+                // print (a pool doing ~$30/day; it read $0.0769 while LUNA × 1.7699 was $0.0785). Ratio comes from
+                // network-and-prices (Eris hub on chain); falls back to the market print, labeled, only if no ratio.
+                function blunaUsdDoctrine() {
+                    const luna = Number(window.tokenPrices?.LUNA) || 0;
+                    const ratio = Number(cachedTlaExtData?.lst_ratios?.tokens?.bLUNA?.ratio) || 0;
+                    if (luna > 0 && ratio > 0) return { price: luna * ratio, source: 'LUNA × bLUNA hub ratio ' + ratio.toFixed(4) };
+                    const mkt = Number(window.tokenPrices?.bLUNA) || 0;
+                    return mkt > 0 ? { price: mkt, source: 'market print (no hub ratio loaded)' } : { price: 0, source: null };
+                }
                 function displayCachedOverviewData(collectionKey) {
                     const collectionConfig = BBL_COLLECTIONS[collectionKey];
-                    const blunaPrice = window.tokenPrices?.bLUNA || 0;
+                    const bl = blunaUsdDoctrine(); const blunaPrice = bl.price;
                     
                     // BBL Data from cache
                     if (collectionConfig.bblSupported && marketplaceCache.bbl[collectionKey]) {
                         const bblData = marketplaceCache.bbl[collectionKey];
                         
                         document.getElementById('bbl-floor-bluna').textContent = bblData.floor > 0 ? bblData.floor.toLocaleString() : '--';
-                        document.getElementById('bbl-floor-usd').textContent = bblData.floor > 0 && blunaPrice > 0 ? `($${(bblData.floor * blunaPrice).toFixed(2)})` : '';
+                        const fu = document.getElementById('bbl-floor-usd'); fu.textContent = bblData.floor > 0 && blunaPrice > 0 ? `($${(bblData.floor * blunaPrice).toFixed(2)})` : ''; if (bl.source) fu.title = 'bLUNA at ' + bl.source;
                         document.getElementById('bbl-listed-count').textContent = bblData.count || 0;
                         
                         // Volume and total sales only available for aDAO (from our tracked data)
                         if (collectionKey === 'alliance_dao') {
                             document.getElementById('bbl-volume-bluna').textContent = bblData.volume > 0 ? Math.round(bblData.volume).toLocaleString() : '--';
-                            document.getElementById('bbl-volume-usd').textContent = bblData.volume > 0 && blunaPrice > 0 ? `($${Math.round(bblData.volume * blunaPrice).toLocaleString()})` : '';
+                            // Rev 4.11: all-time volume is NOT converted at today's bLUNA price (256,905 bLUNA read "$19,756" when
+                            // the sales, priced when they happened, total ~$156K). Show the sale-time USD from dao-dashboard when it
+                            // is loaded; otherwise show nothing rather than a wrong number.
+                            const vu = document.getElementById('bbl-volume-usd');
+                            const saleTime = Number(window._daoDashboard?.dashboard?.nft?.volume_usd_at_sale_total);
+                            vu.textContent = saleTime > 0 ? `(≈ $${Math.round(saleTime).toLocaleString()} at sale-time prices)` : '';
                             // Total sales from JSON data
                             const bblSalesCount = salesData?.cumulative_totals?.bbl?.total_sales || allTimeSalesData?.cumulative_totals?.bbl?.total_sales || 0;
                             document.getElementById('bbl-total-sales').textContent = bblSalesCount > 0 ? `${bblSalesCount} sales` : '--';
@@ -15492,7 +15504,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '4.09', REV_DATE = '2026-08-24';   // 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
+        const REV = '4.11', REV_DATE = '2026-09-10';   // 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -15928,6 +15940,7 @@
             return '<div class="rounded-lg border ' + (c.live ? 'border-amber-500/30 bg-amber-500/[0.05]' : c.pending ? 'border-violet-500/30 bg-violet-500/[0.05]' : 'border-white/10 bg-white/[0.02]') + ' p-3">' +
                 '<div class="flex items-center gap-2 flex-wrap">' +
                 '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded ' + cls + '">' + t + '</span>' +
+                (window.PropAudit && PropAudit.isSignal(c) ? PropAudit.signalChip() : '') +
                 '<span class="text-xs font-bold text-white">' + esc(c.dao) + ' · #' + c.id + '</span>' +
                 (c.daysLeft != null && c.live ? '<span class="text-[10px] text-amber-200 font-mono">' + c.daysLeft.toFixed(1) + 'd left' + (c.daysLeftEstimated ? ' (est.)' : '') + '</span>' : '') +
                 (c.pending && c.vetoUntil ? '<span class="text-[10px] text-violet-200 font-mono">council window closes ' + fmtDay(c.vetoUntil) + ' ' + String(c.vetoUntil).slice(11, 16) + ' UTC</span>' : '') +
@@ -15943,7 +15956,7 @@
                 '<a class="text-[11px] text-cyan-400 hover:underline" target="_blank" rel="noopener" href="' + esc(c.link) + '"><i class="fas fa-arrow-up-right-from-square mr-1"></i>Open governance' + (c.live ? ' &amp; vote' : '') + '</a>' +
                 (opts.audit !== false ? '<button type="button" class="text-[11px] text-violet-300 hover:underline" data-act="audit" data-key="' + esc(c.dao) + '|' + c.id + '"><i class="fas fa-magnifying-glass-dollar mr-1"></i>Quick audit</button>' : '') +
                 (opts.history !== false ? '<button type="button" class="text-[11px] text-gray-400 hover:underline" data-act="history" data-dao="' + esc(c.dao) + '"><i class="fas fa-clock-rotate-left mr-1"></i>All ' + esc(c.dao) + ' props</button>' : '') +
-                '</div><div data-prec="' + esc(cardKey(c)) + '">' + (c.ledger ? ledgerHtml(c.ledger, c) : '') + (c.precedent ? precedentHtml(c.precedent) : '') + '</div></div>';
+                '</div><div data-prec="' + esc(cardKey(c)) + '">' + (c.ledger ? ledgerHtml(c.ledger, c) : '') + (c.precedent && !(window.PropAudit && PropAudit.isSignal(c)) ? precedentHtml(c.precedent) : '') + '</div></div>';
         }
         // ---- Rev 3.83 PRECEDENT CHECK (owner 2026-08-22) ------------------------------------
         // "Is this a copy of something that already passed?" Deterministic, no model:
@@ -16009,7 +16022,8 @@
             c.precedent = pr;
             const execShapes = past.filter(p => ['executed', 'passed'].includes(String(p.status).toLowerCase()) && Array.isArray(p.rawMsgs) && p.rawMsgs.length).map(p => msgShape(p.rawMsgs));
             c.ledger = ledgerOf(c, R, execShapes);
-            const html = ledgerHtml(c.ledger, c) + precedentHtml(pr) + '<button type="button" class="pulse-pill mt-1.5" data-act="deep" data-key="' + esc(cardKey(c)) + '"><i class="fas fa-magnifying-glass-dollar mr-1"></i>Deeper check in Help (every address vs registries)</button>';
+            const signal = window.PropAudit && PropAudit.isSignal(c);   // 4.11: text-only proposal → one green line, no ledger/precedent/deep-check
+            const html = ledgerHtml(c.ledger, c) + (signal ? '' : precedentHtml(pr) + '<button type="button" class="pulse-pill mt-1.5" data-act="deep" data-key="' + esc(cardKey(c)) + '"><i class="fas fa-magnifying-glass-dollar mr-1"></i>Deeper check in Help (every address vs registries)</button>');
             document.querySelectorAll('[data-prec="' + cardKey(c).replace(/"/g, '') + '"]').forEach(el => { el.innerHTML = html; });
             if (!document.querySelector('[data-prec="' + cardKey(c).replace(/"/g, '') + '"]') && $('gov-modal').style.display !== 'none') gmRender();   // card re-rendered meanwhile
         }

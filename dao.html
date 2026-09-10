@@ -611,7 +611,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 1.10</span>
+                    <span class="font-mono">Rev 1.11</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>
@@ -1195,6 +1195,7 @@ function renderPropCard(p, idx) {
     const liveStrip = isLive ? `
             <div class="flex flex-wrap items-center gap-2 mb-3 text-xs">
                 <span class="px-2 py-0.5 rounded font-bold bg-amber-400/20 text-amber-300 border border-amber-400/40 animate-pulse">LIVE — voting now</span>
+                ${!(Array.isArray(p.rawMsgs) && p.rawMsgs.length) ? '<span class="px-2 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" title="Text-only proposal: no executable messages, nothing runs on pass"><i class="fas fa-comment-dots mr-1"></i>SIGNAL · text only</span>' : ''}
                 ${tl ? `<span class="mono text-amber-200"><i class="fas fa-hourglass-half mr-1"></i>${tl}</span>` : ''}
                 <span class="${quorumOk ? 'text-green-400' : 'text-zinc-400'}"><i class="fas fa-${quorumOk ? 'check' : 'circle'} mr-1"></i>quorum ${quorumOk ? 'reached' : 'not yet'}${p.voting?.quorumThreshold != null ? ` (${p.voting.quorumThreshold}%)` : ''}</span>
                 <span class="${thresholdOk ? 'text-green-400' : 'text-zinc-400'}"><i class="fas fa-${thresholdOk ? 'check' : 'circle'} mr-1"></i>passing ${thresholdOk ? 'yes' : 'not yet'}</span>
@@ -1299,7 +1300,7 @@ window.fillPropAudit = async function (elId, key) {
         const lg = PropAudit.ledgerOf(card, R, shapes); const prec = PropAudit.precedentOf(card, past);
         const bandCls = { match: 'border-emerald-500/30 text-emerald-200', near: 'border-amber-500/30 text-amber-200', novel: 'border-orange-500/30 text-orange-200', none: 'border-zinc-700 text-zinc-400' };
         const precHtml = prec ? `<div class="mt-1.5 rounded border ${bandCls[prec.band] || bandCls.none} bg-white/[0.02] px-2 py-1.5 text-[11px]"><div class="text-[10px] uppercase tracking-wider font-bold mb-0.5">Precedent · compared with ${prec.compared} past ${card.dao} proposal${prec.compared === 1 ? '' : 's'}</div><div>${prec.reading}</div>${(prec.top || []).slice(0, 4).map(r => `<div class="text-[10px] text-zinc-500">#${r.card.id} ${r.score}% · ${String(r.card.status).toLowerCase()}</div>`).join('')}<div class="text-[9px] text-zinc-600 mt-1">Shape match = same contracts, actions, addresses and denoms with amounts stripped. Precedent is not chain proof: a matching shape only says this pattern was voted on before and how that vote went.</div></div>` : '';
-        el.innerHTML = PropAudit.ledgerHtml(lg, card) + precHtml;
+        el.innerHTML = PropAudit.ledgerHtml(lg, card) + (PropAudit.isSignal(card) ? '' : precHtml);   // Rev 1.11: signal → one green line
     } catch (e) { el.innerHTML = '<div class="text-xs text-zinc-600">audit unavailable: ' + (e && e.message ? e.message : e) + '</div>'; }
 };
 function renderExpandedContent(p, issues) {
