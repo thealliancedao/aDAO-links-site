@@ -1,0 +1,68 @@
+{
+ "redirects": [
+  {
+   "source": "/capa_lp_converter.html",
+   "destination": "/ampcapa-tool.html",
+   "permanent": true
+  },
+  {
+   "source": "/capa_lp_converter",
+   "destination": "/ampcapa-tool.html",
+   "permanent": true
+  },
+  {
+   "source": "/fuel_tracker.html",
+   "destination": "/fuel-tool.html",
+   "permanent": true
+  },
+  {
+   "source": "/nft-explorer.html",
+   "destination": "/nft-explorer-index.html",
+   "permanent": true
+  },
+  {
+   "source": "/tla_tool.html",
+   "destination": "/tla-stats.html",
+   "permanent": true
+  },
+  {
+   "source": "/test2.html",
+   "destination": "/test.html",
+   "permanent": false
+  },
+  {
+   "source": "/planet-map.html",
+   "destination": "/adao-lore.html",
+   "permanent": false
+  },
+  {
+   "source": "/news.html",
+   "destination": "/index.html",
+   "permanent": false
+  }
+ ],
+ "headers": [
+  {
+   "source": "/sw.js",
+   "headers": [
+    {
+     "key": "Cache-Control",
+     "value": "no-cache"
+    },
+    {
+     "key": "Service-Worker-Allowed",
+     "value": "/"
+    }
+   ]
+  },
+  {
+   "source": "/(.*).webmanifest",
+   "headers": [
+    {
+     "key": "Content-Type",
+     "value": "application/manifest+json"
+    }
+   ]
+  }
+ ]
+}

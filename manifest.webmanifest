@@ -1,0 +1,30 @@
+{
+ "name": "Alliance DAO",
+ "short_name": "Ally",
+ "description": "Alliance DAO \u2014 the Terra Liquidity Alliance analytics and governance platform.",
+ "start_url": "/index.html?source=pwa",
+ "scope": "/",
+ "display": "standalone",
+ "orientation": "portrait",
+ "background_color": "#0a0b0f",
+ "theme_color": "#0a0b0f",
+ "icons": [
+  {
+   "src": "/assets/app/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "/assets/app/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  },
+  {
+   "src": "/assets/app/icon-maskable-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ],
+ "id": "/?app=ally"
+}

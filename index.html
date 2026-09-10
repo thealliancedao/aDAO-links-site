@@ -696,6 +696,24 @@
             border: 1px solid rgba(45, 212, 191, 0.3);
         }
         
+        /* --- 4.14 MOBILE (owner 2026-09-10): simplify Home on phones — drop Ecosystem Pulse (the alert modal still fires
+               for new proposals), fold the link tiles into an expandable tree, compact the DAO rewards card --- */
+        @media (max-width: 767px) {
+            #pulse-card { display: none !important; }
+            .top-info-grid { display: none; }
+            .top-info-grid.mob-open { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; }
+            .top-info-grid .info-card { min-height: 0; padding: .7rem .5rem; }
+            .top-info-grid .info-card h3 { font-size: .8rem; }
+            .top-info-grid .info-card p, .top-info-grid .info-card .icon { display: none; }
+            .info-card-tall { grid-row: auto !important; }
+            #mob-links-toggle { display: flex; }
+            #unclaimed-rewards-card { padding: .75rem !important; }
+            #unclaimed-rewards-card h3 { font-size: .95rem !important; }
+            #unclaimed-rewards-card canvas, #unclaimed-rewards-card svg.spark, #unclaimed-rewards-card [id$="-spark"], #unclaimed-rewards-card [id$="-sparkline"] { display: none !important; }
+            #unclaimed-rewards-card .stat-card { padding: .6rem !important; }
+        }
+        #mob-links-toggle { display: none; width: 100%; align-items: center; justify-content: space-between; padding: .7rem .9rem; margin-bottom: .75rem; border-radius: .75rem; background: rgba(17,24,39,.8); border: 1px solid rgba(255,255,255,.08); color: #d1d5db; font-weight: 600; font-size: .9rem; }
+        #mob-links-toggle i { transition: transform .2s; } #mob-links-toggle.open i { transform: rotate(180deg); }
         /* --- ALLY Rewards "tall" tile: spans 2 rows on desktop only --- */
         .info-card-tall .ally-desc,
         .info-card-tall .ally-cta {
@@ -1305,7 +1323,8 @@
             </div>
         </div>
 
-        <div class="top-info-grid grid grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
+        <button type="button" id="mob-links-toggle" aria-expanded="false" aria-controls="top-info-grid"><span><i class="fas fa-link mr-2 text-teal-400"></i>Links &amp; tools — Rewards · Tutorials · Tools · Rarity · Releases · Alliances · DAO · Contract</span><i class="fas fa-chevron-down"></i></button>
+        <div class="top-info-grid grid grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8" id="top-info-grid">
             <!-- ALLY Rewards: large tile, spans 2 rows on desktop, single tile on mobile -->
             <a href="ally.html" class="stat-card info-card info-card-tall rounded-xl group">
                 <i class="fas fa-layer-group icon"></i>
@@ -15360,6 +15379,14 @@
                 // Initialize
                 setupFilterButtons();
                 setupCollectionTabs();    // Collection selector tabs
+                // 4.14 (app): the device's default collection applies across the marketplace tiles + listings (same code paths as a tap)
+                try {
+                    const want = window.AllyApp ? AllyApp.prefs().collection : null;
+                    if (want && want !== 'alliance_dao') {
+                        const tab = document.querySelector('.collection-tab[data-collection="' + want + '"]:not(:disabled)'); if (tab) tab.click();
+                        const item = document.querySelector('.collection-dropdown-item[data-collection="' + want + '"]'); if (item) item.click();
+                    }
+                } catch (e) {}
                 setupListingsFilters();   // Listings filter buttons
                 loadNftStatus();          // nfts.json for listing counts
                 loadSalesHistory();       // Load sales history for volume/sales
@@ -15765,7 +15792,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '4.13', REV_DATE = '2026-09-10';   // 4.13: five more popups on the multi-series renderer — Treasury (by token + LUNA), TLA Deposits (LPs · zLUNA · APR), Deposit rewards (unclaimed vs lifetime claimed), Vote rewards (by token), TLA Locks (USD vs LUNA-equivalent); 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
+        const REV = '4.14', REV_DATE = '2026-09-10';   // 4.14 (mobile/app): Ecosystem Pulse hidden on phones, link tiles fold into a tree, rewards card compact, marketplace opens on the device's default collection, open proposals reported to the app badge (seen on alert open); 4.13: five more popups on the multi-series renderer — Treasury (by token + LUNA), TLA Deposits (LPs · zLUNA · APR), Deposit rewards (unclaimed vs lifetime claimed), Vote rewards (by token), TLA Locks (USD vs LUNA-equivalent); 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16327,7 +16354,8 @@
             const h = $('gm-help'); if (h) h.onclick = () => { if (window.SiteFooter && SiteFooter.openHelpDrawer) SiteFooter.openHelpDrawer(); };
             const d = $('gm-dismiss'); if (d) d.onclick = () => { sessionStorage.setItem('tla:gov-alert', alertSig(gm.cards)); gmClose(); };
         }
-        function gmOpen(mode, cards, title, sub) { gm.mode = mode; gm.cards = cards; gm.idx = 0; gm.dao = sub; $('gm-title').textContent = title; $('gm-sub').textContent = mode === 'history' ? 'from chain captures · newest first' : 'live from chain · vote on the governance site · Quick audit checks every address against the registries'; $('gov-modal').style.display = 'flex'; gmRender(); }
+        function gmOpen(mode, cards, title, sub) { try { if (window.AllyApp && mode === 'alert') AllyApp.markSeen(cards.map(c => ({ dao: c.dao, id: c.id }))); } catch (e) {}   // 4.14: opening the alert = seen
+            gm.mode = mode; gm.cards = cards; gm.idx = 0; gm.dao = sub; $('gm-title').textContent = title; $('gm-sub').textContent = mode === 'history' ? 'from chain captures · newest first' : 'live from chain · vote on the governance site · Quick audit checks every address against the registries'; $('gov-modal').style.display = 'flex'; gmRender(); }
         // Rev 3.84: was classList 'hidden' vs an inline display:flex — inline style wins, so the
         // modal could never close (owner report). Drive display directly; Esc closes too.
         function gmClose() { $('gov-modal').style.display = 'none'; }
@@ -16338,6 +16366,8 @@
         // acknowledged once per session (re-shown when the live set changes).
         function maybeAlert() {
             const open = liveCards(newsState.all);
+            // 4.14 (app): tell the shell which proposals are open → home-screen badge + tab dot (filtered by the device's default DAO)
+            try { if (window.AllyApp) AllyApp.reportProps(open.map(c => ({ dao: c.dao, id: c.id }))); } catch (e) {}
             if (!open.length) return;
             if (sessionStorage.getItem('tla:gov-alert') === alertSig(open)) return;
             gmOpen('alert', open, open.length + ' proposal' + (open.length === 1 ? '' : 's') + ' need' + (open.length === 1 ? 's' : '') + ' your attention', null);
@@ -16820,6 +16850,9 @@
 
         async function init() {
             const rev = $('page-rev'); if (rev) rev.textContent = 'Rev ' + REV + ' · ' + REV_DATE;
+            // 4.14 mobile link tree
+            const mlt = document.getElementById('mob-links-toggle'), mlg = document.getElementById('top-info-grid');
+            if (mlt && mlg) mlt.addEventListener('click', () => { const o = mlg.classList.toggle('mob-open'); mlt.classList.toggle('open', o); mlt.setAttribute('aria-expanded', String(o)); });
             if (!$('pulse-card')) return;
             $('pulse-windows').innerHTML = WINDOWS.map(([d, l]) => '<button class="pulse-pill' + (d === state.windowDays ? ' active' : '') + '" data-w="' + d + '">' + l + '</button>').join('');
             $('pulse-windows').querySelectorAll('.pulse-pill').forEach(b => b.addEventListener('click', () => {

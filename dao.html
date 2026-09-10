@@ -611,7 +611,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 1.11</span>
+                    <span class="font-mono">Rev 1.12</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>
@@ -1134,6 +1134,8 @@ function getGrade(pct) {
 // PROPOSALS
 // ========================================
 function renderProposals() {
+    // app (2026-09-10): every proposal shown here counts as seen for the home-screen badge (report + mark)
+    try { if (window.AllyApp) { const live = [].concat(Object.values(proposals || {}).map(p => ({ dao: 'aDAO', p })), Object.values(lionProposals || {}).map(p => ({ dao: 'Lion DAO', p })), Object.values(pixelProposals || {}).map(p => ({ dao: 'Pixel Lions', p }))).filter(x => x.p && (x.p.live || String(x.p.status || '').toLowerCase() === 'open')).map(x => ({ dao: x.dao, id: x.p.id })); AllyApp.markSeen(live); } } catch (e) {}
     const search = document.getElementById('search').value.toLowerCase();
     const statusFilter = document.getElementById('filter-status').value;
     const auditFilter = document.getElementById('filter-audit').value;
