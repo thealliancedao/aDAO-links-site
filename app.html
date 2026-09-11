@@ -10,294 +10,449 @@
 <meta name="apple-mobile-web-app-title" content="Ally">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/app/apple-touch-icon-180.png">
 <link rel="manifest" href="/manifest.webmanifest">
-<title>Ally — Alliance DAO app</title>
+<title>Ally — your Alliance companion</title>
+<link rel="preconnect" href="https://raw.githubusercontent.com">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap">
 <style>
 /* =============================================================================
-   app.html — Alliance DAO phone app v0 (the installed app's start page; SPEC-mobile-app.md) (2026-09-11) — SPEC-mobile-app.md
-   ONE idea: what changed since you last looked. Built from scratch for the phone
-   on the same org products every page reads. No Tailwind, no desktop DOM.
+   app.html — Ally, the Alliance DAO phone app (v1, 2026-09-11) — SPEC-mobile-app.md
+   A personal position companion: where do I stand · how am I trending · what
+   should I do · what changed since I last looked. Built from scratch for the
+   phone on the org products; no desktop DOM, no Tailwind.
+   Design system: one accent (cyan), semantic greens/reds, big mono numerals,
+   16px inputs (no iOS zoom), safe-area aware, sheets not pages for detail.
    ============================================================================= */
-:root{--bg:#0a0b0f;--card:#11141b;--card2:#171b24;--line:rgba(255,255,255,.08);--tx:#e5e7eb;--mut:#8b93a1;--dim:#5b6270;--cy:#22d3ee;--cy2:#67e8f9;--gr:#4ade80;--rd:#f87171;--am:#fbbf24;--or:#fb923c;--pu:#c084fc}
+:root{--bg:#0a0b0f;--bg2:#0f1218;--card:#12161e;--card2:#181d27;--line:rgba(255,255,255,.07);--line2:rgba(255,255,255,.12);--tx:#eef0f3;--tx2:#c3c8d1;--mut:#8b93a1;--dim:#5d6470;--cy:#22d3ee;--cy2:#67e8f9;--gr:#34d399;--rd:#f87171;--am:#fbbf24;--or:#fb923c;--pu:#c084fc;--r:16px;--r2:12px}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{overscroll-behavior-y:none;background:var(--bg)}
-body{margin:0;font-family:Outfit,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--tx);font-size:15px;line-height:1.35;padding-bottom:calc(72px + env(safe-area-inset-bottom));max-width:100vw;overflow-x:hidden}
-.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
-/* top bar */
-.top{position:sticky;top:0;z-index:20;background:rgba(10,11,15,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:calc(.55em + env(safe-area-inset-top)) .9em .55em;display:flex;align-items:center;gap:.6em}
-.top img{height:1.9em}
-.top .ttl{font-weight:800;font-size:1.05em;flex:1}
-.chip{display:inline-flex;align-items:center;gap:.4em;padding:.35em .7em;border-radius:9999px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.25);color:var(--cy2);font-size:.85em;font-family:"JetBrains Mono",monospace;max-width:46vw;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.ib{background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--tx);border-radius:9999px;width:2.2em;height:2.2em;display:inline-flex;align-items:center;justify-content:center;font-size:.95em}
-/* views */
-.view{display:none;padding:.8em .8em 0}.view.on{display:block}
-h2{font-size:.72em;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin:.9em .15em .45em;font-weight:700}
-.card{background:var(--card);border:1px solid var(--line);border-radius:1em;padding:.8em .9em;margin-bottom:.6em}
-.card.tap{cursor:pointer}
-.row{display:flex;align-items:center;gap:.6em}
-.row .l{flex:1;min-width:0}
-.k{font-size:.78em;color:var(--mut)}
-.v{font-size:1.25em;font-weight:800;font-family:"JetBrains Mono",monospace;letter-spacing:-.01em}
-.v.sm{font-size:1.05em}
-.d{font-size:.78em;font-weight:700;padding:.15em .5em;border-radius:9999px;white-space:nowrap}
-.d.up{background:rgba(74,222,128,.12);color:var(--gr)}.d.dn{background:rgba(248,113,113,.12);color:var(--rd)}.d.fl{background:rgba(255,255,255,.06);color:var(--mut)}.d.new{background:rgba(192,132,252,.15);color:var(--pu)}
-.ic{width:2.2em;height:2.2em;border-radius:.7em;display:inline-flex;align-items:center;justify-content:center;font-size:1em;flex:0 0 auto}
-.ic.cy{background:rgba(34,211,238,.12);color:var(--cy2)}.ic.gr{background:rgba(74,222,128,.12);color:var(--gr)}.ic.am{background:rgba(251,191,36,.12);color:var(--am)}.ic.pu{background:rgba(192,132,252,.14);color:var(--pu)}.ic.or{background:rgba(251,146,60,.12);color:var(--or)}.ic.rd{background:rgba(248,113,113,.12);color:var(--rd)}
-.sub{font-size:.78em;color:var(--dim);margin-top:.25em}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.6em}
-.tile{background:var(--card);border:1px solid var(--line);border-radius:1em;padding:.7em .8em}
-.tile .k{margin-bottom:.15em}.tile .v{font-size:1.15em}
+html{background:var(--bg);overscroll-behavior-y:contain}
+body{margin:0;font-family:Outfit,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--tx);font-size:15px;line-height:1.35;padding-bottom:calc(76px + env(safe-area-inset-bottom));max-width:100vw;overflow-x:hidden}
+a{color:inherit}
+.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace}
+button{font-family:inherit}
+/* ---------- top bar ---------- */
+.top{position:sticky;top:0;z-index:20;background:rgba(10,11,15,.86);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--line);padding:calc(.5em + env(safe-area-inset-top)) .9em .5em}
+.top .r1{display:flex;align-items:center;gap:.6em}
+.top .ttl{font-weight:800;font-size:1.25em;flex:1;letter-spacing:-.01em}
+.top .sub{font-size:.78em;color:var(--mut);margin-top:-.1em}
+.pill{display:inline-flex;align-items:center;gap:.35em;padding:.28em .6em;border-radius:9999px;font-size:.78em;font-weight:700;border:1px solid var(--line2);background:rgba(255,255,255,.04);color:var(--tx2);white-space:nowrap}
+.pill.cy{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.08);color:var(--cy2)}
+.pill.gr{border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.1);color:var(--gr)}
+.pill.rd{border-color:rgba(248,113,113,.35);background:rgba(248,113,113,.1);color:var(--rd)}
+.pill.am{border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.1);color:var(--am)}
+.pill.pu{border-color:rgba(192,132,252,.35);background:rgba(192,132,252,.12);color:var(--pu)}
+.pill.mut{color:var(--mut)}
+.ib{background:rgba(255,255,255,.05);border:1px solid var(--line2);color:var(--tx);border-radius:9999px;width:2.3em;height:2.3em;display:inline-flex;align-items:center;justify-content:center;font-size:.95em;cursor:pointer}
+.chipw{display:inline-flex;align-items:center;gap:.4em;padding:.35em .7em;border-radius:9999px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.28);color:var(--cy2);font-size:.82em;font-weight:700;max-width:44vw;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
+/* ---------- layout ---------- */
+.view{display:none;padding:.7em .8em 0}.view.on{display:block}
+h2{font-size:.72em;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin:1.1em .2em .5em;font-weight:700;display:flex;align-items:center;gap:.5em}
+h2 .more{margin-left:auto;text-transform:none;letter-spacing:0;font-size:1.05em;color:var(--cy2);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:.85em .95em;margin-bottom:.6em;position:relative}
+.card.tap{cursor:pointer}.card.tap:active{background:var(--card2)}
+.hero{background:linear-gradient(160deg,#121a24 0%,#0f1218 60%);border:1px solid rgba(34,211,238,.18);border-radius:20px;padding:1em 1em .9em;margin-bottom:.7em}
+.hero .lab{font-size:.78em;color:var(--mut);font-weight:600;letter-spacing:.02em}
+.hero .big{font-size:2.15em;font-weight:800;letter-spacing:-.02em;font-family:"JetBrains Mono",monospace;line-height:1.1;margin:.08em 0 .15em}
+.hero .row{display:flex;align-items:center;gap:.5em;flex-wrap:wrap}
+.hero svg{display:block;width:100%;height:56px;margin-top:.5em}
+.row{display:flex;align-items:center;gap:.65em}.row .l{flex:1;min-width:0}
+.k{font-size:.78em;color:var(--mut)}.k2{font-size:.82em;color:var(--tx2)}
+.v{font-size:1.2em;font-weight:800;font-family:"JetBrains Mono",monospace;letter-spacing:-.01em;white-space:nowrap}.v.sm{font-size:1em}.v.xs{font-size:.9em}
+.d{font-size:.76em;font-weight:700;padding:.15em .5em;border-radius:9999px;white-space:nowrap;font-family:"JetBrains Mono",monospace}
+.d.up{background:rgba(52,211,153,.12);color:var(--gr)}.d.dn{background:rgba(248,113,113,.12);color:var(--rd)}.d.fl{background:rgba(255,255,255,.06);color:var(--mut);font-family:inherit}.d.new{background:rgba(192,132,252,.15);color:var(--pu);font-family:inherit}
+.ic{width:2.3em;height:2.3em;border-radius:.75em;display:inline-flex;align-items:center;justify-content:center;font-size:1em;flex:0 0 auto}
+.ic.cy{background:rgba(34,211,238,.12);color:var(--cy2)}.ic.gr{background:rgba(52,211,153,.12);color:var(--gr)}.ic.am{background:rgba(251,191,36,.12);color:var(--am)}.ic.pu{background:rgba(192,132,252,.14);color:var(--pu)}.ic.or{background:rgba(251,146,60,.12);color:var(--or)}.ic.rd{background:rgba(248,113,113,.12);color:var(--rd)}
+.sub{font-size:.78em;color:var(--dim);margin-top:.2em}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.55em}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5em}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:var(--r2);padding:.7em .8em;min-width:0}
+.tile .k{margin-bottom:.15em}.tile .v{font-size:1.12em}.tile .sub{margin-top:.15em}
 .list{display:flex;flex-direction:column;gap:.35em}
-.li{display:flex;align-items:center;gap:.6em;padding:.5em .6em;background:var(--card2);border-radius:.7em}
-.li img{width:2.4em;height:2.4em;border-radius:.5em;object-fit:cover;background:#222}
-.li .l{flex:1;min-width:0}.li .t{font-weight:700;font-size:.9em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.li .s{font-size:.74em;color:var(--mut)}
-.li .r{text-align:right;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:.9em}
-.li .r .s{font-weight:500}
-.seg{display:flex;background:var(--card2);border-radius:.8em;padding:.25em;margin-bottom:.6em}
-.seg button{flex:1;border:0;background:transparent;color:var(--mut);font:inherit;font-weight:700;font-size:.85em;padding:.5em;border-radius:.6em}
+.li{display:flex;align-items:center;gap:.6em;padding:.55em .65em;background:var(--card2);border-radius:.75em}
+.li.tap{cursor:pointer}.li.tap:active{filter:brightness(1.15)}
+.li img{width:2.6em;height:2.6em;border-radius:.55em;object-fit:cover;background:#1f2430;flex:0 0 auto}
+.li .l{flex:1;min-width:0}.li .t{font-weight:700;font-size:.92em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.li .s{font-size:.75em;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li .r{text-align:right;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:.92em;white-space:nowrap}.li .r .s{font-weight:500;font-family:Outfit,sans-serif}
+.li .sp{width:64px;height:24px;flex:0 0 auto}
+.att{display:flex;gap:.65em;align-items:flex-start;padding:.7em .8em;border-radius:var(--r2);background:var(--card2);border:1px solid var(--line);margin-bottom:.45em}
+.att .t{font-weight:700;font-size:.92em}.att .s{font-size:.78em;color:var(--mut);margin-top:.1em}.att .a{margin-left:auto;align-self:center}
+.seg{display:flex;background:var(--card2);border-radius:.8em;padding:.22em;margin:.3em 0 .6em;gap:.1em}
+.seg button{flex:1;border:0;background:transparent;color:var(--mut);font-weight:700;font-size:.82em;padding:.5em .3em;border-radius:.62em;cursor:pointer;white-space:nowrap}
 .seg button.on{background:rgba(34,211,238,.15);color:var(--cy2)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4em;padding:.6em .9em;border-radius:.7em;border:1px solid rgba(34,211,238,.35);background:rgba(34,211,238,.1);color:var(--cy2);font:inherit;font-weight:700;font-size:.9em;text-decoration:none}
-.btn.g{border-color:var(--line);background:rgba(255,255,255,.05);color:var(--tx)}
-.empty{padding:1.2em .8em;text-align:center;color:var(--dim);font-size:.9em}
-.pill{font-size:.7em;padding:.1em .5em;border-radius:9999px;background:rgba(255,255,255,.06);color:var(--mut)}
-.bar{height:.45em;border-radius:9999px;background:rgba(255,255,255,.08);overflow:hidden;margin:.35em 0}.bar i{display:block;height:100%;background:linear-gradient(90deg,#00f2fe,#2889fc)}
-input.in{width:100%;font:inherit;font-size:16px;color:#fff;background:var(--card2);border:1px solid var(--line);border-radius:.7em;padding:.6em .8em;outline:0}
-.res{max-height:40vh;overflow:auto}
-/* tab bar */
-.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(5,1fr);background:rgba(10,11,15,.94);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid rgba(34,211,238,.18);padding:.35em .25em calc(.35em + env(safe-area-inset-bottom))}
-.tab{display:flex;flex-direction:column;align-items:center;gap:.2em;padding:.35em .2em;color:var(--mut);font-size:.66em;font-weight:700;border:0;background:transparent;font-family:inherit;position:relative;min-height:48px;border-radius:.5em}
-.tab i{font-size:1.7em;color:#6b7280}.tab.on{color:var(--cy)}.tab.on i{color:var(--cy)}
-.tab b.n{position:absolute;top:0;right:calc(50% - 1.6em);min-width:1.4em;height:1.4em;border-radius:9999px;background:#ef4444;color:#fff;font-size:.62em;line-height:1.4em;text-align:center;padding:0 .3em}
-.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1f2937;color:#fff;padding:.5em .9em;border-radius:9999px;font-size:.85em;z-index:40;opacity:0;transition:opacity .2s;pointer-events:none}.toast.on{opacity:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.45em;padding:.65em .95em;border-radius:.8em;border:1px solid rgba(34,211,238,.35);background:rgba(34,211,238,.1);color:var(--cy2);font-weight:700;font-size:.9em;text-decoration:none;cursor:pointer}
+.btn.g{border-color:var(--line2);background:rgba(255,255,255,.05);color:var(--tx)}.btn.p{background:var(--cy);color:#04141a;border-color:var(--cy)}.btn.w{width:100%}
+.btns{display:flex;gap:.5em;flex-wrap:wrap;margin-top:.7em}
+.empty{padding:1.3em .8em;text-align:center;color:var(--dim);font-size:.9em}.empty i{display:block;font-size:1.6em;margin-bottom:.35em;color:var(--mut)}
+.alloc{display:flex;height:.55em;border-radius:9999px;overflow:hidden;background:rgba(255,255,255,.06);margin:.55em 0 .45em}
+.alloc i{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:.4em .9em;font-size:.74em;color:var(--mut)}.legend b{display:inline-block;width:.6em;height:.6em;border-radius:2px;margin-right:.35em;vertical-align:-.02em}
+.bar{height:.5em;border-radius:9999px;background:rgba(255,255,255,.08);overflow:hidden;margin:.35em 0;display:flex}.bar i{display:block;height:100%}
+input.in{width:100%;font-family:inherit;font-size:16px;color:#fff;background:var(--card2);border:1px solid var(--line2);border-radius:.75em;padding:.65em .85em;outline:0}
+.res{max-height:44vh;overflow:auto;margin-top:.45em}
+.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:.5em}
+.th{background:var(--card2);border-radius:.8em;overflow:hidden;position:relative}.th img{width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#1f2430}
+.th .p{position:absolute;left:0;right:0;bottom:0;padding:.35em .45em;background:linear-gradient(transparent,rgba(0,0,0,.85));font-family:"JetBrains Mono",monospace;font-weight:700;font-size:.8em;color:#fff;display:flex;justify-content:space-between}
+.th .p span{font-family:Outfit,sans-serif;font-weight:600;color:#cbd5e1;font-size:.9em}
+/* skeleton */
+.sk{background:linear-gradient(90deg,rgba(255,255,255,.05) 25%,rgba(255,255,255,.1) 37%,rgba(255,255,255,.05) 63%);background-size:400% 100%;animation:sk 1.3s ease infinite;border-radius:.6em;height:1em}
+@keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+.skc{height:5.2em;margin-bottom:.6em;border-radius:var(--r)}
+/* tabs */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(5,1fr);background:rgba(10,11,15,.94);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid rgba(34,211,238,.16);padding:.3em .25em calc(.3em + env(safe-area-inset-bottom))}
+.tab{display:flex;flex-direction:column;align-items:center;gap:.22em;padding:.35em .2em;color:var(--mut);font-size:.66em;font-weight:700;border:0;background:transparent;position:relative;min-height:48px;border-radius:.6em;cursor:pointer}
+.tab i{font-size:1.75em;color:#6b7280;transition:transform .12s}.tab.on{color:var(--cy)}.tab.on i{color:var(--cy)}.tab:active i{transform:scale(.92)}
+.tab b.n{position:absolute;top:0;right:calc(50% - 1.7em);min-width:1.45em;height:1.45em;border-radius:9999px;background:#ef4444;color:#fff;font-size:.62em;line-height:1.45em;text-align:center;padding:0 .3em;box-shadow:0 0 0 2px var(--bg)}
+/* sheet + toast + onboarding + ptr */
 .sheet{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center}.sheet.on{display:flex}
-.sheet .sc{width:100%;max-width:520px;background:#0f1117;border:1px solid rgba(34,211,238,.25);border-radius:1.2em 1.2em 0 0;padding:1em 1em calc(1em + env(safe-area-inset-bottom));max-height:86vh;overflow:auto}
-.sheet h3{margin:.2em 0 .6em;font-size:1em}
+.sheet .sc{width:100%;max-width:560px;background:#0f1218;border:1px solid rgba(34,211,238,.22);border-radius:20px 20px 0 0;padding:.6em 1em calc(1em + env(safe-area-inset-bottom));max-height:88vh;overflow:auto;animation:up .18s ease}
+@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+.sheet .grab{width:2.6em;height:.3em;border-radius:9999px;background:rgba(255,255,255,.18);margin:0 auto .7em}
+.sheet h3{margin:.1em 0 .6em;font-size:1.05em;display:flex;align-items:center;gap:.5em}.sheet h3 .x{margin-left:auto}
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1f2937;color:#fff;padding:.5em 1em;border-radius:9999px;font-size:.85em;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}.toast.on{opacity:1}
+.ob{position:fixed;inset:0;z-index:70;background:var(--bg);display:none;flex-direction:column;padding:calc(1.2em + env(safe-area-inset-top)) 1.2em calc(1.2em + env(safe-area-inset-bottom))}.ob.on{display:flex}
+.ob .st{display:none;flex:1;flex-direction:column}.ob .st.on{display:flex}
+.ob h1{font-size:1.7em;font-weight:800;letter-spacing:-.02em;margin:.4em 0 .2em}.ob p{color:var(--mut);margin:.2em 0 .8em;line-height:1.5}
+.ob .dots{display:flex;gap:.4em;justify-content:center;margin:.6em 0}.ob .dots i{width:.5em;height:.5em;border-radius:9999px;background:rgba(255,255,255,.15)}.ob .dots i.on{background:var(--cy)}
+.ob .feat{display:flex;gap:.7em;align-items:flex-start;margin:.55em 0}.ob .feat .ic{margin-top:.1em}.ob .feat b{display:block}.ob .feat span{font-size:.85em;color:var(--mut)}
 .chk{display:flex;align-items:center;gap:.6em;padding:.55em .2em;border-bottom:1px solid var(--line);font-size:.95em}.chk input{width:1.2em;height:1.2em}
-.dev{font-size:.7em;color:var(--dim);text-align:center;padding:1em 0 .5em}
+.ptr{position:fixed;left:0;right:0;top:calc(52px + env(safe-area-inset-top));text-align:center;color:var(--cy2);font-size:.8em;z-index:19;opacity:0;transition:opacity .15s;pointer-events:none}.ptr.on{opacity:1}
+.dev{font-size:.7em;color:var(--dim);text-align:center;padding:1em 0 .4em}
+.spark{stroke:var(--cy);fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}.spark.gr{stroke:var(--gr)}.spark.rd{stroke:var(--rd)}.spark.am{stroke:var(--am)}
+.sparkfill{fill:url(#sf);opacity:.6}
+.you{font-size:.72em;color:var(--pu);font-weight:700}
 </style>
 </head>
 <body>
+<div class="ob" id="ob"></div>
+<div class="ptr" id="ptr"><i class="fas fa-arrow-down"></i> pull to refresh</div>
 <div class="top">
-  <img src="/assets/app/icon-192.png" alt="">
-  <div class="ttl" id="ttl">Feed</div>
-  <button class="chip" id="wchip" type="button">No wallet</button>
-  <button class="ib" id="refresh" type="button" aria-label="Refresh"><i class="fas fa-rotate"></i></button>
-  <button class="ib" id="gear" type="button" aria-label="Settings"><i class="fas fa-gear"></i></button>
+  <div class="r1"><div><div class="ttl" id="ttl">Today</div><div class="sub" id="ttl-sub"></div></div><span class="pill cy" id="epoch-pill"><i class="fas fa-clock"></i> —</span><button class="chipw" id="wchip" type="button"><i class="fas fa-wallet"></i> <span>Wallet</span></button><button class="ib" id="refresh" type="button" aria-label="Refresh"><i class="fas fa-rotate"></i></button></div>
 </div>
-
-<section class="view" id="v-feed">
-  <div id="feed"></div>
-  <div style="display:flex;gap:.5em;justify-content:center;margin:.6em 0 .2em"><button class="btn g" id="seen" type="button"><i class="fas fa-check"></i> Mark all as seen</button></div>
-  <div class="dev" id="feed-foot"></div>
-</section>
-<section class="view" id="v-me"><div id="me"></div></section>
-<section class="view" id="v-market"><div id="market"></div></section>
-<section class="view" id="v-tla"><div id="tla"></div></section>
-<section class="view" id="v-dao"><div id="dao"></div></section>
-<section class="view" id="v-nft"><div id="nft"></div></section>
-<section class="view" id="v-help">
-  <div class="card"><b>This app</b><div class="sub" style="color:#9ca3af;margin-top:.3em">Every card in the Feed shows what changed since you last opened it. Tap <i class="fas fa-check"></i> Mark all as seen when you're caught up. The ⚙ picks your five tabs, which DAO the badge counts, and what NFT Explorer / TLA Stats open on.</div><div style="margin-top:.6em;display:flex;gap:.5em;flex-wrap:wrap"><a class="btn" href="install.html"><i class="fas fa-mobile-screen"></i> Add to home screen &amp; set up</a></div></div>
-  <div class="card"><b>The site</b><div style="margin-top:.6em;display:flex;gap:.5em;flex-wrap:wrap"><a class="btn g" href="help.html">Help &amp; FAQ</a><a class="btn g" href="new-here.html">New to aDAO?</a><a class="btn g" href="new-here-tla.html">New to TLA?</a><a class="btn g" href="index.html">Full site</a></div></div>
-</section>
-
+<main>
+  <section class="view on" id="v-home"><div id="home"><div class="skc sk"></div><div class="sk" style="width:40%;margin:.8em .2em .5em"></div><div class="skc sk"></div><div class="skc sk"></div></div></section>
+  <section class="view" id="v-portfolio"><div id="portfolio"></div></section>
+  <section class="view" id="v-market"><div id="market"></div></section>
+  <section class="view" id="v-vote"><div id="vote"></div></section>
+  <section class="view" id="v-tla"><div id="tla"></div></section>
+  <section class="view" id="v-nft"><div id="nft"></div></section>
+  <section class="view" id="v-more"><div id="more"></div></section>
+</main>
 <nav class="tabs" id="tabs"></nav>
 <div class="toast" id="toast"></div>
-
-<div class="sheet" id="sheet"><div class="sc" id="sheet-c"></div></div>
-
+<div class="sheet" id="sheet"><div class="sc"><div class="grab"></div><div id="sheet-c"></div></div></div>
+<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="sf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22d3ee" stop-opacity=".35"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></linearGradient></defs></svg>
 <script>
 (function(){
 'use strict';
+/* ---------------- constants ---------------- */
 const CORE='https://raw.githubusercontent.com/thealliancedao/tla-core/main/';
 const DAO ='https://raw.githubusercontent.com/thealliancedao/dao-originations/main/';
+const CDN ='https://imagedelivery.net/v_zOWVQCPb7Xpcbu-gQC1A/alliance_dao';
 const DAOS=[['aDAO','adao','p_adao'],['Lion DAO','lion-dao','p_lion'],['Pixel Lions','pixel-lions','p_pixel']];
-const ALL_TABS={feed:['Feed','fa-bolt'],me:['Me','fa-user'],market:['Market','fa-store'],tla:['TLA','fa-chart-line'],dao:['DAO','fa-landmark'],nft:['NFT','fa-images'],help:['Help','fa-circle-question']};
+const TABS={home:['Today','fa-house'],portfolio:['Portfolio','fa-chart-pie'],market:['Market','fa-store'],vote:['Vote','fa-check-to-slot'],tla:['TLA','fa-chart-line'],nft:['NFTs','fa-images'],more:['More','fa-ellipsis']};
+const DEFAULT_TABS=['home','portfolio','market','vote','more'];
+const TLA_TOTAL_VP_FALLBACK=29.4e6;   // reconciled vs Eris (doctrine); replaced by max bucket VP when the snapshot carries it
 const $=id=>document.getElementById(id);
-const ls=(k,v)=>{try{if(v===undefined)return JSON.parse(localStorage.getItem(k)||'null');localStorage.setItem(k,JSON.stringify(v));}catch(e){return null}};
-const prefs=()=>Object.assign({tabs:['feed','me','market','tla','dao'],dao:'all',collection:'alliance_dao'},ls('ally:prefs')||{});
-const setPrefs=p=>ls('ally:prefs',Object.assign(prefs(),p));
-const wallet=()=>{try{return localStorage.getItem('tla:selected_wallet')}catch(e){return null}};
-const fmt={usd:(n,d)=>n==null?'—':'$'+Number(n).toLocaleString(undefined,{maximumFractionDigits:d==null?(Math.abs(n)<100?2:0):d}),n:(n,d=0)=>n==null?'—':Number(n).toLocaleString(undefined,{maximumFractionDigits:d}),pct:(n,d=1)=>n==null?'—':(n>0?'+':'')+Number(n).toFixed(d)+'%',ago:(t)=>{if(!t)return'';const s=(Date.now()-new Date(t))/1e3;if(s<90)return'just now';if(s<3600)return Math.round(s/60)+'m ago';if(s<86400)return Math.round(s/3600)+'h ago';return Math.round(s/86400)+'d ago'},k:(n)=>n==null?'—':(Math.abs(n)>=1e6?(n/1e6).toFixed(2)+'M':Math.abs(n)>=1e3?(n/1e3).toFixed(1)+'K':Number(n).toFixed(0))};
+/* ---------------- storage ---------------- */
+const ls=(k,v)=>{try{if(v===undefined)return JSON.parse(localStorage.getItem(k)||'null');if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}};
+const prefs=()=>Object.assign({tabs:DEFAULT_TABS.slice(),dao:'all',onboarded:false},ls('ally:prefs')||{});
+const setPrefs=p=>{const n=Object.assign(prefs(),p);ls('ally:prefs',n);return n};
+const wallet=()=>{try{return localStorage.getItem('tla:selected_wallet')||null}catch(e){return null}};
+const setWallet=w=>{try{if(w)localStorage.setItem('tla:selected_wallet',w);else localStorage.removeItem('tla:selected_wallet')}catch(e){}};
+const SNAP='ally:app:snap', TL='ally:app:timeline';
+/* ---------------- format ---------------- */
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const delta=(cur,prev,kind)=>{if(prev==null||cur==null)return'<span class="d fl">first look</span>';const d=cur-prev;if(Math.abs(d)<1e-9)return'<span class="d fl">unchanged</span>';const p=prev?d/prev*100:null;const s=kind==='usd'?fmt.usd(Math.abs(d)):kind==='pct'?Math.abs(d).toFixed(1)+' pp':fmt.n(Math.abs(d),kind==='dec'?2:0);return`<span class="d ${d>0?'up':'dn'}">${d>0?'▲':'▼'} ${s}${p!=null&&kind!=='pct'?' · '+fmt.pct(p):''}</span>`};
-const toast=m=>{const t=$('toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1800)};
-
-async function getJ(u){const r=await fetch(u+(u.includes('?')?'&':'?')+'t='+Math.floor(Date.now()/6e4),{cache:'no-cache'});if(!r.ok)throw new Error(r.status+' '+u);return r.json()}
-const D={};   // live products
-async function load(){
-  const jobs={
-    summary:CORE+'nfts/adao/snapshots/summary.json', floor:CORE+'nfts/adao/snapshots/floor-history.json', sales:CORE+'nfts/adao/snapshots/sales-enriched.json',
-    tla:CORE+'member-data/tla-snapshot/current.json', members:CORE+'member-data/participants/current.json', roster:CORE+'member-data/participants/participants.json',
-    adao:CORE+'member-data/positions/members.json', nap:CORE+'network-and-prices/current.json', dash:CORE+'member-data/dao-dashboard/current.json',
-    p_adao:DAO+'adao/governance/proposals.json', p_lion:DAO+'lion-dao/governance/proposals.json', p_pixel:DAO+'pixel-lions/governance/proposals.json'
-  };
-  const out=await Promise.all(Object.entries(jobs).map(([k,u])=>getJ(u).then(v=>[k,v]).catch(e=>[k,null,e.message])));
-  out.forEach(([k,v,err])=>{D[k]=v;if(err)console.warn('load',k,err)});
-  D._at=new Date().toISOString();
-}
-
-/* ----- derived numbers (one place) ----- */
-function now(){
-  const s=D.summary||{}, fh=(D.floor&&D.floor.rows)||[], last=fh[fh.length-1]||{}, base=last.per_tier&&last.per_tier.base||{};
-  const mk=s.marketplaces||{}; const listed=(s.bbl_listed_count||0)+(s.atrium_listed_count||0)+(s.boost_listed_count||0);
-  const sales=(D.sales&&D.sales.sales)||[]; const luna=D.nap&&D.nap.token_prices&&D.nap.token_prices.LUNA;
-  const tla=D.tla||{}; const tot=tla.totals||{}; const ep=tla.epoch||{};
-  const props=[];DAOS.forEach(([name,slug,key])=>{const P=D[key];if(!P)return;const list=Array.isArray(P.proposals)?P.proposals:Object.values(P.proposals||{});list.forEach(p=>props.push(Object.assign({dao:name},p)))});
-  const open=props.filter(p=>p.live||String(p.status||'').toLowerCase()==='open');
+const num=(n)=>n==null||n===''||isNaN(Number(n))?null:Number(n);
+const fmt={
+  usd:(n,d)=>{n=num(n);if(n==null)return'—';const a=Math.abs(n);if(d==null)d=a<1?4:a<100?2:0;return (n<0?'-':'')+'$'+a.toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d})},
+  n:(n,d=0)=>{n=num(n);return n==null?'—':n.toLocaleString(undefined,{maximumFractionDigits:d})},
+  k:(n)=>{n=num(n);if(n==null)return'—';const a=Math.abs(n);return (n<0?'-':'')+(a>=1e9?(a/1e9).toFixed(2)+'B':a>=1e6?(a/1e6).toFixed(2)+'M':a>=1e4?(a/1e3).toFixed(1)+'K':a.toLocaleString(undefined,{maximumFractionDigits:a<10?2:0}))},
+  pct:(n,d=1)=>{n=num(n);return n==null?'—':(n>0?'+':'')+n.toFixed(d)+'%'},
+  ago:(t)=>{if(!t)return'';const s=(Date.now()-new Date(t))/1e3;if(isNaN(s))return'';if(s<60)return'just now';if(s<3600)return Math.round(s/60)+'m ago';if(s<86400)return Math.round(s/3600)+'h ago';return Math.round(s/86400)+'d ago'},
+  until:(t)=>{if(!t)return'';const s=(new Date(t)-Date.now())/1e3;if(isNaN(s))return'';if(s<=0)return'now';if(s<3600)return Math.round(s/60)+'m';if(s<86400)return Math.round(s/3600)+'h';const d=Math.floor(s/86400),h=Math.round((s%86400)/3600);return d+'d'+(h?' '+h+'h':'')},
+  date:(t)=>t?new Date(t).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'—',
+  addr:(a)=>a?a.slice(0,10)+'…'+a.slice(-4):'',
+};
+const delta=(cur,prev,kind)=>{cur=num(cur);prev=num(prev);if(prev==null||cur==null)return'';const d=cur-prev;if(Math.abs(d)<1e-9)return'<span class="d fl">unchanged</span>';const p=prev?d/Math.abs(prev)*100:null;const body=kind==='usd'?fmt.usd(Math.abs(d)):kind==='pp'?Math.abs(d).toFixed(1)+' pp':fmt.k(Math.abs(d));return`<span class="d ${d>0?'up':'dn'}">${d>0?'▲':'▼'} ${body}${p!=null&&kind!=='pp'&&Math.abs(p)<1e4?' · '+fmt.pct(p):''}</span>`};
+const chg=(p)=>{p=num(p);return p==null?'':`<span class="d ${p>=0?'up':'dn'}">${fmt.pct(p)}</span>`};
+function spark(vals,opts={}){const v=(vals||[]).map(num).filter(x=>x!=null);if(v.length<2)return'';const w=opts.w||100,h=opts.h||30,pad=2;const mn=Math.min(...v),mx=Math.max(...v),rg=(mx-mn)||1;const pts=v.map((y,i)=>[pad+i/(v.length-1)*(w-2*pad),h-pad-(y-mn)/rg*(h-2*pad)]);const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');const cls=opts.cls||(v[v.length-1]>=v[0]?'gr':'rd');const fill=opts.fill?`<path class="sparkfill" d="${d} L${pts[pts.length-1][0].toFixed(1)} ${h} L${pts[0][0].toFixed(1)} ${h} Z"/>`:'';return`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">${fill}<path class="spark ${cls}" d="${d}"/></svg>`}
+const toast=m=>{const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),1700)};
+const img=id=>`${CDN}/${id}.png/public`;
+/* ---------------- data ---------------- */
+const D={};
+async function getJ(u){const r=await fetch(u+(u.includes('?')?'&':'?')+'t='+Math.floor(Date.now()/6e4),{cache:'no-cache'});if(!r.ok)throw new Error(r.status);return r.json()}
+const JOBS={
+  summary:CORE+'nfts/adao/snapshots/summary.json', floor:CORE+'nfts/adao/snapshots/floor-history.json', sales:CORE+'nfts/adao/snapshots/sales-enriched.json',
+  bundle:CORE+'nfts/adao/snapshots/explorer-bundle.json', tla:CORE+'member-data/tla-snapshot/current.json', members:CORE+'member-data/participants/current.json',
+  roster:CORE+'member-data/participants/participants.json', adao:CORE+'member-data/positions/members.json', nap:CORE+'network-and-prices/current.json',
+  dash:CORE+'member-data/dao-dashboard/current.json', backing:CORE+'nfts/adao/snapshots/backing-history.json',
+  p_adao:DAO+'adao/governance/proposals.json', p_lion:DAO+'lion-dao/governance/proposals.json', p_pixel:DAO+'pixel-lions/governance/proposals.json'
+};
+async function load(){const out=await Promise.all(Object.entries(JOBS).map(([k,u])=>getJ(u).then(v=>[k,v]).catch(e=>[k,null,e.message])));out.forEach(([k,v,e])=>{D[k]=v;if(e)console.warn('load',k,e)});D._at=new Date().toISOString();D._failed=out.filter(o=>o[2]).map(o=>o[0])}
+/* ---------------- derived model (one place; null-honest) ---------------- */
+function price(sym){const tp=D.nap&&D.nap.token_prices;if(!tp||!sym)return null;const k=Object.keys(tp).find(x=>x.toLowerCase()===String(sym).toLowerCase()||(tp[x].canonical||'').toLowerCase()===String(sym).toLowerCase());return k?num(tp[k].final_price_usd):null}
+function series(sym){const tp=D.nap&&D.nap.token_prices;if(!tp)return[];const k=Object.keys(tp).find(x=>x.toLowerCase()===String(sym).toLowerCase());const s=k&&tp[k].prices&&tp[k].prices.astroport&&tp[k].prices.astroport.series;return (s||[]).map(p=>p.v)}
+function model(){
+  const s=D.summary||{}, fh=(D.floor&&D.floor.rows)||[], last=fh[fh.length-1]||{}, tier=last.per_tier||{}, base=tier.base||{}, phx=tier.phoenix||{};
+  const mk=s.marketplaces||{}; const sales=(D.sales&&D.sales.sales)||[]; const T=D.tla||{}, tot=T.totals||{}, ep=T.epoch||{}, bk=T.buckets||{};
+  const luna=price('LUNA'); const lunaTok=D.nap&&D.nap.token_prices&&D.nap.token_prices.LUNA; const luna24=lunaTok&&lunaTok.prices&&lunaTok.prices.astroport&&num(lunaTok.prices.astroport.price_change_24h_pct);
+  const props=[];DAOS.forEach(([name,slug,key])=>{const P=D[key];if(!P)return;const L=Array.isArray(P.proposals)?P.proposals:Object.values(P.proposals||{});L.forEach(p=>props.push(Object.assign({dao:name,daoSlug:slug},p)))});
+  const isOpen=p=>!!p.live||String(p.status||'').toLowerCase()==='open'; const open=props.filter(isOpen);
+  const bucketVps=Object.values(bk).map(b=>num(b.bucket_vp_human||b.total_voting_power_human)).filter(x=>x);
+  const totalVp=bucketVps.length?Math.max(...bucketVps):TLA_TOTAL_VP_FALLBACK;
+  const cutoff7=Date.now()-7*864e5, cutoff30=Date.now()-30*864e5;
+  const s7=sales.filter(x=>x.timestamp&&new Date(x.timestamp)>cutoff7), s30=sales.filter(x=>x.timestamp&&new Date(x.timestamp)>cutoff30);
+  const vol=(arr)=>arr.reduce((a,x)=>a+(num(x.price_usd_at_sale)||num(x.notional_usd)||0),0);
+  const listedRows=((D.bundle&&D.bundle.rows)||[]).filter(r=>r[11]!=null).map(r=>({id:r[0],usd:num(r[11]),rank:r[10],flags:r[9]||0,broken:!!((r[9]||0)&2)})).sort((a,b)=>a.usd-b.usd);
   return {
-    floor_base_usd:base.listing_floor_usd??null, floor_date:last.date, listed, listed_base:base.listed_count??null,
-    bbl_floor:mk.bbl&&mk.bbl.by_token&&Object.values(mk.bbl.by_token)[0]||null, atrium:mk.atrium, boost:mk.boost,
-    sales_count:sales.length, sales, backing_usd:s.backing&&s.backing.per_nft_value_usd, backing_amp:s.backing&&s.backing.per_nft_ampluna,
-    luna_usd:luna&&luna.final_price_usd, luna_24h:luna&&luna.prices&&luna.prices.astroport&&luna.prices.astroport.price_change_24h_pct,
-    tvl:tot.tla_tvl_usd, depth:tot.depth_usd_total, active:tot.active_pools_count, weekly_usd:tot.rewards&&tot.rewards.weekly_emissions_usd,
-    epoch:ep.currentEpoch, epoch_end:ep.epochEndsAt, epoch_pct:ep.epochProgressPct, props, open, open_keys:open.map(p=>p.dao+'|'+p.id),
-    members:s.dao_members_count, holders:s.unique_holders, staked:s.daodao_staked_count, dao_value:D.dash&&D.dash.total_value&&D.dash.total_value.total_usd
+    floor:num(base.listing_floor_usd), floorDate:last.date, floorSeries:fh.map(r=>r.per_tier&&r.per_tier.base&&r.per_tier.base.listing_floor_usd), floorSales:num(base.sales_floor_usd), dom:num(base.avg_days_on_market), listedBase:num(base.listed_count), phxFloor:num(phx.listing_floor_usd), phxListed:num(phx.listed_count),
+    listed:(num(s.bbl_listed_count)||0)+(num(s.atrium_listed_count)||0)+(num(s.boost_listed_count)||0), venues:mk, listedRows,
+    sales, salesCount:sales.length, s7:s7.length, s30:s30.length, vol7:vol(s7), vol30:vol(s30), lastSale:sales[sales.length-1]||null,
+    backingUsd:num(s.backing&&s.backing.per_nft_value_usd), backingAmp:num(s.backing&&s.backing.per_nft_ampluna), backingSeries:((D.backing&&D.backing.rows)||[]).slice(-30).map(r=>num(r.backing_per_nft_usd||r.backingInUsd||r.per_nft_usd)),
+    luna, luna24, lunaSeries:series('LUNA'),
+    tvl:num(tot.tla_tvl_usd), depth:num(tot.depth_usd_total), active:num(tot.active_pools_count), weekly:num(tot.rewards&&tot.rewards.weekly_emissions_usd), annual:num(tot.rewards&&tot.rewards.annual_emissions_luna),
+    epoch:ep.currentEpoch, epochEnd:ep.epochEndsAt, epochPct:num(ep.epochProgressPct), buckets:bk, pools:T.pools||[], totalVp,
+    props, open, openKeys:open.map(p=>p.dao+'|'+p.id),
+    members:num(s.dao_members_count), holders:num(s.unique_holders), staked:num(s.daodao_staked_count), minted:num(s.minted_count), broken:num(s.broken_count), total:num(s.total_tokens),
+    daoValue:num(D.dash&&D.dash.total_value&&D.dash.total_value.total_usd), treasury:num(D.dash&&D.dash.treasury&&D.dash.treasury.total_usd),
+    at:D._at
   };
 }
-const SNAP='ally:app:snap';
-function snapshotOf(n){return {t:D._at,floor_base_usd:n.floor_base_usd,listed:n.listed,sales_count:n.sales_count,luna_usd:n.luna_usd,tvl:n.tvl,epoch:n.epoch,open_keys:n.open_keys,backing_usd:n.backing_usd,dao_value:n.dao_value}}
-
-/* ----- FEED ----- */
-function feed(){
-  const n=now(), prev=ls(SNAP), first=!prev; const P=prefs();
-  const cards=[];
-  const card=(ic,cls,k,v,d,sub,tap)=>cards.push(`<div class="card row${tap?' tap':''}" ${tap?`data-go="${tap}"`:''}><span class="ic ${cls}"><i class="fas ${ic}"></i></span><div class="l"><div class="k">${k}</div><div class="v sm">${v}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>${d||''}</div>`);
-  // proposals — new since last look, filtered by the device's DAO
-  const seen=new Set(prev?prev.open_keys:[]); const wantDao=P.dao||'all';
-  const newProps=n.open.filter(p=>!seen.has(p.dao+'|'+p.id)&&(wantDao==='all'||p.dao===wantDao));
-  newProps.forEach(p=>card('fa-landmark','pu',`${esc(p.dao)} · proposal #${esc(String(p.id).replace(/^[a-z]/,''))}`,esc(p.title||'(untitled)'),'<span class="d new">NEW</span>',p.expiration&&p.expiration.at_time_iso?'closes '+fmt.ago(p.expiration.at_time_iso).replace('ago','from now').replace('just now','soon'):'','dao'));
-  if(!newProps.length&&n.open.length)card('fa-landmark','pu',`${n.open.length} open proposal${n.open.length>1?'s':''}`,n.open.map(p=>p.dao).filter((v,i,a)=>a.indexOf(v)===i).join(' · '),'<span class="d fl">seen</span>','','dao');
-  // floor
-  card('fa-tag','gr','Unbroken floor (base tier, listings)',fmt.usd(n.floor_base_usd),delta(n.floor_base_usd,prev&&prev.floor_base_usd,'usd'),`${n.listed_base??'—'} base listed · captured ${n.floor_date||'—'} · backing ${fmt.usd(n.backing_usd)}/NFT`,'market');
-  // listings
-  card('fa-list','cy','Listed across venues',fmt.n(n.listed),delta(n.listed,prev&&prev.listed),`BBL ${n.bbl_floor?n.bbl_floor.count:'—'} · Atrium ${n.atrium?n.atrium.count:'—'} · Boost ${n.boost?n.boost.count:'—'}`,'market');
-  // sales since last look
-  const since=prev?n.sales.filter(s=>s.timestamp&&s.timestamp>prev.t):[]; const lastSale=n.sales[n.sales.length-1];
-  card('fa-cart-shopping','am',prev?`Sales since you last looked`:'All-time sales',prev?fmt.n(since.length):fmt.n(n.sales_count),prev&&since.length?`<span class="d new">+${since.length}</span>`:'<span class="d fl">'+(lastSale?'last '+fmt.ago(lastSale.timestamp):'—')+'</span>',lastSale?`last sale #${lastSale.token_id} · ${fmt.usd(lastSale.price_usd)} · ${fmt.ago(lastSale.timestamp)}`:'','market');
-  // LUNA
-  card('fa-coins','or','LUNA',fmt.usd(n.luna_usd,4),delta(n.luna_usd,prev&&prev.luna_usd,'dec').replace('▲','▲').replace(/\d+\.\d\d(?= )/,m=>m),`24h ${fmt.pct(n.luna_24h)} (Astroport)`,'tla');
-  // TLA TVL
-  card('fa-water','cy','TLA staked liquidity',fmt.usd(n.tvl),delta(n.tvl,prev&&prev.tvl,'usd'),`${n.active} active pools · ${fmt.usd(n.weekly_usd)}/week in LUNA rewards`,'tla');
-  // epoch
-  const endIn=n.epoch_end?Math.max(0,(new Date(n.epoch_end)-Date.now())/36e5):null;
-  card('fa-clock','cy',`Epoch #${n.epoch??'—'}`,endIn==null?'—':(endIn>48?Math.round(endIn/24)+' days left':Math.round(endIn)+'h left'),prev&&prev.epoch!=null&&n.epoch!==prev.epoch?'<span class="d new">rolled</span>':`<span class="d fl">${n.epoch_pct!=null?Math.round(n.epoch_pct)+'% through':''}</span>`,`ends ${n.epoch_end?new Date(n.epoch_end).toLocaleString(undefined,{weekday:'short',hour:'numeric'}):'—'}`,'tla');
-  // DAO value + backing
-  card('fa-building-columns','am','aDAO total value',fmt.usd(n.dao_value),delta(n.dao_value,prev&&prev.dao_value,'usd'),`backing ${fmt.n(n.backing_amp,2)} ampLUNA / NFT · ${fmt.n(n.staked)} staked · ${fmt.n(n.members)} members`,'dao');
-  // top movers (24h)
-  try{const tp=D.nap.token_prices;const mv=Object.values(tp).map(t=>({s:t.canonical,p:t.final_price_usd,c:t.prices&&t.prices.astroport&&t.prices.astroport.price_change_24h_pct})).filter(t=>t.c!=null&&t.p).sort((a,b)=>Math.abs(b.c)-Math.abs(a.c)).slice(0,4);
-    if(mv.length)cards.push(`<h2>Biggest 24h moves</h2><div class="list">${mv.map(t=>`<div class="li"><div class="l"><div class="t">${esc(t.s)}</div><div class="s">${fmt.usd(t.p,t.p<1?4:2)}</div></div><div class="r"><span class="d ${t.c>0?'up':'dn'}">${fmt.pct(t.c)}</span></div></div>`).join('')}</div>`)}catch(e){}
-  $('feed').innerHTML=(first?`<div class="card" style="border-color:rgba(34,211,238,.3)"><b>First look on this device.</b><div class="sub">From now on, every card shows what changed since you last opened the app. Tap <i class="fas fa-check"></i> Mark all as seen when you're done.</div></div>`:`<div class="sub" style="margin:.1em .3em .6em">since ${fmt.ago(prev.t)} · data ${fmt.ago(D._at)}</div>`)+cards.join('');
-  $('feed-foot').textContent='Ally app v0 · products read live · '+new Date(D._at).toLocaleTimeString();
-  // badge on Feed tab
-  const b=document.querySelector('.tab[data-v="feed"] b.n');if(b){const c=newProps.length+(prev?since.length:0);b.textContent=c>9?'9+':c;b.hidden=!c}
-  try{if(navigator.setAppBadge){const c=newProps.length;c?navigator.setAppBadge(c):navigator.clearAppBadge&&navigator.clearAppBadge()}}catch(e){}
-}
-function markSeen(){ls(SNAP,snapshotOf(now()));feed();toast('Marked as seen')}
-
-/* ----- ME ----- */
+/* the person: everything we know about the selected wallet, spliced from the products */
 function me(){
-  const w=wallet(); const el=$('me');
-  if(!w){el.innerHTML=`<div class="card"><b>Pick your wallet</b><div class="sub">Type a registered name, paste a terra1… address, or the last 4 characters.</div><input class="in" id="pk" placeholder="name, terra1…, or last 4" autocapitalize="off" autocomplete="off" style="margin-top:.6em"><div class="res list" id="pkr" style="margin-top:.4em"></div></div>`;wirePicker();return}
-  const M=(D.members&&D.members.members||[]).find(m=>m.wallet===w); const A=(D.adao&&D.adao.members||[]).find(m=>m.address===w); const R=(D.roster&&D.roster.participants||[]).find(m=>m.address===w);
+  const w=wallet(); if(!w)return null; const m=model();
+  const M=((D.members&&D.members.members)||[]).find(x=>x.wallet===w)||null;   // TLA participant portfolio (hourly)
+  const A=((D.adao&&D.adao.members)||[]).find(x=>x.address===w)||null;          // aDAO member (DAODAO)
+  const R=((D.roster&&D.roster.participants)||[]).find(x=>x.address===w)||null;
   const name=(M&&M.name)||(A&&A.name)||(R&&R.name)||null;
-  const vp=M&&M.voting&&M.voting.total_voting_power_human; const locks=(M&&M.locks)||[]; const lps=(M&&M.lp_positions)||[];
-  const rew=(M&&M.pending_rewards)||[]; const rewUsd=rew.reduce((a,r)=>a+(Number(r.value_usd||r.usd||0)||0),0);
-  const lpUsd=lps.reduce((a,l)=>a+(Number(l.value_usd||l.usd_value||l.staked_usd||0)||0),0);
-  const nfts=(M&&M.nft_count)??(A&&A.nft_count)??null; const sum=M&&M.summary||{};
-  el.innerHTML=`
-  <div class="card row"><span class="ic cy"><i class="fas fa-user"></i></span><div class="l"><div class="v sm">${esc(name||'…'+w.slice(-4))}</div><div class="sub mono">${esc(w.slice(0,12))}…${esc(w.slice(-6))}</div></div><button class="btn g" id="chg" type="button">Change</button></div>
+  const locks=(M&&M.locks)||[], lps=(M&&M.lp_positions)||[], rew=(M&&M.pending_rewards)||[], bal=(M&&M.wallet_balances)||[], sum=(M&&M.summary)||{};
+  const reb=M&&M.pending_rebase, bribes=(M&&M.pending_bribes)||[];
+  const lockUsd=locks.reduce((a,l)=>{const p=price(l.asset_symbol);return a+(p!=null&&num(l.amount_human)!=null?p*num(l.amount_human):0)},0);
+  const lockUnpriced=locks.filter(l=>price(l.asset_symbol)==null).length;
+  const lpUsd=num(sum.total_lp_position_usd)??lps.reduce((a,l)=>a+(num(l.value_usd||l.usd_value||l.user_usd)||0),0);
+  const rewUsd=num(sum.total_pending_rewards_usd)??rew.reduce((a,r)=>a+(num(r.usd_value)||0),0);
+  const rebUsd=reb?num(reb.usd_value)||0:0; const bribeUsd=num(sum.total_pending_bribes_usd)||0; const claimable=rewUsd+rebUsd+bribeUsd;
+  const balUsd=bal.reduce((a,b)=>a+(num(b.usd_value)||0),0);
+  const nftCount=num(D.summary&&D.summary.per_real_owner_counts&&D.summary.per_real_owner_counts[w])??num(M&&M.nft_count)??num(A&&A.nft_count)??0;
+  const nftBroken=num(D.summary&&D.summary.per_owner_broken&&D.summary.per_owner_broken[w])||0;
+  const nftBacking=(m.backingUsd||0)*Math.max(0,nftCount-nftBroken);
+  const nftFloor=(m.floor||0)*Math.max(0,nftCount-nftBroken);
+  const vp=num(M&&M.voting&&M.voting.total_voting_power_human)??num(sum.voting_power_human);
+  const votesBy=(M&&M.voting&&M.voting.votes_per_bucket)||{}; const votePeriods=Object.values(votesBy).map(b=>num(b.period)).filter(x=>x!=null); const lastVotePeriod=votePeriods.length?Math.max(...votePeriods):null;
+  const votedPools=[];Object.entries(votesBy).forEach(([b,x])=>((x&&x.votes)||[]).forEach(v=>votedPools.push(Object.assign({bucket:b},v))));
+  const total=lockUsd+lpUsd+claimable+balUsd+nftBacking;
+  const myNfts=((D.bundle&&D.bundle.rows)||[]).filter(()=>false);   // per-token ownership lives in nfts.json (9 MB) — not loaded in the app; counts come from summary
+  return {w,name,M,A,R,locks,lps,rew,reb,bribes,bal,sum,lockUsd,lockUnpriced,lpUsd,rewUsd,rebUsd,bribeUsd,claimable,balUsd,nftCount,nftBroken,nftBacking,nftFloor,vp,vpBoost:num(sum.vp_boost_human),vpFixed:num(sum.fixed_amount_human),rank:M&&M.rank_by_vp,vpPctDao:num(A&&A.vp_pct_of_dao),lastVotePeriod,votedPools,total,isTla:!!M,isAdao:!!A||nftCount>0,
+    atRiskLp:num(sum.at_risk_lp_position_count)||0, inactiveLp:num(sum.inactive_lp_position_count)||0, activeLp:num(sum.active_lp_position_count)||0};
+}
+/* device timeline: the person's headline numbers each open → "your trend" without a server */
+function record(P,m){try{const t=ls(TL)||[];const day=new Date().toISOString().slice(0,10);const row={d:day,t:Date.now(),total:P?P.total:null,vp:P?P.vp:null,floor:m.floor,luna:m.luna,tvl:m.tvl};const i=t.findIndex(x=>x.d===day);if(i>=0)t[i]=row;else t.push(row);ls(TL,t.slice(-90))}catch(e){}}
+function timeline(){return ls(TL)||[]}
+function snapshotOf(P,m){return{t:m.at,floor:m.floor,listed:m.listed,sales:m.salesCount,luna:m.luna,tvl:m.tvl,epoch:m.epoch,openKeys:m.openKeys,backing:m.backingUsd,daoValue:m.daoValue,total:P?P.total:null,vp:P?P.vp:null,claimable:P?P.claimable:null}}
+/* ---------------- shell ---------------- */
+let VIEWS={};
+function paintTabs(){const P=prefs();const tabs=(P.tabs||DEFAULT_TABS).filter(t=>TABS[t]).slice(0,5);$('tabs').innerHTML=tabs.map(t=>`<button class="tab" type="button" data-v="${t}"><i class="fas ${TABS[t][1]}"></i>${TABS[t][0]}${t==='home'?'<b class="n" hidden></b>':''}</button>`).join('');$('tabs').querySelectorAll('.tab').forEach(b=>b.onclick=()=>show(b.getAttribute('data-v')))}
+function show(v){if(!VIEWS[v])v='home';document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.getAttribute('data-v')===v));const P=me();$('ttl').textContent=v==='home'?greeting():TABS[v][0];$('ttl-sub').textContent=v==='home'?(P?(P.name||fmt.addr(P.w)):'Alliance DAO'):'';try{VIEWS[v]()}catch(e){console.error(v,e);$(v).innerHTML=`<div class="empty"><i class="fas fa-triangle-exclamation"></i>This view hit an error.<div class="sub">${esc(e.message)}</div></div>`}window.scrollTo(0,0);history.replaceState(null,'','#'+v)}
+function greeting(){const h=new Date().getHours();return h<5?'Late night':h<12?'Good morning':h<17?'Good afternoon':'Good evening'}
+function sheet(title,html,onopen){$('sheet-c').innerHTML=`<h3>${title}<button class="ib x" type="button" data-x aria-label="Close"><i class="fas fa-xmark"></i></button></h3>${html}`;$('sheet').classList.add('on');$('sheet-c').querySelector('[data-x]').onclick=closeSheet;if(onopen)onopen($('sheet-c'))}
+function closeSheet(){$('sheet').classList.remove('on')}
+$('sheet').addEventListener('click',e=>{if(e.target===$('sheet'))closeSheet()});
+function paintTop(){const m=model();const P=me();$('epoch-pill').innerHTML=`<i class="fas fa-clock"></i> E${m.epoch??'—'} · ${fmt.until(m.epochEnd)}`;$('wchip').innerHTML=`<i class="fas fa-wallet"></i> <span>${P?esc(P.name||'…'+P.w.slice(-4)):'Pick wallet'}</span>`}
+/* wallet picker (sheet) */
+function roster(){const seen=new Set(),out=[];[].concat(((D.roster&&D.roster.participants)||[]).map(p=>({a:p.address,n:p.name,tag:'TLA'})),((D.adao&&D.adao.members)||[]).map(p=>({a:p.address,n:p.name,tag:'aDAO'}))).forEach(x=>{if(!x.a||seen.has(x.a))return;seen.add(x.a);out.push(x)});return out}
+function pickerHtml(){return`<input class="in" id="pk" placeholder="name, terra1…, or last 4 characters" autocapitalize="off" autocomplete="off" spellcheck="false"><div class="res list" id="pkr"></div><div class="sub" style="margin-top:.6em">Read-only. Your choice is kept on this device only.${wallet()?' <button class="btn g" id="pk-clear" type="button" style="margin-left:.4em;padding:.3em .7em;font-size:.8em">Clear wallet</button>':''}</div>`}
+function wirePicker(root,onPick){const inp=root.querySelector('#pk'),res=root.querySelector('#pkr');const R=roster();const draw=q=>{q=(q||'').trim().toLowerCase();let hits=[];if(/^terra1[0-9a-z]{38,}$/.test(q))hits=[{a:q,n:R.find(x=>x.a===q)?.n||null,tag:'address'}];else if(q.length>=2)hits=R.filter(x=>(x.n||'').toLowerCase().includes(q)||x.a.slice(-4).toLowerCase()===q||x.a.toLowerCase().startsWith(q)).slice(0,14);res.innerHTML=hits.map(x=>`<div class="li tap" data-a="${x.a}"><span class="ic cy"><i class="fas fa-user"></i></span><div class="l"><div class="t">${esc(x.n||'…'+x.a.slice(-4))}</div><div class="s mono">${esc(fmt.addr(x.a))}</div></div><span class="pill mut">${x.tag}</span></div>`).join('')||(q.length>=2?'<div class="empty">No match — paste the full terra1… address.</div>':'');res.querySelectorAll('[data-a]').forEach(r=>r.onclick=()=>{setWallet(r.getAttribute('data-a'));onPick&&onPick()})};inp.addEventListener('input',()=>draw(inp.value));const c=root.querySelector('#pk-clear');if(c)c.onclick=()=>{setWallet(null);onPick&&onPick()};setTimeout(()=>inp.focus(),50)}
+function openPicker(){sheet('<i class="fas fa-wallet" style="color:#67e8f9"></i> Your wallet',pickerHtml(),root=>wirePicker(root,()=>{closeSheet();paintTop();refreshView();toast(wallet()?'Wallet selected':'Wallet cleared')}))}
+function refreshView(){const v=(location.hash||'#home').slice(1);show(VIEWS[v]?v:'home')}
+/* onboarding (first open) */
+function onboarding(){const ob=$('ob');let step=0;const P=prefs();
+  const render=()=>{ob.innerHTML=`
+    <div class="st ${step===0?'on':''}"><div style="flex:1"><img src="/assets/app/icon-192.png" style="width:64px;height:64px;border-radius:16px" alt=""><h1>Your Alliance,<br>in your pocket.</h1><p>Ally is a read-only companion for Alliance DAO and the Terra Liquidity Alliance. No wallet connection, no accounts — just your public on-chain position, live.</p>
+      <div class="feat"><span class="ic cy"><i class="fas fa-chart-pie"></i></span><div><b>Where you stand</b><span>Locks, voting power, LPs, NFTs, claimable rewards — one number, then the detail.</span></div></div>
+      <div class="feat"><span class="ic am"><i class="fas fa-bell"></i></span><div><b>What needs you</b><span>Rewards to claim, locks unlocking, proposals to vote, the epoch clock.</span></div></div>
+      <div class="feat"><span class="ic gr"><i class="fas fa-bolt"></i></span><div><b>What changed</b><span>Floor, listings, sales, LUNA, TLA liquidity — since you last looked.</span></div></div></div>
+      <div class="dots"><i class="on"></i><i></i><i></i></div><button class="btn p w" data-next type="button">Get started</button></div>
+    <div class="st ${step===1?'on':''}"><div style="flex:1"><h1>Who are you?</h1><p>Pick your registered name, paste your terra1… address, or type its last 4 characters. Skip if you just want to look around.</p>${pickerHtml()}</div><div class="dots"><i></i><i class="on"></i><i></i></div><div class="btns"><button class="btn g" data-next type="button">Skip for now</button></div></div>
+    <div class="st ${step===2?'on':''}"><div style="flex:1"><h1>Make it yours.</h1><p>Which DAO's proposals should the badge count? Which five tabs do you want? You can change these any time under More.</p>
+      <div class="k" style="margin:.4em 0 .3em">Badge counts proposals in</div><div class="seg" id="ob-dao">${[['all','All DAOs'],['aDAO','aDAO'],['Lion DAO','Lion DAO'],['Pixel Lions','Pixel Lions']].map(([k,l])=>`<button type="button" data-dao="${k}" class="${(P.dao||'all')===k?'on':''}">${l}</button>`).join('')}</div>
+      <div class="k" style="margin:.4em 0 .1em">Your five tabs</div>${Object.entries(TABS).map(([k,[l,ic]])=>`<label class="chk"><input type="checkbox" data-t="${k}" ${P.tabs.includes(k)?'checked':''}><i class="fas ${ic}" style="width:1.4em;color:#67e8f9"></i>${l}</label>`).join('')}</div>
+      <div class="dots"><i></i><i></i><i class="on"></i></div><button class="btn p w" data-done type="button">Open Ally</button></div>`;
+    ob.querySelectorAll('[data-next]').forEach(b=>b.onclick=()=>{step++;render()}); const pk=ob.querySelector('#pk'); if(pk)wirePicker(ob,()=>{step=2;render()});
+    ob.querySelectorAll('[data-dao]').forEach(b=>b.onclick=()=>{setPrefs({dao:b.getAttribute('data-dao')});ob.querySelectorAll('[data-dao]').forEach(x=>x.classList.toggle('on',x===b))});
+    ob.querySelectorAll('[data-t]').forEach(c=>c.onchange=()=>{const on=[...ob.querySelectorAll('[data-t]:checked')].map(x=>x.getAttribute('data-t'));if(on.length>5){c.checked=false;toast('Five max');return}if(on.length<1){c.checked=true;return}setPrefs({tabs:on})});
+    const done=ob.querySelector('[data-done]'); if(done)done.onclick=()=>{setPrefs({onboarded:true});ob.classList.remove('on');paintTabs();paintTop();show('home')};
+  };
+  render(); ob.classList.add('on');
+}
+/* pull to refresh */
+(function(){let y0=null,pulling=false;document.addEventListener('touchstart',e=>{if(window.scrollY<=0&&!$('sheet').classList.contains('on'))y0=e.touches[0].clientY},{passive:true});document.addEventListener('touchmove',e=>{if(y0==null)return;const dy=e.touches[0].clientY-y0;pulling=dy>70;$('ptr').classList.toggle('on',dy>28)},{passive:true});document.addEventListener('touchend',()=>{$('ptr').classList.remove('on');if(pulling){pulling=false;refreshAll()}y0=null})})();
+async function refreshAll(){$('refresh').firstElementChild.classList.add('fa-spin');await load();paintTop();refreshView();$('refresh').firstElementChild.classList.remove('fa-spin');toast('Refreshed')}
+$('refresh').onclick=refreshAll;$('wchip').onclick=openPicker;
+document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){e.preventDefault();show(g.getAttribute('data-go'))}});
+/* ================= VIEWS ================= */
+/* ---- TODAY: hero (your position or the market) → needs you → what changed → movers ---- */
+function vHome(){
+  const m=model(), P=me(), prev=ls(SNAP), first=!prev, Pf=prefs(); const tl=timeline();
+  let hero;
+  if(P){
+    const totalPrev=prev&&num(prev.total); const trend=tl.map(x=>x.total).filter(x=>x!=null);
+    hero=`<div class="hero tap" data-go="portfolio"><div class="lab">YOUR POSITION · ${esc(P.name||fmt.addr(P.w))}</div><div class="big">${fmt.usd(P.total,0)}</div>
+      <div class="row">${totalPrev!=null?delta(P.total,totalPrev,'usd'):'<span class="d fl">first look</span>'}<span class="pill mut">${fmt.k(P.vp)} VP</span>${P.claimable>0.5?`<span class="pill gr"><i class="fas fa-gift"></i> ${fmt.usd(P.claimable)} claimable</span>`:''}${P.nftCount?`<span class="pill mut">${P.nftCount} NFT${P.nftCount>1?'s':''}</span>`:''}</div>
+      ${trend.length>=2?spark(trend,{h:56,fill:true,cls:'gr'}):`<div class="sub" style="margin-top:.6em">Your trend line starts here — it builds from each open on this device.</div>`}
+      <div class="sub">locks ${fmt.usd(P.lockUsd,0)} · LPs ${fmt.usd(P.lpUsd,0)} · NFT backing ${fmt.usd(P.nftBacking,0)} · wallet ${fmt.usd(P.balUsd,0)}${P.lockUnpriced?' · '+P.lockUnpriced+' lock'+(P.lockUnpriced>1?'s':'')+' unpriced':''}</div></div>`;
+  } else {
+    hero=`<div class="hero tap" data-go="market"><div class="lab">ALLIANCE DAO · UNBROKEN FLOOR</div><div class="big">${fmt.usd(m.floor)}</div><div class="row">${prev?delta(m.floor,prev.floor,'usd'):'<span class="d fl">first look</span>'}<span class="pill mut">${fmt.n(m.listed)} listed</span><span class="pill mut">backing ${fmt.usd(m.backingUsd)}</span></div>${spark(m.floorSeries,{h:56,fill:true,cls:'gr'})}<div class="sub">Pick your wallet to make this your position · <b style="color:#67e8f9" data-pick>choose wallet</b></div></div>`;
+  }
+  /* needs you */
+  const att=[];
+  const hoursLeft=m.epochEnd?(new Date(m.epochEnd)-Date.now())/36e5:null;
+  if(P){
+    if(P.claimable>=0.5)att.push(['gr','fa-gift','Rewards ready to claim',`${fmt.usd(P.claimable)} — ${[P.rewUsd>0.01?fmt.usd(P.rewUsd)+' rewards':null,P.rebUsd>0.01?fmt.usd(P.rebUsd)+' rebase':null,P.bribeUsd>0.01?fmt.usd(P.bribeUsd)+' bribes':null].filter(Boolean).join(' · ')}`,'https://www.theliquidityalliance.com/','Claim']);
+    P.locks.filter(l=>!l.is_auto_max_locked&&num(l.weeks_to_unlock)!=null&&num(l.weeks_to_unlock)<=4).forEach(l=>att.push(['am','fa-lock-open',`Lock #${l.token_id} unlocks in ${fmt.n(l.weeks_to_unlock)} week${num(l.weeks_to_unlock)===1?'':'s'}`,`${fmt.n(l.amount_human,2)} ${l.asset_symbol} · ${fmt.k(l.vp_total_human)} VP will fall away unless you extend`,'https://www.theliquidityalliance.com/','Extend']));
+    if(P.vp>0&&P.lastVotePeriod!=null&&m.epoch!=null&&P.lastVotePeriod<m.epoch-4)att.push(['pu','fa-check-to-slot','Your gauge votes were last set in epoch '+P.lastVotePeriod,`It's epoch ${m.epoch} — ${fmt.until(m.epochEnd)} left. Votes carry over, but pools and bribes have moved since.`,'#vote','Review']);
+    if(P.atRiskLp)att.push(['rd','fa-triangle-exclamation',`${P.atRiskLp} LP position${P.atRiskLp>1?'s':''} at risk`,'A pool that lost its gauge or fell below threshold — rewards may have stopped.','#portfolio','See']);
+    if(P.inactiveLp)att.push(['am','fa-circle-pause',`${P.inactiveLp} inactive LP position${P.inactiveLp>1?'s':''}`,'Staked but not earning. Move it or unstake.','#portfolio','See']);
+  }
+  const seen=new Set(prev?prev.openKeys:[]); const want=Pf.dao||'all';
+  m.open.filter(p=>want==='all'||p.dao===want).forEach(p=>att.push(['pu','fa-landmark',`${p.dao} · ${esc(p.title||'proposal')}`,`${seen.has(p.dao+'|'+p.id)?'open':'NEW'} · ${p.expiration&&p.expiration.at_time_iso?'closes in '+fmt.until(p.expiration.at_time_iso):'voting'}${(p.decodedActions&&p.decodedActions.length)?' · '+p.decodedActions.length+' on-chain action'+(p.decodedActions.length>1?'s':''):' · signal only'}`,'#vote','Vote']));
+  if(hoursLeft!=null&&hoursLeft<24)att.push(['cy','fa-clock',`Epoch ${m.epoch} rolls in ${fmt.until(m.epochEnd)}`,'Rewards settle, gauge weights lock, bribes pay out at the boundary.','#tla','TLA']);
+  /* what changed */
+  const rows=[];const row=(k,v,d,go)=>rows.push(`<div class="li tap" data-go="${go}"><div class="l"><div class="s">${k}</div><div class="t mono">${v}</div></div><div class="r">${d||''}</div></div>`);
+  const since=prev?m.sales.filter(x=>x.timestamp&&x.timestamp>prev.t):[];
+  row('Unbroken floor',fmt.usd(m.floor),prev?delta(m.floor,prev.floor,'usd'):'','market');
+  row('Listed across venues',fmt.n(m.listed),prev?delta(m.listed,prev.listed):'','market');
+  row(prev?'Sales since you last looked':'Sales · 7 days',prev?fmt.n(since.length):fmt.n(m.s7),prev&&since.length?`<span class="d new">+${since.length}</span>`:(m.lastSale?`<span class="d fl">last ${fmt.ago(m.lastSale.timestamp)}</span>`:''),'market');
+  row('LUNA',fmt.usd(m.luna,4),chg(m.luna24)+' <span class="s">24h</span>','tla');
+  row('TLA staked liquidity',fmt.usd(m.tvl,0),prev?delta(m.tvl,prev.tvl,'usd'):'','tla');
+  row('Backing per NFT',fmt.usd(m.backingUsd),prev?delta(m.backingUsd,prev.backing,'usd'):'','market');
+  if(P&&prev&&num(prev.vp)!=null)row('Your voting power',fmt.k(P.vp)+' VP',delta(P.vp,prev.vp),'portfolio');
+  /* movers */
+  let movers='';try{const tp=D.nap.token_prices;const mv=Object.values(tp).map(t=>({s:t.canonical,p:num(t.final_price_usd),c:num(t.prices&&t.prices.astroport&&t.prices.astroport.price_change_24h_pct),sr:(t.prices&&t.prices.astroport&&t.prices.astroport.series||[]).map(x=>x.v)})).filter(t=>t.c!=null&&t.p!=null).sort((a,b)=>Math.abs(b.c)-Math.abs(a.c)).slice(0,5);if(mv.length)movers=`<h2>Movers · 24h <a class="more" data-go="tla">TLA →</a></h2><div class="list">${mv.map(t=>`<div class="li"><div class="l"><div class="t">${esc(t.s)}</div><div class="s mono">${fmt.usd(t.p)}</div></div><div class="sp">${spark(t.sr,{w:64,h:24})}</div><div class="r">${chg(t.c)}</div></div>`).join('')}</div>`}catch(e){}
+  $('home').innerHTML=hero+
+    (att.length?`<h2>Needs you <span class="pill ${att.some(a=>a[0]==='rd')?'rd':'am'}" style="margin-left:.2em">${att.length}</span></h2>`+att.map(a=>`<div class="att"><span class="ic ${a[0]}"><i class="fas ${a[1]}"></i></span><div><div class="t">${a[2]}</div><div class="s">${a[3]}</div></div><a class="btn g a" ${a[4].startsWith('#')?`data-go="${a[4].slice(1)}" href="${a[4]}"`:`href="${a[4]}" target="_blank" rel="noopener"`}>${a[5]}</a></div>`).join(''):(P?`<div class="card row"><span class="ic gr"><i class="fas fa-circle-check"></i></span><div class="l"><div class="k2">Nothing needs you right now.</div><div class="sub">No claimable rewards above a dollar, no locks unlocking soon, no open proposals${want!=='all'?' in '+want:''}.</div></div></div>`:''))+
+    `<h2>What changed <span class="sub" style="margin-left:auto;text-transform:none;letter-spacing:0">${first?'first look':'since '+fmt.ago(prev.t)}</span></h2><div class="list">${rows.join('')}</div>`+
+    `<div class="btns" style="justify-content:center"><button class="btn g" id="seen" type="button"><i class="fas fa-check"></i> Mark all as seen</button></div>`+movers+
+    `<div class="dev">data ${fmt.ago(m.at)}${D._failed&&D._failed.length?' · could not load: '+D._failed.join(', '):''} · <a href="index.html" style="color:#67e8f9">full site</a></div>`;
+  $('seen').onclick=()=>{ls(SNAP,snapshotOf(P,m));toast('Marked as seen');vHome();badge()};
+  const pk=$('home').querySelector('[data-pick]');if(pk)pk.onclick=e=>{e.stopPropagation();openPicker()};
+  badge();
+}
+function badge(){const m=model(),prev=ls(SNAP),Pf=prefs();const seen=new Set(prev?prev.openKeys:[]);const n=m.open.filter(p=>(Pf.dao==='all'||p.dao===Pf.dao)&&!seen.has(p.dao+'|'+p.id)).length;const b=document.querySelector('.tab[data-v="home"] b.n');if(b){b.textContent=n>9?'9+':n;b.hidden=!n}try{if(navigator.setAppBadge){n?navigator.setAppBadge(n):navigator.clearAppBadge&&navigator.clearAppBadge()}}catch(e){}}
+/* ---- PORTFOLIO ---- */
+function vPortfolio(){
+  const P=me(), m=model();
+  if(!P){$('portfolio').innerHTML=`<div class="card"><b>Whose position?</b><div class="sub" style="margin-bottom:.5em">Read-only, remembered on this device.</div>${pickerHtml()}</div>`;wirePicker($('portfolio'),()=>{paintTop();vPortfolio();toast('Wallet selected')});return}
+  const parts=[['Locks',P.lockUsd,'#22d3ee'],['LPs',P.lpUsd,'#34d399'],['NFT backing',P.nftBacking,'#c084fc'],['Wallet',P.balUsd,'#fbbf24'],['Claimable',P.claimable,'#fb923c']].filter(p=>p[1]>0);
+  const tot=parts.reduce((a,p)=>a+p[1],0)||1; const tl=timeline().map(x=>x.total).filter(x=>x!=null);
+  const share=P.vp&&m.totalVp?P.vp/m.totalVp*100:null;
+  const rewBy={};P.rew.forEach(r=>{const k=r.reward_symbol||r.symbol||'?';rewBy[k]=rewBy[k]||{amt:0,usd:0};rewBy[k].amt+=num(r.amount_human)||0;rewBy[k].usd+=num(r.usd_value)||0});
+  $('portfolio').innerHTML=`
+  <div class="hero"><div class="lab">TOTAL · ${esc(P.name||fmt.addr(P.w))} <span class="pill mut" style="margin-left:.3em">${P.isTla?'TLA':''}${P.isTla&&P.isAdao?' · ':''}${P.isAdao?'aDAO':''}</span></div><div class="big">${fmt.usd(P.total,0)}</div>
+    <div class="alloc">${parts.map(p=>`<i style="width:${(p[1]/tot*100).toFixed(1)}%;background:${p[2]}"></i>`).join('')}</div><div class="legend">${parts.map(p=>`<span><b style="background:${p[2]}"></b>${p[0]} ${fmt.usd(p[1],0)}</span>`).join('')}</div>
+    ${tl.length>=2?spark(tl,{h:44,fill:true,cls:'gr'}):''}<div class="sub">${P.isTla?'Hourly TLA capture '+fmt.ago(D.members&&D.members.capturedAt):'Not found in the TLA participant capture — NFT and DAO data only.'}${P.lockUnpriced?' · '+P.lockUnpriced+' lock asset'+(P.lockUnpriced>1?'s':'')+' unpriced (shown as $0)':''}</div></div>
   <div class="grid2">
-    <div class="tile"><div class="k">Voting power</div><div class="v">${vp!=null?fmt.k(vp)+' VP':'—'}</div><div class="sub">${M&&M.rank_by_vp?'rank #'+M.rank_by_vp:''}${M&&M.vp_pct_of_dao?' · '+M.vp_pct_of_dao.toFixed(2)+'% of aDAO':''}</div></div>
-    <div class="tile"><div class="k">Claimable rewards</div><div class="v">${rew.length?fmt.usd(rewUsd):'—'}</div><div class="sub">${rew.length?rew.length+' token'+(rew.length>1?'s':''):M?'nothing pending':'not a TLA participant'}</div></div>
-    <div class="tile"><div class="k">TLA LPs</div><div class="v">${lps.length?fmt.usd(lpUsd):'—'}</div><div class="sub">${lps.length} position${lps.length===1?'':'s'}</div></div>
-    <div class="tile"><div class="k">aDAO NFTs</div><div class="v">${nfts!=null?fmt.n(nfts):'—'}</div><div class="sub">${A&&A.vp_pct_of_dao?A.vp_pct_of_dao.toFixed(2)+'% of DAO votes':''}</div></div>
+    <div class="tile"><div class="k">Voting power</div><div class="v">${fmt.k(P.vp)}</div><div class="sub">${share!=null?share.toFixed(2)+'% of TLA':''}${P.rank?' · rank #'+P.rank:''}</div></div>
+    <div class="tile"><div class="k">Boost · fixed</div><div class="v xs">${fmt.k(P.vpBoost)} · ${fmt.k(P.vpFixed)}</div><div class="sub">boost decays, fixed doesn't</div></div>
+    <div class="tile"><div class="k">Claimable now</div><div class="v ${P.claimable>0.5?'':'xs'}" style="${P.claimable>0.5?'color:#34d399':''}">${fmt.usd(P.claimable)}</div><div class="sub">${Object.keys(rewBy).length?Object.keys(rewBy).join(' · '):'nothing pending'}${P.rebUsd>0.01?' · rebase':''}</div></div>
+    <div class="tile"><div class="k">aDAO NFTs</div><div class="v">${fmt.n(P.nftCount)}</div><div class="sub">${P.nftBroken?P.nftBroken+' broken · ':''}backing ${fmt.usd(P.nftBacking,0)}${P.nftFloor?' · at floor '+fmt.usd(P.nftFloor,0):''}</div></div>
   </div>
-  ${locks.length?`<h2>Locks</h2><div class="list">${locks.map(l=>`<div class="li"><div class="l"><div class="t">#${esc(l.token_id)} · ${esc(l.asset_symbol)}</div><div class="s">${fmt.n(l.amount_human,2)} locked</div></div><div class="r">${fmt.k(l.vp_total_human||l.voting_power_human)} VP</div></div>`).join('')}</div>`:''}
-  ${lps.length?`<h2>LP positions</h2><div class="list">${lps.slice(0,8).map(l=>`<div class="li"><div class="l"><div class="t">${esc(l.pool_name||l.name||l.pool||'LP')}</div><div class="s">${esc(l.bucket||'')}</div></div><div class="r">${fmt.usd(l.value_usd||l.usd_value||l.staked_usd)}</div></div>`).join('')}</div>`:''}
-  ${rew.length?`<h2>Pending rewards</h2><div class="list">${rew.slice(0,8).map(r=>`<div class="li"><div class="l"><div class="t">${esc(r.symbol||r.token||r.denom||'')}</div></div><div class="r">${fmt.n(r.amount_human||r.amount,4)}<div class="s">${fmt.usd(r.value_usd||r.usd)}</div></div></div>`).join('')}</div>`:''}
-  <div style="display:flex;gap:.5em;margin-top:.8em"><a class="btn" href="member-portfolio.html?wallet=${encodeURIComponent(w)}"><i class="fas fa-briefcase"></i> Full portfolio</a><a class="btn g" href="tla-stats.html">TLA Stats</a></div>
-  <div class="sub" style="margin-top:.6em">Portfolio from the hourly participants capture${D.members?' · '+fmt.ago(D.members.capturedAt):''}.</div>`;
-  $('chg').onclick=()=>{try{localStorage.removeItem('tla:selected_wallet')}catch(e){};paintWallet();me()};
+  ${P.locks.length?`<h2>Locks <span class="sub" style="margin-left:auto;text-transform:none;letter-spacing:0">${P.locks.length} · ${fmt.usd(P.lockUsd,0)}</span></h2><div class="list">${P.locks.slice().sort((a,b)=>(num(b.vp_total_human)||0)-(num(a.vp_total_human)||0)).map(l=>{const p=price(l.asset_symbol);const usd=p!=null?p*(num(l.amount_human)||0):null;const unl=l.is_auto_max_locked?'<span class="pill gr">auto-max</span>':l.end==='permanent'?'<span class="pill gr">permanent</span>':num(l.weeks_to_unlock)!=null?`<span class="pill ${num(l.weeks_to_unlock)<=4?'am':'mut'}">${fmt.n(l.weeks_to_unlock)}w to unlock</span>`:'';return`<div class="li tap" data-lock="${l.token_id}"><span class="ic cy"><i class="fas fa-lock"></i></span><div class="l"><div class="t">#${esc(l.token_id)} · ${fmt.n(l.amount_human,2)} ${esc(l.asset_symbol)}</div><div class="s">${unl} <span style="margin-left:.3em">×${l.coefficient||'—'} coef</span></div></div><div class="r">${fmt.k(l.vp_total_human)} VP<div class="s">${usd!=null?fmt.usd(usd,0):'unpriced'}</div></div></div>`}).join('')}</div>`:''}
+  ${P.lps.length?`<h2>LP positions <span class="sub" style="margin-left:auto;text-transform:none;letter-spacing:0">${P.lps.length} · ${fmt.usd(P.lpUsd,0)}</span></h2><div class="list">${P.lps.map(l=>{const pool=m.pools.find(p=>p.gauge_pool_id===l.pool_gauge_id);const apr=pool&&pool.rewards&&num(pool.rewards.approx_apr_pct);const st=l.status||(pool&&pool.status)||'';return`<div class="li"><span class="ic gr"><i class="fas fa-droplet"></i></span><div class="l"><div class="t">${esc(l.pool_name||'LP')}</div><div class="s">${esc(l.dex||'')} · ${esc(l.bucket||'')} · ${l.is_amplified?'amplified':'not amplified'}${st&&st!=='active'?' · <span style="color:#fbbf24">'+esc(st)+'</span>':''}</div></div><div class="r">${fmt.usd(l.value_usd||l.usd_value||l.user_usd,0)}<div class="s">${apr!=null?apr.toFixed(1)+'% APR':''}</div></div></div>`}).join('')}</div>`:''}
+  ${P.votedPools.length?`<h2>Your gauge votes <span class="sub" style="margin-left:auto;text-transform:none;letter-spacing:0">${P.lastVotePeriod!=null?'set in E'+P.lastVotePeriod:''}</span></h2><div class="list">${P.votedPools.map(v=>{const pool=m.pools.find(p=>p.gauge_pool_id===v.pool_gauge_id);return`<div class="li"><div class="l"><div class="t">${esc(pool?pool.name:(v.pool_name||v.pool_gauge_id||'').slice(0,30))}</div><div class="s">${esc(v.bucket)}</div></div><div class="r">${num(v.weight_pct||v.pct||v.weight)!=null?fmt.n(v.weight_pct||v.pct||v.weight,1)+'%':''}</div></div>`}).join('')}</div>`:''}
+  ${Object.keys(rewBy).length||P.reb?`<h2>Pending</h2><div class="list">${Object.entries(rewBy).map(([k,x])=>`<div class="li"><span class="ic am"><i class="fas fa-gift"></i></span><div class="l"><div class="t">${esc(k)}</div><div class="s">rewards</div></div><div class="r">${fmt.n(x.amt,4)}<div class="s">${fmt.usd(x.usd)}</div></div></div>`).join('')}${P.reb&&num(P.reb.amount_human)?`<div class="li"><span class="ic cy"><i class="fas fa-rotate"></i></span><div class="l"><div class="t">${esc(P.reb.asset_symbol||'rebase')}</div><div class="s">rebase</div></div><div class="r">${fmt.n(P.reb.amount_human,4)}<div class="s">${fmt.usd(P.reb.usd_value)}</div></div></div>`:''}</div>`:''}
+  ${P.bal.length?`<h2>Wallet</h2><div class="list">${P.bal.filter(b=>num(b.usd_value)>0.01).sort((a,b)=>num(b.usd_value)-num(a.usd_value)).slice(0,8).map(b=>`<div class="li"><div class="l"><div class="t">${esc(b.symbol)}</div></div><div class="r">${fmt.n(b.amount_human,2)}<div class="s">${fmt.usd(b.usd_value)}</div></div></div>`).join('')}</div>`:''}
+  <div class="btns"><a class="btn" href="member-portfolio.html?wallet=${encodeURIComponent(P.w)}"><i class="fas fa-briefcase"></i> Full portfolio &amp; history</a><button class="btn g" id="chg" type="button">Change wallet</button></div>
+  <div class="dev">Locks valued at live LST prices · NFTs at treasury backing (floor shown for reference) · claimable = rewards + rebase + bribes</div>`;
+  $('chg').onclick=openPicker;
+  $('portfolio').querySelectorAll('[data-lock]').forEach(r=>r.onclick=()=>{const l=P.locks.find(x=>String(x.token_id)===r.getAttribute('data-lock'));if(!l)return;sheet(`<i class="fas fa-lock" style="color:#67e8f9"></i> Lock #${esc(l.token_id)}`,`<div class="grid2"><div class="tile"><div class="k">Locked</div><div class="v xs">${fmt.n(l.amount_human,4)} ${esc(l.asset_symbol)}</div></div><div class="tile"><div class="k">Underlying at lock</div><div class="v xs">${fmt.n(num(l.underlying_at_lock_raw)/1e6,2)} LUNA</div></div><div class="tile"><div class="k">Voting power</div><div class="v xs">${fmt.k(l.vp_total_human)}</div><div class="sub">boost ${fmt.k(l.voting_power_human)} + fixed ${fmt.k(l.fixed_amount_human)}</div></div><div class="tile"><div class="k">Coefficient</div><div class="v xs">×${l.coefficient||'—'}</div><div class="sub">${l.is_auto_max_locked?'auto-max, no decay':l.end==='permanent'?'permanent':'ends period '+(l.end_period||'—')}</div></div></div><div class="sub" style="margin-top:.6em">Since period ${l.start_period||'—'} · TLA locks are NFTs and can change hands on Atrium.</div><div class="btns"><a class="btn" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">Manage on TLA <i class="fas fa-arrow-up-right-from-square"></i></a></div>`)});
 }
-function wirePicker(){
-  const inp=$('pk'), res=$('pkr'); if(!inp)return;
-  const roster=[].concat((D.roster&&D.roster.participants||[]).map(p=>({a:p.address,n:p.name,tag:'TLA'})),(D.adao&&D.adao.members||[]).map(p=>({a:p.address,n:p.name,tag:'aDAO'})));
-  const seen={}; const list=roster.filter(x=>x.a&&!(seen[x.a]=(seen[x.a]||0)+1>1)||false);
-  const uniq=[];const have=new Set();roster.forEach(x=>{if(!x.a||have.has(x.a))return;have.add(x.a);uniq.push(x)});
-  const draw=q=>{q=(q||'').trim().toLowerCase();const hits=(q.length<2?[]:uniq.filter(x=>(x.n||'').toLowerCase().includes(q)||x.a.toLowerCase().includes(q)||x.a.slice(-4).toLowerCase()===q)).slice(0,12);
-    res.innerHTML=hits.map(x=>`<div class="li tap" data-a="${x.a}"><div class="l"><div class="t">${esc(x.n||'…'+x.a.slice(-4))}</div><div class="s mono">${esc(x.a.slice(0,14))}…${esc(x.a.slice(-4))}</div></div><span class="pill">${x.tag}</span></div>`).join('')||(q.length>=2?'<div class="empty">No match</div>':'');
-    res.querySelectorAll('[data-a]').forEach(r=>r.onclick=()=>{try{localStorage.setItem('tla:selected_wallet',r.getAttribute('data-a'))}catch(e){};paintWallet();me();toast('Wallet selected')})};
-  inp.addEventListener('input',()=>draw(inp.value)); inp.focus();
-}
-
-/* ----- MARKET ----- */
-function market(){
-  const n=now(); const s=D.summary||{}; const mk=s.marketplaces||{}; const fh=(D.floor&&D.floor.rows)||[]; const last=fh[fh.length-1]||{}; const pt=last.per_tier||{};
-  const venue=(key,label,logo)=>{const m=mk[key];if(!m)return'';const tok=m.by_token?Object.entries(m.by_token):[];const t0=tok[0];return`<div class="li"><img src="${logo}" alt="" onerror="this.style.visibility='hidden'"><div class="l"><div class="t">${label}</div><div class="s">${t0?`from ${fmt.n(t0[1].min)} ${esc(t0[0])}`:'—'}</div></div><div class="r">${m.count} listed<div class="s">${t0?fmt.usd(t0[1].total_usd)+' total':''}</div></div></div>`};
-  const recent=n.sales.slice(-8).reverse();
+/* ---- MARKET ---- */
+function vMarket(){
+  const m=model(), Pf=prefs(); const venue=(k,label,logo)=>{const v=m.venues[k];if(!v)return'';const t=v.by_token?Object.entries(v.by_token)[0]:null;return`<div class="li"><img src="${logo}" alt="" onerror="this.style.visibility='hidden'"><div class="l"><div class="t">${label}</div><div class="s">${t?`from ${fmt.n(t[1].min)} ${esc(t[0])}`:'—'}</div></div><div class="r">${fmt.n(v.count)} listed<div class="s">${t?fmt.usd(t[1].total_usd,0)+' on offer':''}</div></div></div>`};
+  const cheapest=m.listedRows.filter(r=>!r.broken).slice(0,9); const recent=m.sales.slice(-10).reverse();
   $('market').innerHTML=`
-  <div class="grid2">
-    <div class="tile"><div class="k">Unbroken floor · listings</div><div class="v">${fmt.usd(pt.base&&pt.base.listing_floor_usd)}</div><div class="sub">${pt.base?pt.base.listed_count+' listed · sales floor '+fmt.usd(pt.base.sales_floor_usd):''}</div></div>
-    <div class="tile"><div class="k">Backing per NFT</div><div class="v">${fmt.usd(n.backing_usd)}</div><div class="sub">${fmt.n(n.backing_amp,2)} ampLUNA · floor ${n.backing_usd&&pt.base&&pt.base.listing_floor_usd?(pt.base.listing_floor_usd/n.backing_usd).toFixed(1)+'× backing':''}</div></div>
-    <div class="tile"><div class="k">Phoenix floor</div><div class="v">${fmt.usd(pt.phoenix&&pt.phoenix.listing_floor_usd)}</div><div class="sub">${pt.phoenix?pt.phoenix.listed_count+' listed':''}</div></div>
-    <div class="tile"><div class="k">Days on market (base)</div><div class="v">${pt.base&&pt.base.avg_days_on_market!=null?pt.base.avg_days_on_market.toFixed(0)+'d':'—'}</div><div class="sub">avg, current listings</div></div>
-  </div>
+  <div class="hero"><div class="lab">UNBROKEN FLOOR · BASE TIER · LISTINGS</div><div class="big">${fmt.usd(m.floor)}</div><div class="row"><span class="pill mut">${fmt.n(m.listedBase)} base listed</span><span class="pill mut">backing ${fmt.usd(m.backingUsd)}</span>${m.floor&&m.backingUsd?`<span class="pill cy">${(m.floor/m.backingUsd).toFixed(1)}× backing</span>`:''}</div>${spark(m.floorSeries,{h:56,fill:true,cls:'gr'})}<div class="sub">${m.floorSeries.filter(x=>x!=null).length} daily captures to ${m.floorDate||'—'} · sales floor ${fmt.usd(m.floorSales)}${m.dom!=null?' · avg '+m.dom.toFixed(0)+' days on market':''}</div></div>
+  <div class="grid3"><div class="tile"><div class="k">Sales · 7d</div><div class="v">${fmt.n(m.s7)}</div><div class="sub">${fmt.usd(m.vol7,0)}</div></div><div class="tile"><div class="k">Sales · 30d</div><div class="v">${fmt.n(m.s30)}</div><div class="sub">${fmt.usd(m.vol30,0)}</div></div><div class="tile"><div class="k">Phoenix floor</div><div class="v xs">${fmt.usd(m.phxFloor,0)}</div><div class="sub">${fmt.n(m.phxListed)} listed</div></div></div>
+  <h2>Cheapest unbroken <a class="more" href="index.html#nft-marketplace-section">all listings →</a></h2>
+  ${cheapest.length?`<div class="thumbs">${cheapest.map(r=>`<div class="th tap" data-nft="${r.id}"><img src="${img(r.id)}" alt="#${r.id}" loading="lazy"><div class="p">${fmt.usd(r.usd,0)}<span>#${r.id}</span></div></div>`).join('')}</div>`:'<div class="empty"><i class="fas fa-tag"></i>No priced listings in the explorer bundle yet.</div>'}
   <h2>Venues</h2><div class="list">${venue('bbl','BBL','/assets/images/BBL%20No%20Background.png')}${venue('boost','Boost','/assets/images/Boost%20Logo.png')}${venue('atrium','Atrium','/assets/images/Alliance%20DAO%20Logo.png')}</div>
-  <h2>Recent sales</h2><div class="list">${recent.map(x=>`<div class="li"><img src="${esc(x.image_url||x.image||'')}" alt="" onerror="this.style.visibility='hidden'"><div class="l"><div class="t">#${esc(x.token_id)}${x.is_broken?' <span class="pill">broken</span>':''}</div><div class="s">${esc(x.marketplace||x.venue||'')} · ${fmt.ago(x.timestamp)}</div></div><div class="r">${fmt.usd(x.price_usd)}<div class="s">${fmt.n(x.price_human||x.price,0)} ${esc(x.denom_symbol||x.token||'')}</div></div></div>`).join('')||'<div class="empty">no sales data</div>'}</div>
-  <div class="sub" style="margin-top:.6em">Floor history captured daily${last.date?' · last '+last.date:''} · sales maintained ${D.sales?fmt.ago(D.sales.maintained_at||D.sales.builtAt):'—'}.</div>
-  <div style="display:flex;gap:.5em;margin-top:.6em"><a class="btn" href="nft-explorer-index.html?view=analytics"><i class="fas fa-chart-simple"></i> Full analytics</a><a class="btn g" href="index.html#nft-marketplace-section">All listings</a></div>`;
+  <h2>Recent sales <span class="sub" style="margin-left:auto;text-transform:none;letter-spacing:0">${D.sales?'to '+fmt.ago(D.sales.maintained_at||D.sales.builtAt):''}</span></h2>
+  <div class="list">${recent.map(x=>`<div class="li tap" data-nft="${esc(x.token_id)}"><img src="${img(x.token_id)}" alt="" loading="lazy"><div class="l"><div class="t">#${esc(x.token_id)}</div><div class="s">${esc(x.marketplace||'')} · ${fmt.ago(x.timestamp)}${x.hold_days!=null?' · held '+fmt.n(x.hold_days)+'d':''}</div></div><div class="r">${fmt.usd(x.price_usd_at_sale||x.notional_usd,0)}<div class="s">${fmt.n(x.amount,0)} ${esc(x.denom_symbol||'')}</div></div></div>`).join('')||'<div class="empty"><i class="fas fa-cart-shopping"></i>No sales in the capture.</div>'}</div>
+  <div class="btns"><a class="btn" href="nft-explorer-index.html?view=analytics"><i class="fas fa-chart-simple"></i> Full analytics</a><a class="btn g" href="https://app.backbonelabs.io/nfts/marketplace/collections/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9" target="_blank" rel="noopener">BBL <i class="fas fa-arrow-up-right-from-square"></i></a></div>`;
+  $('market').querySelectorAll('[data-nft]').forEach(el=>el.onclick=()=>nftSheet(el.getAttribute('data-nft')));
 }
-
-/* ----- TLA ----- */
-function tla(){
-  const n=now(); const T=D.tla||{}; const pools=(T.pools||[]).slice().sort((a,b)=>(b.staked_in_tla_usd||0)-(a.staked_in_tla_usd||0)); const bk=T.buckets||{};
-  const endIn=n.epoch_end?Math.max(0,(new Date(n.epoch_end)-Date.now())/36e5):null;
+function nftSheet(id){const m=model();const row=((D.bundle&&D.bundle.rows)||[]).find(r=>String(r[0])===String(id));const dict=D.bundle&&D.bundle.dict||{};const F=D.bundle&&D.bundle.flagBits||{};const flags=row?row[9]||0:0;const tags=Object.entries(F).filter(([k,b])=>flags&b).map(([k])=>k.replace(/_/g,' '));const trait=(name,i)=>row&&dict[name]&&dict[name][row[i]]!=null?dict[name][row[i]]:null;const sales=m.sales.filter(s=>String(s.token_id)===String(id)).slice(-5).reverse();
+  sheet(`aDAO #${esc(id)}`,`<img src="${img(id)}" alt="" style="width:100%;border-radius:14px;aspect-ratio:1;object-fit:cover;background:#1f2430"><div class="row" style="margin:.6em 0;flex-wrap:wrap;gap:.35em">${row&&row[11]!=null?`<span class="pill gr">listed ${fmt.usd(row[11],0)}</span>`:''}${row&&row[10]?`<span class="pill mut">BBL rank #${row[10]}</span>`:''}${tags.map(t=>`<span class="pill ${/broken/.test(t)?'rd':'mut'}">${esc(t)}</span>`).join('')}</div>${row?`<div class="grid2">${[['Planet',1],['Inhabitant',2],['Object',3],['Weather',4],['Light',5],['Rarity',6]].map(([n,i])=>`<div class="tile"><div class="k">${n}</div><div class="k2">${esc(trait(n,i)||'—')}</div></div>`).join('')}</div>`:''}${sales.length?`<h2>Sales history</h2><div class="list">${sales.map(s=>`<div class="li"><div class="l"><div class="t">${fmt.date(s.timestamp)}</div><div class="s">${esc(s.marketplace||'')}</div></div><div class="r">${fmt.usd(s.price_usd_at_sale||s.notional_usd,0)}<div class="s">${fmt.n(s.amount,0)} ${esc(s.denom_symbol||'')}</div></div></div>`).join('')}</div>`:''}<div class="btns"><a class="btn" href="nft-explorer-index.html?token=${encodeURIComponent(id)}">Open in Explorer</a></div>`)}
+/* ---- VOTE ---- */
+function vVote(){
+  const m=model(), P=me(), Pf=prefs(), prev=ls(SNAP); const seen=new Set(prev?prev.openKeys:[]);
+  const votesOf=p=>{const v=p.votes||p.voting||{};const y=num(v.yes||v.for)||0,n=num(v.no||v.against)||0,a=num(v.abstain)||0,t=y+n+a;return{y,n,a,t}};
+  const mine=p=>{if(!P)return null;const vs=p.voters;if(!vs)return null;if(Array.isArray(vs))return vs.some(x=>(typeof x==='string'?x:(x.address||x.voter))===P.w);if(typeof vs==='object')return !!vs[P.w];return null};
+  const card=p=>{const v=votesOf(p);const st=String(p.status||(p.live?'Open':'')).toLowerCase();const open=!!p.live||st==='open';const my=mine(p);const chip=open?`<span class="pill ${seen.has(p.dao+'|'+p.id)?'cy':'pu'}">${seen.has(p.dao+'|'+p.id)?'open':'NEW'}</span>`:`<span class="pill ${/pass|execut/.test(st)?'gr':/reject|veto|fail/.test(st)?'rd':'mut'}">${esc(p.status||st)}</span>`;
+    return`<div class="card tap" data-prop="${esc(p.dao+'|'+p.id)}"><div class="row"><div class="l"><div class="k">${esc(p.dao)} · #${esc(String(p.id).replace(/^[a-z]/,''))}${my===true?' · <span class="you">you voted</span>':''}</div><div class="k2" style="font-weight:700;color:#fff">${esc(p.title||'(untitled)')}</div></div>${chip}</div>
+      ${v.t?`<div class="bar"><i style="width:${(v.y/v.t*100).toFixed(1)}%;background:#34d399"></i><i style="width:${(v.n/v.t*100).toFixed(1)}%;background:#f87171"></i><i style="width:${(v.a/v.t*100).toFixed(1)}%;background:#6b7280"></i></div><div class="legend"><span><b style="background:#34d399"></b>yes ${(v.y/v.t*100).toFixed(0)}%</span><span><b style="background:#f87171"></b>no ${(v.n/v.t*100).toFixed(0)}%</span>${v.a?`<span><b style="background:#6b7280"></b>abstain ${(v.a/v.t*100).toFixed(0)}%</span>`:''}</div>`:''}
+      <div class="sub">${open?(p.expiration&&p.expiration.at_time_iso?'closes in '+fmt.until(p.expiration.at_time_iso)+' · ':''):(p.expiration&&p.expiration.at_time_iso?'closed '+fmt.date(p.expiration.at_time_iso)+' · ':'')}${(p.decodedActions&&p.decodedActions.length)?`<span style="color:#fbbf24">${p.decodedActions.length} on-chain action${p.decodedActions.length>1?'s':''}</span>`:'<span style="color:#34d399">signal only</span>'}</div></div>`};
+  const flt=p=>(Pf.dao||'all')==='all'||p.dao===Pf.dao; const open=m.open.filter(flt); const recent=m.props.filter(p=>!(p.live||String(p.status||'').toLowerCase()==='open')).filter(flt).sort((a,b)=>(num(b.startHeight)||0)-(num(a.startHeight)||0)).slice(0,10);
+  /* TLA gauge: where the votes are this epoch */
+  const buckets=Object.entries(m.buckets).map(([b,x])=>{const pools=m.pools.filter(p=>p.bucket===b&&num(p.voting_power)>0).sort((a,c)=>num(c.voting_power)-num(a.voting_power));const tot=pools.reduce((a,p)=>a+num(p.voting_power),0)||1;return{b,tot,top:pools.slice(0,3).map(p=>({n:p.name,pct:num(p.voting_power)/tot*100,apr:p.rewards&&num(p.rewards.approx_apr_pct)}))}});
+  $('vote').innerHTML=`
+  <div class="seg">${[['all','All'],['aDAO','aDAO'],['Lion DAO','Lion'],['Pixel Lions','Pixel']].map(([k,l])=>`<button type="button" data-dao="${k}" class="${(Pf.dao||'all')===k?'on':''}">${l}</button>`).join('')}</div>
+  <h2>Open proposals</h2>${open.length?open.map(card).join(''):'<div class="empty"><i class="fas fa-landmark"></i>Nothing to vote on right now.</div>'}
+  <h2>TLA gauge · epoch ${m.epoch??'—'} <span class="sub" style="margin-left:auto;text-transform:none;letter-spacing:0">${fmt.until(m.epochEnd)} left</span></h2>
+  <div class="grid2">${buckets.map(x=>`<div class="tile"><div class="k">${esc(x.b)}</div>${x.top.map(t=>`<div class="row" style="gap:.4em;margin-top:.25em"><div class="l"><div class="k2" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.n)}</div><div class="bar" style="margin:.15em 0"><i style="width:${t.pct.toFixed(1)}%;background:#22d3ee"></i></div></div><span class="mono" style="font-size:.78em;color:#9ca3af">${t.pct.toFixed(0)}%</span></div>`).join('')}</div>`).join('')}</div>
+  ${P&&P.votedPools.length?`<div class="card"><div class="k">Your allocation${P.lastVotePeriod!=null?' · set in E'+P.lastVotePeriod:''}</div>${P.votedPools.map(v=>{const pool=m.pools.find(p=>p.gauge_pool_id===v.pool_gauge_id);return`<div class="row" style="margin-top:.3em"><div class="l k2">${esc(pool?pool.name:(v.pool_name||'pool'))} <span class="sub" style="display:inline">· ${esc(v.bucket)}</span></div><span class="mono" style="font-size:.85em">${num(v.weight_pct||v.pct||v.weight)!=null?fmt.n(v.weight_pct||v.pct||v.weight,0)+'%':''}</span></div>`}).join('')}<div class="btns"><a class="btn" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">Change votes on TLA <i class="fas fa-arrow-up-right-from-square"></i></a></div></div>`:P&&P.vp>0?`<div class="card row"><span class="ic am"><i class="fas fa-check-to-slot"></i></span><div class="l"><div class="k2">${fmt.k(P.vp)} VP and no gauge votes on record.</div><div class="sub">Unvoted VP earns nothing from bribes.</div></div><a class="btn g" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">Vote</a></div>`:''}
+  <h2>Recent</h2>${recent.map(card).join('')||'<div class="empty">—</div>'}
+  <div class="btns"><a class="btn g" href="dao.html"><i class="fas fa-landmark"></i> Governance page &amp; audits</a></div>`;
+  $('vote').querySelectorAll('[data-dao]').forEach(b=>b.onclick=()=>{setPrefs({dao:b.getAttribute('data-dao')});vVote();badge()});
+  $('vote').querySelectorAll('[data-prop]').forEach(c=>c.onclick=()=>{const [dao,id]=c.getAttribute('data-prop').split('|');const p=m.props.find(x=>x.dao===dao&&String(x.id)===id);if(!p)return;const v=votesOf(p);const acts=(p.decodedActions||[]).slice(0,6);sheet(`${esc(dao)} · #${esc(String(id).replace(/^[a-z]/,''))}`,`<div class="k2" style="font-weight:700;color:#fff;font-size:1.05em">${esc(p.title||'')}</div><div class="sub" style="white-space:pre-wrap;max-height:9em;overflow:auto;margin:.4em 0">${esc((p.description||'').slice(0,1200))}${(p.description||'').length>1200?'…':''}</div>${v.t?`<div class="grid3"><div class="tile"><div class="k">Yes</div><div class="v xs" style="color:#34d399">${fmt.k(v.y)}</div></div><div class="tile"><div class="k">No</div><div class="v xs" style="color:#f87171">${fmt.k(v.n)}</div></div><div class="tile"><div class="k">Abstain</div><div class="v xs">${fmt.k(v.a)}</div></div></div>`:''}${acts.length?`<h2>On-chain actions</h2><div class="list">${acts.map(a=>`<div class="li"><div class="l"><div class="t">${esc(a.kind||a.type||a.action||'action')}</div><div class="s">${esc(a.summary||a.contract||a.to||'')}</div></div></div>`).join('')}</div>`:'<div class="card row" style="margin-top:.6em"><span class="ic gr"><i class="fas fa-circle-check"></i></span><div class="l k2">Signal only — no on-chain messages. Safe by definition.</div></div>'}<div class="btns"><a class="btn" href="https://daodao.zone/dao/${esc((D[DAOS.find(d=>d[0]===dao)[2]]||{}).dao||'')}/proposals/${esc(String(id).replace(/^[a-z]/,''))}" target="_blank" rel="noopener">Vote on DAO DAO <i class="fas fa-arrow-up-right-from-square"></i></a><a class="btn g" href="dao.html">Full audit</a></div>`)});
+}
+/* ---- TLA ---- */
+function vTla(){
+  const m=model(); const pools=m.pools.slice().sort((a,b)=>(num(b.staked_in_tla_usd)||0)-(num(a.staked_in_tla_usd)||0));
+  const byApr=m.pools.filter(p=>p.status==='active'&&p.rewards&&num(p.rewards.approx_apr_pct)!=null).sort((a,b)=>num(b.rewards.approx_apr_pct)-num(a.rewards.approx_apr_pct)).slice(0,5);
+  const lsts=['ampLUNA','bLUNA','arbLUNA','zluna'].map(s=>({s,p:price(s),sr:series(s)})).filter(x=>x.p!=null);
   $('tla').innerHTML=`
-  <div class="card"><div class="row"><div class="l"><div class="k">Epoch #${n.epoch??'—'}</div><div class="v sm">${endIn==null?'—':(endIn>48?Math.round(endIn/24)+' days':Math.round(endIn)+' hours')} left</div></div><span class="d fl">${n.epoch_pct!=null?Math.round(n.epoch_pct)+'%':''}</span></div><div class="bar"><i style="width:${Math.min(100,n.epoch_pct||0)}%"></i></div><div class="sub">rolls ${n.epoch_end?new Date(n.epoch_end).toLocaleString(undefined,{weekday:'long',hour:'numeric',minute:'2-digit'}):'—'} (local)</div></div>
-  <div class="grid2">
-    <div class="tile"><div class="k">Staked in TLA</div><div class="v">${fmt.usd(n.tvl)}</div><div class="sub">${n.active} active pools</div></div>
-    <div class="tile"><div class="k">DEX depth (TLA pools)</div><div class="v">${fmt.usd(n.depth)}</div><div class="sub">Astroport + SkeletonSwap + Credia</div></div>
-    <div class="tile"><div class="k">LUNA rewards / week</div><div class="v">${fmt.usd(n.weekly_usd)}</div><div class="sub">at ${fmt.usd(n.luna_usd,4)}</div></div>
-    <div class="tile"><div class="k">LUNA</div><div class="v">${fmt.usd(n.luna_usd,4)}</div><div class="sub"><span class="d ${(n.luna_24h||0)>=0?'up':'dn'}">${fmt.pct(n.luna_24h)}</span> 24h</div></div>
-  </div>
-  <h2>Buckets</h2><div class="grid2">${Object.entries(bk).map(([b,x])=>`<div class="tile"><div class="k">${esc(b)}</div><div class="v" style="font-size:1em">${fmt.usd(x.tla_tvl_usd||x.staked_in_tla_usd)}</div><div class="sub">${x.active_pools_count??x.active??''} active · ${fmt.k(x.total_voting_power_human||x.vp_total_human||x.total_vp_human)} VP</div></div>`).join('')}</div>
-  <h2>Top pools by stake</h2><div class="list">${pools.slice(0,8).map(p=>`<div class="li"><div class="l"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.dex||'')} · ${esc(p.bucket)}${p.status!=='active'?' · '+esc(p.status):''}</div></div><div class="r">${fmt.usd(p.staked_in_tla_usd)}<div class="s">${p.rewards&&p.rewards.apr_pct!=null?p.rewards.apr_pct.toFixed(1)+'% APR':''}</div></div></div>`).join('')}</div>
-  <div style="display:flex;gap:.5em;margin-top:.8em"><a class="btn" href="tla-stats.html"><i class="fas fa-chart-line"></i> TLA Stats</a><a class="btn g" href="tla-stats.html#pools">Pools</a></div>
-  <div class="sub" style="margin-top:.6em">tla-snapshot ${T.capturedAt?fmt.ago(T.capturedAt):''} · prices ${D.nap?fmt.ago(D.nap.capturedAt):''}.</div>`;
+  <div class="hero"><div class="lab">STAKED IN TLA</div><div class="big">${fmt.usd(m.tvl,0)}</div><div class="row"><span class="pill mut">${fmt.n(m.active)} active pools</span><span class="pill mut">depth ${fmt.usd(m.depth,0)}</span><span class="pill cy">${fmt.usd(m.weekly,0)}/wk LUNA</span></div><div class="sub">Epoch ${m.epoch} · ${fmt.until(m.epochEnd)} left · ${m.epochPct!=null?Math.round(m.epochPct)+'% through':''}</div><div class="bar"><i style="width:${Math.min(100,m.epochPct||0)}%;background:linear-gradient(90deg,#00f2fe,#2889fc)"></i></div></div>
+  <div class="grid2"><div class="tile"><div class="k">LUNA</div><div class="v">${fmt.usd(m.luna,4)}</div><div class="sub">${chg(m.luna24)} 24h</div></div><div class="tile"><div class="k">Total VP</div><div class="v">${fmt.k(m.totalVp)}</div><div class="sub">max bucket (Eris convention)</div></div></div>
+  ${lsts.length?`<h2>LSTs</h2><div class="list">${lsts.map(x=>`<div class="li"><div class="l"><div class="t">${esc(x.s)}</div><div class="s mono">${fmt.usd(x.p,4)}${m.luna?' · '+(x.p/m.luna).toFixed(4)+' LUNA':''}</div></div><div class="sp">${spark(x.sr,{w:64,h:24})}</div></div>`).join('')}</div>`:''}
+  <h2>Buckets</h2><div class="grid2">${Object.entries(m.buckets).map(([b,x])=>`<div class="tile"><div class="k">${esc(b)}</div><div class="v xs">${fmt.usd(x.tla_tvl_usd||x.staked_in_tla_usd,0)}</div><div class="sub">${x.active_count??''} active · ${fmt.k(x.bucket_vp_human)} VP</div></div>`).join('')}</div>
+  ${byApr.length?`<h2>Best APR · active pools</h2><div class="list">${byApr.map(p=>`<div class="li"><div class="l"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.dex||'')} · ${esc(p.bucket)} · ${fmt.usd(p.staked_in_tla_usd,0)} staked</div></div><div class="r" style="color:#34d399">${num(p.rewards.approx_apr_pct).toFixed(1)}%</div></div>`).join('')}</div>`:''}
+  <h2>Biggest pools</h2><div class="list">${pools.slice(0,8).map(p=>`<div class="li"><div class="l"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.dex||'')} · ${esc(p.bucket)}${p.status!=='active'?' · <span style="color:#fbbf24">'+esc(p.status)+'</span>':''}</div></div><div class="r">${fmt.usd(p.staked_in_tla_usd,0)}<div class="s">${p.rewards&&num(p.rewards.approx_apr_pct)!=null?num(p.rewards.approx_apr_pct).toFixed(1)+'% APR':''}</div></div></div>`).join('')}</div>
+  <div class="btns"><a class="btn" href="tla-stats.html"><i class="fas fa-chart-line"></i> TLA Stats</a><a class="btn g" href="tla-stats.html#pools">All pools</a><a class="btn g" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">TLA app <i class="fas fa-arrow-up-right-from-square"></i></a></div>
+  <div class="dev">tla-snapshot ${fmt.ago(D.tla&&D.tla.capturedAt)} · prices ${fmt.ago(D.nap&&D.nap.capturedAt)}</div>`;
 }
-
-/* ----- DAO ----- */
-function dao(){
-  const n=now(); const P=prefs(); const open=n.open; const recent=n.props.filter(p=>!(p.live||String(p.status||'').toLowerCase()==='open')).sort((a,b)=>(b.startHeight||0)-(a.startHeight||0)).slice(0,8);
-  const chip=p=>{const st=String(p.status||(p.live?'open':'')).toLowerCase();const c=st==='open'?'new':/pass|execut/.test(st)?'up':/reject|fail/.test(st)?'dn':'fl';return`<span class="d ${c}">${esc(st||'—')}</span>`};
-  const row=p=>`<div class="li"><div class="l"><div class="t">${esc(p.dao)} #${esc(String(p.id).replace(/^[a-z]/,''))} · ${esc(p.title||'(untitled)')}</div><div class="s">${p.expiration&&p.expiration.at_time_iso?(p.live?'closes ':'closed ')+new Date(p.expiration.at_time_iso).toLocaleDateString():''}${p.decodedActions&&p.decodedActions.length?' · '+p.decodedActions.length+' action'+(p.decodedActions.length>1?'s':''):' · signal'}</div></div>${chip(p)}</div>`;
-  $('dao').innerHTML=`
-  <div class="seg">${[['all','All'],['aDAO','aDAO'],['Lion DAO','Lion'],['Pixel Lions','Pixel']].map(([k,l])=>`<button type="button" data-dao="${k}" class="${(P.dao||'all')===k?'on':''}">${l}</button>`).join('')}</div>
-  <h2>Open proposals</h2><div class="list">${open.filter(p=>(P.dao||'all')==='all'||p.dao===P.dao).map(row).join('')||'<div class="empty">Nothing open right now.</div>'}</div>
-  <h2>Recent</h2><div class="list">${recent.filter(p=>(P.dao||'all')==='all'||p.dao===P.dao).map(row).join('')}</div>
-  <div style="display:flex;gap:.5em;margin-top:.8em"><a class="btn" href="dao.html"><i class="fas fa-landmark"></i> Governance page</a><a class="btn g" href="dao_treasury.html">Treasury</a></div>`;
-  $('dao').querySelectorAll('[data-dao]').forEach(b=>b.onclick=()=>{setPrefs({dao:b.getAttribute('data-dao')});dao();feed()});
+/* ---- NFTs (collection) ---- */
+function vNft(){const m=model(),s=D.summary||{};const locked=(num(s.unminted_count)||0)+1000+(num(s.daodao_staked_count)||0)+(num(s.enterprise_staked_count)||0);const liquid=(num(s.user_liquid_count)||0)+m.listed;const tot=num(s.total_tokens)||10000;
+  $('nft').innerHTML=`<div class="hero"><div class="lab">ALLIANCE DAO NFT · 10,000</div><div class="big">${fmt.usd(m.backingUsd)}<span style="font-size:.45em;color:#8b93a1;font-family:Outfit"> backing / NFT</span></div><div class="row"><span class="pill mut">${fmt.n(m.backingAmp,2)} ampLUNA</span><span class="pill mut">floor ${fmt.usd(m.floor)}</span></div>${spark(m.backingSeries,{h:44,fill:true,cls:'gr'})}<div class="sub">Backing only ever rises (the hub compounds). Floor is what the market asks.</div></div>
+  <div class="card"><div class="k">Locked vs liquid · of ${fmt.n(tot)}</div><div class="alloc"><i style="width:${(locked/tot*100).toFixed(1)}%;background:#22d3ee"></i><i style="width:${(liquid/tot*100).toFixed(1)}%;background:#c084fc"></i></div><div class="legend"><span><b style="background:#22d3ee"></b>locked ${fmt.n(locked)} (${(locked/tot*100).toFixed(1)}%)</span><span><b style="background:#c084fc"></b>liquid ${fmt.n(liquid)} (${(liquid/tot*100).toFixed(1)}%)</span></div><div class="sub">locked = unminted ${fmt.n(s.unminted_count)} + DAO-held 1,000 + DAODAO staked ${fmt.n(s.daodao_staked_count)} + Enterprise ${fmt.n(s.enterprise_staked_count)} · liquid = held ${fmt.n(s.user_liquid_count)} + listed ${fmt.n(m.listed)}</div></div>
+  <div class="grid2"><div class="tile"><div class="k">Minted</div><div class="v">${fmt.n(m.minted)}</div><div class="sub">${m.minted?((m.minted/tot)*100).toFixed(1)+'%':''}</div></div><div class="tile"><div class="k">Holders</div><div class="v">${fmt.n(m.holders)}</div><div class="sub">${fmt.n(m.members)} DAO members</div></div><div class="tile"><div class="k">Broken</div><div class="v">${fmt.n(m.broken)}</div><div class="sub">${m.broken?((m.broken/tot)*100).toFixed(1)+'% · no backing':''}</div></div><div class="tile"><div class="k">DAO value</div><div class="v">${fmt.usd(m.daoValue,0)}</div><div class="sub">treasury ${fmt.usd(m.treasury,0)}</div></div></div>
+  <div class="btns"><a class="btn" href="nft-explorer-index.html"><i class="fas fa-images"></i> Explorer</a><a class="btn g" href="ally.html">ALLY rewards</a><a class="btn g" href="rarity-explained.html">Rarity</a></div>`}
+/* ---- MORE ---- */
+function vMore(){const P=prefs();const w=wallet();
+  $('more').innerHTML=`<div class="list">${[['tla','TLA','fa-chart-line'],['nft','NFT collection','fa-images'],['portfolio','Portfolio','fa-chart-pie'],['market','Market','fa-store'],['vote','Vote','fa-check-to-slot']].filter(x=>!P.tabs.includes(x[0])).map(x=>`<div class="li tap" data-go="${x[0]}"><span class="ic cy"><i class="fas ${x[2]}"></i></span><div class="l"><div class="t">${x[1]}</div></div><i class="fas fa-chevron-right" style="color:#5d6470"></i></div>`).join('')}</div>
+  <h2>Settings</h2>
+  <div class="card"><div class="k">Wallet</div><div class="row" style="margin-top:.3em"><div class="l k2 mono">${w?esc(fmt.addr(w)):'none selected'}</div><button class="btn g" id="m-wallet" type="button">${w?'Change':'Pick'}</button>${w?'<button class="btn g" id="m-clear" type="button">Clear</button>':''}</div></div>
+  <div class="card"><div class="k">Badge counts proposals in</div><div class="seg" style="margin-bottom:0">${[['all','All'],['aDAO','aDAO'],['Lion DAO','Lion'],['Pixel Lions','Pixel']].map(([k,l])=>`<button type="button" data-dao="${k}" class="${(P.dao||'all')===k?'on':''}">${l}</button>`).join('')}</div></div>
+  <div class="card"><div class="k" style="margin-bottom:.2em">Your five tabs</div>${Object.entries(TABS).map(([k,[l,ic]])=>`<label class="chk"><input type="checkbox" data-t="${k}" ${P.tabs.includes(k)?'checked':''}><i class="fas ${ic}" style="width:1.4em;color:#67e8f9"></i>${l}</label>`).join('')}</div>
+  <div class="card"><div class="k">Housekeeping</div><div class="btns" style="margin-top:.4em"><button class="btn g" id="m-reset" type="button">Reset "since last looked"</button><button class="btn g" id="m-ob" type="button">Show the intro again</button></div></div>
+  <h2>Help</h2><div class="list"><a class="li tap" href="install.html"><span class="ic cy"><i class="fas fa-mobile-screen"></i></span><div class="l"><div class="t">Add Ally to your home screen</div><div class="s">iPhone, Android, desktop — and setting it up</div></div></a><a class="li tap" href="help.html"><span class="ic cy"><i class="fas fa-circle-question"></i></span><div class="l"><div class="t">Help &amp; FAQ</div></div></a><a class="li tap" href="new-here.html"><span class="ic am"><i class="fas fa-seedling"></i></span><div class="l"><div class="t">New to aDAO?</div></div></a><a class="li tap" href="new-here-tla.html"><span class="ic or"><i class="fas fa-seedling"></i></span><div class="l"><div class="t">New to TLA?</div></div></a><a class="li tap" href="index.html"><span class="ic cy"><i class="fas fa-globe"></i></span><div class="l"><div class="t">Open the full site</div></div></a></div>
+  <div class="dev">Ally v1 · read-only · nothing leaves your phone · <a href="transparency-hub.html" style="color:#67e8f9">how the data is captured</a></div>`;
+  $('m-wallet').onclick=openPicker; const cl=$('m-clear'); if(cl)cl.onclick=()=>{setWallet(null);paintTop();vMore();toast('Wallet cleared')};
+  $('more').querySelectorAll('[data-dao]').forEach(b=>b.onclick=()=>{setPrefs({dao:b.getAttribute('data-dao')});vMore();badge()});
+  $('more').querySelectorAll('[data-t]').forEach(c=>c.onchange=()=>{const on=[...$('more').querySelectorAll('[data-t]:checked')].map(x=>x.getAttribute('data-t'));if(on.length>5){c.checked=false;toast('Five max');return}if(on.length<1){c.checked=true;return}setPrefs({tabs:on});paintTabs();document.querySelector('.tab[data-v="more"]')?.classList.add('on')});
+  $('m-reset').onclick=()=>{ls(SNAP,null);toast('Reset — next open is a first look')}; $('m-ob').onclick=()=>onboarding();
 }
-function nft(){const s=D.summary||{};$('nft').innerHTML=`<div class="grid2"><div class="tile"><div class="k">Minted</div><div class="v">${fmt.n(s.minted_count)}</div><div class="sub">of 10,000</div></div><div class="tile"><div class="k">Holders</div><div class="v">${fmt.n(s.unique_holders)}</div></div><div class="tile"><div class="k">DAODAO staked</div><div class="v">${fmt.n(s.daodao_staked_count)}</div></div><div class="tile"><div class="k">Broken</div><div class="v">${fmt.n(s.broken_count)}</div><div class="sub">${s.total_tokens?((s.broken_count/s.total_tokens)*100).toFixed(1)+'%':''}</div></div></div><div style="display:flex;gap:.5em;margin-top:.8em;flex-wrap:wrap"><a class="btn" href="nft-explorer-index.html"><i class="fas fa-images"></i> Explorer</a><a class="btn g" href="nft-explorer-index.html?view=analytics">Analytics</a><a class="btn g" href="ally.html">ALLY rewards</a></div>`}
-
-/* ----- shell ----- */
-const VIEWS={feed,me,market,tla,dao,nft,help:()=>{}};
-function paintTabs(){const P=prefs();const tabs=(P.tabs||[]).filter(t=>ALL_TABS[t]).slice(0,5);$('tabs').innerHTML=tabs.map(t=>`<button class="tab" type="button" data-v="${t}"><i class="fas ${ALL_TABS[t][1]}"></i>${ALL_TABS[t][0]}${t==='feed'?'<b class="n" hidden></b>':''}</button>`).join('');$('tabs').querySelectorAll('.tab').forEach(b=>b.onclick=()=>show(b.getAttribute('data-v')))}
-function show(v){document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.getAttribute('data-v')===v));$('ttl').textContent=(ALL_TABS[v]||['Ally'])[0];try{VIEWS[v]&&VIEWS[v]()}catch(e){console.error(v,e);$('v-'+v).querySelector('div').innerHTML='<div class="empty">This view hit an error: '+esc(e.message)+'</div>'}window.scrollTo(0,0);location.hash=v}
-function paintWallet(){const w=wallet();const M=w&&(D.members&&D.members.members||[]).find(m=>m.wallet===w);const A=w&&(D.adao&&D.adao.members||[]).find(m=>m.address===w);$('wchip').innerHTML=w?`<i class="fas fa-wallet"></i> ${esc((M&&M.name)||(A&&A.name)||'…'+w.slice(-4))}`:'<i class="fas fa-wallet"></i> No wallet'}
-function settings(){const P=prefs();$('sheet-c').innerHTML=`<h3>Your five tabs</h3>${Object.entries(ALL_TABS).map(([k,[l,ic]])=>`<label class="chk"><input type="checkbox" data-t="${k}" ${P.tabs.includes(k)?'checked':''}><i class="fas ${ic}" style="width:1.4em;color:#67e8f9"></i>${l}</label>`).join('')}<div class="sub" style="margin:.5em 0">Pick up to five. Saved on this device.</div><h3 style="margin-top:1em">Badge counts proposals in</h3><div class="seg">${[['all','All'],['aDAO','aDAO'],['Lion DAO','Lion'],['Pixel Lions','Pixel']].map(([k,l])=>`<button type="button" data-dao="${k}" class="${(P.dao||'all')===k?'on':''}">${l}</button>`).join('')}</div><div style="display:flex;gap:.5em;margin-top:.8em"><button class="btn" id="sh-ok" type="button">Done</button><button class="btn g" id="sh-reset" type="button">Reset "last looked"</button></div><div class="dev">Ally app v0 · <a href="index.html" style="color:#67e8f9">open the full site</a></div>`;
-  $('sheet').classList.add('on');
-  $('sheet-c').querySelectorAll('[data-t]').forEach(c=>c.onchange=()=>{const on=[...$('sheet-c').querySelectorAll('[data-t]:checked')].map(x=>x.getAttribute('data-t'));if(on.length>5){c.checked=false;toast('Five max');return}if(on.length<1){c.checked=true;return}setPrefs({tabs:[...$('sheet-c').querySelectorAll('[data-t]:checked')].map(x=>x.getAttribute('data-t'))});paintTabs()});
-  $('sheet-c').querySelectorAll('[data-dao]').forEach(b=>b.onclick=()=>{setPrefs({dao:b.getAttribute('data-dao')});settings();feed()});
-  $('sh-ok').onclick=()=>$('sheet').classList.remove('on');$('sh-reset').onclick=()=>{try{localStorage.removeItem(SNAP)}catch(e){};$('sheet').classList.remove('on');feed();toast('Reset — next open is a first look')};
-}
-$('sheet').addEventListener('click',e=>{if(e.target===$('sheet'))$('sheet').classList.remove('on')});
-$('gear').onclick=settings;$('seen').onclick=markSeen;$('wchip').onclick=()=>show('me');
-$('refresh').onclick=async()=>{$('refresh').firstElementChild.classList.add('fa-spin');await load();paintWallet();const v=(location.hash||'#feed').slice(1);show(VIEWS[v]?v:'feed');$('refresh').firstElementChild.classList.remove('fa-spin');toast('Refreshed')};
-document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g&&document.querySelector(`.tab[data-v="${g.getAttribute('data-go')}"]`))show(g.getAttribute('data-go'))});
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&ls(SNAP))ls(SNAP,Object.assign(ls(SNAP),{}))});
-(async()=>{try{if(/[?&]source=pwa/.test(location.search)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches))setPrefs({mode:'app'})}catch(e){}paintTabs();$('feed').innerHTML='<div class="empty"><i class="fas fa-spinner fa-spin"></i> Loading live products…</div>';document.querySelector('#v-feed').classList.add('on');try{await load()}catch(e){}paintWallet();const v=(location.hash||'#feed').slice(1);show(VIEWS[v]?v:'feed');/* a per-tab home-screen icon opens its tab even if it isn't on the bar */if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){try{navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{})}catch(e){}}})();
+VIEWS={home:vHome,portfolio:vPortfolio,market:vMarket,vote:vVote,tla:vTla,nft:vNft,more:vMore};
+/* ---- boot ---- */
+(async()=>{
+  try{if(/[?&]source=pwa/.test(location.search)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches))setPrefs({mode:'app'})}catch(e){}
+  paintTabs();
+  try{await load()}catch(e){}
+  paintTop(); record(me(),model());
+  const v=(location.hash||'#home').slice(1); show(VIEWS[v]?v:'home');
+  if(!prefs().onboarded)onboarding();
+  if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){try{navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{})}catch(e){}}
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&D._at&&Date.now()-new Date(D._at)>10*60e3)refreshAll()});
+})();
 })();
 </script>
 </body>
