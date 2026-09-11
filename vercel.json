@@ -26,11 +26,6 @@
    "permanent": true
   },
   {
-   "source": "/test2.html",
-   "destination": "/test.html",
-   "permanent": false
-  },
-  {
    "source": "/planet-map.html",
    "destination": "/adao-lore.html",
    "permanent": false
@@ -38,6 +33,21 @@
   {
    "source": "/news.html",
    "destination": "/index.html",
+   "permanent": false
+  },
+  {
+   "source": "/test2.html",
+   "destination": "/app.html",
+   "permanent": false
+  },
+  {
+   "source": "/test-2.html",
+   "destination": "/app.html",
+   "permanent": false
+  },
+  {
+   "source": "/app-test.html",
+   "destination": "/app.html",
    "permanent": false
   }
  ],

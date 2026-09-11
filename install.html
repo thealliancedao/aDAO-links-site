@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Get the Ally app — Alliance DAO</title>
+<meta name="description" content="Add the Alliance DAO app to your phone's home screen — iPhone, Android, or desktop — and set it up the way you want.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+/* install.html (2026-09-11) — the one page that gets anyone onto the home screen, on any device, then set up. */
+body{margin:0;background:#0a0b0f;color:#e5e7eb;font-family:Outfit,-apple-system,BlinkMacSystemFont,sans-serif;font-size:16px;line-height:1.5}
+.wrap{max-width:720px;margin:0 auto;padding:1.2em 1em 3em}
+h1{font-size:1.7em;margin:.2em 0 .2em;font-weight:800}h1 span{color:#22d3ee}
+.lead{color:#9ca3af;margin:0 0 1em}
+.hero{display:flex;align-items:center;gap:1em;margin:.5em 0 1.2em}.hero img{width:72px;height:72px;border-radius:18px;border:1px solid rgba(255,255,255,.12)}
+.card{background:#11141b;border:1px solid rgba(255,255,255,.08);border-radius:1em;padding:1em 1.1em;margin:.8em 0}
+.card h2{font-size:1.05em;margin:0 0 .5em;display:flex;align-items:center;gap:.5em}.card h2 i{color:#22d3ee}
+.card.you{border-color:rgba(34,211,238,.45);box-shadow:0 0 0 3px rgba(34,211,238,.08)}
+.card.you h2::after{content:'your device';font-size:.65em;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#67e8f9;background:rgba(34,211,238,.12);padding:.15em .6em;border-radius:9999px;margin-left:auto}
+ol{padding-left:1.3em;margin:.3em 0}ol li{margin:.35em 0}li b{color:#fff}
+.k{display:inline-flex;align-items:center;gap:.3em;padding:.05em .45em;border-radius:.4em;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);font-size:.9em;color:#fff;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;gap:.5em;padding:.7em 1.1em;border-radius:.8em;border:1px solid rgba(34,211,238,.4);background:rgba(34,211,238,.12);color:#67e8f9;font:inherit;font-weight:700;text-decoration:none;cursor:pointer}
+.btn.g{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#e5e7eb}
+.note{font-size:.9em;color:#9ca3af}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:.6em}@media(max-width:520px){.grid{grid-template-columns:1fr}}
+.tile{background:#171b24;border-radius:.8em;padding:.7em .8em}.tile b{display:block;color:#fff;margin-bottom:.15em}.tile{font-size:.9em;color:#9ca3af}
+.hide{display:none}
+details{margin:.4em 0}summary{cursor:pointer;font-weight:700;color:#fff}
+</style>
+</head>
+<body>
+<div id="site-header"></div>
+<main class="wrap">
+  <div class="hero"><img src="/assets/app/icon-192.png" alt="Ally app icon"><div><h1>Get the <span>Ally</span> app</h1><p class="lead" style="margin:0">No app store. It installs from this page in about thirty seconds, updates itself, and opens full-screen on your phone.</p></div></div>
+
+  <div id="install-now" class="card hide"><h2><i class="fas fa-download"></i> Install now</h2><p>Your browser can install it directly.</p><button class="btn" id="install-btn" type="button"><i class="fas fa-plus"></i> Install Ally</button></div>
+
+  <div id="ios" class="card"><h2><i class="fab fa-apple"></i> iPhone &amp; iPad</h2>
+    <ol>
+      <li>Open <b>thealliancedao.com/app.html</b> in <b>Safari</b> (Chrome and Firefox on iOS work too on iOS 16.4 or newer — same steps, the Share button is in their menu).</li>
+      <li>Tap <b>Share</b> <span class="k"><i class="fas fa-arrow-up-from-bracket"></i></span> at the bottom of the screen (top-right on iPad).</li>
+      <li>Scroll the sheet and tap <b>Add to Home Screen</b> <span class="k"><i class="fas fa-plus-square"></i></span>.</li>
+      <li>Tap <b>Add</b>. The Ally icon appears on your home screen.</li>
+    </ol>
+    <p class="note">Don't see "Add to Home Screen"? You're probably inside another app's browser (Telegram, X, Discord). Tap the <span class="k">···</span> or <span class="k"><i class="fas fa-arrow-up-right-from-square"></i></span> there and choose <b>Open in Safari</b> first.</p>
+  </div>
+
+  <div id="android" class="card"><h2><i class="fab fa-android"></i> Android</h2>
+    <ol>
+      <li>Open <b>thealliancedao.com/app.html</b> in <b>Chrome</b>.</li>
+      <li>If a bar or banner offers <b>Install</b> or <b>Add Ally to Home screen</b>, tap it — done.</li>
+      <li>Otherwise tap the menu <span class="k">⋮</span> (top-right) and choose <b>Install app</b> or <b>Add to Home screen</b>, then <b>Install</b>.</li>
+    </ol>
+    <details><summary>Samsung Internet, Firefox, Edge</summary><p class="note" style="margin:.4em 0 0"><b>Samsung Internet:</b> menu <span class="k">≡</span> → <b>Add page to</b> → <b>Home screen</b>.<br><b>Firefox:</b> menu <span class="k">⋮</span> → <b>Install</b> (or <b>Add to Home screen</b>).<br><b>Edge:</b> menu <span class="k">···</span> → <b>Add to phone</b>.</p></details>
+    <p class="note">Inside Telegram or X? Tap <span class="k">⋮</span> → <b>Open in Chrome</b> first.</p>
+  </div>
+
+  <div id="desktop" class="card"><h2><i class="fas fa-desktop"></i> Desktop</h2>
+    <p>The app is built for phones — on a computer, the full site is the better experience. If you still want it as a window: in <b>Chrome</b> or <b>Edge</b>, open <b>app.html</b> and click the install icon <span class="k"><i class="fas fa-circle-down"></i></span> at the right end of the address bar (or menu → <b>Install Ally</b>).</p>
+    <p class="note">To get it on your phone, open <b>thealliancedao.com/app.html</b> there — or scan this page's address from your phone's camera.</p>
+  </div>
+
+  <div class="card"><h2><i class="fas fa-icons"></i> Which icon you get</h2>
+    <p>Installing from <b>app.html</b> (or this page) gives you the <b>Ally</b> icon that opens the app. Installing from a page of the site gives you an icon labelled for that page — <b>Home</b>, <b>NFT</b>, <b>TLA</b>, <b>DAO</b> or <b>Help</b> — that opens the app on that tab. Pin the two or three you use.</p>
+  </div>
+
+  <div class="card"><h2><i class="fas fa-sliders"></i> Set it up your way</h2>
+    <div class="grid">
+      <div class="tile"><b><i class="fas fa-wallet"></i> Your wallet</b>Open <b>Me</b> and pick your name, paste your address, or type its last 4 characters. It's remembered on that device. <b>Change</b> or <b>Clear</b> any time.</div>
+      <div class="tile"><b><i class="fas fa-table-columns"></i> Your five tabs</b>Tap ⚙ and choose which five of Feed · Me · Market · TLA · DAO · NFT · Help sit on the bar.</div>
+      <div class="tile"><b><i class="fas fa-bell"></i> The badge</b>The number on the icon is proposals posted since you last looked. In ⚙ choose which DAO it counts — all of them, or just yours.</div>
+      <div class="tile"><b><i class="fas fa-bolt"></i> The Feed</b>Every card shows what changed since your last open — floor, listings, sales, TLA liquidity, LUNA, the epoch. Tap <b>Mark all as seen</b> when you're caught up.</div>
+      <div class="tile"><b><i class="fas fa-location-arrow"></i> Where pages open</b>In ⚙ set what NFT Explorer opens on (Explorer or Analytics), what TLA Stats opens on (Overview, Pools, LP Grades, TLA), and your default marketplace collection.</div>
+      <div class="tile"><b><i class="fas fa-rotate"></i> Updates</b>Automatic. Every open loads the latest version — nothing to reinstall. Only a changed icon needs a remove-and-re-add.</div>
+    </div>
+    <p class="note" style="margin-top:.6em">Privacy: nothing leaves your phone. Your wallet choice and settings are stored on the device only; the app reads the same public on-chain data as the site.</p>
+  </div>
+
+  <div class="card"><h2><i class="fas fa-circle-question"></i> Troubleshooting</h2>
+    <ul style="padding-left:1.2em;margin:0" class="note">
+      <li><b>The icon badge never shows on iPhone.</b> iOS shows a badge only once the app has notification permission — we don't ask for that yet, so on iPhone look for the red count on the Feed tab instead. Android shows both.</li>
+      <li><b>It asked for my wallet again after installing.</b> The installed app has its own storage separate from the browser — pick it once more and it sticks.</li>
+      <li><b>Something looks stale.</b> Tap <span class="k"><i class="fas fa-rotate"></i></span> at the top. The app never caches data; if a number is old, the capture behind it is — the site's System Health page says which.</li>
+    </ul>
+    <p style="margin:.8em 0 0;display:flex;gap:.5em;flex-wrap:wrap"><a class="btn" href="app.html"><i class="fas fa-bolt"></i> Open the app</a><a class="btn g" href="help.html">Help &amp; FAQ</a></p>
+  </div>
+</main>
+<div id="site-footer"></div>
+<script src="/lib/site-header.js"></script>
+<script src="/lib/site-footer.js"></script>
+<script>
+(function(){
+  try { SiteHeader.mount({ page: 'install' }); } catch (e) {}
+  try { SiteFooter.mount({ page: 'install' }); } catch (e) {}
+  // Put the reader's own device first and mark it.
+  var ua = navigator.userAgent || '';
+  var isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var isAndroid = /Android/.test(ua);
+  var order = isIOS ? ['ios', 'android', 'desktop'] : isAndroid ? ['android', 'ios', 'desktop'] : ['desktop', 'ios', 'android'];
+  var main = document.querySelector('main'); var anchor = document.getElementById('install-now');
+  order.slice().reverse().forEach(function (id) { var el = document.getElementById(id); if (el) anchor.insertAdjacentElement('afterend', el); });
+  var you = document.getElementById(order[0]); if (you) you.classList.add('you');
+  // Standalone already? say so.
+  try { if (window.matchMedia('(display-mode: standalone)').matches) { var d = document.createElement('div'); d.className = 'card'; d.innerHTML = '<h2><i class="fas fa-circle-check" style="color:#4ade80"></i> You\'re in the installed app already</h2><p class="note">The steps below are for other devices. Your settings are under ⚙ in the app.</p>'; anchor.insertAdjacentElement('afterend', d); } } catch (e) {}
+  // Real install prompt where the browser offers one (Android Chrome, desktop Chrome/Edge).
+  var deferred = null;
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; document.getElementById('install-now').classList.remove('hide'); });
+  document.getElementById('install-btn').addEventListener('click', function () { if (!deferred) return; deferred.prompt(); deferred.userChoice.then(function () { deferred = null; document.getElementById('install-now').classList.add('hide'); }); });
+})();
+</script>
+</body>
+</html>
