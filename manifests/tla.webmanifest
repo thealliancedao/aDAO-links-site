@@ -2,7 +2,7 @@
  "name": "Alliance DAO \u2014 TLA Stats",
  "short_name": "TLA",
  "description": "Alliance DAO \u2014 the Terra Liquidity Alliance analytics and governance platform.",
- "start_url": "/tla-stats.html?source=pwa",
+ "start_url": "/app.html?source=pwa#tla",
  "scope": "/",
  "display": "standalone",
  "orientation": "portrait",

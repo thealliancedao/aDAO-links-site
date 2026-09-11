@@ -2,7 +2,7 @@
  "name": "Alliance DAO \u2014 NFT Explorer",
  "short_name": "NFT",
  "description": "Alliance DAO \u2014 the Terra Liquidity Alliance analytics and governance platform.",
- "start_url": "/nft-explorer-index.html?source=pwa",
+ "start_url": "/app.html?source=pwa#nft",
  "scope": "/",
  "display": "standalone",
  "orientation": "portrait",

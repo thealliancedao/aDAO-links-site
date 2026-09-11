@@ -2,7 +2,7 @@
  "name": "Alliance DAO \u2014 Home",
  "short_name": "Home",
  "description": "Alliance DAO \u2014 the Terra Liquidity Alliance analytics and governance platform.",
- "start_url": "/index.html?source=pwa",
+ "start_url": "/app.html?source=pwa#feed",
  "scope": "/",
  "display": "standalone",
  "orientation": "portrait",
