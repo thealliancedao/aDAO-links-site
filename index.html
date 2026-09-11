@@ -735,6 +735,37 @@
             #dao-stats > .stat-card img, #dao-stats > .stat-card .text-3xl img { width: 1.1rem; height: 1.1rem; vertical-align: -.15rem; }
             #marketplace-overview-grid > * { padding: .5rem !important; }
             #marketplace-overview-grid .text-3xl { font-size: 1.25rem !important; }
+            /* 4.17 — marketplaces as one line each (unbroken floor · listed), tap the header to expand the full card */
+            #marketplace-overview-grid { gap: .5rem !important; }
+            #marketplace-overview-grid .marketplace-section { padding: .55rem .7rem !important; margin-bottom: 0 !important; }
+            #marketplace-overview-grid .marketplace-header { margin-bottom: 0 !important; flex-wrap: wrap; row-gap: .15rem; cursor: pointer; position: relative; padding-right: 1.4rem; }
+            #marketplace-overview-grid .marketplace-header::after { content: '\f078'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; right: .1rem; top: .35rem; font-size: .7rem; color: #6b7280; transition: transform .2s; }
+            #marketplace-overview-grid .marketplace-section.mob-open .marketplace-header::after { transform: rotate(180deg); }
+            #marketplace-overview-grid .marketplace-header h3 { font-size: .9rem !important; }
+            #marketplace-overview-grid .marketplace-header img { height: 18px !important; width: auto; }
+            #marketplace-overview-grid .marketplace-header a[id$="-marketplace-link"] { margin-left: auto; font-size: .7rem; }
+            .mob-mp-summary { flex-basis: 100%; display: flex; justify-content: space-between; font-size: .78rem; color: #9ca3af; padding-top: .1rem; }
+            .mob-mp-summary b { color: #4ade80; font-family: ui-monospace, monospace; }
+            .mob-mp-summary .n { color: #67e8f9; font-weight: 700; }
+            #marketplace-overview-grid .marketplace-section > *:not(.marketplace-header) { display: none !important; }
+            #marketplace-overview-grid .marketplace-section.mob-open > * { display: block !important; }
+            #marketplace-overview-grid .marketplace-section.mob-open .marketplace-header { display: flex !important; margin-bottom: .5rem !important; }
+            /* 4.17 — live-activity count on its own line (was clipped off the right edge) */
+            #activity-count { flex-basis: 100%; font-size: .7rem; }
+            /* 4.17 — tile rows, corrected: the two link tiles (Treasury, TLA Deposits) are .stat-card-link and were missed;
+               the chart button no longer sits on the number; refresh countdown + Update hidden on phones (on the detail page) */
+            #dao-stats > .stat-card-link { padding: .65rem .9rem !important; text-align: left !important; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: .75rem; min-height: 0; position: relative; }
+            #dao-stats > .stat-card-link > div:first-child { display: contents; }
+            #dao-stats > .stat-card-link h3 { justify-content: flex-start !important; font-size: .82rem !important; line-height: 1.2; grid-column: 1; grid-row: 1; white-space: normal; padding-right: 2rem; }
+            #dao-stats > .stat-card-link h3 i { font-size: .8rem; }
+            #dao-stats > .stat-card-link .text-3xl, #dao-stats > .stat-card-link p.text-2xl { font-size: 1.35rem !important; margin: 0 !important; grid-column: 2; grid-row: 1 / span 4; text-align: right; white-space: nowrap; }
+            #dao-stats > .stat-card-link .subtext { display: none !important; }
+            #dao-stats > .stat-card-link p.text-base, #dao-stats > .stat-card-link p.text-\[11px\] { grid-column: 1; font-size: .72rem !important; margin: .1rem 0 0 !important; color: #9ca3af; }
+            #dao-tla-countdown, #dao-tla-update { display: none !important; }
+            #dao-stats > .stat-card .text-3xl, #dao-stats > .stat-card-link .text-3xl { padding-right: 1.7rem; }
+            #dao-stats > .stat-card[class*="col-span"] .text-3xl, #dao-stats > .stat-card[class*="col-span"] .text-2xl { padding-right: 0; }
+            #dao-stats .chart-icon { top: .35rem !important; right: .35rem !important; width: 20px !important; height: 20px !important; transform: none; }
+            #dao-stats > .stat-card h3 .pulse-dot, #dao-stats > .stat-card h3 .static-dot-red, #dao-stats > .stat-card-link h3 .pulse-dot { width: .5rem !important; height: .5rem !important; flex: 0 0 auto; }
         }
         #mob-links-toggle { width: 100%; align-items: center; justify-content: space-between; padding: .7rem .9rem; margin-bottom: .75rem; border-radius: .75rem; background: rgba(17,24,39,.8); border: 1px solid rgba(255,255,255,.08); color: #d1d5db; font-weight: 600; font-size: .9rem; }
         #mob-links-toggle i { transition: transform .2s; } #mob-links-toggle.open i { transform: rotate(180deg); }
@@ -13553,6 +13584,17 @@
                             + row('Unbroken base', 'text-gray-400', tiers.base)
                             + row('Phoenix', 'text-amber-400/90', tiers.phoenix);
                         el.classList.remove('hidden');
+                        // 4.17 (phone): the one line that matters — unbroken floor + how many are listed — into the card header
+                        try {
+                            const card = document.getElementById(mpKey + '-marketplace-card') || el.closest('.marketplace-section');
+                            const hdr = card && card.querySelector('.marketplace-header');
+                            if (hdr) {
+                                let s = hdr.querySelector('.mob-mp-summary');
+                                if (!s) { s = document.createElement('div'); s.className = 'mob-mp-summary'; hdr.appendChild(s); }
+                                const nb = tiers.base.length, fp = nb ? Math.min(...tiers.base) : null;
+                                s.innerHTML = nb ? `<span class="v">Unbroken from <b>$${fp.toFixed(2)}</b></span><span class="n">${nb} listed</span>` : `<span class="v text-gray-500">no unbroken listings</span>`;
+                            }
+                        } catch (e) {}
                     };
                     fillTiers('bbl',    marketplaceCache.bbl?.alliance_dao?.listings);
                     fillTiers('boost',  marketplaceCache.boost?.alliance_dao?.listings);
@@ -15810,7 +15852,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '4.16', REV_DATE = '2026-09-10';   // 4.16 (phone): DAO/NFT tiles become full-width rows (title left, value right, round dots, no 'click to see' text), sideways scroll locked (lib 1.7.1); 4.15: link tree actually folds on phones (Tailwind .grid + rule order beat 4.14's CSS); 4.14 (mobile/app): Ecosystem Pulse hidden on phones, link tiles fold into a tree, rewards card compact, marketplace opens on the device's default collection, open proposals reported to the app badge (seen on alert open); 4.13: five more popups on the multi-series renderer — Treasury (by token + LUNA), TLA Deposits (LPs · zLUNA · APR), Deposit rewards (unclaimed vs lifetime claimed), Vote rewards (by token), TLA Locks (USD vs LUNA-equivalent); 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
+        const REV = '4.17', REV_DATE = '2026-09-10';   // 4.17 (phone): marketplaces one line each (unbroken floor · listed) + tap to expand, activity count wraps, link tiles (Treasury/Deposits) join the row layout, chart button off the number; 4.16 (phone): DAO/NFT tiles become full-width rows (title left, value right, round dots, no 'click to see' text), sideways scroll locked (lib 1.7.1); 4.15: link tree actually folds on phones (Tailwind .grid + rule order beat 4.14's CSS); 4.14 (mobile/app): Ecosystem Pulse hidden on phones, link tiles fold into a tree, rewards card compact, marketplace opens on the device's default collection, open proposals reported to the app badge (seen on alert open); 4.13: five more popups on the multi-series renderer — Treasury (by token + LUNA), TLA Deposits (LPs · zLUNA · APR), Deposit rewards (unclaimed vs lifetime claimed), Vote rewards (by token), TLA Locks (USD vs LUNA-equivalent); 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16868,6 +16910,8 @@
 
         async function init() {
             const rev = $('page-rev'); if (rev) rev.textContent = 'Rev ' + REV + ' · ' + REV_DATE;
+            // 4.17 phone: tap a marketplace header to expand/collapse its full card (the summary line stays)
+            document.querySelectorAll('#marketplace-overview-grid .marketplace-header').forEach(h => h.addEventListener('click', (ev) => { if (ev.target.closest('a')) return; if (!window.matchMedia('(max-width: 767px)').matches) return; h.closest('.marketplace-section').classList.toggle('mob-open'); }));
             // 4.14 mobile link tree
             const mlt = document.getElementById('mob-links-toggle'), mlg = document.getElementById('top-info-grid');
             if (mlt && mlg) mlt.addEventListener('click', () => { const o = mlg.classList.toggle('mob-open'); mlt.classList.toggle('open', o); mlt.setAttribute('aria-expanded', String(o)); });
