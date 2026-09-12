@@ -14,12 +14,36 @@
 <link rel="preconnect" href="https://raw.githubusercontent.com">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap">
+</head>
+<body>
+<div class="ob" id="ob"></div>
+<div class="ptr" id="ptr"><i class="fas fa-arrow-down"></i> pull to refresh</div>
+<div class="top">
+  <div class="r1"><div><div class="ttl" id="ttl">Today</div><div class="sub" id="ttl-sub"></div></div><span class="pill cy" id="epoch-pill"><i class="fas fa-clock"></i> —</span><button class="chipw" id="wchip" type="button"><i class="fas fa-wallet"></i> <span>Wallet</span></button><button class="ib" id="refresh" type="button" aria-label="Refresh"><i class="fas fa-rotate"></i></button></div>
+</div>
+<main>
+  <section class="view on" id="v-today"><div id="today"><div class="sk" style="height:2.2em;margin-bottom:.6em"></div><div class="sk" style="width:40%;margin:.8em .2em .5em"></div><div class="sk" style="height:2.8em;margin-bottom:.3em"></div><div class="sk" style="height:2.8em;margin-bottom:.3em"></div><div class="sk" style="height:2.8em;margin-bottom:.3em"></div><div class="sk" style="height:2.8em"></div></div></section>
+  <section class="view" id="v-nfts"><div id="nfts"></div></section>
+  <section class="view" id="v-tla"><div id="tla"></div></section>
+  <section class="view" id="v-dao"><div id="dao"></div></section>
+  <section class="view" id="v-me"><div id="me"></div></section>
+  <section class="view" id="v-vote"><div id="vote"></div></section>
+  <section class="view" id="v-market"><div id="market"></div></section>
+  <section class="view" id="v-portfolio"><div id="portfolio"></div></section>
+  <div class="dev" id="page-rev"></div>
+</main>
+<nav class="tabs" id="tabs"></nav>
+<div class="toast" id="toast"></div>
+<div class="sheet" id="sheet"><div class="sc"><div class="grab"></div><div id="sheet-c"></div></div></div>
+<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="sf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22d3ee" stop-opacity=".35"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></linearGradient></defs></svg>
+<style>
 <style>
 /* =============================================================================
-   app.html — Ally, the Alliance DAO phone app (v1, 2026-09-11) — SPEC-mobile-app.md
-   A personal position companion: where do I stand · how am I trending · what
-   should I do · what changed since I last looked. Built from scratch for the
-   phone on the org products; no desktop DOM, no Tailwind.
+   app.html — Ally, the Alliance DAO phone app (v2, 2026-09-11) — docs/pending-changes/SPEC-mobile-app.md
+   v2 REPORTS, it doesn't explain: Today is a ledger of one-line rows (icon · label ·
+   value · chevron), zeros hidden, a 24h/7d/14d window reshaping every row, detail in
+   sheets; NFTs is movement per collection + your NFTs by rank. Built for the phone on
+   the org products; no desktop DOM, no Tailwind.
    Design system: one accent (cyan), semantic greens/reds, big mono numerals,
    16px inputs (no iOS zoom), safe-area aware, sheets not pages for detail.
    ============================================================================= */
@@ -127,26 +151,25 @@ input.in{width:100%;font-family:inherit;font-size:16px;color:#fff;background:var
 .marker{display:flex;align-items:center;gap:.6em;color:var(--pu);font-size:.72em;font-weight:700;margin:.5em 0}.marker::before,.marker::after{content:'';flex:1;height:1px;background:rgba(192,132,252,.35)}
 .chips{display:flex;gap:.4em;overflow-x:auto;padding:.1em 0 .5em;-ms-overflow-style:none;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}.chips .pill{cursor:pointer;flex:0 0 auto}.chips .pill.on{border-color:rgba(34,211,238,.5);background:rgba(34,211,238,.15);color:var(--cy2)}
 </style>
-</head>
-<body>
-<div class="ob" id="ob"></div>
-<div class="ptr" id="ptr"><i class="fas fa-arrow-down"></i> pull to refresh</div>
-<div class="top">
-  <div class="r1"><div><div class="ttl" id="ttl">Today</div><div class="sub" id="ttl-sub"></div></div><span class="pill cy" id="epoch-pill"><i class="fas fa-clock"></i> —</span><button class="chipw" id="wchip" type="button"><i class="fas fa-wallet"></i> <span>Wallet</span></button><button class="ib" id="refresh" type="button" aria-label="Refresh"><i class="fas fa-rotate"></i></button></div>
-</div>
-<main>
-  <section class="view on" id="v-home"><div id="home"><div class="skc sk"></div><div class="sk" style="width:40%;margin:.8em .2em .5em"></div><div class="skc sk"></div><div class="skc sk"></div></div></section>
-  <section class="view" id="v-portfolio"><div id="portfolio"></div></section>
-  <section class="view" id="v-market"><div id="market"></div></section>
-  <section class="view" id="v-vote"><div id="vote"></div></section>
-  <section class="view" id="v-tla"><div id="tla"></div></section>
-  <section class="view" id="v-nft"><div id="nft"></div></section>
-  <section class="view" id="v-more"><div id="more"></div></section>
-</main>
-<nav class="tabs" id="tabs"></nav>
-<div class="toast" id="toast"></div>
-<div class="sheet" id="sheet"><div class="sc"><div class="grab"></div><div id="sheet-c"></div></div></div>
-<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="sf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#22d3ee" stop-opacity=".35"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></linearGradient></defs></svg>
+/* ---------- v2: ledger rows (Today) + sections ---------- */
+.wrow{display:flex;align-items:center;gap:.6em;margin:.1em 0 .5em}
+.wrow .seg{margin:0;flex:0 0 auto}.seg.win button{padding:.42em .7em;font-size:.8em}.seg.win.sm button{padding:.4em .55em;font-size:.74em}
+.who{flex:1;min-width:0;text-align:right;font-weight:700;font-size:.9em;background:transparent;border:0;color:var(--tx);padding:0}.who .s{font-size:.74em;color:var(--mut);font-weight:500;margin-top:.05em}
+.sec{display:flex;align-items:center;gap:.5em;font-size:.7em;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);font-weight:700;margin:.9em .2em .35em}.sec .pill{font-size:.95em;letter-spacing:0;padding:.12em .5em;margin-left:auto}.sec span:first-child{flex:0 0 auto}
+.lgs{display:flex;flex-direction:column;gap:.3em}
+.lg{display:flex;align-items:center;gap:.6em;padding:.5em .6em;background:var(--card);border:1px solid var(--line);border-radius:.8em;min-height:44px}
+.lg.tap{cursor:pointer}.lg.tap:active{background:var(--card2)}
+.lg .ic{width:2em;height:2em;font-size:.92em;border-radius:.6em}
+.lg .t{flex:1;min-width:0;font-weight:600;font-size:.92em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lg .v{font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:700;font-size:.92em;white-space:nowrap;text-align:right;letter-spacing:-.01em;display:flex;align-items:center;gap:.35em}
+.lg .v.gr{color:var(--gr)}.lg .v.rd{color:var(--rd)}.lg .v.am{color:var(--am)}.lg .v.pu{color:var(--pu)}.lg .v.or{color:var(--or)}
+.lg .ch{color:var(--dim);font-size:.75em}
+.lg.need{border-color:rgba(251,191,36,.28)}.lg.quiet{opacity:.85}
+.lg .d{font-size:.7em;padding:.1em .4em}
+.dd{font-size:.72em;font-weight:700;padding:.08em .38em;border-radius:9999px;font-family:"JetBrains Mono",monospace}.dd.up{background:rgba(52,211,153,.12);color:var(--gr)}.dd.dn{background:rgba(248,113,113,.12);color:var(--rd)}
+.sheet .sec{margin-top:.8em}
+.sheet .lgs .lg{background:var(--card2)}
+</style>
 <script>
 (function(){
 'use strict';
@@ -155,13 +178,15 @@ const CORE='https://raw.githubusercontent.com/thealliancedao/tla-core/main/';
 const DAO ='https://raw.githubusercontent.com/thealliancedao/dao-originations/main/';
 const CDN ='https://imagedelivery.net/v_zOWVQCPb7Xpcbu-gQC1A/alliance_dao';
 const DAOS=[['aDAO','adao','p_adao'],['Lion DAO','lion-dao','p_lion'],['Pixel Lions','pixel-lions','p_pixel']];
-const TABS={home:['Today','fa-house'],portfolio:['Portfolio','fa-chart-pie'],market:['Market','fa-store'],vote:['Vote','fa-check-to-slot'],tla:['TLA','fa-chart-line'],nft:['NFTs','fa-images'],more:['More','fa-ellipsis']};
-const DEFAULT_TABS=['home','portfolio','market','vote','more'];
+const REV='2.0', REV_DATE='2026-09-11';   /* rev footer law → #page-rev */
+const TABS={today:['Today','fa-house'],nfts:['NFTs','fa-images'],tla:['TLA','fa-chart-line'],dao:['DAO','fa-landmark'],me:['Me','fa-user'],vote:['Vote','fa-check-to-slot'],market:['Market','fa-store'],portfolio:['Portfolio','fa-chart-pie']};   /* first five = the proposal; the last three stay pickable */
+const DEFAULT_TABS=['today','nfts','tla','dao','me'];
 const TLA_TOTAL_VP_FALLBACK=29.4e6;   // reconciled vs Eris (doctrine); replaced by max bucket VP when the snapshot carries it
 const $=id=>document.getElementById(id);
 /* ---------------- storage ---------------- */
 const ls=(k,v)=>{try{if(v===undefined)return JSON.parse(localStorage.getItem(k)||'null');if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}};
-const prefs=()=>Object.assign({tabs:DEFAULT_TABS.slice(),dao:'all',onboarded:false},ls('ally:prefs')||{});
+const V1MAP={home:'today',nft:'nfts',more:'me'};   /* v1 tab names saved on a device → v2 names; the v1 default set becomes the v2 default set */
+const prefs=()=>{const p=Object.assign({tabs:DEFAULT_TABS.slice(),dao:'all',onboarded:false,win:'7d',col:'adao'},ls('ally:prefs')||{});p.tabs=(p.tabs||[]).map(t=>V1MAP[t]||t).filter(t=>TABS[t]);if(!p.tabs.length||p.tabs.join()==='today,portfolio,market,vote,me')p.tabs=DEFAULT_TABS.slice();return p};
 const setPrefs=p=>{const n=Object.assign(prefs(),p);ls('ally:prefs',n);return n};
 const wallet=()=>{try{return localStorage.getItem('tla:selected_wallet')||null}catch(e){return null}};
 const setWallet=w=>{try{if(w)localStorage.setItem('tla:selected_wallet',w);else localStorage.removeItem('tla:selected_wallet')}catch(e){}};
@@ -192,7 +217,8 @@ const JOBS={
   bundle:CORE+'nfts/adao/snapshots/explorer-bundle.json', lhist:CORE+'nfts/adao/snapshots/listing-history.json', known:CORE+'docs/curated/known_contracts.json', tla:CORE+'member-data/tla-snapshot/current.json', members:CORE+'member-data/participants/current.json',
   roster:CORE+'member-data/participants/participants.json', adao:CORE+'member-data/positions/members.json', nap:CORE+'network-and-prices/current.json',
   dash:CORE+'member-data/dao-dashboard/current.json', backing:CORE+'nfts/adao/snapshots/backing-history.json', catalog:CORE+'token-catalog/snapshots/current.json', claims:CORE+'nfts/adao/snapshots/pending-claims.json',
-  p_adao:DAO+'adao/governance/proposals.json', p_lion:DAO+'lion-dao/governance/proposals.json', p_pixel:DAO+'pixel-lions/governance/proposals.json'
+  p_adao:DAO+'adao/governance/proposals.json', p_lion:DAO+'lion-dao/governance/proposals.json', p_pixel:DAO+'pixel-lions/governance/proposals.json',
+  votion:CORE+'votion/snapshots/current.json', lfs:CORE+'nfts/adao/snapshots/listing-first-seen.json', lunaDaily:CORE+'nfts/adao/snapshots/luna-usd-daily.json', brokenAt:CORE+'nfts/adao/snapshots/broken-at.json'
 };
 async function load(){const out=await Promise.all(Object.entries(JOBS).map(([k,u])=>getJ(u).then(v=>[k,v]).catch(e=>[k,null,e.message])));out.forEach(([k,v,e])=>{D[k]=v;if(e)console.warn('load',k,e)});D._at=new Date().toISOString();D._failed=out.filter(o=>o[2]).map(o=>o[0]);D.transfers=D.transfers||{}}
 /* NFT transfer ledger (tla-flows aux): monthly files, loaded on demand, newest first */
@@ -267,10 +293,10 @@ function record(P,m){try{const t=ls(TL)||[];const day=new Date().toISOString().s
 function timeline(){return ls(TL)||[]}
 function snapshotOf(P,m){return{t:m.at,floor:m.floor,listed:m.listed,sales:m.salesCount,luna:m.luna,tvl:m.tvl,epoch:m.epoch,openKeys:m.openKeys,backing:m.backingUsd,daoValue:m.daoValue,total:P?P.total:null,vp:P?P.vp:null,claimable:P?P.claimable:null,staked:P?P.staked:null,nfts:P?P.nftCount:null,unstakeKeys:P?P.unstakes.map(u=>u.token_id+'|'+u.unstaked_at):[]}}
 /* ---------------- shell ---------------- */
+/* ---------------- shell ---------------- */
 let VIEWS={};
-function paintTabs(){const P=prefs();const tabs=(P.tabs||DEFAULT_TABS).filter(t=>TABS[t]).slice(0,5);$('tabs').innerHTML=tabs.map(t=>`<button class="tab" type="button" data-v="${t}"><i class="fas ${TABS[t][1]}"></i>${TABS[t][0]}${t==='home'?'<b class="n" hidden></b>':''}</button>`).join('');$('tabs').querySelectorAll('.tab').forEach(b=>b.onclick=()=>show(b.getAttribute('data-v')))}
-function show(v){if(!VIEWS[v])v='home';document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.getAttribute('data-v')===v));const P=me();$('ttl').textContent=v==='home'?greeting():TABS[v][0];$('ttl-sub').textContent=v==='home'?(P?(P.name||fmt.addr(P.w)):'Alliance DAO'):'';try{VIEWS[v]()}catch(e){console.error(v,e);$(v).innerHTML=`<div class="empty"><i class="fas fa-triangle-exclamation"></i>This view hit an error.<div class="sub">${esc(e.message)}</div></div>`}window.scrollTo(0,0);history.replaceState(null,'','#'+v)}
-function greeting(){const h=new Date().getHours();return h<5?'Late night':h<12?'Good morning':h<17?'Good afternoon':'Good evening'}
+function paintTabs(){const P=prefs();const tabs=(P.tabs||DEFAULT_TABS).filter(t=>TABS[t]).slice(0,5);$('tabs').innerHTML=tabs.map(t=>`<button class="tab" type="button" data-v="${t}"><i class="fas ${TABS[t][1]}"></i>${TABS[t][0]}${t==='today'?'<b class="n" hidden></b>':''}</button>`).join('');$('tabs').querySelectorAll('.tab').forEach(b=>b.onclick=()=>show(b.getAttribute('data-v')))}
+function show(v){if(!VIEWS[v])v='today';document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.getAttribute('data-v')===v));$('ttl').textContent=TABS[v]?TABS[v][0]:'Ally';try{VIEWS[v]()}catch(e){console.error(v,e);const el=$(v);if(el)el.innerHTML=`<div class="empty"><i class="fas fa-triangle-exclamation"></i>This view hit an error.<div class="sub">${esc(e.message)}</div></div>`}window.scrollTo(0,0);history.replaceState(null,'','#'+v)}
 function sheet(title,html,onopen){$('sheet-c').innerHTML=`<h3>${title}<button class="ib x" type="button" data-x aria-label="Close"><i class="fas fa-xmark"></i></button></h3>${html}`;$('sheet').classList.add('on');$('sheet-c').querySelector('[data-x]').onclick=closeSheet;if(onopen)onopen($('sheet-c'))}
 function closeSheet(){$('sheet').classList.remove('on')}
 $('sheet').addEventListener('click',e=>{if(e.target===$('sheet'))closeSheet()});
@@ -297,76 +323,63 @@ function onboarding(){const ob=$('ob');let step=0;const P=prefs();
     ob.querySelectorAll('[data-next]').forEach(b=>b.onclick=()=>{step++;render();try{ob.scrollTo(0,0)}catch(e){}}); const pk=ob.querySelector('#pk'); if(pk)wirePicker(ob,()=>{step=2;render()});
     ob.querySelectorAll('[data-dao]').forEach(b=>b.onclick=()=>{setPrefs({dao:b.getAttribute('data-dao')});ob.querySelectorAll('[data-dao]').forEach(x=>x.classList.toggle('on',x===b))});
     ob.querySelectorAll('[data-t]').forEach(c=>c.onchange=()=>{const on=[...ob.querySelectorAll('[data-t]:checked')].map(x=>x.getAttribute('data-t'));if(on.length>5){c.checked=false;toast('Five max');return}if(on.length<1){c.checked=true;return}setPrefs({tabs:on})});
-    const done=ob.querySelector('[data-done]'); if(done)done.onclick=()=>{setPrefs({onboarded:true});ob.classList.remove('on');paintTabs();paintTop();show('home')};
+    const done=ob.querySelector('[data-done]'); if(done)done.onclick=()=>{setPrefs({onboarded:true});ob.classList.remove('on');paintTabs();paintTop();show('today')};
   };
   render(); ob.classList.add('on');
 }
 /* pull to refresh */
 (function(){let y0=null,pulling=false;document.addEventListener('touchstart',e=>{if(window.scrollY<=0&&!$('sheet').classList.contains('on'))y0=e.touches[0].clientY},{passive:true});document.addEventListener('touchmove',e=>{if(y0==null)return;const dy=e.touches[0].clientY-y0;pulling=dy>70;$('ptr').classList.toggle('on',dy>28)},{passive:true});document.addEventListener('touchend',()=>{$('ptr').classList.remove('on');if(pulling){pulling=false;refreshAll()}y0=null})})();
 async function refreshAll(){$('refresh').firstElementChild.classList.add('fa-spin');await load();paintTop();refreshView();$('refresh').firstElementChild.classList.remove('fa-spin');toast('Refreshed')}
-$('refresh').onclick=refreshAll;$('wchip').onclick=openPicker;
-document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){e.preventDefault();show(g.getAttribute('data-go'))}});
-/* ================= VIEWS ================= */
-/* ---- TODAY: hero (your position or the market) → needs you → what changed → movers ---- */
-function vHome(){
-  const m=model(), P=me(), prev=ls(SNAP), first=!prev, Pf=prefs(); const tl=timeline();
-  let hero;
-  if(P){
-    const totalPrev=prev&&num(prev.total); const trend=tl.map(x=>x.total).filter(x=>x!=null);
-    hero=`<div class="hero tap" data-go="portfolio"><div class="lab">YOUR POSITION · ${esc(P.name||fmt.addr(P.w))}</div><div class="big">${fmt.usd(P.total,0)}</div>
-      <div class="row">${totalPrev!=null?delta(P.total,totalPrev,'usd'):'<span class="d fl">first look</span>'}<span class="pill mut">${fmt.k(P.vp)} VP</span>${P.claimable>0.5?`<span class="pill gr"><i class="fas fa-gift"></i> ${fmt.usd(P.claimable)} claimable</span>`:''}${P.nftCount?`<span class="pill mut">${P.nftCount} NFT${P.nftCount>1?'s':''}</span>`:''}</div>
-      ${trend.length>=2?spark(trend,{h:56,fill:true,cls:'gr'}):`<div class="sub" style="margin-top:.6em">Your trend line starts here — it builds from each open on this device.</div>`}
-      <div class="sub">locks ${fmt.usd(P.lockUsd,0)} · LPs ${fmt.usd(P.lpUsd,0)} · NFT backing ${fmt.usd(P.nftBacking,0)} · wallet ${fmt.usd(P.balUsd,0)}${P.lockUnpriced?' · '+P.lockUnpriced+' lock'+(P.lockUnpriced>1?'s':'')+' unpriced':''}</div></div>`;
-  } else {
-    hero=`<div class="hero tap" data-go="market"><div class="lab">ALLIANCE DAO · UNBROKEN FLOOR</div><div class="big">${fmt.usd(m.floor)}</div><div class="row">${prev?delta(m.floor,prev.floor,'usd'):'<span class="d fl">first look</span>'}<span class="pill mut">${fmt.n(m.listed)} listed</span><span class="pill mut">backing ${fmt.usd(m.backingUsd)}</span></div>${spark(m.floorSeries,{h:56,fill:true,cls:'gr'})}<div class="sub">Pick your wallet to make this your position · <b style="color:#67e8f9" data-pick>choose wallet</b></div></div>`;
-  }
-  /* needs you */
-  const att=[];
-  const hoursLeft=m.epochEnd?(new Date(m.epochEnd)-Date.now())/36e5:null;
-  if(P){
-    if(P.claimable>=0.5)att.push(['gr','fa-gift','Rewards ready to claim',`${fmt.usd(P.claimable)} — ${[P.rewUsd>0.01?fmt.usd(P.rewUsd)+' rewards':null,P.rebUsd>0.01?fmt.usd(P.rebUsd)+' rebase':null,P.bribeUsd>0.01?fmt.usd(P.bribeUsd)+' bribes':null].filter(Boolean).join(' · ')}`,'https://www.theliquidityalliance.com/','Claim']);
-    P.locks.filter(l=>!l.is_auto_max_locked&&l.end!=='permanent'&&num(l.end_period)!=null).forEach(l=>{const wk=num(l.end_period)-(m.epoch||0);
-      if(wk<=0)att.push(['am','fa-lock-open',`Lock #${l.token_id} has been unlocked ${wk===0?'since this epoch':Math.abs(wk)+' week'+(wk===-1?'':'s')} (E${l.end_period})`,`${fmt.n(l.amount_human,2)} ${l.asset_symbol} sits at fixed VP only (${fmt.k(l.vp_total_human)}) — withdraw it, or relock for boost${l.projection&&num(l.projection.potential_vp_gain_pct)>1?' (+'+num(l.projection.potential_vp_gain_pct).toFixed(0)+'% VP if re-set)':''}`,'https://www.theliquidityalliance.com/','Relock']);
-      else if(wk<=4)att.push(['am','fa-lock-open',`Lock #${l.token_id} unlocks in ${wk} week${wk===1?'':'s'}`,`${fmt.n(l.amount_human,2)} ${l.asset_symbol} · ${fmt.k(l.vp_total_human)} VP will fall away unless you extend`,'https://www.theliquidityalliance.com/','Extend'])});
-    if(P.vp>0&&P.lastVotePeriod!=null&&m.epoch!=null&&P.lastVotePeriod<m.epoch-4)att.push(['pu','fa-check-to-slot','Your gauge votes were last set in epoch '+P.lastVotePeriod,`It's epoch ${m.epoch} — ${fmt.until(m.epochEnd)} left. Votes carry over, but pools and bribes have moved since.`,'#vote','Review']);
-    /* security: NFTs unstaked from DAODAO under this wallet — the 7-day queue is the window to notice */
-    const seenUn=new Set(prev?prev.unstakeKeys||[]:[]); const newUn=P.unstakes.filter(u=>!seenUn.has(u.token_id+'|'+u.unstaked_at)&&(Date.now()-new Date(u.unstaked_at))<14*864e5); const queued=P.unstakes.filter(u=>new Date(u.release_at)>Date.now());
-    if(newUn.length)att.unshift(['rd','fa-shield-halved',`${newUn.length} of your NFT${newUn.length>1?'s were':' was'} unstaked from DAODAO${prev?' since you last looked':''}`,`#${newUn.map(u=>u.token_id).slice(0,6).join(', #')}${newUn.length>6?'…':''} · ${fmt.ago(newUn[0].unstaked_at)} · releases ${fmt.until(newUn[0].release_at)} from now. If this wasn't you, act before it releases.`,'https://daodao.zone/','Check']);
-    else if(queued.length)att.push(['am','fa-hourglass-half',`${queued.length} of your NFT${queued.length>1?'s':''} in the unstake queue`,`#${queued.map(u=>u.token_id).slice(0,6).join(', #')} · first releases ${fmt.until(queued[0].release_at)} from now`,'https://daodao.zone/','View']);
-    if(prev&&num(prev.staked)!=null&&P.staked<num(prev.staked))att.unshift(['rd','fa-shield-halved',`Your DAODAO stake fell from ${fmt.n(prev.staked)} to ${fmt.n(P.staked)} NFTs`,`since you last looked (${fmt.ago(prev.t)}). Expected? If not, check your wallet's keys.`,'#nft','Activity']);
-    if(prev&&num(prev.nfts)!=null&&P.nftCount<num(prev.nfts))att.unshift(['rd','fa-shield-halved',`You hold ${fmt.n(num(prev.nfts)-P.nftCount)} fewer NFT${num(prev.nfts)-P.nftCount>1?'s':''} than last look`,`${fmt.n(prev.nfts)} → ${fmt.n(P.nftCount)}. Sold or sent? The activity feed shows where they went.`,'#nft','Activity']);
-    if(P.atRiskLp)att.push(['rd','fa-triangle-exclamation',`${P.atRiskLp} LP position${P.atRiskLp>1?'s':''} at risk`,'A pool that lost its gauge or fell below threshold — rewards may have stopped.','#portfolio','See']);
-    if(P.inactiveLp)att.push(['am','fa-circle-pause',`${P.inactiveLp} inactive LP position${P.inactiveLp>1?'s':''}`,'Staked but not earning. Move it or unstake.','#portfolio','See']);
-  }
-  const seen=new Set(prev?prev.openKeys:[]); const want=Pf.dao||'all';
-  m.open.filter(p=>want==='all'||p.dao===want).forEach(p=>att.push(['pu','fa-landmark',`${p.dao} · ${esc(p.title||'proposal')}`,`${seen.has(p.dao+'|'+p.id)?'open':'NEW'} · ${p.expiration&&p.expiration.at_time_iso?'closes in '+fmt.until(p.expiration.at_time_iso):'voting'}${(p.decodedActions&&p.decodedActions.length)?' · '+p.decodedActions.length+' on-chain action'+(p.decodedActions.length>1?'s':''):' · signal only'}`,'#vote','Vote']));
-  if(hoursLeft!=null&&hoursLeft<24)att.push(['cy','fa-clock',`Epoch ${m.epoch} rolls in ${fmt.until(m.epochEnd)}`,'Rewards settle, gauge weights lock, bribes pay out at the boundary.','#tla','TLA']);
-  /* what changed */
-  const rows=[];const row=(k,v,d,go)=>rows.push(`<div class="li tap" data-go="${go}"><div class="l"><div class="s">${k}</div><div class="t mono">${v}</div></div><div class="r">${d||''}</div></div>`);
-  const since=prev?m.sales.filter(x=>x.timestamp&&x.timestamp>prev.t):[];
-  row('Unbroken floor',fmt.usd(m.floor),prev?delta(m.floor,prev.floor,'usd'):'','market');
-  row('Listed across venues',fmt.n(m.listed),prev?delta(m.listed,prev.listed):'','market');
-  row(prev?'Sales since you last looked':'Sales · 7 days',prev?fmt.n(since.length):fmt.n(m.s7),prev&&since.length?`<span class="d new">+${since.length}</span>`:(m.lastSale?`<span class="d fl">last ${fmt.ago(m.lastSale.timestamp)}</span>`:''),'market');
-  row('LUNA',fmt.usd(m.luna,4),chg(m.luna24)+' <span class="s">24h</span>','tla');
-  row('TLA staked liquidity',fmt.usd(m.tvl,0),prev?delta(m.tvl,prev.tvl,'usd'):'','tla');
-  row('Backing per NFT',fmt.usd(m.backingUsd),prev?delta(m.backingUsd,prev.backing,'usd'):'','market');
-  if(P&&prev&&num(prev.vp)!=null)row('Your voting power',fmt.k(P.vp)+' VP',delta(P.vp,prev.vp),'portfolio');
-  /* movers */
-  let movers='';try{const tp=D.nap.token_prices;const mv=Object.values(tp).map(t=>({s:t.canonical,p:num(t.final_price_usd),c:num(t.prices&&t.prices.astroport&&t.prices.astroport.price_change_24h_pct),sr:(t.prices&&t.prices.astroport&&t.prices.astroport.series||[]).map(x=>x.v)})).filter(t=>t.c!=null&&t.p!=null).sort((a,b)=>Math.abs(b.c)-Math.abs(a.c)).slice(0,5);const all=Object.values(tp).map(t=>({s:t.canonical,p:num(t.final_price_usd),c:num(t.prices&&t.prices.astroport&&t.prices.astroport.price_change_24h_pct),sr:(t.prices&&t.prices.astroport&&t.prices.astroport.series||[]).map(x=>x.v)})).filter(t=>t.p!=null).sort((a,b)=>Math.abs(b.c||0)-Math.abs(a.c||0));
-    const rowT=t=>`<div class="li"><div class="l"><div class="t">${esc(t.s)}</div><div class="s mono">${fmt.usd(t.p,t.p<0.01?6:t.p<1?4:2)}</div></div><div class="sp">${spark(t.sr,{w:64,h:24})}</div><div class="r">${t.c!=null?chg(t.c):'<span class="d fl">no 24h</span>'}</div></div>`;
-    if(mv.length)movers=`<h2>Biggest moves · 24h <a class="more" id="movers-all">all ${all.length} tokens →</a></h2><div class="list">${mv.map(rowT).join('')}</div><div class="sub" style="margin:.4em .3em 0">Top 5 by size of move, up or down, of the ${all.filter(t=>t.c!=null).length} tokens with a 24h Astroport price.</div>`;
-    setTimeout(()=>{const b=$('movers-all');if(b)b.onclick=()=>sheet('<i class="fas fa-coins" style="color:#fbbf24"></i> All tokens · 24h',`<div class="list">${all.map(rowT).join('')}</div>`)},0)}catch(e){}
-  $('home').innerHTML=hero+
-    (att.length?`<h2>Needs you <span class="pill ${att.some(a=>a[0]==='rd')?'rd':'am'}" style="margin-left:.2em">${att.length}</span></h2>`+att.map(a=>`<div class="att"><span class="ic ${a[0]}"><i class="fas ${a[1]}"></i></span><div><div class="t">${a[2]}</div><div class="s">${a[3]}</div></div><a class="btn g a" ${a[4].startsWith('#')?`data-go="${a[4].slice(1)}" href="${a[4]}"`:`href="${a[4]}" target="_blank" rel="noopener"`}>${a[5]}</a></div>`).join(''):(P?`<div class="card row"><span class="ic gr"><i class="fas fa-circle-check"></i></span><div class="l"><div class="k2">Nothing needs you right now.</div><div class="sub">No claimable rewards above a dollar, no locks unlocking soon, no open proposals${want!=='all'?' in '+want:''}.</div></div></div>`:''))+
-    `<h2>What changed <span class="sub" style="margin-left:auto;text-transform:none;letter-spacing:0">${first?'first look':'since '+fmt.ago(prev.t)}</span></h2><div class="list">${rows.join('')}</div>`+
-    `<div class="btns" style="justify-content:center"><button class="btn g" id="seen" type="button"><i class="fas fa-check"></i> Mark all as seen</button></div>`+movers+
-    `<div class="dev">data ${fmt.ago(m.at)}${D._failed&&D._failed.length?' · could not load: '+D._failed.join(', '):''} · <a href="index.html" style="color:#67e8f9">full site</a></div>`;
-  $('seen').onclick=()=>{ls(SNAP,snapshotOf(P,m));toast('Marked as seen');vHome();badge()};
-  const pk=$('home').querySelector('[data-pick]');if(pk)pk.onclick=e=>{e.stopPropagation();openPicker()};
-  badge();
+/* ---- proposals + gauge model (shared by Vote / DAO / TLA views) ---- */
+const votesOf=p=>{const v=p.votes||p.voting||{};const y=num(v.yes||v.for)||0,n=num(v.no||v.against)||0,a=num(v.abstain)||0,t=y+n+a;return{y,n,a,t}};
+const mineVoted=(p,P)=>{if(!P)return null;const vs=p.voters;if(!vs)return null;if(Array.isArray(vs))return vs.some(x=>(typeof x==='string'?x:(x.address||x.voter))===P.w);if(typeof vs==='object')return !!vs[P.w];return null};
+const vpOf=p=>num(p.voting_power&&p.voting_power.vp_human)||0;
+const propStatus=p=>{const st=String(p.status||(p.live?'Open':''));return /^open$/i.test(st)||p.live?'open':/^vetoed$/i.test(st)?'vetoed':/veto/i.test(st)?'veto':/^passed$/i.test(st)?'passed':/^executed$/i.test(st)?'executed':/fail/i.test(st)?'failed':/reject/i.test(st)?'rejected':'closed'};   /* DAODAO vocab: Open · Veto Timelock · Passed · Executed · Execution Failed · Rejected · Vetoed · Closed */
+function propCard(p,P,seen){const v=votesOf(p);const st=propStatus(p);const open=st==='open';const my=mineVoted(p,P);const chip=open?`<span class="pill ${seen.has(p.dao+'|'+p.id)?'cy':'pu'}">${seen.has(p.dao+'|'+p.id)?'open':'NEW'}</span>`:`<span class="pill ${st==='veto'?'am':/pass|execut/.test(st)?'gr':/reject|veto|fail/.test(st)?'rd':'mut'}">${esc(p.status||st)}</span>`;
+    return`<div class="card tap" data-prop="${esc(p.dao+'|'+p.id)}"><div class="row"><div class="l"><div class="k">${esc(p.dao)} · #${esc(String(p.id).replace(/^[a-z]/,''))}${my===true?' · <span class="you">you voted</span>':''}</div><div class="k2" style="font-weight:700;color:#fff">${esc(p.title||'(untitled)')}</div></div>${chip}</div>
+      ${v.t?`<div class="bar"><i style="width:${(v.y/v.t*100).toFixed(1)}%;background:#34d399"></i><i style="width:${(v.n/v.t*100).toFixed(1)}%;background:#f87171"></i><i style="width:${(v.a/v.t*100).toFixed(1)}%;background:#6b7280"></i></div><div class="legend"><span><b style="background:#34d399"></b>yes ${(v.y/v.t*100).toFixed(0)}%</span><span><b style="background:#f87171"></b>no ${(v.n/v.t*100).toFixed(0)}%</span>${v.a?`<span><b style="background:#6b7280"></b>abstain ${(v.a/v.t*100).toFixed(0)}%</span>`:''}</div>`:''}
+      <div class="sub">${open?(p.expiration&&p.expiration.at_time_iso?'closes in '+fmt.until(p.expiration.at_time_iso)+' · ':''):(p.expiration&&p.expiration.at_time_iso?'closed '+fmt.date(p.expiration.at_time_iso)+' · ':'')}${(p.decodedActions&&p.decodedActions.length)?`<span style="color:#fbbf24">${p.decodedActions.length} on-chain action${p.decodedActions.length>1?'s':''}</span>`:'<span style="color:#34d399">signal only</span>'}</div></div>`}
+function propSheet(dao,id){const m=model();const p=m.props.find(x=>x.dao===dao&&String(x.id)===String(id));if(!p)return;const v=votesOf(p);const acts=(p.decodedActions||[]).slice(0,6);sheet(`${esc(dao)} · #${esc(String(id).replace(/^[a-z]/,''))}`,`<div class="k2" style="font-weight:700;color:#fff;font-size:1.05em">${esc(p.title||'')}</div><div class="sub" style="white-space:pre-wrap;max-height:9em;overflow:auto;margin:.4em 0">${esc((p.description||'').slice(0,1200))}${(p.description||'').length>1200?'…':''}</div>${v.t?`<div class="grid3"><div class="tile"><div class="k">Yes</div><div class="v xs" style="color:#34d399">${fmt.k(v.y)}</div></div><div class="tile"><div class="k">No</div><div class="v xs" style="color:#f87171">${fmt.k(v.n)}</div></div><div class="tile"><div class="k">Abstain</div><div class="v xs">${fmt.k(v.a)}</div></div></div>`:''}${acts.length?`<h2>On-chain actions</h2><div class="list">${acts.map(a=>`<div class="li"><div class="l"><div class="t">${esc(a.kind||a.type||a.action||'action')}</div><div class="s">${esc(a.summary||a.contract||a.to||'')}</div></div></div>`).join('')}</div>`:'<div class="card row" style="margin-top:.6em"><span class="ic gr"><i class="fas fa-circle-check"></i></span><div class="l k2">Signal only — no on-chain messages. Safe by definition.</div></div>'}<div class="btns"><a class="btn" href="https://daodao.zone/dao/${esc((D[DAOS.find(d=>d[0]===dao)[2]]||{}).dao||'')}/proposals/${esc(String(id).replace(/^[a-z]/,''))}" target="_blank" rel="noopener">Vote on DAO DAO <i class="fas fa-arrow-up-right-from-square"></i></a><a class="btn g" href="dao.html">Full audit</a></div>`)}
+function gaugeModel(m,P,Pf){
+  const BK=Object.keys(m.buckets); const bribed=m.pools.map(p=>({p,b:poolBribesUsd(p)})).filter(x=>x.b.n);
+  const bucketPools=b=>m.pools.filter(p=>p.bucket===b&&(vpOf(p)>0||poolBribesUsd(p).n)).sort((a,c)=>vpOf(c)-vpOf(a));
+  const myW={};if(P){const vb=(P.M&&P.M.voting&&P.M.voting.votes_per_bucket)||{};BK.forEach(b=>{myW[b]=((vb[b]&&vb[b].votes)||[]).map(v=>({gid:v.pool_gauge_id,name:v.pool_name,w:(num(v.weight_bps)||0)/10000}))})}
+  /* expected bribe for putting VP `vp` on pool p (others static): bribe × vp / (poolVP_excluding_you + vp) */
+  const myVpOn=(p)=>{if(!P)return 0;const w=(myW[p.bucket]||[]).find(x=>x.gid===p.gauge_pool_id);return w?P.vp*w.w:0};
+  const expect=(p,vp)=>{const b=poolBribesUsd(p).usd;const others=Math.max(0,vpOf(p)-myVpOn(p));return b&&vp>0?b*vp/(others+vp):0};
+  const yourVoting=P&&P.vp>0?(()=>{
+    const gain=P.locks.reduce((a,l)=>a+(num(l.projection&&l.projection.potential_vp_gain_human)||0),0); const gainLocks=P.locks.filter(l=>num(l.projection&&l.projection.potential_vp_gain_human)>0.5).length;
+    let curTotal=0,bestTotal=0; const rows=BK.map(b=>{const ws=myW[b]||[];const used=ws.reduce((a,x)=>a+x.w,0);const pools=bucketPools(b);
+      const cur=ws.reduce((a,x)=>{const p=m.pools.find(q=>q.gauge_pool_id===x.gid);return a+(p?expect(p,P.vp*x.w):0)},0);
+      /* every pool in the bucket, valued as if ALL your bucket VP moved there (you join the denominator) */
+      const opts=pools.map(p=>({p,e:expect(p,P.vp),b:poolBribesUsd(p),share:P.vp/(Math.max(0,vpOf(p)-myVpOn(p))+P.vp)*100,here:!!ws.find(x=>x.gid===p.gauge_pool_id)})).filter(o=>o.b.usd>0).sort((a,c)=>c.e-a.e);
+      const better=opts.filter(o=>!o.here&&o.e>cur+0.25); const bestE=opts.length?opts[0].e:0; curTotal+=cur;bestTotal+=Math.max(cur,bestE);
+      const curNames=ws.map(x=>{const p=m.pools.find(q=>q.gauge_pool_id===x.gid);return (p?p.name:x.name||'?')+(x.w<1?' '+(x.w*100).toFixed(0)+'%':'')}).join(' · ');
+      const optRow=o=>`<div class="row" style="margin-top:.35em;gap:.5em"><div class="l"><div class="k2" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.here?'<i class="fas fa-location-dot" style="color:#67e8f9"></i> ':''}${esc(o.p.name)}</div><div class="sub" style="margin:0">${fmt.usd(o.b.usd,0)} in bribes · ${fmt.k(vpOf(o.p))} VP now → you'd hold ${o.share.toFixed(1)}%${o.b.unpriced?' · +unpriced':''}</div></div><div class="mono" style="text-align:right;font-weight:700;font-size:.9em;color:${o.here?'#67e8f9':o.e>cur+0.25?'#34d399':'#8b93a1'}">${fmt.usd(o.e)}${!o.here&&o.e>cur+0.25?`<div class="sub" style="margin:0;color:#34d399">+${fmt.usd(o.e-cur)}</div>`:''}</div></div>`;
+      return`<div class="card" style="padding:.7em .8em"><div class="row"><div class="l"><div class="k">${esc(b)} · <b style="color:${used>=0.999?'#34d399':used>0?'#fbbf24':'#f87171'}">${(used*100).toFixed(0)}% of your VP used</b></div><div class="k2" style="margin-top:.15em">${curNames?'now: '+curNames:'<span style="color:#f87171">not voting — this bucket earns you nothing</span>'}</div></div><div class="r mono" style="text-align:right"><div class="v xs" style="color:#34d399">${fmt.usd(cur)}</div><div class="sub">if you do nothing</div></div></div>
+        ${better.length?`<div class="k" style="margin-top:.5em;color:#fbbf24"><i class="fas fa-arrow-trend-up"></i> better for your ${fmt.k(P.vp)} VP (all of it moved)</div>${better.slice(0,4).map(optRow).join('')}`:(used>0?`<div class="sub" style="margin-top:.35em">Nothing in ${esc(b)} pays your VP more than where it is.</div>`:'')}
+        ${opts.filter(o=>o.here||!(o.e>cur+0.25)).length?`<details style="margin-top:.4em"><summary class="k" style="cursor:pointer">every bribed pool in ${esc(b)} (${opts.length})</summary>${opts.map(optRow).join('')}</details>`:'<div class="sub" style="margin-top:.35em">no bribes in this bucket right now</div>'}</div>`}).join('');
+    return`<div class="hero"><div class="lab">YOUR VOTING · ${fmt.k(P.vp)} VP${P.lastVotePeriod!=null?' · votes set in E'+P.lastVotePeriod:''}</div><div class="big">${fmt.usd(curTotal)}<span style="font-size:.42em;color:#8b93a1;font-family:Outfit"> est. bribes this epoch</span></div><div class="row">${bestTotal>curTotal+0.5?`<span class="pill am"><i class="fas fa-arrow-trend-up"></i> up to ${fmt.usd(bestTotal)} if you move</span>`:'<span class="pill gr">already best-placed</span>'}${gain>0.5?`<span class="pill pu"><i class="fas fa-lock"></i> +${fmt.k(gain)} VP if you re-set ${gainLocks} lock${gainLocks>1?'s':''}</span>`:''}</div><div class="sub">Each pool's bribes × your share of its votes <b>with your VP added to that pool</b> (moving 1.33M into a 20M pool splits 22M, not 20M); everyone else unchanged. Paid at the epoch boundary to whoever is voting there then.</div><div class="sub" style="color:#fbbf24">Bribes here are as of the last harvest (E${(m.bribeHarvestPeriod??'?')}${m.bribeHarvestAt?', '+fmt.ago(m.bribeHarvestAt):''}). A bribe posted since — e.g. a new one on LUNA-FUEL — isn't counted until the epoch closes. Live capture is on the list.</div></div>${rows}
+      ${gain>0.5?`<div class="card row"><span class="ic pu"><i class="fas fa-lock"></i></span><div class="l"><div class="k2"><b>+${fmt.k(gain)} VP</b> (${(gain/P.vp*100).toFixed(1)}%) is waiting in ${gainLocks} LST lock${gainLocks>1?'s':''}.</div><div class="sub">Your LSTs have grown since you locked them; VP only updates when a lock is touched. Re-set them on TLA and every bucket above gets ${(gain/P.vp*100).toFixed(1)}% heavier.</div></div><a class="btn g" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">Re-set</a></div>`:''}
+      <div class="btns"><a class="btn" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">Change votes on TLA <i class="fas fa-arrow-up-right-from-square"></i></a></div>`})():'';
+  const gauge=BK.map(b=>{const pools=bucketPools(b);const tot=pools.reduce((a,p)=>a+vpOf(p),0)||1;return`<div class="tile"><div class="k">${esc(b)} <span style="float:right">${fmt.k(tot)} VP</span></div>${pools.slice(0,4).map(p=>{const bb=poolBribesUsd(p).usd;return`<div class="row" style="gap:.4em;margin-top:.3em"><div class="l"><div class="k2" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name)}${bb?` <span class="pill gr" style="font-size:.62em;padding:.05em .4em">${fmt.usd(bb,0)} bribes</span>`:''}</div><div class="bar" style="margin:.15em 0"><i style="width:${(vpOf(p)/tot*100).toFixed(1)}%;background:#22d3ee"></i></div></div><span class="mono" style="font-size:.78em;color:#9ca3af">${(vpOf(p)/tot*100).toFixed(0)}%</span></div>`}).join('')}</div>`}).join('');
+  return{yourVoting,gauge,bribed,BK};
 }
-function badge(){const m=model(),prev=ls(SNAP),Pf=prefs();const seen=new Set(prev?prev.openKeys:[]);const n=m.open.filter(p=>(Pf.dao==='all'||p.dao===Pf.dao)&&!seen.has(p.dao+'|'+p.id)).length;const b=document.querySelector('.tab[data-v="home"] b.n');if(b){b.textContent=n>9?'9+':n;b.hidden=!n}try{if(navigator.setAppBadge){n?navigator.setAppBadge(n):navigator.clearAppBadge&&navigator.clearAppBadge()}}catch(e){}}
-/* ---- PORTFOLIO ---- */
+function vVote(){
+  const m=model(), P=me(), Pf=prefs(), prev=ls(SNAP); const seen=new Set(prev?prev.openKeys:[]); const card=p=>propCard(p,P,seen);
+  const flt=p=>(Pf.dao||'all')==='all'||p.dao===Pf.dao; const open=m.open.filter(flt); const recent=m.props.filter(p=>!(p.live||String(p.status||'').toLowerCase()==='open')).filter(flt).sort((a,b)=>(num(b.startHeight)||0)-(num(a.startHeight)||0)).slice(0,8);
+  const {yourVoting,gauge,bribed}=gaugeModel(m,P,Pf);
+  $('vote').innerHTML=`
+  ${yourVoting||(P?`<div class="card row"><span class="ic am"><i class="fas fa-check-to-slot"></i></span><div class="l"><div class="k2">No voting power on this wallet.</div><div class="sub">Lock an LST on TLA to vote on gauges and earn bribes.</div></div></div>`:'')}
+  <div class="seg">${[['all','All'],['aDAO','aDAO'],['Lion DAO','Lion'],['Pixel Lions','Pixel']].map(([k,l])=>`<button type="button" data-dao="${k}" class="${(Pf.dao||'all')===k?'on':''}">${l}</button>`).join('')}</div>
+  <h2>Open proposals</h2>${open.length?open.map(card).join(''):'<div class="empty"><i class="fas fa-landmark"></i>Nothing to vote on right now.</div>'}
+  <h2>TLA gauge · epoch ${m.epoch??'—'} <span class="sub" style="margin-left:auto;text-transform:none;letter-spacing:0">${fmt.until(m.epochEnd)} left · ${bribed.length} pools bribed · ${fmt.usd(bribed.reduce((a,x)=>a+x.b.usd,0),0)}</span></h2>
+  <div class="grid2">${gauge}</div>
+  <h2>Recent</h2>${recent.map(card).join('')||'<div class="empty">—</div>'}
+  <div class="btns"><a class="btn g" href="dao.html"><i class="fas fa-landmark"></i> Governance page &amp; audits</a><a class="btn g" href="tla-stats.html#pools">All pools</a></div>`;
+  $('vote').querySelectorAll('[data-dao]').forEach(b=>b.onclick=()=>{setPrefs({dao:b.getAttribute('data-dao')});vVote();badge()});
+  $('vote').querySelectorAll('[data-prop]').forEach(c=>c.onclick=()=>{const [dao,id]=c.getAttribute('data-prop').split('|');propSheet(dao,id)});
+}
 function vPortfolio(){
   const P=me(), m=model();
   if(!P){$('portfolio').innerHTML=`<div class="card"><b>Whose position?</b><div class="sub" style="margin-bottom:.5em">Read-only, remembered on this device.</div>${pickerHtml()}</div>`;wirePicker($('portfolio'),()=>{paintTop();vPortfolio();toast('Wallet selected')});return}
@@ -413,73 +426,9 @@ function vMarket(){
   $('market').querySelectorAll('[data-nft]').forEach(el=>el.onclick=()=>nftSheet(el.getAttribute('data-nft')));
   $('market').querySelectorAll('[data-tier]').forEach(b=>b.onclick=()=>{setPrefs({tier:b.getAttribute('data-tier')});vMarket()});
 }
-function nftSheet(id){const m=model();const row=((D.bundle&&D.bundle.rows)||[]).find(r=>String(r[0])===String(id));const dict=D.bundle&&D.bundle.dict||{};const F=D.bundle&&D.bundle.flagBits||{};const flags=row?row[9]||0:0;const tags=Object.entries(F).filter(([k,b])=>flags&b).map(([k])=>k.replace(/_/g,' '));const trait=(name,i)=>row&&dict[name]&&dict[name][row[i]]!=null?dict[name][row[i]]:null;const sales=m.sales.filter(s=>String(s.token_id)===String(id)).slice(-5).reverse();
-  sheet(`aDAO #${esc(id)}`,`<img src="${img(id)}" alt="" style="width:100%;border-radius:14px;aspect-ratio:1;object-fit:cover;background:#1f2430"><div class="row" style="margin:.6em 0;flex-wrap:wrap;gap:.35em">${row&&row[11]!=null?`<span class="pill gr">listed ${fmt.usd(row[11],0)}</span>`:''}${row&&row[10]?`<span class="pill mut">BBL rank #${row[10]}</span>`:''}${tags.map(t=>`<span class="pill ${/broken/.test(t)?'rd':'mut'}">${esc(t)}</span>`).join('')}</div>${row?`<div class="grid2">${[['Planet',1],['Inhabitant',2],['Object',3],['Weather',4],['Light',5],['Rarity',6]].map(([n,i])=>`<div class="tile"><div class="k">${n}</div><div class="k2">${esc(trait(n,i)||'—')}</div></div>`).join('')}</div>`:''}${sales.length?`<h2>Sales history</h2><div class="list">${sales.map(s=>`<div class="li"><div class="l"><div class="t">${fmt.date(s.timestamp)}</div><div class="s">${esc(s.marketplace||'BBL')}</div></div><div class="r">${fmt.usd(s.notional_usd,0)}<div class="s">${fmt.n(s.amount,0)} ${esc(s.denom_symbol||'')}</div></div></div>`).join('')}</div>`:''}<div class="btns"><a class="btn" href="nft-explorer-index.html?token=${encodeURIComponent(id)}">Open in Explorer</a></div>`)}
+function nftSheet(id){const m=model();const row=((D.bundle&&D.bundle.rows)||[]).find(r=>String(r[0])===String(id));const dict=D.bundle&&D.bundle.dict||{};const F=D.bundle&&D.bundle.flagBits||{};const flags=row?row[10]||0:0;   /* fields: …,intended_rank(7),intended_pct(8),bbl_rank(9),flags(10),listing_usd(11) */const tags=Object.entries(F).filter(([k,b])=>flags&b).map(([k])=>k.replace(/_/g,' '));const trait=(name,i)=>row&&dict[name]&&dict[name][row[i]]!=null?dict[name][row[i]]:null;const sales=m.sales.filter(s=>String(s.token_id)===String(id)).slice(-5).reverse();
+  sheet(`aDAO #${esc(id)}`,`<img src="${img(id)}" alt="" style="width:100%;border-radius:14px;aspect-ratio:1;object-fit:cover;background:#1f2430"><div class="row" style="margin:.6em 0;flex-wrap:wrap;gap:.35em">${row&&row[11]!=null?`<span class="pill gr">listed ${fmt.usd(row[11],0)}</span>`:''}${row&&row[9]?`<span class="pill mut">BBL rank #${row[9]}</span>`:row&&row[7]?`<span class="pill mut">rank #${row[7]}</span>`:''}${tags.map(t=>`<span class="pill ${/broken/.test(t)?'rd':'mut'}">${esc(t)}</span>`).join('')}</div>${row?`<div class="grid2">${[['Planet',1],['Inhabitant',2],['Object',3],['Weather',4],['Light',5],['Rarity',6]].map(([n,i])=>`<div class="tile"><div class="k">${n}</div><div class="k2">${esc(trait(n,i)||'—')}</div></div>`).join('')}</div>`:''}${sales.length?`<h2>Sales history</h2><div class="list">${sales.map(s=>`<div class="li"><div class="l"><div class="t">${fmt.date(s.timestamp)}</div><div class="s">${esc(s.marketplace||'BBL')}</div></div><div class="r">${fmt.usd(s.notional_usd,0)}<div class="s">${fmt.n(s.amount,0)} ${esc(s.denom_symbol||'')}</div></div></div>`).join('')}</div>`:''}<div class="btns"><a class="btn" href="nft-explorer-index.html?token=${encodeURIComponent(id)}">Open in Explorer</a></div>`)}
 /* ---- VOTE: your voting first (when a wallet is picked), then the proposals, then the gauge ---- */
-function vVote(){
-  const m=model(), P=me(), Pf=prefs(), prev=ls(SNAP); const seen=new Set(prev?prev.openKeys:[]);
-  const votesOf=p=>{const v=p.votes||p.voting||{};const y=num(v.yes||v.for)||0,n=num(v.no||v.against)||0,a=num(v.abstain)||0,t=y+n+a;return{y,n,a,t}};
-  const mine=p=>{if(!P)return null;const vs=p.voters;if(!vs)return null;if(Array.isArray(vs))return vs.some(x=>(typeof x==='string'?x:(x.address||x.voter))===P.w);if(typeof vs==='object')return !!vs[P.w];return null};
-  const vpOf=p=>num(p.voting_power&&p.voting_power.vp_human)||0;
-  const card=p=>{const v=votesOf(p);const st=String(p.status||(p.live?'Open':'')).toLowerCase();const open=!!p.live||st==='open';const my=mine(p);const chip=open?`<span class="pill ${seen.has(p.dao+'|'+p.id)?'cy':'pu'}">${seen.has(p.dao+'|'+p.id)?'open':'NEW'}</span>`:`<span class="pill ${/pass|execut/.test(st)?'gr':/reject|veto|fail/.test(st)?'rd':'mut'}">${esc(p.status||st)}</span>`;
-    return`<div class="card tap" data-prop="${esc(p.dao+'|'+p.id)}"><div class="row"><div class="l"><div class="k">${esc(p.dao)} · #${esc(String(p.id).replace(/^[a-z]/,''))}${my===true?' · <span class="you">you voted</span>':''}</div><div class="k2" style="font-weight:700;color:#fff">${esc(p.title||'(untitled)')}</div></div>${chip}</div>
-      ${v.t?`<div class="bar"><i style="width:${(v.y/v.t*100).toFixed(1)}%;background:#34d399"></i><i style="width:${(v.n/v.t*100).toFixed(1)}%;background:#f87171"></i><i style="width:${(v.a/v.t*100).toFixed(1)}%;background:#6b7280"></i></div><div class="legend"><span><b style="background:#34d399"></b>yes ${(v.y/v.t*100).toFixed(0)}%</span><span><b style="background:#f87171"></b>no ${(v.n/v.t*100).toFixed(0)}%</span>${v.a?`<span><b style="background:#6b7280"></b>abstain ${(v.a/v.t*100).toFixed(0)}%</span>`:''}</div>`:''}
-      <div class="sub">${open?(p.expiration&&p.expiration.at_time_iso?'closes in '+fmt.until(p.expiration.at_time_iso)+' · ':''):(p.expiration&&p.expiration.at_time_iso?'closed '+fmt.date(p.expiration.at_time_iso)+' · ':'')}${(p.decodedActions&&p.decodedActions.length)?`<span style="color:#fbbf24">${p.decodedActions.length} on-chain action${p.decodedActions.length>1?'s':''}</span>`:'<span style="color:#34d399">signal only</span>'}</div></div>`};
-  const flt=p=>(Pf.dao||'all')==='all'||p.dao===Pf.dao; const open=m.open.filter(flt); const recent=m.props.filter(p=>!(p.live||String(p.status||'').toLowerCase()==='open')).filter(flt).sort((a,b)=>(num(b.startHeight)||0)-(num(a.startHeight)||0)).slice(0,8);
-  /* ---- gauge model: per bucket, pools with VP + bribes; your weights ---- */
-  const BK=Object.keys(m.buckets); const bribed=m.pools.map(p=>({p,b:poolBribesUsd(p)})).filter(x=>x.b.n);
-  const bucketPools=b=>m.pools.filter(p=>p.bucket===b&&(vpOf(p)>0||poolBribesUsd(p).n)).sort((a,c)=>vpOf(c)-vpOf(a));
-  const myW={};if(P){const vb=(P.M&&P.M.voting&&P.M.voting.votes_per_bucket)||{};BK.forEach(b=>{myW[b]=((vb[b]&&vb[b].votes)||[]).map(v=>({gid:v.pool_gauge_id,name:v.pool_name,w:(num(v.weight_bps)||0)/10000}))})}
-  /* expected bribe for putting VP `vp` on pool p (others static): bribe × vp / (poolVP_excluding_you + vp) */
-  const myVpOn=(p)=>{if(!P)return 0;const w=(myW[p.bucket]||[]).find(x=>x.gid===p.gauge_pool_id);return w?P.vp*w.w:0};
-  const expect=(p,vp)=>{const b=poolBribesUsd(p).usd;const others=Math.max(0,vpOf(p)-myVpOn(p));return b&&vp>0?b*vp/(others+vp):0};
-  const yourVoting=P&&P.vp>0?(()=>{
-    const gain=P.locks.reduce((a,l)=>a+(num(l.projection&&l.projection.potential_vp_gain_human)||0),0); const gainLocks=P.locks.filter(l=>num(l.projection&&l.projection.potential_vp_gain_human)>0.5).length;
-    let curTotal=0,bestTotal=0; const rows=BK.map(b=>{const ws=myW[b]||[];const used=ws.reduce((a,x)=>a+x.w,0);const pools=bucketPools(b);
-      const cur=ws.reduce((a,x)=>{const p=m.pools.find(q=>q.gauge_pool_id===x.gid);return a+(p?expect(p,P.vp*x.w):0)},0);
-      /* every pool in the bucket, valued as if ALL your bucket VP moved there (you join the denominator) */
-      const opts=pools.map(p=>({p,e:expect(p,P.vp),b:poolBribesUsd(p),share:P.vp/(Math.max(0,vpOf(p)-myVpOn(p))+P.vp)*100,here:!!ws.find(x=>x.gid===p.gauge_pool_id)})).filter(o=>o.b.usd>0).sort((a,c)=>c.e-a.e);
-      const better=opts.filter(o=>!o.here&&o.e>cur+0.25); const bestE=opts.length?opts[0].e:0; curTotal+=cur;bestTotal+=Math.max(cur,bestE);
-      const curNames=ws.map(x=>{const p=m.pools.find(q=>q.gauge_pool_id===x.gid);return (p?p.name:x.name||'?')+(x.w<1?' '+(x.w*100).toFixed(0)+'%':'')}).join(' · ');
-      const optRow=o=>`<div class="row" style="margin-top:.35em;gap:.5em"><div class="l"><div class="k2" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.here?'<i class="fas fa-location-dot" style="color:#67e8f9"></i> ':''}${esc(o.p.name)}</div><div class="sub" style="margin:0">${fmt.usd(o.b.usd,0)} in bribes · ${fmt.k(vpOf(o.p))} VP now → you'd hold ${o.share.toFixed(1)}%${o.b.unpriced?' · +unpriced':''}</div></div><div class="mono" style="text-align:right;font-weight:700;font-size:.9em;color:${o.here?'#67e8f9':o.e>cur+0.25?'#34d399':'#8b93a1'}">${fmt.usd(o.e)}${!o.here&&o.e>cur+0.25?`<div class="sub" style="margin:0;color:#34d399">+${fmt.usd(o.e-cur)}</div>`:''}</div></div>`;
-      return`<div class="card" style="padding:.7em .8em"><div class="row"><div class="l"><div class="k">${esc(b)} · <b style="color:${used>=0.999?'#34d399':used>0?'#fbbf24':'#f87171'}">${(used*100).toFixed(0)}% of your VP used</b></div><div class="k2" style="margin-top:.15em">${curNames?'now: '+curNames:'<span style="color:#f87171">not voting — this bucket earns you nothing</span>'}</div></div><div class="r mono" style="text-align:right"><div class="v xs" style="color:#34d399">${fmt.usd(cur)}</div><div class="sub">if you do nothing</div></div></div>
-        ${better.length?`<div class="k" style="margin-top:.5em;color:#fbbf24"><i class="fas fa-arrow-trend-up"></i> better for your ${fmt.k(P.vp)} VP (all of it moved)</div>${better.slice(0,4).map(optRow).join('')}`:(used>0?`<div class="sub" style="margin-top:.35em">Nothing in ${esc(b)} pays your VP more than where it is.</div>`:'')}
-        ${opts.filter(o=>o.here||!(o.e>cur+0.25)).length?`<details style="margin-top:.4em"><summary class="k" style="cursor:pointer">every bribed pool in ${esc(b)} (${opts.length})</summary>${opts.map(optRow).join('')}</details>`:'<div class="sub" style="margin-top:.35em">no bribes in this bucket right now</div>'}</div>`}).join('');
-    return`<div class="hero"><div class="lab">YOUR VOTING · ${fmt.k(P.vp)} VP${P.lastVotePeriod!=null?' · votes set in E'+P.lastVotePeriod:''}</div><div class="big">${fmt.usd(curTotal)}<span style="font-size:.42em;color:#8b93a1;font-family:Outfit"> est. bribes this epoch</span></div><div class="row">${bestTotal>curTotal+0.5?`<span class="pill am"><i class="fas fa-arrow-trend-up"></i> up to ${fmt.usd(bestTotal)} if you move</span>`:'<span class="pill gr">already best-placed</span>'}${gain>0.5?`<span class="pill pu"><i class="fas fa-lock"></i> +${fmt.k(gain)} VP if you re-set ${gainLocks} lock${gainLocks>1?'s':''}</span>`:''}</div><div class="sub">Each pool's bribes × your share of its votes <b>with your VP added to that pool</b> (moving 1.33M into a 20M pool splits 22M, not 20M); everyone else unchanged. Paid at the epoch boundary to whoever is voting there then.</div><div class="sub" style="color:#fbbf24">Bribes here are as of the last harvest (E${(m.bribeHarvestPeriod??'?')}${m.bribeHarvestAt?', '+fmt.ago(m.bribeHarvestAt):''}). A bribe posted since — e.g. a new one on LUNA-FUEL — isn't counted until the epoch closes. Live capture is on the list.</div></div>${rows}
-      ${gain>0.5?`<div class="card row"><span class="ic pu"><i class="fas fa-lock"></i></span><div class="l"><div class="k2"><b>+${fmt.k(gain)} VP</b> (${(gain/P.vp*100).toFixed(1)}%) is waiting in ${gainLocks} LST lock${gainLocks>1?'s':''}.</div><div class="sub">Your LSTs have grown since you locked them; VP only updates when a lock is touched. Re-set them on TLA and every bucket above gets ${(gain/P.vp*100).toFixed(1)}% heavier.</div></div><a class="btn g" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">Re-set</a></div>`:''}
-      <div class="btns"><a class="btn" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">Change votes on TLA <i class="fas fa-arrow-up-right-from-square"></i></a></div>`})():'';
-  /* big picture gauge (no wallet, or below your voting) */
-  const gauge=BK.map(b=>{const pools=bucketPools(b);const tot=pools.reduce((a,p)=>a+vpOf(p),0)||1;return`<div class="tile"><div class="k">${esc(b)} <span style="float:right">${fmt.k(tot)} VP</span></div>${pools.slice(0,4).map(p=>{const bb=poolBribesUsd(p).usd;return`<div class="row" style="gap:.4em;margin-top:.3em"><div class="l"><div class="k2" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name)}${bb?` <span class="pill gr" style="font-size:.62em;padding:.05em .4em">${fmt.usd(bb,0)} bribes</span>`:''}</div><div class="bar" style="margin:.15em 0"><i style="width:${(vpOf(p)/tot*100).toFixed(1)}%;background:#22d3ee"></i></div></div><span class="mono" style="font-size:.78em;color:#9ca3af">${(vpOf(p)/tot*100).toFixed(0)}%</span></div>`}).join('')}</div>`}).join('');
-  $('vote').innerHTML=`
-  ${yourVoting||(P?`<div class="card row"><span class="ic am"><i class="fas fa-check-to-slot"></i></span><div class="l"><div class="k2">No voting power on this wallet.</div><div class="sub">Lock an LST on TLA to vote on gauges and earn bribes.</div></div></div>`:'')}
-  <div class="seg">${[['all','All'],['aDAO','aDAO'],['Lion DAO','Lion'],['Pixel Lions','Pixel']].map(([k,l])=>`<button type="button" data-dao="${k}" class="${(Pf.dao||'all')===k?'on':''}">${l}</button>`).join('')}</div>
-  <h2>Open proposals</h2>${open.length?open.map(card).join(''):'<div class="empty"><i class="fas fa-landmark"></i>Nothing to vote on right now.</div>'}
-  <h2>TLA gauge · epoch ${m.epoch??'—'} <span class="sub" style="margin-left:auto;text-transform:none;letter-spacing:0">${fmt.until(m.epochEnd)} left · ${bribed.length} pools bribed · ${fmt.usd(bribed.reduce((a,x)=>a+x.b.usd,0),0)}</span></h2>
-  <div class="grid2">${gauge}</div>
-  <h2>Recent</h2>${recent.map(card).join('')||'<div class="empty">—</div>'}
-  <div class="btns"><a class="btn g" href="dao.html"><i class="fas fa-landmark"></i> Governance page &amp; audits</a><a class="btn g" href="tla-stats.html#pools">All pools</a></div>`;
-  $('vote').querySelectorAll('[data-dao]').forEach(b=>b.onclick=()=>{setPrefs({dao:b.getAttribute('data-dao')});vVote();badge()});
-  $('vote').querySelectorAll('[data-prop]').forEach(c=>c.onclick=()=>{const [dao,id]=c.getAttribute('data-prop').split('|');const p=m.props.find(x=>x.dao===dao&&String(x.id)===id);if(!p)return;const v=votesOf(p);const acts=(p.decodedActions||[]).slice(0,6);sheet(`${esc(dao)} · #${esc(String(id).replace(/^[a-z]/,''))}`,`<div class="k2" style="font-weight:700;color:#fff;font-size:1.05em">${esc(p.title||'')}</div><div class="sub" style="white-space:pre-wrap;max-height:9em;overflow:auto;margin:.4em 0">${esc((p.description||'').slice(0,1200))}${(p.description||'').length>1200?'…':''}</div>${v.t?`<div class="grid3"><div class="tile"><div class="k">Yes</div><div class="v xs" style="color:#34d399">${fmt.k(v.y)}</div></div><div class="tile"><div class="k">No</div><div class="v xs" style="color:#f87171">${fmt.k(v.n)}</div></div><div class="tile"><div class="k">Abstain</div><div class="v xs">${fmt.k(v.a)}</div></div></div>`:''}${acts.length?`<h2>On-chain actions</h2><div class="list">${acts.map(a=>`<div class="li"><div class="l"><div class="t">${esc(a.kind||a.type||a.action||'action')}</div><div class="s">${esc(a.summary||a.contract||a.to||'')}</div></div></div>`).join('')}</div>`:'<div class="card row" style="margin-top:.6em"><span class="ic gr"><i class="fas fa-circle-check"></i></span><div class="l k2">Signal only — no on-chain messages. Safe by definition.</div></div>'}<div class="btns"><a class="btn" href="https://daodao.zone/dao/${esc((D[DAOS.find(d=>d[0]===dao)[2]]||{}).dao||'')}/proposals/${esc(String(id).replace(/^[a-z]/,''))}" target="_blank" rel="noopener">Vote on DAO DAO <i class="fas fa-arrow-up-right-from-square"></i></a><a class="btn g" href="dao.html">Full audit</a></div>`)});
-}
-/* ---- TLA ---- */
-function vTla(){
-  const m=model(); const pools=m.pools.slice().sort((a,b)=>(num(b.staked_in_tla_usd)||0)-(num(a.staked_in_tla_usd)||0));
-  const byApr=m.pools.filter(p=>p.status==='active'&&p.rewards&&num(p.rewards.approx_apr_pct)!=null&&num(p.staked_in_tla_usd)>=5000).sort((a,b)=>num(b.rewards.approx_apr_pct)-num(a.rewards.approx_apr_pct)).slice(0,5);
-  const P=me(); const myPools=P?m.pools.filter(p=>P.lps.some(l=>l.pool_gauge_id===p.gauge_pool_id)||P.votedPools.some(v=>v.pool_gauge_id===p.gauge_pool_id)):[];
-  const lsts=['ampLUNA','bLUNA','arbLUNA','zluna'].map(s=>({s,p:price(s),sr:series(s)})).filter(x=>x.p!=null);
-  $('tla').innerHTML=`
-  <div class="hero"><div class="lab">STAKED IN TLA</div><div class="big">${fmt.usd(m.tvl,0)}</div><div class="row"><span class="pill mut">${fmt.n(m.active)} active pools</span><span class="pill mut">depth ${fmt.usd(m.depth,0)}</span><span class="pill cy">${fmt.usd(m.weekly,0)}/wk LUNA</span></div><div class="sub">Epoch ${m.epoch} · ${fmt.until(m.epochEnd)} left · ${m.epochPct!=null?Math.round(m.epochPct)+'% through':''}</div><div class="bar"><i style="width:${Math.min(100,m.epochPct||0)}%;background:linear-gradient(90deg,#00f2fe,#2889fc)"></i></div></div>
-  <div class="grid2"><div class="tile"><div class="k">LUNA</div><div class="v">${fmt.usd(m.luna,4)}</div><div class="sub">${chg(m.luna24)} 24h</div></div><div class="tile"><div class="k">Total VP</div><div class="v">${fmt.k(m.totalVp)}</div><div class="sub">max bucket (Eris convention)</div></div></div>
-  ${lsts.length?`<h2>LSTs</h2><div class="list">${lsts.map(x=>`<div class="li"><div class="l"><div class="t">${esc(x.s)}</div><div class="s mono">${fmt.usd(x.p,4)}${m.luna?' · '+(x.p/m.luna).toFixed(4)+' LUNA':''}</div></div><div class="sp">${spark(x.sr,{w:64,h:24})}</div></div>`).join('')}</div>`:''}
-  <h2>Buckets</h2><div class="grid2">${Object.entries(m.buckets).map(([b,x])=>`<div class="tile"><div class="k">${esc(b)}</div><div class="v xs">${fmt.usd(x.tla_tvl_usd||x.staked_in_tla_usd,0)}</div><div class="sub">${x.active_count??''} active · ${fmt.k(x.bucket_vp_human)} VP</div></div>`).join('')}</div>
-  ${myPools.length?`<h2>Your pools</h2><div class="list">${myPools.map(p=>`<div class="li"><div class="l"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.dex||'')} · ${esc(p.bucket)} · ${P.lps.some(l=>l.pool_gauge_id===p.gauge_pool_id)?'you LP here':'you vote here'}${p.status!=='active'?' · <span style="color:#fbbf24">'+esc(p.status)+'</span>':''}</div></div><div class="r">${fmt.usd(p.staked_in_tla_usd,0)}<div class="s">${p.rewards&&num(p.rewards.approx_apr_pct)!=null?num(p.rewards.approx_apr_pct).toFixed(1)+'% APR':''}</div></div></div>`).join('')}</div>`:''}
-  ${byApr.length?`<h2>Best APR · $5K+ staked</h2><div class="list">${byApr.map(p=>`<div class="li"><div class="l"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.dex||'')} · ${esc(p.bucket)} · ${fmt.usd(p.staked_in_tla_usd,0)} staked</div></div><div class="r" style="color:#34d399">${num(p.rewards.approx_apr_pct).toFixed(1)}%</div></div>`).join('')}</div>`:''}
-  <h2>Biggest pools</h2><div class="list">${pools.slice(0,8).map(p=>`<div class="li"><div class="l"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.dex||'')} · ${esc(p.bucket)}${p.status!=='active'?' · <span style="color:#fbbf24">'+esc(p.status)+'</span>':''}</div></div><div class="r">${fmt.usd(p.staked_in_tla_usd,0)}<div class="s">${p.rewards&&num(p.rewards.approx_apr_pct)!=null?num(p.rewards.approx_apr_pct).toFixed(1)+'% APR':''}</div></div></div>`).join('')}</div>
-  <div class="btns"><a class="btn" href="tla-stats.html"><i class="fas fa-chart-line"></i> TLA Stats</a><a class="btn g" href="tla-stats.html#pools">All pools</a><a class="btn g" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">TLA app <i class="fas fa-arrow-up-right-from-square"></i></a></div>
-  <div class="dev">tla-snapshot ${fmt.ago(D.tla&&D.tla.capturedAt)} · prices ${fmt.ago(D.nap&&D.nap.capturedAt)}</div>`;
-}
-/* ---- NFTs: ACTIVITY FEED first (what happened), then the collection ---- */
-let feedMonths=2;
 function activity(){
   /* one merged ledger: transfers (tla-flows aux: transfer / send_nft / list / cancel / sale) + sales (enriched) + listing history (list / delist / sold) */
   const kc=(D.known&&D.known.contracts)||{}; const isContract=a=>!!kc[a]; const nameOf=a=>kc[a]&&kc[a].name;
@@ -505,58 +454,343 @@ function activity(){
   ev.forEach(e=>{if(!e.t)return;const key=e.id+'|'+e.kind;const prev=last[key];if(prev&&Math.abs(new Date(prev)-new Date(e.t))<120e3)return;last[key]=e.t;out.push(e)});
   return out;
 }
-function vNft(){
-  const m=model(), s=D.summary||{}, P=me(), prev=ls(SNAP); const w=wallet();
-  const flt=prefs().feed||'all'; const F=[['all','All'],['sale','Sales'],['list','Listings'],['stake','Stakes'],['unstake','Unstakes'],['transfer','Transfers'],['mine','Mine']];
-  const ev=activity().filter(e=>flt==='all'?true:flt==='mine'?(w&&e.who.includes(w)):flt==='transfer'?(e.kind==='transfer'||e.kind==='send'):flt==='list'?(e.kind==='list'||e.kind==='delist'):e.kind===flt);
-  const days={}; ev.slice(0,300).forEach(e=>{const d=e.t.slice(0,10);(days[d]=days[d]||[]).push(e)});
-  const lastLook=prev&&prev.t; let markerDone=false;
-  const dayLabel=d=>{const dd=new Date(d+'T00:00:00Z');const today=new Date().toISOString().slice(0,10);const y=new Date(Date.now()-864e5).toISOString().slice(0,10);return d===today?'Today':d===y?'Yesterday':dd.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})};
-  const rows=Object.keys(days).sort().reverse().map(d=>{let html=`<div class="day">${dayLabel(d)} <span style="color:#3f4652;margin-left:.3em">${days[d].length}</span></div>`;days[d].forEach(e=>{if(lastLook&&!markerDone&&new Date(e.t)<=new Date(lastLook)){html+=`<div class="marker">you last looked ${fmt.ago(lastLook)}</div>`;markerDone=true}const me_=w&&e.who.includes(w);html+=`<div class="fl${me_?' me':''} tap" data-nft="${e.id}"><img src="${img(e.id)}" alt="" loading="lazy"><div><div class="t"><i class="fas ${e.ic}" style="color:${e.cls==='gr'?'#34d399':e.cls==='am'?'#fbbf24':e.cls==='pu'?'#c084fc':e.cls==='or'?'#fb923c':e.cls==='mut'?'#8b93a1':'#67e8f9'};width:1.3em"></i>#${e.id} ${me_?'<span class="you">you</span>':''}</div><div class="s">${e.text}</div></div><div class="w">${fmt.ago(e.t)}</div></div>`});return html}).join('');
-  const newest=ev[0]; const oldestLoaded=Object.values(D.transfers||{}).flat().filter(Boolean).map(e=>e.timestamp).sort()[0];
-  $('nft').innerHTML=`
-  <div class="row" style="margin-bottom:.2em"><div class="l"><div class="k">ACTIVITY · aDAO collection</div><div class="k2">${ev.length?`${ev.length} events loaded · newest ${fmt.ago(newest.t)}`:'no events for this filter'}</div></div>${P?`<span class="pill mut">${P.nftCount} yours</span>`:''}</div>
-  <div class="chips">${F.map(([k,l])=>`<span class="pill ${flt===k?'on':''}" data-feed="${k}">${l}</span>`).join('')}</div>
-  ${rows||'<div class="empty"><i class="fas fa-wind"></i>Nothing here for this filter.</div>'}
-  <div class="btns" style="justify-content:center"><button class="btn g" id="feed-more" type="button"><i class="fas fa-clock-rotate-left"></i> Load older (${feedMonths} months loaded${oldestLoaded?' · back to '+fmt.date(oldestLoaded):''})</button></div>
-  <div class="sub" style="margin:.4em .3em 0">Stakes, unstakes, listings, transfers from the on-chain transfer ledger; sales from the sales ledger; listings from listing history. The transfer ledger currently runs to the end of August — September is being restored.</div>
-  <h2>Collection</h2>
-  <div class="hero"><div class="lab">ALLIANCE DAO NFT · 10,000</div><div class="big">${fmt.usd(m.backingUsd)}<span style="font-size:.45em;color:#8b93a1;font-family:Outfit"> backing / NFT</span></div><div class="row"><span class="pill mut">${fmt.n(m.backingAmp,2)} ampLUNA</span><span class="pill mut">floor ${fmt.usd(m.floor)}</span></div>${spark(m.backingSeries,{h:44,fill:true,cls:'gr'})}<div class="sub">Backing only ever rises (the hub compounds). Floor is what the market asks.</div></div>
-  ${(()=>{const locked=(num(s.unminted_count)||0)+1000+(num(s.daodao_staked_count)||0)+(num(s.enterprise_staked_count)||0);const liquid=(num(s.user_liquid_count)||0)+m.listed;const tot=num(s.total_tokens)||10000;return`<div class="card"><div class="k">Locked vs liquid · of ${fmt.n(tot)}</div><div class="alloc"><i style="width:${(locked/tot*100).toFixed(1)}%;background:#22d3ee"></i><i style="width:${(liquid/tot*100).toFixed(1)}%;background:#c084fc"></i></div><div class="legend"><span><b style="background:#22d3ee"></b>locked ${fmt.n(locked)} (${(locked/tot*100).toFixed(1)}%)</span><span><b style="background:#c084fc"></b>liquid ${fmt.n(liquid)} (${(liquid/tot*100).toFixed(1)}%)</span></div><div class="sub">locked = unminted ${fmt.n(s.unminted_count)} + DAO-held 1,000 + DAODAO staked ${fmt.n(s.daodao_staked_count)} + Enterprise ${fmt.n(s.enterprise_staked_count)} · liquid = held ${fmt.n(s.user_liquid_count)} + listed ${fmt.n(m.listed)}</div></div>`})()}
-  <div class="grid2"><div class="tile"><div class="k">Minted</div><div class="v">${fmt.n(m.minted)}</div></div><div class="tile"><div class="k">Holders</div><div class="v">${fmt.n(m.holders)}</div><div class="sub">${fmt.n(m.members)} DAO members</div></div><div class="tile"><div class="k">Broken</div><div class="v">${fmt.n(m.broken)}</div></div><div class="tile"><div class="k">DAO value</div><div class="v">${fmt.usd(m.daoValue,0)}</div><div class="sub">treasury ${fmt.usd(m.treasury,0)}</div></div></div>
-  <div class="btns"><a class="btn" href="nft-explorer-index.html"><i class="fas fa-images"></i> Explorer</a><a class="btn g" href="ally.html">ALLY rewards</a><a class="btn g" href="rarity-explained.html">Rarity</a></div>`;
-  $('nft').querySelectorAll('[data-feed]').forEach(c=>c.onclick=()=>{setPrefs({feed:c.getAttribute('data-feed')});vNft()});
-  $('nft').querySelectorAll('[data-nft]').forEach(el=>el.onclick=()=>nftSheet(el.getAttribute('data-nft')));
-  $('feed-more').onclick=async()=>{feedMonths+=2;$('feed-more').innerHTML='<i class="fas fa-spinner fa-spin"></i> loading…';await loadTransfers(feedMonths);vNft()};
+/* ================= v2 · WINDOW ENGINE =================
+   One window (24h · 7d · 14d) reshapes every row on Today and every section on NFTs.
+   Past state comes from the daily products (tla-snapshot, dao-dashboard) at the window start;
+   event streams (bribes, transfers, listings, sales, claims) are filtered by timestamp. */
+const WINS={'24h':1,'7d':7,'14d':14};
+const win=()=>WINS[prefs().win]?prefs().win:'7d';
+const winDays=()=>WINS[win()];
+const winStart=()=>Date.now()-winDays()*864e5;
+const inWin=t=>{if(!t)return false;const x=new Date(t).getTime();return !isNaN(x)&&x>=winStart()};
+const dayKey=ms=>new Date(ms).toISOString().slice(0,10);
+const monthKeys=fromMs=>{const out=[];const now=new Date();for(let i=0;i<4;i++){const d=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-i,1));out.push(d.getUTCFullYear()+'/'+String(d.getUTCMonth()+1).padStart(2,'0'));if(d.getTime()<=fromMs)break}return out};
+const PAST={};   // window-start snapshots, keyed by date
+async function loadPast(){
+  const k=dayKey(winStart()); if(PAST[k])return PAST[k];
+  const tries=[k,dayKey(winStart()-864e5),dayKey(winStart()-2*864e5)];   /* a missing daily file (cron gap) falls back one or two days — labeled in the sheet */
+  const out={key:k,tla:null,tlaKey:null,dash:null,dashKey:null};
+  for(const d of tries){try{out.tla=await getJ(CORE+'member-data/tla-snapshot/daily/'+d+'.json');out.tlaKey=d;break}catch(e){}}
+  for(const d of tries){try{out.dash=await getJ(CORE+'member-data/dao-dashboard/daily/'+d+'.json');out.dashKey=d;break}catch(e){}}
+  PAST[k]=out; return out;
 }
-function vNftLegacy(){const m=model(),s=D.summary||{};const locked=(num(s.unminted_count)||0)+1000+(num(s.daodao_staked_count)||0)+(num(s.enterprise_staked_count)||0);const liquid=(num(s.user_liquid_count)||0)+m.listed;const tot=num(s.total_tokens)||10000;
-  $('nft').innerHTML=`<div class="hero"><div class="lab">ALLIANCE DAO NFT · 10,000</div><div class="big">${fmt.usd(m.backingUsd)}<span style="font-size:.45em;color:#8b93a1;font-family:Outfit"> backing / NFT</span></div><div class="row"><span class="pill mut">${fmt.n(m.backingAmp,2)} ampLUNA</span><span class="pill mut">floor ${fmt.usd(m.floor)}</span></div>${spark(m.backingSeries,{h:44,fill:true,cls:'gr'})}<div class="sub">Backing only ever rises (the hub compounds). Floor is what the market asks.</div></div>
-  <div class="card"><div class="k">Locked vs liquid · of ${fmt.n(tot)}</div><div class="alloc"><i style="width:${(locked/tot*100).toFixed(1)}%;background:#22d3ee"></i><i style="width:${(liquid/tot*100).toFixed(1)}%;background:#c084fc"></i></div><div class="legend"><span><b style="background:#22d3ee"></b>locked ${fmt.n(locked)} (${(locked/tot*100).toFixed(1)}%)</span><span><b style="background:#c084fc"></b>liquid ${fmt.n(liquid)} (${(liquid/tot*100).toFixed(1)}%)</span></div><div class="sub">locked = unminted ${fmt.n(s.unminted_count)} + DAO-held 1,000 + DAODAO staked ${fmt.n(s.daodao_staked_count)} + Enterprise ${fmt.n(s.enterprise_staked_count)} · liquid = held ${fmt.n(s.user_liquid_count)} + listed ${fmt.n(m.listed)}</div></div>
-  <div class="grid2"><div class="tile"><div class="k">Minted</div><div class="v">${fmt.n(m.minted)}</div><div class="sub">${m.minted?((m.minted/tot)*100).toFixed(1)+'%':''}</div></div><div class="tile"><div class="k">Holders</div><div class="v">${fmt.n(m.holders)}</div><div class="sub">${fmt.n(m.members)} DAO members</div></div><div class="tile"><div class="k">Broken</div><div class="v">${fmt.n(m.broken)}</div><div class="sub">${m.broken?((m.broken/tot)*100).toFixed(1)+'% · no backing':''}</div></div><div class="tile"><div class="k">DAO value</div><div class="v">${fmt.usd(m.daoValue,0)}</div><div class="sub">treasury ${fmt.usd(m.treasury,0)}</div></div></div>
-  <div class="btns"><a class="btn" href="nft-explorer-index.html"><i class="fas fa-images"></i> Explorer</a><a class="btn g" href="ally.html">ALLY rewards</a><a class="btn g" href="rarity-explained.html">Rarity</a></div>`}
-/* ---- MORE ---- */
-function vMore(){const P=prefs();const w=wallet();
-  $('more').innerHTML=`<div class="list">${[['tla','TLA','fa-chart-line'],['nft','NFT collection','fa-images'],['portfolio','Portfolio','fa-chart-pie'],['market','Market','fa-store'],['vote','Vote','fa-check-to-slot']].filter(x=>!P.tabs.includes(x[0])).map(x=>`<div class="li tap" data-go="${x[0]}"><span class="ic cy"><i class="fas ${x[2]}"></i></span><div class="l"><div class="t">${x[1]}</div></div><i class="fas fa-chevron-right" style="color:#5d6470"></i></div>`).join('')}</div>
-  <h2>Settings</h2>
+D.bribeEv=D.bribeEv||{};
+async function loadBribeEvents(){const keys=monthKeys(winStart()-864e5);await Promise.all(keys.filter(k=>!(k in D.bribeEv)).map(k=>getJ(CORE+'tla-voting/events/bribes/'+k+'.json').then(v=>{D.bribeEv[k]=Array.isArray(v)?v:[]}).catch(()=>{D.bribeEv[k]=null})));return keys}
+async function loadWindow(){await Promise.all([loadPast(),loadBribeEvents(),loadTransfers(Math.max(2,Math.ceil(winDays()/30)+1))]);}
+/* nfts.json (7 MB) carries per-token ownership — hydrated only when a view needs "your NFTs" */
+let NFTS=null, NFTS_P=null;
+function loadNfts(){if(NFTS)return Promise.resolve(NFTS);if(NFTS_P)return NFTS_P;NFTS_P=getJ(CORE+'nfts/adao/snapshots/nfts.json').then(v=>{NFTS=v;return v}).catch(e=>{NFTS_P=null;throw e});return NFTS_P}
+const myTokens=w=>NFTS&&w?(NFTS.records||[]).filter(r=>r.real_owner===w||r.owner===w):null;
+
+/* ---- helpers shared by the rows ---- */
+const poolById=gid=>model().pools.find(p=>p.gauge_pool_id===gid)||null;
+const poolByAny=(id)=>{if(!id)return null;const m=model();return m.pools.find(p=>p.gauge_pool_id===id||p.lp_address===String(id).replace(/^cw20:/,'')||p.pool_address===String(id).replace(/^cw20:/,''))||null};
+const coinInfo=c=>{const d=String(c.denom||'').replace(/^(native|cw20):/,'');return denomInfo(/^terra1/.test(d)?{cw20:d}:{native:d})};
+function bribeEventsInWin(){const out=[];Object.values(D.bribeEv||{}).forEach(arr=>(arr||[]).forEach(e=>{if(!inWin(e.timestamp))return;let usd=0,unpriced=0;const parts=(e.coins||[]).map(c=>{const di=coinInfo(c);const amt=num(c.amount)/Math.pow(10,di.dec);const px=di.sym?price(di.sym):null;if(px==null){unpriced++;return{sym:di.sym||'?',amt,usd:null}}usd+=amt*px;return{sym:di.sym,amt,usd:amt*px}});const pool=poolByAny(e.pool||e.gauge);out.push({t:e.timestamp,tx:e.tx_hash,briber:e.briber,pool:pool?pool.name:null,bucket:pool?pool.bucket:null,usd,unpriced,parts,epochs:e.epoch_start!=null?(e.epoch_start===e.epoch_end?'E'+e.epoch_start:'E'+e.epoch_start+'–'+e.epoch_end):''})}));return out.sort((a,b)=>new Date(b.t)-new Date(a.t))}
+const epochBoundaryMs=(period)=>{const T=D.tla||{},ep=T.epoch||{};if(period==null||!ep.epochStartedAt||ep.currentEpoch==null)return null;return new Date(ep.epochStartedAt).getTime()+(period-ep.currentEpoch)*7*864e5};   /* period p ends at the boundary p→p+1 = start of currentEpoch + (p - currentEpoch) weeks */
+const lockUnlockedAt=l=>{if(l.is_auto_max_locked||l.end==='permanent'||num(l.end_period)==null)return null;const ms=epochBoundaryMs(num(l.end_period)+1);return ms!=null&&ms<=Date.now()?ms:null};
+const aprAvg=(pools)=>{let w=0,s=0;pools.forEach(p=>{const a=p.rewards&&num(p.rewards.approx_apr_pct),v=num(p.staked_in_tla_usd);if(a==null||!v||v<=0)return;w+=v;s+=a*v});return w?s/w:null};
+const votionMine=(w)=>{const V=D.votion;if(!V||!w)return[];const out=[];(V.vaults||[]).forEach(v=>((v.holders)||[]).forEach(h=>{if(h.address===w)out.push({vault:v.address,vdenom:v.vdenom,lst:v.lst_contract,usd:num(h.underlying_usd),lst_amt:num(h.underlying_lst),share:num(h.share_of_vault_pct),vp:num(h.implied_vp)})}));return out};
+const vaultLocks=(vaultAddr)=>{const M=((D.members&&D.members.members)||[]).find(x=>x.wallet===vaultAddr);return (M&&M.locks)||[]};
+const lstSym=(addr)=>{const d=denomInfo({cw20:addr});return d.sym||'LST'};
+
+/* ================= v2 · TODAY — the ledger ================= */
+/* A row: icon · label · value · chevron. Zero rows never render. Tap → breakdown sheet. `need` rows count toward the badge. */
+function ledger(rows){return rows.filter(Boolean).map((r,i)=>`<div class="lg tap${r.need?' need':''}" data-lg="${i}"><span class="ic ${r.cls||'cy'}"><i class="fas ${r.ic||'fa-circle'}"></i></span><div class="t">${r.label}</div><div class="v${r.tone?' '+r.tone:''}">${r.value}</div><i class="fas fa-chevron-right ch"></i></div>`).join('')}
+function wireLedger(root,rows){root.querySelectorAll('[data-lg]').forEach(el=>{const r=rows.filter(Boolean)[+el.getAttribute('data-lg')];if(!r)return;el.onclick=()=>{if(typeof r.sheet==='function'){const h=r.sheet();if(h!=null)sheet(r.title||r.label,h,r.onopen)}else if(r.sheet!=null)sheet(r.title||r.label,r.sheet,r.onopen);else if(r.go)show(r.go)}})}
+const li=(t,s,r,rs,cls,ic,img_)=>`<div class="li${cls||ic||img_?' tap':''}"${img_?` data-nft="${esc(img_)}"`:''}>${img_?`<img src="${img(img_)}" alt="" loading="lazy">`:ic?`<span class="ic ${cls||'cy'}"><i class="fas ${ic}"></i></span>`:''}<div class="l"><div class="t">${t}</div>${s?`<div class="s">${s}</div>`:''}</div>${r!=null?`<div class="r">${r}${rs?`<div class="s">${rs}</div>`:''}</div>`:''}</div>`;
+const winLabel=()=>win()==='24h'?'24 hours':win()==='7d'?'7 days':'14 days';
+const wsub=()=>`<div class="sub" style="margin:.6em .2em 0">Window: last ${winLabel()} · data ${fmt.ago(D._at)}</div>`;
+
+function todayRows(){
+  const m=model(), P=me(), Pf=prefs(), prev=ls(SNAP), past=PAST[dayKey(winStart())]||{}, w=wallet();
+  const R={need:[],mine:[],tla:[],market:[]};
+  const push=(g,r)=>{if(r)R[g].push(r)};
+  const T=D.tla||{}, ep=T.epoch||{}, E=ep.currentEpoch;
+  const pastPools=(past.tla&&past.tla.pools)||[]; const pastBy={}; pastPools.forEach(p=>{pastBy[p.gauge_pool_id]=p});
+  const pastLabel=past.tlaKey?`vs the ${past.tlaKey} capture`:'no window-start capture';
+
+  /* ---------- NEEDS YOU ---------- */
+  if(P){
+    /* rewards claimable — breakdown: deposit · rebase · vote (bribes) · LUNA staking · DAO staking by DAO */
+    if(P.claimable>=0.5){
+      const byPool={};P.rew.forEach(r=>{const k=r.pool_name||'?';byPool[k]=byPool[k]||{usd:0,parts:[]};byPool[k].usd+=num(r.usd_value)||0;byPool[k].parts.push(fmt.n(r.amount_human,r.amount_human<1?4:2)+' '+(r.reward_symbol||''))});
+      push('need',{need:true,cls:'gr',ic:'fa-gift',label:'Rewards claimable',value:fmt.usd(P.claimable),tone:'gr',title:'<i class="fas fa-gift" style="color:#34d399"></i> Claimable',sheet:()=>`
+        <div class="list">${li('Deposit rewards','LP + single-asset gauges',fmt.usd(P.rewUsd),Object.keys(byPool).length+' pool'+(Object.keys(byPool).length===1?'':'s'))}
+        ${Object.entries(byPool).sort((a,b)=>b[1].usd-a[1].usd).map(([k,x])=>`<div class="li" style="padding-left:2.2em"><div class="l"><div class="t">${esc(k)}</div><div class="s">${esc(x.parts.join(' · '))}</div></div><div class="r">${fmt.usd(x.usd)}</div></div>`).join('')}
+        ${li('Rebase',P.reb?esc(P.reb.asset_symbol||'')+' · '+fmt.n(P.reb.amount_human,4):'',fmt.usd(P.rebUsd))}
+        ${li('Vote rewards (bribes)',P.bribes.length?P.bribes.length+' bribe'+(P.bribes.length>1?'s':''):'',fmt.usd(P.bribeUsd))}
+        ${li('LUNA staking rewards','<span style="color:#fbbf24">not captured yet</span> — per-wallet delegation capture is queued','—')}
+        ${li('DAO staking rewards','<span style="color:#fbbf24">not captured yet</span> — aDAO · Lion DAO · Pixel Lions, queued','—')}</div>
+        <div class="btns"><a class="btn" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">Claim on TLA <i class="fas fa-arrow-up-right-from-square"></i></a></div>
+        <div class="sub">Capture ${fmt.ago(D.members&&D.members.capturedAt)} · rewards + rebase + bribes = ${fmt.usd(P.claimable)}. The two "not captured" legs are null, not zero.</div>`});
+    }
+    /* your TLA locks unlocked (sitting at fixed VP only) */
+    const unl=P.locks.map(l=>({l,at:lockUnlockedAt(l)})).filter(x=>x.at!=null);
+    if(unl.length)push('need',{need:true,cls:'am',ic:'fa-lock-open',label:'Locks unlocked',value:String(unl.length),tone:'am',title:'<i class="fas fa-lock-open" style="color:#fbbf24"></i> Unlocked locks',sheet:()=>`<div class="list">${unl.sort((a,b)=>b.at-a.at).map(({l,at})=>li('#'+esc(l.token_id)+' · '+fmt.n(l.amount_human,2)+' '+esc(l.asset_symbol),'unlocked '+fmt.ago(at)+' (E'+l.end_period+') · fixed VP only',fmt.k(l.vp_total_human)+' VP',l.projection&&num(l.projection.potential_vp_gain_pct)>1?'+'+num(l.projection.potential_vp_gain_pct).toFixed(0)+'% if re-set':'','am','fa-lock-open')).join('')}</div><div class="btns"><a class="btn" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">Withdraw or relock on TLA</a></div><div class="sub">An unlocked lock keeps its fixed VP but no boost; boost returns when you relock.</div>`});
+    /* Votion locks unlocked — the vaults you hold vtokens in, and THEIR TLA locks */
+    const vm=votionMine(w); const vUnl=[];vm.forEach(v=>vaultLocks(v.vault).forEach(l=>{const at=lockUnlockedAt(l);if(at!=null)vUnl.push({v,l,at})}));
+    if(vUnl.length)push('need',{need:true,cls:'am',ic:'fa-vault',label:'Votion locks unlocked',value:String(vUnl.length),tone:'am',sheet:()=>`<div class="list">${vUnl.map(({v,l,at})=>li(esc(lstSym(v.lst))+' vault · lock #'+esc(l.token_id),'unlocked '+fmt.ago(at)+' · you hold '+fmt.n(v.share,1)+'% of the vault',fmt.k(l.vp_total_human)+' VP','','am','fa-vault')).join('')}</div><div class="sub">Votion manages the lock; this tells you the vault's VP boost has lapsed until Votion relocks.</div>`});
+    /* NFTs claimable (unstake queue released) · NFT unstaked (security) */
+    const claimable=P.unstakes.filter(u=>new Date(u.release_at)<=Date.now()); const queued=P.unstakes.filter(u=>new Date(u.release_at)>Date.now());
+    if(claimable.length)push('need',{need:true,cls:'gr',ic:'fa-box-open',label:'NFTs claimable',value:String(claimable.length),tone:'gr',sheet:()=>`<div class="list">${claimable.map(u=>li('#'+esc(u.token_id),'released '+fmt.ago(u.release_at)+' · unstaked '+fmt.date(u.unstaked_at),'claim','','gr','fa-box-open',String(u.token_id))).join('')}</div><div class="btns"><a class="btn" href="https://daodao.zone/" target="_blank" rel="noopener">Claim on DAO DAO</a></div>`});
+    const seenUn=new Set(prev?prev.unstakeKeys||[]:[]);
+    const unstakedWin=P.unstakes.filter(u=>inWin(u.unstaked_at)); const newUn=unstakedWin.filter(u=>!seenUn.has(u.token_id+'|'+u.unstaked_at));
+    if(unstakedWin.length)push('need',{need:newUn.length>0,cls:newUn.length?'rd':'am',ic:'fa-shield-halved',label:'NFT unstaked',value:String(unstakedWin.length),tone:newUn.length?'rd':'am',title:'<i class="fas fa-shield-halved" style="color:#f87171"></i> Unstaked from DAODAO',sheet:()=>`<div class="list">${unstakedWin.map(u=>li('#'+esc(u.token_id),(seenUn.has(u.token_id+'|'+u.unstaked_at)?'':'<span class="you">NEW</span> · ')+'unstaked '+fmt.ago(u.unstaked_at),new Date(u.release_at)>Date.now()?'releases in '+fmt.until(u.release_at):'released','', 'rd','fa-shield-halved',String(u.token_id))).join('')}</div><div class="sub" style="color:#fbbf24">If this wasn't you, the 7-day queue is your window to act — the NFT stays in DAODAO custody until it releases.</div><div class="btns"><a class="btn" href="https://daodao.zone/" target="_blank" rel="noopener">Check on DAO DAO</a></div>`});
+    else if(queued.length)push('mine',{cls:'am',ic:'fa-hourglass-half',label:'NFTs in unstake queue',value:String(queued.length),sheet:()=>`<div class="list">${queued.map(u=>li('#'+esc(u.token_id),'unstaked '+fmt.date(u.unstaked_at),'releases in '+fmt.until(u.release_at),'','am','fa-hourglass-half',String(u.token_id))).join('')}</div>`});
+    if(prev&&num(prev.staked)!=null&&P.staked<num(prev.staked))push('need',{need:true,cls:'rd',ic:'fa-shield-halved',label:'DAODAO stake fell',value:fmt.n(prev.staked)+'→'+fmt.n(P.staked),tone:'rd',sheet:()=>`<div class="k2">Your staked count went from <b>${fmt.n(prev.staked)}</b> to <b>${fmt.n(P.staked)}</b> since you last looked (${fmt.ago(prev.t)}). Expected? If not, check your wallet's keys.</div>`});
+    if(prev&&num(prev.nfts)!=null&&P.nftCount<num(prev.nfts))push('need',{need:true,cls:'rd',ic:'fa-shield-halved',label:'NFT count fell',value:fmt.n(prev.nfts)+'→'+fmt.n(P.nftCount),tone:'rd',sheet:()=>`<div class="k2">You hold ${fmt.n(num(prev.nfts)-P.nftCount)} fewer NFT${num(prev.nfts)-P.nftCount>1?'s':''} than at your last look (${fmt.ago(prev.t)}). Sold or sent? The NFTs tab shows where they went.</div>`,go:'nfts'});
+    /* your LPs that went inactive (pool status changed) */
+    const myLpPools=P.lps.map(l=>({l,p:poolById(l.pool_gauge_id),q:pastBy[l.pool_gauge_id]})).filter(x=>x.p);
+    const wentInactive=myLpPools.filter(x=>x.q&&x.q.status==='active'&&x.p.status!=='active'); const wentActive=myLpPools.filter(x=>x.q&&x.q.status!=='active'&&x.p.status==='active');
+    if(wentInactive.length)push('need',{need:true,cls:'rd',ic:'fa-circle-pause',label:'Your LPs gone inactive',value:String(wentInactive.length),tone:'rd',sheet:()=>`<div class="list">${wentInactive.map(x=>li(esc(x.p.name),esc(x.q.status)+' → '+esc(x.p.status)+' · '+pastLabel,fmt.usd(x.l.value_usd||x.l.usd_value||x.l.user_usd,0),'','rd','fa-circle-pause')).join('')}</div><div class="sub">Staked but no longer earning gauge rewards. Move it or unstake.</div>`});
+    if(wentActive.length)push('mine',{cls:'gr',ic:'fa-circle-play',label:'Your LPs gone active',value:String(wentActive.length),tone:'gr',sheet:()=>`<div class="list">${wentActive.map(x=>li(esc(x.p.name),esc(x.q.status)+' → active · '+pastLabel,fmt.usd(x.l.value_usd||x.l.usd_value||x.l.user_usd,0),'','gr','fa-circle-play')).join('')}</div>`});
+    if(P.inactiveLp&&!wentInactive.length)push('need',{need:true,cls:'am',ic:'fa-circle-pause',label:'Inactive LPs',value:String(P.inactiveLp),tone:'am',sheet:()=>`<div class="list">${P.lps.filter(l=>String(l.status||'')&&l.status!=='active').map(l=>li(esc(l.pool_name||'LP'),esc(l.status||''),fmt.usd(l.value_usd||l.usd_value||l.user_usd,0),'','am','fa-circle-pause')).join('')||'<div class="empty">—</div>'}</div>`});
+  }
+  /* proposals: in voting · in veto lock · executed (voting closed in the window) */
+  const want=Pf.dao||'all'; const flt=p=>want==='all'||p.dao===want; const seen=new Set(prev?prev.openKeys:[]);
+  const propsOpen=m.props.filter(p=>propStatus(p)==='open'&&flt(p)); const propsVeto=m.props.filter(p=>propStatus(p)==='veto'&&flt(p));
+  const propsExec=m.props.filter(p=>propStatus(p)==='executed'&&flt(p)&&p.expiration&&inWin(p.expiration.at_time_iso));
+  const propsPassed=m.props.filter(p=>propStatus(p)==='passed'&&flt(p));   /* passed, not yet executed — anyone can execute on DAO DAO */
+  const propList=(L)=>`<div class="list">${L.map(p=>`<div class="li tap" data-prop="${esc(p.dao+'|'+p.id)}"><span class="ic ${propStatus(p)==='open'?'pu':propStatus(p)==='veto'?'am':'gr'}"><i class="fas fa-landmark"></i></span><div class="l"><div class="t">${esc(p.title||'(untitled)')}</div><div class="s">${esc(p.dao)} · #${esc(String(p.id).replace(/^[a-z]/,''))} · ${propStatus(p)==='open'?(seen.has(p.dao+'|'+p.id)?'open':'<span class="you">NEW</span>')+(p.expiration&&p.expiration.at_time_iso?' · closes in '+fmt.until(p.expiration.at_time_iso):''):propStatus(p)==='veto'?'veto timelock'+(p.expiration&&p.expiration.at_time_iso?' · voting closed '+fmt.date(p.expiration.at_time_iso):''):'voting closed '+fmt.date(p.expiration&&p.expiration.at_time_iso)+' · '+esc(p.status||'')}${(p.decodedActions&&p.decodedActions.length)?' · <span style="color:#fbbf24">'+p.decodedActions.length+' action'+(p.decodedActions.length>1?'s':'')+'</span>':' · <span style="color:#34d399">signal</span>'}</div></div>${mineVoted(p,P)===true?'<span class="you">voted</span>':''}</div>`).join('')}</div>`;
+  const wireProps=root=>root.querySelectorAll('[data-prop]').forEach(c=>c.onclick=()=>{const [dao,id]=c.getAttribute('data-prop').split('|');propSheet(dao,id)});
+  if(propsOpen.length)push('need',{need:propsOpen.some(p=>!seen.has(p.dao+'|'+p.id)),cls:'pu',ic:'fa-landmark',label:'Props in voting',value:String(propsOpen.length),tone:'pu',sheet:()=>propList(propsOpen),onopen:wireProps});
+  if(propsVeto.length)push('need',{need:false,cls:'am',ic:'fa-gavel',label:'Props in veto lock',value:String(propsVeto.length),tone:'am',sheet:()=>propList(propsVeto)+'<div class="sub">Passed, waiting out the veto timelock before execution.</div>',onopen:wireProps});
+  if(propsPassed.length)push('need',{need:false,cls:'am',ic:'fa-hourglass-half',label:'Props passed · not executed',value:String(propsPassed.length),tone:'am',sheet:()=>propList(propsPassed)+'<div class="sub">Passed but nobody has pressed Execute on DAO DAO yet.</div>',onopen:wireProps});
+  if(propsExec.length)push('mine',{cls:'gr',ic:'fa-circle-check',label:'Props executed',value:String(propsExec.length),tone:'gr',sheet:()=>propList(propsExec)+'<div class="sub">Counted by voting close inside the window; execution follows the close (the capture carries no separate execution time).</div>',onopen:wireProps});
+
+  /* ---------- YOUR POSITION (window) ---------- */
+  if(P){
+    /* backing added to YOUR unbroken NFTs — the hub compounds; ampLUNA per NFT then vs now, valued today */
+    const bh=((D.backing&&D.backing.rows)||[]); const nowB=bh[bh.length-1]; const thenB=bh.slice().reverse().find(r=>r.date<=dayKey(winStart()))||null;
+    const unbroken=Math.max(0,P.nftCount-P.nftBroken); const ampPx=price('ampLUNA');
+    if(nowB&&thenB&&thenB!==nowB&&unbroken>0){const dAmp=(num(nowB.ampLunaPerNft)||0)-(num(thenB.ampLunaPerNft)||0);const usd=ampPx!=null?dAmp*unbroken*ampPx:null;if(dAmp>0)push('mine',{cls:'gr',ic:'fa-seedling',label:'Backing added · your NFTs',value:usd!=null?fmt.usd(usd):fmt.n(dAmp*unbroken,3)+' ampLUNA',tone:'gr',title:'<i class="fas fa-seedling" style="color:#34d399"></i> Backing added',sheet:()=>`<div class="grid2"><div class="tile"><div class="k">Per NFT</div><div class="v xs">+${fmt.n(dAmp,4)} ampLUNA</div><div class="sub">${thenB.date} → ${nowB.date}</div></div><div class="tile"><div class="k">Your unbroken NFTs</div><div class="v xs">${fmt.n(unbroken)}</div><div class="sub">${P.nftBroken?P.nftBroken+' broken excluded':''}</div></div><div class="tile"><div class="k">Added</div><div class="v xs">${fmt.n(dAmp*unbroken,3)} ampLUNA</div></div><div class="tile"><div class="k">At today's price</div><div class="v xs">${usd!=null?fmt.usd(usd):'ampLUNA unpriced'}</div><div class="sub">${ampPx!=null?'ampLUNA '+fmt.usd(ampPx,4):''}</div></div></div><div class="sub">Backing per NFT ${fmt.n(nowB.ampLunaPerNft,3)} ampLUNA (${fmt.usd(m.backingUsd)}). The hub compounds; backing in ampLUNA only rises.</div>`})}
+    /* your LPs' APR */
+    const myPools=P.lps.map(l=>poolById(l.pool_gauge_id)).filter(Boolean);
+    if(myPools.length){const a=aprAvg(myPools);const a0=aprAvg(myPools.map(p=>pastBy[p.gauge_pool_id]).filter(Boolean));if(a!=null)push('mine',{cls:'cy',ic:'fa-droplet',label:"Your LPs' APR",value:a.toFixed(1)+'%'+(a0!=null&&Math.abs(a-a0)>=0.05?' <span class="dd '+(a>=a0?'up':'dn')+'">'+(a>=a0?'+':'')+(a-a0).toFixed(1)+'</span>':''),sheet:()=>`<div class="list">${P.lps.map(l=>{const p=poolById(l.pool_gauge_id);const q=p&&pastBy[p.gauge_pool_id];const ap=p&&p.rewards&&num(p.rewards.approx_apr_pct),aq=q&&q.rewards&&num(q.rewards.approx_apr_pct);return li(esc(l.pool_name||(p&&p.name)||'LP'),esc(l.dex||(p&&p.dex)||'')+' · '+esc(l.bucket||(p&&p.bucket)||'')+(p&&p.status!=='active'?' · <span style="color:#fbbf24">'+esc(p.status)+'</span>':''),ap!=null?ap.toFixed(1)+'%':'—',aq!=null&&ap!=null?'was '+aq.toFixed(1)+'%':'', 'cy','fa-droplet')}).join('')}</div><div class="sub">Staked-USD-weighted across your positions · ${pastLabel}.</div>`})}
+    /* your NFTs moved (window): delisted · staked · unstaked · transferred · broken — from the transfer ledger + break map */
+    const mine=activity().filter(e=>inWin(e.t)&&e.who.includes(w));
+    const counts={delist:0,stake:0,unstake:0,transfer:0,list:0,sale:0};mine.forEach(e=>{const k=e.kind==='send'||e.kind==='transfer'?'transfer':e.kind;if(k in counts)counts[k]++});
+    const brokenMine=(()=>{const BA=D.brokenAt&&D.brokenAt.entries;const toks=myTokens(w);if(!BA||!toks)return null;return toks.filter(r=>BA[String(r.id)]&&inWin(BA[String(r.id)].broken_at)).map(r=>({id:String(r.id),t:BA[String(r.id)].broken_at}))})();
+    const ledgerEnd=Object.values(D.transfers||{}).flat().filter(Boolean).map(e=>e.timestamp).sort().pop();
+    const mvRow=(k,label,ic,cls)=>counts[k]?{cls,ic,label,value:String(counts[k]),sheet:()=>`<div class="list">${mine.filter(e=>(e.kind==='send'||e.kind==='transfer'?'transfer':e.kind)===k).map(e=>li('#'+esc(e.id),e.text+' · '+fmt.ago(e.t),null,null,'', '',e.id)).join('')}</div><div class="sub">From the on-chain transfer ledger${ledgerEnd?' (runs to '+fmt.date(ledgerEnd)+')':''}, sales ledger and listing history.</div>`,onopen:r=>r.querySelectorAll('[data-nft]').forEach(el=>el.onclick=()=>nftSheet(el.getAttribute('data-nft')))}:null;
+    push('mine',mvRow('sale','Your NFTs sold','fa-cart-shopping','gr'));
+    push('mine',mvRow('list','Your NFTs listed','fa-tag','am'));
+    push('mine',mvRow('delist','Your NFTs delisted','fa-tag','mut'));
+    push('mine',mvRow('stake','Your NFTs staked','fa-lock','pu'));
+    push('mine',mvRow('unstake','Your NFTs unstaked','fa-lock-open','or'));
+    push('mine',mvRow('transfer','Your NFTs transferred','fa-right-left','cy'));
+    if(brokenMine&&brokenMine.length)push('mine',{cls:'rd',ic:'fa-heart-crack',label:'Your NFTs broken',value:String(brokenMine.length),tone:'rd',sheet:()=>`<div class="list">${brokenMine.map(b=>li('#'+esc(b.id),'broken '+fmt.ago(b.t),null,null,'','',b.id)).join('')}</div>`,onopen:r=>r.querySelectorAll('[data-nft]').forEach(el=>el.onclick=()=>nftSheet(el.getAttribute('data-nft')))});
+  }
+
+  /* ---------- TLA (window) ---------- */
+  const act=m.pools.filter(p=>p.status==='active'); const pastAct=pastPools.filter(p=>p.status==='active');
+  const avgApr=aprAvg(act), avgApr0=aprAvg(pastAct);
+  if(avgApr!=null)push('tla',{cls:'cy',ic:'fa-percent',label:'Avg deposit APR',value:avgApr.toFixed(1)+'%'+(avgApr0!=null&&Math.abs(avgApr-avgApr0)>=0.05?' <span class="dd '+(avgApr>=avgApr0?'up':'dn')+'">'+(avgApr>=avgApr0?'+':'')+(avgApr-avgApr0).toFixed(1)+'</span>':''),sheet:()=>`<div class="grid2"><div class="tile"><div class="k">Now</div><div class="v">${avgApr.toFixed(1)}%</div><div class="sub">${act.length} active pools</div></div><div class="tile"><div class="k">Then</div><div class="v">${avgApr0!=null?avgApr0.toFixed(1)+'%':'—'}</div><div class="sub">${pastLabel}</div></div></div><h2>Top APR · $5K+ staked</h2><div class="list">${act.filter(p=>num(p.staked_in_tla_usd)>=5000&&p.rewards&&num(p.rewards.approx_apr_pct)!=null).sort((a,b)=>num(b.rewards.approx_apr_pct)-num(a.rewards.approx_apr_pct)).slice(0,6).map(p=>li(esc(p.name),esc(p.dex||'')+' · '+esc(p.bucket)+' · '+fmt.usd(p.staked_in_tla_usd,0),num(p.rewards.approx_apr_pct).toFixed(1)+'%')).join('')}</div><div class="sub">Weighted by USD staked in TLA. Eris formula per pool (incentives × 0.92, compounded) + trading − take rate.</div>`});
+  /* LPs gone active / inactive across TLA */
+  const flips=m.pools.map(p=>({p,q:pastBy[p.gauge_pool_id]})).filter(x=>x.q&&(x.q.status==='active')!==(x.p.status==='active'));
+  const on=flips.filter(x=>x.p.status==='active'), off=flips.filter(x=>x.p.status!=='active');
+  const flipSheet=L=>`<div class="list">${L.map(x=>li(esc(x.p.name),esc(x.q.status)+' → '+esc(x.p.status)+' · '+esc(x.p.dex||'')+' · '+esc(x.p.bucket),fmt.usd(x.p.staked_in_tla_usd,0),fmt.k(vpOf(x.p))+' VP',x.p.status==='active'?'gr':'am',x.p.status==='active'?'fa-circle-play':'fa-circle-pause')).join('')}</div><div class="sub">${pastLabel}. Active = voted above the bucket threshold this epoch.</div>`;
+  if(on.length)push('tla',{cls:'gr',ic:'fa-circle-play',label:'LPs gone active',value:String(on.length),tone:'gr',sheet:()=>flipSheet(on)});
+  if(off.length)push('tla',{cls:'am',ic:'fa-circle-pause',label:'LPs gone inactive',value:String(off.length),tone:'am',sheet:()=>flipSheet(off)});
+  /* big liquidity / APR shifts: |Δ staked| ≥ 20% and ≥ $2,000, or |Δ APR| ≥ 10 pp on a pool with ≥ $5K */
+  const shifts=m.pools.map(p=>{const q=pastBy[p.gauge_pool_id];if(!q)return null;const s1=num(p.staked_in_tla_usd)||0,s0=num(q.staked_in_tla_usd)||0;const a1=p.rewards&&num(p.rewards.approx_apr_pct),a0=q.rewards&&num(q.rewards.approx_apr_pct);const ds=s1-s0,dp=s0?ds/s0*100:(s1?Infinity:0);const da=a1!=null&&a0!=null?a1-a0:null;const big=(Math.abs(ds)>=2000&&Math.abs(dp)>=20)||(da!=null&&Math.abs(da)>=10&&Math.max(s0,s1)>=5000);return big?{p,s0,s1,ds,dp,a0,a1,da}:null}).filter(Boolean).sort((a,b)=>Math.abs(b.ds)-Math.abs(a.ds));
+  if(shifts.length)push('tla',{cls:'or',ic:'fa-bolt',label:'Big TLA shifts',value:String(shifts.length),tone:'or',title:'<i class="fas fa-bolt" style="color:#fb923c"></i> Big liquidity / APR shifts',sheet:()=>`<div class="list">${shifts.map(x=>li(esc(x.p.name),esc(x.p.dex||'')+' · '+esc(x.p.bucket)+(x.da!=null&&Math.abs(x.da)>=10?' · APR '+x.a0.toFixed(0)+'% → '+x.a1.toFixed(0)+'%':''),fmt.usd(x.s1,0),(x.ds>=0?'▲ ':'▼ ')+fmt.usd(Math.abs(x.ds),0)+(isFinite(x.dp)?' · '+fmt.pct(x.dp,0):''),x.ds>=0?'gr':'rd','fa-bolt')).join('')}</div><div class="sub">Staked in TLA ${pastLabel}. Big = ±20% and ±$2K, or ±10 pp APR on a $5K+ pool.</div>`});
+  /* bribes added in TLA (live event stream — not the per-epoch harvest) */
+  const bev=bribeEventsInWin(); const bUsd=bev.reduce((a,e)=>a+e.usd,0), bUnp=bev.reduce((a,e)=>a+e.unpriced,0);
+  if(bev.length)push('tla',{cls:'gr',ic:'fa-coins',label:'Bribes added',value:(bUsd?fmt.usd(bUsd,0):'')+(bUnp?(bUsd?' ':'')+'+'+bUnp+' unpriced':'')+(!bUsd&&!bUnp?String(bev.length):''),tone:'gr',title:'<i class="fas fa-coins" style="color:#34d399"></i> Bribes added · '+bev.length,sheet:()=>`<div class="list">${bev.slice(0,40).map(e=>li(esc(e.pool||'pool not named in the event'),labelAddr(e.briber)+' · '+esc(e.epochs)+' · '+fmt.ago(e.t),e.usd?fmt.usd(e.usd,0):(e.unpriced?'unpriced':'—'),esc(e.parts.map(p=>fmt.n(p.amt,p.amt<10?2:0)+' '+p.sym).join(' + ')),'gr','fa-coins')).join('')}${bev.length>40?'<div class="sub">+'+(bev.length-40)+' more</div>':''}</div><div class="sub">From the incentive-manager event stream (${(D.bribeEv&&Object.keys(D.bribeEv).length)||0} month file${Object.keys(D.bribeEv||{}).length===1?'':'s'}), so mid-epoch bribes show here as they land; the vote optimizer still values bribes from the per-epoch harvest.</div>`});
+  /* TLA staked liquidity Δ */
+  const tvl0=past.tla&&past.tla.totals&&num(past.tla.totals.tla_tvl_usd);
+  if(m.tvl!=null&&tvl0!=null&&Math.abs(m.tvl-tvl0)>=1)push('tla',{cls:'cy',ic:'fa-water',label:'TLA liquidity',value:fmt.usd(m.tvl,0)+' '+delta(m.tvl,tvl0,'usd'),sheet:()=>`<div class="grid2"><div class="tile"><div class="k">Now</div><div class="v xs">${fmt.usd(m.tvl,0)}</div><div class="sub">${m.active} active pools</div></div><div class="tile"><div class="k">Then</div><div class="v xs">${fmt.usd(tvl0,0)}</div><div class="sub">${pastLabel}</div></div></div><div class="sub">Staked in TLA across all pools, at each capture's prices — LUNA moves this as much as flows do.</div>`,go:'tla'});
+
+  /* ---------- MARKET (window) ---------- */
+  const fh=(D.floor&&D.floor.rows)||[]; const fNow=fh[fh.length-1]; const fThen=fh.slice().reverse().find(r=>r.date<=dayKey(winStart()));
+  const floor0=fThen&&fThen.per_tier&&fThen.per_tier.base&&num(fThen.per_tier.base.listing_floor_usd);
+  if(m.floor!=null)push('market',{cls:'cy',ic:'fa-tag',label:'Floor',value:fmt.usd(m.floor,0)+(floor0!=null&&fThen!==fNow?' '+delta(m.floor,floor0,'usd'):''),title:'<i class="fas fa-tag" style="color:#67e8f9"></i> Unbroken floor',sheet:()=>`<div class="hero" style="margin-bottom:.6em"><div class="lab">LISTING FLOOR · UNBROKEN</div><div class="big">${fmt.usd(m.floor)}</div><div class="row">${floor0!=null?delta(m.floor,floor0,'usd'):''}<span class="pill mut">${fmt.n(m.listedBase)} listed</span><span class="pill mut">backing ${fmt.usd(m.backingUsd)}</span></div>${spark(fh.slice(-winDays()-1).map(r=>r.per_tier&&r.per_tier.base&&r.per_tier.base.listing_floor_usd),{h:48,fill:true,cls:'gr'})}<div class="sub">${fThen?'then = '+fThen.date+' · ':''}now = ${fNow?fNow.date:'—'} · sales floor ${fmt.usd(m.floorSales)}</div></div><div class="grid3"><div class="tile"><div class="k">Phoenix</div><div class="v xs">${fmt.usd(m.phxFloor,0)}</div><div class="sub">${fmt.n(m.phxListed)} listed</div></div><div class="tile"><div class="k">Broken</div><div class="v xs">${fNow&&fNow.per_tier&&fNow.per_tier.broken?fmt.usd(fNow.per_tier.broken.listing_floor_usd,0):'—'}</div></div><div class="tile"><div class="k">Days on mkt</div><div class="v xs">${m.dom!=null?m.dom.toFixed(0):'—'}</div></div></div>`,go:'nfts'});
+  /* new listings (first seen in window) · delisted (listing history) */
+  const lfs=Object.entries((D.lfs&&D.lfs.entries)||{}).map(([k,v])=>({key:k,venue:k.split(':')[0],id:String(v.token_id),t:v.first_seen_at})).filter(x=>inWin(x.t)).sort((a,b)=>new Date(b.t)-new Date(a.t));
+  if(lfs.length)push('market',{cls:'am',ic:'fa-tags',label:'New listings',value:String(lfs.length),tone:'am',sheet:()=>`<div class="list">${lfs.map(x=>{const r=m.listedRows.find(y=>String(y.id)===x.id);return li('#'+esc(x.id)+(r&&r.broken?' <span class="pill rd" style="font-size:.66em">broken</span>':tierOf(x.id)==='phoenix'?' <span class="pill am" style="font-size:.66em">phoenix</span>':''),esc(x.venue)+' · '+fmt.ago(x.t),r?fmt.usd(r.usd,0):'—',r&&r.rank?'rank #'+r.rank:'','','',x.id)}).join('')}</div><div class="sub">Listings still live, by the time they were first seen on the venue.</div>`,onopen:r=>r.querySelectorAll('[data-nft]').forEach(el=>el.onclick=()=>nftSheet(el.getAttribute('data-nft')))});
+  const delisted=((D.lhist&&D.lhist.records)||[]).flatMap(r=>(r.segments||[]).filter(sg=>sg.to_ts&&sg.end_reason==='delist'&&inWin(sg.to_ts)).map(sg=>({id:String(r.token_id),venue:r.marketplace,t:sg.to_ts,px:num(sg.price)/1e6,den:sg.denom}))).sort((a,b)=>new Date(b.t)-new Date(a.t));
+  if(delisted.length)push('market',{cls:'mut',ic:'fa-tag',label:'Delisted',value:String(delisted.length),sheet:()=>`<div class="list">${delisted.map(x=>li('#'+esc(x.id),esc(x.venue)+' · '+fmt.ago(x.t),fmt.n(x.px,0)+' '+(/bluna/i.test(x.den)?'bLUNA':/uluna/.test(x.den)?'LUNA':/solid/i.test(x.den)?'SOLID':''),'','','',x.id)).join('')}</div>`,onopen:r=>r.querySelectorAll('[data-nft]').forEach(el=>el.onclick=()=>nftSheet(el.getAttribute('data-nft')))});
+  /* sales in window */
+  const sw=m.salesSorted.filter(s=>inWin(s.timestamp)); const swUsd=sw.reduce((a,s)=>a+(num(s.notional_usd)||0),0);
+  if(sw.length)push('market',{cls:'gr',ic:'fa-cart-shopping',label:'Sales',value:String(sw.length)+(swUsd?' · '+fmt.usd(swUsd,0):''),tone:'gr',sheet:()=>`<div class="list">${sw.map(s=>li('#'+esc(s.token_id),esc(s.marketplace||'BBL')+' · '+labelAddr(s.seller)+' → '+labelAddr(s.buyer)+' · '+fmt.ago(s.timestamp),num(s.notional_usd)!=null?fmt.usd(num(s.notional_usd),num(s.notional_usd)<10?2:0):'—',fmt.n(s.amount,s.amount<10?2:0)+' '+esc(s.denom_symbol||''),'','',String(s.token_id))).join('')}</div>`,onopen:r=>r.querySelectorAll('[data-nft]').forEach(el=>el.onclick=()=>nftSheet(el.getAttribute('data-nft')))});
+  /* backing per NFT Δ (USD) */
+  const back0=fThen&&num(fThen.backing_per_nft_usd);
+  if(m.backingUsd!=null&&back0!=null&&fThen!==fNow&&Math.abs(m.backingUsd-back0)>=0.005)push('market',{cls:'pu',ic:'fa-vault',label:'Backing / NFT',value:fmt.usd(m.backingUsd)+' '+delta(m.backingUsd,back0,'usd'),sheet:()=>`<div class="grid2"><div class="tile"><div class="k">Now</div><div class="v xs">${fmt.usd(m.backingUsd)}</div><div class="sub">${fmt.n(m.backingAmp,2)} ampLUNA</div></div><div class="tile"><div class="k">Then</div><div class="v xs">${fmt.usd(back0)}</div><div class="sub">${fThen.date}</div></div></div>${spark(m.backingSeries,{h:44,fill:true,cls:'gr'})}<div class="sub">USD backing moves with LUNA; ampLUNA backing only rises.</div>`});
+  /* LUNA */
+  const lunaTok=D.nap&&D.nap.token_prices&&D.nap.token_prices.LUNA; const ap=lunaTok&&lunaTok.prices&&lunaTok.prices.astroport||{};
+  const lunaChg=(()=>{if(win()==='24h')return[num(ap.price_change_24h_pct),'24h'];if(win()==='7d')return[num(ap.price_change_7d_pct),'7d'];const dl=(D.lunaDaily&&D.lunaDaily.daily)||[];const k=dayKey(winStart());const row=Array.isArray(dl)?dl.slice().reverse().find(r=>(r.date||r.d)<=k):null;const v0=row&&num(row.usd||row.price_usd||row.v||row.value);return v0&&m.luna?[(m.luna/v0-1)*100,'14d']:[num(ap.price_change_7d_pct),'7d']})();
+  if(m.luna!=null)push('market',{cls:'am',ic:'fa-moon',label:'LUNA',value:fmt.usd(m.luna,4)+(lunaChg[0]!=null?' '+chg(lunaChg[0]):''),sheet:()=>`<div class="hero" style="margin-bottom:.6em"><div class="lab">LUNA · ASTROPORT</div><div class="big">${fmt.usd(m.luna,4)}</div><div class="row">${chg(num(ap.price_change_24h_pct))}<span class="sub" style="margin:0">24h</span> ${chg(num(ap.price_change_7d_pct))}<span class="sub" style="margin:0">7d</span>${lunaChg[1]==='14d'?' '+chg(lunaChg[0])+'<span class="sub" style="margin:0">14d</span>':''}</div>${spark(m.lunaSeries,{h:48,fill:true})}<div class="sub">7-day series, 4-hourly · prices ${fmt.ago(D.nap&&D.nap.capturedAt)}</div></div>`});
+  /* DAO value Δ */
+  const dv0=past.dash&&past.dash.dashboard&&past.dash.dashboard.total_value&&num(past.dash.dashboard.total_value.total_usd);
+  if(m.daoValue!=null&&dv0!=null&&Math.abs(m.daoValue-dv0)>=1)push('market',{cls:'pu',ic:'fa-building-columns',label:'DAO value',value:fmt.usd(m.daoValue,0)+' '+delta(m.daoValue,dv0,'usd'),sheet:()=>`<div class="grid2"><div class="tile"><div class="k">Now</div><div class="v xs">${fmt.usd(m.daoValue,0)}</div><div class="sub">treasury ${fmt.usd(m.treasury,0)}</div></div><div class="tile"><div class="k">Then</div><div class="v xs">${fmt.usd(dv0,0)}</div><div class="sub">${past.dashKey||''}</div></div></div><div class="sub">Market movement + organic growth + DAO actions, net. The DAO page splits the three.</div>`,go:'dao'});
+  /* biggest token moves */
+  let movers=[];try{const tp=D.nap.token_prices;const key=win()==='24h'?'price_change_24h_pct':'price_change_7d_pct';movers=Object.values(tp).map(t=>({s:t.canonical,p:num(t.final_price_usd),c:num(t.prices&&t.prices.astroport&&t.prices.astroport[key]),sr:(t.prices&&t.prices.astroport&&t.prices.astroport.series||[]).map(x=>x.v)})).filter(t=>t.c!=null&&t.p!=null).sort((a,b)=>Math.abs(b.c)-Math.abs(a.c))}catch(e){}
+  if(movers.length){const top=movers.slice(0,3);const rowT=t=>`<div class="li"><div class="l"><div class="t">${esc(t.s)}</div><div class="s mono">${fmt.usd(t.p,t.p<0.01?6:t.p<1?4:2)}</div></div><div class="sp">${spark(t.sr,{w:64,h:24})}</div><div class="r">${chg(t.c)}</div></div>`;push('market',{cls:'or',ic:'fa-arrow-trend-up',label:'Biggest token moves',value:top.map(t=>esc(t.s)+' '+chg(t.c)).join(' '),title:'<i class="fas fa-coins" style="color:#fbbf24"></i> Token moves · '+(win()==='24h'?'24h':'7d'),sheet:()=>`<div class="list">${movers.map(rowT).join('')}</div><div class="sub">Astroport prices; ${win()==='14d'?'14-day moves are not in the price product — showing 7d.':''}</div>`})}
+  return R;
+}
+function vToday(){
+  const m=model(), P=me(), prev=ls(SNAP), w=wallet();
+  const R=todayRows(); const all=[...R.need,...R.mine,...R.tla,...R.market]; const needN=R.need.filter(r=>r.need).length;
+  const sec=(title,rows,extra)=>rows.length?`<div class="sec"><span>${title}</span>${extra||''}</div><div class="lgs">${ledger(rows)}</div>`:'';
+  const head=`<div class="wrow"><div class="seg win" id="win">${Object.keys(WINS).map(k=>`<button type="button" data-win="${k}" class="${win()===k?'on':''}">${k}</button>`).join('')}</div>${P?`<div class="who">${esc(P.name||'…'+P.w.slice(-4))}<div class="s mono">${fmt.usd(P.total,0)} · ${fmt.k(P.vp)} VP${P.nftCount?' · '+P.nftCount+' NFT'+(P.nftCount>1?'s':''):''}</div></div>`:`<button class="who tap" type="button" data-pick>Pick your wallet<div class="s">to see what needs you</div></button>`}</div>`;
+  $('today').innerHTML=head+
+    sec('Needs you',R.need,`<span class="pill ${needN?(R.need.some(r=>r.tone==='rd')?'rd':'am'):'mut'}">${R.need.length}</span>`)+
+    (P&&!R.need.length?`<div class="lg quiet"><span class="ic gr"><i class="fas fa-circle-check"></i></span><div class="t">Nothing needs you</div><div class="v">${win()}</div></div>`:'')+
+    sec('Your position',R.mine)+
+    sec('TLA',R.tla)+
+    sec('Market',R.market)+
+    (all.length?'':`<div class="empty"><i class="fas fa-wind"></i>Nothing moved in the last ${winLabel()}.</div>`)+
+    `<div class="btns" style="justify-content:center;margin-top:.9em"><button class="btn g" id="seen" type="button"><i class="fas fa-check"></i> Mark all as seen</button></div>`+
+    `<div class="dev">data ${fmt.ago(m.at)}${D._failed&&D._failed.length?' · could not load: '+D._failed.join(', '):''} · <a href="index.html" style="color:#67e8f9">full site</a></div>`;
+  /* the ledger() indexes are per section, so wire each section separately */
+  const secs=$('today').querySelectorAll('.lgs'); const groups=[R.need,R.mine,R.tla,R.market].filter(g=>g.length); secs.forEach((el,i)=>wireLedger(el,groups[i]||[]));
+  $('today').querySelectorAll('[data-win]').forEach(b=>b.onclick=async()=>{setPrefs({win:b.getAttribute('data-win')});$('today').querySelectorAll('[data-win]').forEach(x=>x.classList.toggle('on',x===b));await loadWindow();vToday()});
+  const pk=$('today').querySelector('[data-pick]');if(pk)pk.onclick=openPicker;
+  $('seen').onclick=()=>{ls(SNAP,snapshotOf(P,m));toast('Marked as seen');vToday()};
+  badge(needN);
+}
+function badge(n){if(n==null){try{n=todayRows().need.filter(r=>r.need).length}catch(e){n=0}}const b=document.querySelector('.tab[data-v="today"] b.n');if(b){b.textContent=n>9?'9+':n;b.hidden=!n}try{if(navigator.setAppBadge){n?navigator.setAppBadge(n):navigator.clearAppBadge&&navigator.clearAppBadge()}}catch(e){}}
+
+/* ================= v2 · NFTs — how NFTs moved, per collection ================= */
+const COLS=[['adao','aDAO'],['pixel','Pixel Lions'],['locks','TLA Locks']];
+function vNfts(){
+  const m=model(), s=D.summary||{}, P=me(), w=wallet(); const col=prefs().col||'adao';
+  const head=`<div class="wrow"><div class="seg win" id="col">${COLS.map(([k,l])=>`<button type="button" data-col="${k}" class="${col===k?'on':''}">${l}</button>`).join('')}</div><div class="seg win sm">${Object.keys(WINS).map(k=>`<button type="button" data-win="${k}" class="${win()===k?'on':''}">${k}</button>`).join('')}</div></div>`;
+  let body='';
+  if(col!=='adao'){
+    body=`<div class="empty"><i class="fas fa-clock-rotate-left"></i>${col==='pixel'?'Pixel Lions':'TLA Locks'} activity isn't captured yet.<div class="sub">The transfer / sale / stake ledger exists for aDAO only; the ${col==='pixel'?'Pixel Lions':'TLA Locks'} stream is queued (spec item 6).</div></div>`+
+      (col==='pixel'?`<div class="btns" style="justify-content:center"><a class="btn g" href="https://daodao.zone/" target="_blank" rel="noopener">Pixel Lions on DAO DAO</a></div>`:`<div class="btns" style="justify-content:center"><a class="btn g" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">TLA locks</a></div>`);
+  } else {
+    const ev=activity().filter(e=>inWin(e.t));
+    const stakers=s.daodao_stakers||[]; const stakeOf=a=>stakers.find(x=>x.address===a);
+    const prevSale=(sale)=>{const all=m.sales.filter(x=>String(x.token_id)===String(sale.token_id)&&new Date(x.timestamp)<new Date(sale.timestamp)).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));return all[0]||null};
+    /* sales: token + USD, who → who, Δ vs that token's previous sale */
+    const sales=m.salesSorted.filter(x=>inWin(x.timestamp)).map(x=>{const pv=prevSale(x);const px=num(x.notional_usd),p0=pv&&num(pv.notional_usd);return{x,pv,px,p0,d:px!=null&&p0?(px/p0-1)*100:null}});
+    /* transfers: wallet → wallet only (stakes / listings are their own sections) */
+    const xfers=ev.filter(e=>e.kind==='transfer'||e.kind==='send');
+    /* stake changes: unstaked (queue, countdown) · claimable · staked (new total, % of DAO VP) */
+    const claims=((D.claims&&D.claims.entries)||[]).filter(u=>inWin(u.unstaked_at)).sort((a,b)=>new Date(b.unstaked_at)-new Date(a.unstaked_at));
+    const staked=ev.filter(e=>e.kind==='stake'); const unstakedX=ev.filter(e=>e.kind==='unstake');
+    /* listings: new (first seen) · removed · price changes (listing history segments) */
+    const newL=Object.entries((D.lfs&&D.lfs.entries)||{}).map(([k,v])=>({venue:k.split(':')[0],id:String(v.token_id),t:v.first_seen_at})).filter(x=>inWin(x.t)).sort((a,b)=>new Date(b.t)-new Date(a.t));
+    const remL=((D.lhist&&D.lhist.records)||[]).flatMap(r=>(r.segments||[]).filter(sg=>sg.to_ts&&sg.end_reason==='delist'&&inWin(sg.to_ts)).map(sg=>({id:String(r.token_id),venue:r.marketplace,t:sg.to_ts,px:num(sg.price)/1e6,den:sg.denom,seller:r.seller}))).sort((a,b)=>new Date(b.t)-new Date(a.t));
+    const chgL=((D.lhist&&D.lhist.records)||[]).flatMap(r=>(r.segments||[]).slice(1).filter(sg=>inWin(sg.from_ts)).map((sg,i)=>({id:String(r.token_id),venue:r.marketplace,t:sg.from_ts,px:num(sg.price)/1e6,px0:num(r.segments[r.segments.indexOf(sg)-1].price)/1e6,den:sg.denom}))).sort((a,b)=>new Date(b.t)-new Date(a.t));
+    /* broken in window */
+    const BA=(D.brokenAt&&D.brokenAt.entries)||{}; const broken=Object.values(BA).filter(b=>inWin(b.broken_at)).sort((a,b)=>new Date(b.broken_at)-new Date(a.broken_at));
+    const den=d=>/bluna/i.test(d)?'bLUNA':/uluna/.test(d)?'LUNA':/solid/i.test(d)?'SOLID':/ampluna/i.test(d)?'ampLUNA':'';
+    const youTag=a=>w&&a===w?' <span class="you">you</span>':'';
+    const section=(title,items,render,n=5)=>{if(!items.length)return'';const id='s'+Math.random().toString(36).slice(2,7);return`<div class="sec"><span>${title}</span><span class="pill mut">${items.length}</span></div><div class="list" id="${id}">${items.slice(0,n).map(render).join('')}${items.length>n?`<button class="btn g w" type="button" data-more="${id}">Show all ${items.length}</button>`:''}</div>`+(items.length>n?`<template id="${id}-t">${items.map(render).join('')}</template>`:'')};
+    const nftLi=(id,t,s_,r,rs)=>`<div class="li tap" data-nft="${esc(id)}"><img src="${img(id)}" alt="" loading="lazy"><div class="l"><div class="t">#${esc(id)}${t}</div><div class="s">${s_}</div></div>${r!=null?`<div class="r">${r}${rs?`<div class="s">${rs}</div>`:''}</div>`:''}</div>`;
+    body=
+      section('Sales',sales,({x,pv,px,p0,d})=>nftLi(x.token_id,tierOf(x.token_id)==='broken'?' <span class="pill rd" style="font-size:.66em">broken</span>':tierOf(x.token_id)==='phoenix'?' <span class="pill am" style="font-size:.66em">phoenix</span>':'',labelAddr(x.seller)+youTag(x.seller)+' → '+labelAddr(x.buyer)+youTag(x.buyer)+' · '+esc(x.marketplace||'BBL')+' · '+fmt.ago(x.timestamp),px!=null?fmt.usd(px,px<10?2:0):'—',fmt.n(x.amount,x.amount<10?2:0)+' '+esc(x.denom_symbol||'')+(d!=null?' · <span class="dd '+(d>=0?'up':'dn')+'">'+fmt.pct(d,0)+' vs prior</span>':pv?'':' · first sale')))+
+      section('Transfers',xfers,e=>nftLi(e.id,youTag(e.who[0])||youTag(e.who[1]),e.text+' · '+fmt.ago(e.t),null))+
+      section('Stake changes',[...claims.map(u=>({k:'unstake',u})),...staked.map(e=>({k:'stake',e}))].sort((a,b)=>new Date(b.u?b.u.unstaked_at:b.e.t)-new Date(a.u?a.u.unstaked_at:a.e.t)),o=>o.k==='unstake'?nftLi(o.u.token_id,youTag(o.u.address),'unstaked by '+labelAddr(o.u.address)+' · '+fmt.ago(o.u.unstaked_at),new Date(o.u.release_at)>Date.now()?'<span style="color:#fbbf24">'+fmt.until(o.u.release_at)+'</span>':'<span style="color:#34d399">claimable</span>',new Date(o.u.release_at)>Date.now()?'to unlock':'released'):(()=>{const st=stakeOf(o.e.who[0]);return nftLi(o.e.id,youTag(o.e.who[0]),'staked by '+labelAddr(o.e.who[0])+' · '+fmt.ago(o.e.t),st?fmt.n(st.count)+' staked':'',st&&st.voting_power_pct!=null?st.voting_power_pct.toFixed(1)+'% of DAO VP':'')})())+
+      section('Listings',[...newL.map(x=>({k:'new',x})),...remL.map(x=>({k:'rem',x})),...chgL.map(x=>({k:'chg',x}))].sort((a,b)=>new Date(b.x.t)-new Date(a.x.t)),o=>{const r=m.listedRows.find(y=>String(y.id)===o.x.id);return nftLi(o.x.id,o.k==='new'?' <span class="pill am" style="font-size:.66em">new</span>':o.k==='rem'?' <span class="pill mut" style="font-size:.66em">removed</span>':' <span class="pill cy" style="font-size:.66em">price</span>',esc(o.x.venue)+(o.x.seller?' · '+labelAddr(o.x.seller)+youTag(o.x.seller):'')+' · '+fmt.ago(o.x.t),o.k==='new'?(r?fmt.usd(r.usd,0):'—'):o.k==='rem'?fmt.n(o.x.px,0)+' '+den(o.x.den):fmt.n(o.x.px,0)+' '+den(o.x.den),o.k==='chg'?'was '+fmt.n(o.x.px0,0):(r&&r.rank?'rank #'+r.rank:''))})+
+      section('Broken',broken,b=>nftLi(b.token_id,'','broken '+fmt.ago(b.broken_at),null))+
+      ((sales.length||xfers.length||claims.length||staked.length||newL.length||remL.length||broken.length)?'':`<div class="empty"><i class="fas fa-wind"></i>No aDAO movement in the last ${winLabel()}.</div>`)+
+      (()=>{const end=Object.values(D.transfers||{}).flat().filter(Boolean).map(e=>e.timestamp).sort().pop();return end&&Date.now()-new Date(end)>36*36e5?`<div class="sub" style="margin:.5em .3em 0;color:#fbbf24">The on-chain transfer ledger's last record is ${fmt.date(end)} — the 15-minute walk is live and has recorded no NFT-contract transfer since. Sales, listings and unstake queues come from their own live products.</div>`:''})()+
+      /* your NFTs by rank — hydrated from nfts.json on demand */
+      (w?`<div class="sec"><span>Your NFTs</span>${P&&P.nftCount?`<span class="pill mut">${P.nftCount}</span>`:''}</div><div id="mine-nfts">${NFTS?myNftsHtml(w):`<button class="btn g w" type="button" id="load-mine"><i class="fas fa-images"></i> Load your NFTs by rank</button>`}</div>`:'')+
+      `<div class="btns"><a class="btn g" href="nft-explorer-index.html"><i class="fas fa-images"></i> Explorer</a><a class="btn g" href="nft-explorer-index.html?view=analytics">Analytics</a><a class="btn g" href="https://app.backbonelabs.io/nfts/marketplace/collections/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9" target="_blank" rel="noopener">BBL <i class="fas fa-arrow-up-right-from-square"></i></a></div>`+
+      `<div class="dev">floor ${fmt.usd(m.floor)} · backing ${fmt.usd(m.backingUsd)} · ${fmt.n(m.listed)} listed · inventory ${fmt.ago(s.capturedAt)}</div>`;
+  }
+  $('nfts').innerHTML=head+body;
+  $('nfts').querySelectorAll('[data-col]').forEach(b=>b.onclick=()=>{setPrefs({col:b.getAttribute('data-col')});vNfts()});
+  $('nfts').querySelectorAll('[data-win]').forEach(b=>b.onclick=async()=>{setPrefs({win:b.getAttribute('data-win')});await loadWindow();vNfts()});
+  $('nfts').querySelectorAll('[data-nft]').forEach(el=>el.onclick=()=>nftSheet(el.getAttribute('data-nft')));
+  $('nfts').querySelectorAll('[data-more]').forEach(b=>b.onclick=()=>{const id=b.getAttribute('data-more');const t=document.getElementById(id+'-t');const box=document.getElementById(id);if(t&&box){box.innerHTML=t.innerHTML;box.querySelectorAll('[data-nft]').forEach(el=>el.onclick=()=>nftSheet(el.getAttribute('data-nft')))}});
+  const lm=$('load-mine');if(lm)lm.onclick=async()=>{lm.innerHTML='<i class="fas fa-spinner fa-spin"></i> loading 7 MB…';try{await loadNfts();$('mine-nfts').innerHTML=myNftsHtml(w);wireMine()}catch(e){lm.innerHTML='Could not load nfts.json — try again'}};
+  function wireMine(){const box=$('mine-nfts');if(!box)return;box.querySelectorAll('[data-nft]').forEach(el=>el.onclick=()=>nftSheet(el.getAttribute('data-nft')));const mb=box.querySelector('[data-more-mine]');if(mb)mb.onclick=()=>{box.innerHTML=myNftsHtml(w,999);wireMine()}}
+  wireMine();
+}
+function myNftsHtml(w,n=3){
+  const B=D.bundle;const rankOf=id=>{const r=B&&B.rows.find(x=>String(x[0])===String(id));return r?(num(r[9])??num(r[7])??null):null};   /* BBL rank (Warlock = rank oracle); intended rank as fallback */
+  const toks=(myTokens(w)||[]).map(r=>Object.assign({},r,{_rank:rankOf(r.id)})).sort((a,b)=>(a._rank??1e9)-(b._rank??1e9));
+  if(!toks.length)return'<div class="empty"><i class="fas fa-images"></i>No aDAO NFTs held by this wallet (staked ones count as yours via custody).</div>';
+  const where=r=>r.daodao_staked?'staked · DAODAO':r.enterprise_staked?'staked · Enterprise':r.bbl_listed?'listed · BBL':r.atrium_listed?'listed · Atrium':r.boost_listed?'listed · Boost':r.daodao_pending_claim?'unstake queue':'in wallet';
+  const m=model();
+  return`<div class="list">${toks.slice(0,n).map(r=>{const lr=m.listedRows.find(y=>String(y.id)===String(r.id));return`<div class="li tap" data-nft="${esc(r.id)}"><img src="${img(r.id)}" alt="" loading="lazy"><div class="l"><div class="t">#${esc(r.id)}${r.broken?' <span class="pill rd" style="font-size:.66em">broken</span>':tierOf(r.id)==='phoenix'?' <span class="pill am" style="font-size:.66em">phoenix</span>':''}</div><div class="s">${where(r)}${lr?' · '+fmt.usd(lr.usd,0):''}</div></div><div class="r">${r._rank!=null?'#'+fmt.n(r._rank):'—'}<div class="s">rank</div></div></div>`}).join('')}${toks.length>n?`<button class="btn g w" type="button" data-more-mine>All ${toks.length}, by rank</button>`:''}</div>`;
+}
+
+/* ================= v2 · TLA — your position · vote optimizer · pools ================= */
+function vTla(){
+  const m=model(), P=me(), Pf=prefs();
+  const pools=m.pools.slice().sort((a,b)=>(num(b.staked_in_tla_usd)||0)-(num(a.staked_in_tla_usd)||0));
+  const byApr=m.pools.filter(p=>p.status==='active'&&p.rewards&&num(p.rewards.approx_apr_pct)!=null&&num(p.staked_in_tla_usd)>=5000).sort((a,b)=>num(b.rewards.approx_apr_pct)-num(a.rewards.approx_apr_pct)).slice(0,5);
+  const lsts=['ampLUNA','bLUNA','arbLUNA','zluna'].map(s=>({s,p:price(s),sr:series(s)})).filter(x=>x.p!=null);
+  let mineHtml='';
+  if(P){
+    const parts=[['Locks',P.lockUsd,'#22d3ee'],['LPs',P.lpUsd,'#34d399'],['NFT backing',P.nftBacking,'#c084fc'],['Wallet',P.balUsd,'#fbbf24'],['Claimable',P.claimable,'#fb923c']].filter(p=>p[1]>0); const tot=parts.reduce((a,p)=>a+p[1],0)||1; const share=P.vp&&m.totalVp?P.vp/m.totalVp*100:null;
+    const {yourVoting}=gaugeModel(m,P,Pf);
+    mineHtml=`<div class="hero"><div class="lab">YOUR POSITION · ${esc(P.name||fmt.addr(P.w))}</div><div class="big">${fmt.usd(P.total,0)}</div><div class="alloc">${parts.map(p=>`<i style="width:${(p[1]/tot*100).toFixed(1)}%;background:${p[2]}"></i>`).join('')}</div><div class="legend">${parts.map(p=>`<span><b style="background:${p[2]}"></b>${p[0]} ${fmt.usd(p[1],0)}</span>`).join('')}</div><div class="sub">${fmt.k(P.vp)} VP${share!=null?' · '+share.toFixed(2)+'% of TLA':''}${P.rank?' · rank #'+P.rank:''}${P.lockUnpriced?' · '+P.lockUnpriced+' lock'+(P.lockUnpriced>1?'s':'')+' unpriced':''}</div></div>`+
+      (P.locks.length?`<div class="sec"><span>Locks</span><span class="pill mut">${P.locks.length} · ${fmt.usd(P.lockUsd,0)}</span></div><div class="list">${P.locks.slice().sort((a,b)=>(num(b.vp_total_human)||0)-(num(a.vp_total_human)||0)).map(l=>{const p=price(l.asset_symbol);const usd=p!=null?p*(num(l.amount_human)||0):null;const unlAt=lockUnlockedAt(l);const unl=l.is_auto_max_locked?'<span class="pill gr">auto-max</span>':l.end==='permanent'?'<span class="pill gr">permanent</span>':unlAt!=null?'<span class="pill am">unlocked</span>':num(l.weeks_to_unlock)!=null?`<span class="pill ${num(l.weeks_to_unlock)<=4?'am':'mut'}">${fmt.n(l.weeks_to_unlock)}w</span>`:'';return`<div class="li tap" data-lock="${l.token_id}"><span class="ic cy"><i class="fas fa-lock"></i></span><div class="l"><div class="t">#${esc(l.token_id)} · ${fmt.n(l.amount_human,2)} ${esc(l.asset_symbol)}</div><div class="s">${unl} <span style="margin-left:.3em">×${l.coefficient||'—'}</span></div></div><div class="r">${fmt.k(l.vp_total_human)} VP<div class="s">${usd!=null?fmt.usd(usd,0):'unpriced'}</div></div></div>`}).join('')}</div>`:'')+
+      (P.lps.length?`<div class="sec"><span>LP positions</span><span class="pill mut">${P.lps.length} · ${fmt.usd(P.lpUsd,0)}</span></div><div class="list">${P.lps.map(l=>{const pool=poolById(l.pool_gauge_id);const apr=pool&&pool.rewards&&num(pool.rewards.approx_apr_pct);const st=l.status||(pool&&pool.status)||'';return`<div class="li"><span class="ic gr"><i class="fas fa-droplet"></i></span><div class="l"><div class="t">${esc(l.pool_name||'LP')}</div><div class="s">${esc(l.dex||'')} · ${esc(l.bucket||'')} · ${l.is_amplified?'amplified':'not amplified'}${st&&st!=='active'?' · <span style="color:#fbbf24">'+esc(st)+'</span>':''}</div></div><div class="r">${fmt.usd(l.value_usd||l.usd_value||l.user_usd,0)}<div class="s">${apr!=null?apr.toFixed(1)+'% APR':''}</div></div></div>`}).join('')}</div>`:'')+
+      (yourVoting||(P.vp>0?'':`<div class="card row"><span class="ic am"><i class="fas fa-check-to-slot"></i></span><div class="l"><div class="k2">No voting power on this wallet.</div><div class="sub">Lock an LST on TLA to vote on gauges and earn bribes.</div></div></div>`));
+  }
+  $('tla').innerHTML=mineHtml+
+  `<div class="hero"><div class="lab">STAKED IN TLA</div><div class="big">${fmt.usd(m.tvl,0)}</div><div class="row"><span class="pill mut">${fmt.n(m.active)} active pools</span><span class="pill mut">depth ${fmt.usd(m.depth,0)}</span><span class="pill cy">${fmt.usd(m.weekly,0)}/wk LUNA</span></div><div class="sub">Epoch ${m.epoch} · ${fmt.until(m.epochEnd)} left · ${m.epochPct!=null?Math.round(m.epochPct)+'% through':''}</div><div class="bar"><i style="width:${Math.min(100,m.epochPct||0)}%;background:linear-gradient(90deg,#00f2fe,#2889fc)"></i></div></div>
+  <div class="grid2"><div class="tile"><div class="k">LUNA</div><div class="v">${fmt.usd(m.luna,4)}</div><div class="sub">${chg(m.luna24)} 24h</div></div><div class="tile"><div class="k">Total VP</div><div class="v">${fmt.k(m.totalVp)}</div><div class="sub">max bucket (Eris convention)</div></div></div>
+  ${lsts.length?`<div class="sec"><span>LSTs</span></div><div class="list">${lsts.map(x=>`<div class="li"><div class="l"><div class="t">${esc(x.s)}</div><div class="s mono">${fmt.usd(x.p,4)}${m.luna?' · '+(x.p/m.luna).toFixed(4)+' LUNA':''}</div></div><div class="sp">${spark(x.sr,{w:64,h:24})}</div></div>`).join('')}</div>`:''}
+  <div class="sec"><span>Buckets</span></div><div class="grid2">${Object.entries(m.buckets).map(([b,x])=>`<div class="tile"><div class="k">${esc(b)}</div><div class="v xs">${fmt.usd(x.tla_tvl_usd||x.staked_in_tla_usd,0)}</div><div class="sub">${x.active_count??''} active · ${fmt.k(x.bucket_vp_human)} VP</div></div>`).join('')}</div>
+  ${byApr.length?`<div class="sec"><span>Best APR · $5K+ staked</span></div><div class="list">${byApr.map(p=>`<div class="li"><div class="l"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.dex||'')} · ${esc(p.bucket)} · ${fmt.usd(p.staked_in_tla_usd,0)} staked</div></div><div class="r" style="color:#34d399">${num(p.rewards.approx_apr_pct).toFixed(1)}%</div></div>`).join('')}</div>`:''}
+  <div class="sec"><span>Biggest pools</span></div><div class="list">${pools.slice(0,8).map(p=>`<div class="li"><div class="l"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.dex||'')} · ${esc(p.bucket)}${p.status!=='active'?' · <span style="color:#fbbf24">'+esc(p.status)+'</span>':''}</div></div><div class="r">${fmt.usd(p.staked_in_tla_usd,0)}<div class="s">${p.rewards&&num(p.rewards.approx_apr_pct)!=null?num(p.rewards.approx_apr_pct).toFixed(1)+'% APR':''}</div></div></div>`).join('')}</div>
+  <div class="btns"><a class="btn" href="tla-stats.html"><i class="fas fa-chart-line"></i> TLA Stats</a>${P?`<a class="btn g" href="member-portfolio.html?wallet=${encodeURIComponent(P.w)}">Full portfolio</a>`:''}<a class="btn g" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">TLA app <i class="fas fa-arrow-up-right-from-square"></i></a></div>
+  <div class="dev">tla-snapshot ${fmt.ago(D.tla&&D.tla.capturedAt)} · prices ${fmt.ago(D.nap&&D.nap.capturedAt)}${P?' · participants '+fmt.ago(D.members&&D.members.capturedAt):''}</div>`;
+  $('tla').querySelectorAll('[data-lock]').forEach(r=>r.onclick=()=>{const l=P.locks.find(x=>String(x.token_id)===r.getAttribute('data-lock'));if(!l)return;sheet(`<i class="fas fa-lock" style="color:#67e8f9"></i> Lock #${esc(l.token_id)}`,`<div class="grid2"><div class="tile"><div class="k">Locked</div><div class="v xs">${fmt.n(l.amount_human,4)} ${esc(l.asset_symbol)}</div></div><div class="tile"><div class="k">Underlying at lock</div><div class="v xs">${fmt.n(num(l.underlying_at_lock_raw)/1e6,2)} LUNA</div></div><div class="tile"><div class="k">Voting power</div><div class="v xs">${fmt.k(l.vp_total_human)}</div><div class="sub">boost ${fmt.k(l.voting_power_human)} + fixed ${fmt.k(l.fixed_amount_human)}</div></div><div class="tile"><div class="k">Coefficient</div><div class="v xs">×${l.coefficient||'—'}</div><div class="sub">${l.is_auto_max_locked?'auto-max, no decay':l.end==='permanent'?'permanent':'ends period '+(l.end_period||'—')}</div></div></div><div class="sub" style="margin-top:.6em">Since period ${l.start_period||'—'} · TLA locks are NFTs and can change hands on Atrium.</div><div class="btns"><a class="btn" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">Manage on TLA <i class="fas fa-arrow-up-right-from-square"></i></a></div>`)});
+}
+
+/* ================= v2 · DAO — proposals across the three DAOs · treasuries ================= */
+function vDao(){
+  const m=model(), P=me(), Pf=prefs(), prev=ls(SNAP); const seen=new Set(prev?prev.openKeys:[]); const card=p=>propCard(p,P,seen);
+  const flt=p=>(Pf.dao||'all')==='all'||p.dao===Pf.dao;
+  const open=m.props.filter(p=>propStatus(p)==='open'&&flt(p)), veto=m.props.filter(p=>propStatus(p)==='veto'&&flt(p));
+  const recent=m.props.filter(p=>propStatus(p)!=='open'&&propStatus(p)!=='veto').filter(flt).sort((a,b)=>(num(b.startHeight)||0)-(num(a.startHeight)||0)).slice(0,8);
+  const dash=D.dash||{}; const tv=dash.total_value||{}, tr=dash.treasury||{};
+  const stakers=(D.summary&&D.summary.daodao_stakers)||[]; const myStake=P?stakers.find(x=>x.address===P.w):null;
+  $('dao').innerHTML=`
+  <div class="grid2"><div class="tile"><div class="k">DAO value</div><div class="v xs">${fmt.usd(m.daoValue,0)}</div><div class="sub">treasury ${fmt.usd(m.treasury,0)}</div></div><div class="tile"><div class="k">Members · staked</div><div class="v xs">${fmt.n(m.members)} · ${fmt.n(m.staked)}</div><div class="sub">${myStake?'you: '+fmt.n(myStake.count)+' ('+myStake.voting_power_pct.toFixed(1)+'% of votes)':fmt.n(m.holders)+' holders'}</div></div></div>
+  <div class="seg">${[['all','All'],['aDAO','aDAO'],['Lion DAO','Lion'],['Pixel Lions','Pixel']].map(([k,l])=>`<button type="button" data-dao="${k}" class="${(Pf.dao||'all')===k?'on':''}">${l}</button>`).join('')}</div>
+  <div class="sec"><span>In voting</span><span class="pill ${open.length?'pu':'mut'}">${open.length}</span></div>${open.length?open.map(card).join(''):'<div class="empty"><i class="fas fa-landmark"></i>Nothing to vote on right now.</div>'}
+  ${veto.length?`<div class="sec"><span>Veto timelock</span><span class="pill am">${veto.length}</span></div>${veto.map(card).join('')}`:''}
+  <div class="sec"><span>Recent</span></div>${recent.map(card).join('')||'<div class="empty">—</div>'}
+  <div class="btns"><a class="btn g" href="dao.html"><i class="fas fa-landmark"></i> Governance page &amp; audits</a><a class="btn g" href="dao_treasury.html">Treasury</a><a class="btn g" href="https://daodao.zone/" target="_blank" rel="noopener">DAO DAO <i class="fas fa-arrow-up-right-from-square"></i></a></div>
+  <div class="dev">proposals ${fmt.ago((D.p_adao||{}).exportedAt)} · dao-dashboard ${fmt.ago(dash.meta&&dash.meta.generatedAt||dash.capturedAt)}</div>`;
+  $('dao').querySelectorAll('[data-dao]').forEach(b=>b.onclick=()=>{setPrefs({dao:b.getAttribute('data-dao')});vDao();badge()});
+  $('dao').querySelectorAll('[data-prop]').forEach(c=>c.onclick=()=>{const [dao,id]=c.getAttribute('data-prop').split('|');propSheet(dao,id)});
+}
+
+/* ================= v2 · ME — wallet · totals · settings ================= */
+function vMe(){const Pf=prefs();const w=wallet();const P=me();const m=model();
+  const rewBy={};if(P)P.rew.forEach(r=>{const k=r.reward_symbol||'?';rewBy[k]=rewBy[k]||0;rewBy[k]+=num(r.usd_value)||0});
+  $('me').innerHTML=`
+  ${P?`<div class="hero"><div class="lab">${esc(P.name||fmt.addr(P.w))} <span class="pill mut" style="margin-left:.3em">${P.isTla?'TLA':''}${P.isTla&&P.isAdao?' · ':''}${P.isAdao?'aDAO':''}</span></div><div class="big">${fmt.usd(P.total,0)}</div><div class="sub">locks ${fmt.usd(P.lockUsd,0)} · LPs ${fmt.usd(P.lpUsd,0)} · NFT backing ${fmt.usd(P.nftBacking,0)} · wallet ${fmt.usd(P.balUsd,0)} · claimable ${fmt.usd(P.claimable)}</div></div>
+  <div class="grid2"><div class="tile"><div class="k">Voting power</div><div class="v xs">${fmt.k(P.vp)}</div><div class="sub">${P.rank?'rank #'+P.rank:''}</div></div><div class="tile"><div class="k">aDAO NFTs</div><div class="v xs">${fmt.n(P.nftCount)}</div><div class="sub">${P.staked?P.staked+' staked · ':''}${P.nftBroken?P.nftBroken+' broken':''}</div></div></div>`:''}
   <div class="card"><div class="k">Wallet</div><div class="row" style="margin-top:.3em"><div class="l k2 mono">${w?esc(fmt.addr(w)):'none selected'}</div><button class="btn g" id="m-wallet" type="button">${w?'Change':'Pick'}</button>${w?'<button class="btn g" id="m-clear" type="button">Clear</button>':''}</div></div>
-  <div class="card"><div class="k">Badge counts proposals in</div><div class="seg" style="margin-bottom:0">${[['all','All'],['aDAO','aDAO'],['Lion DAO','Lion'],['Pixel Lions','Pixel']].map(([k,l])=>`<button type="button" data-dao="${k}" class="${(P.dao||'all')===k?'on':''}">${l}</button>`).join('')}</div></div>
-  <div class="card"><div class="k" style="margin-bottom:.2em">Your five tabs</div>${Object.entries(TABS).map(([k,[l,ic]])=>`<label class="chk"><input type="checkbox" data-t="${k}" ${P.tabs.includes(k)?'checked':''}><i class="fas ${ic}" style="width:1.4em;color:#67e8f9"></i>${l}</label>`).join('')}</div>
+  <div class="card"><div class="k">Default window</div><div class="seg" style="margin-bottom:0">${Object.keys(WINS).map(k=>`<button type="button" data-win="${k}" class="${win()===k?'on':''}">${k}</button>`).join('')}</div></div>
+  <div class="card"><div class="k">Badge counts proposals in</div><div class="seg" style="margin-bottom:0">${[['all','All'],['aDAO','aDAO'],['Lion DAO','Lion'],['Pixel Lions','Pixel']].map(([k,l])=>`<button type="button" data-dao="${k}" class="${(Pf.dao||'all')===k?'on':''}">${l}</button>`).join('')}</div></div>
+  <div class="card"><div class="k" style="margin-bottom:.2em">Your five tabs</div>${Object.entries(TABS).map(([k,[l,ic]])=>`<label class="chk"><input type="checkbox" data-t="${k}" ${Pf.tabs.includes(k)?'checked':''}><i class="fas ${ic}" style="width:1.4em;color:#67e8f9"></i>${l}</label>`).join('')}</div>
   <div class="card"><div class="k">Housekeeping</div><div class="btns" style="margin-top:.4em"><button class="btn g" id="m-reset" type="button">Reset "since last looked"</button><button class="btn g" id="m-ob" type="button">Show the intro again</button></div></div>
-  <h2>Help</h2><div class="list"><a class="li tap" href="install.html"><span class="ic cy"><i class="fas fa-mobile-screen"></i></span><div class="l"><div class="t">Add Ally to your home screen</div><div class="s">iPhone, Android, desktop — and setting it up</div></div></a><a class="li tap" href="help.html"><span class="ic cy"><i class="fas fa-circle-question"></i></span><div class="l"><div class="t">Help &amp; FAQ</div></div></a><a class="li tap" href="new-here.html"><span class="ic am"><i class="fas fa-seedling"></i></span><div class="l"><div class="t">New to aDAO?</div></div></a><a class="li tap" href="new-here-tla.html"><span class="ic or"><i class="fas fa-seedling"></i></span><div class="l"><div class="t">New to TLA?</div></div></a><a class="li tap" href="index.html"><span class="ic cy"><i class="fas fa-globe"></i></span><div class="l"><div class="t">Open the full site</div></div></a></div>
-  <div class="dev">Ally v1 · read-only · nothing leaves your phone · <a href="transparency-hub.html" style="color:#67e8f9">how the data is captured</a></div>`;
-  $('m-wallet').onclick=openPicker; const cl=$('m-clear'); if(cl)cl.onclick=()=>{setWallet(null);paintTop();vMore();toast('Wallet cleared')};
-  $('more').querySelectorAll('[data-dao]').forEach(b=>b.onclick=()=>{setPrefs({dao:b.getAttribute('data-dao')});vMore();badge()});
-  $('more').querySelectorAll('[data-t]').forEach(c=>c.onchange=()=>{const on=[...$('more').querySelectorAll('[data-t]:checked')].map(x=>x.getAttribute('data-t'));if(on.length>5){c.checked=false;toast('Five max');return}if(on.length<1){c.checked=true;return}setPrefs({tabs:on});paintTabs();document.querySelector('.tab[data-v="more"]')?.classList.add('on')});
+  <div class="sec"><span>Help</span></div><div class="list"><a class="li tap" href="install.html"><span class="ic cy"><i class="fas fa-mobile-screen"></i></span><div class="l"><div class="t">Add Ally to your home screen</div><div class="s">iPhone, Android, desktop</div></div></a><a class="li tap" href="help.html"><span class="ic cy"><i class="fas fa-circle-question"></i></span><div class="l"><div class="t">Help &amp; FAQ</div></div></a><a class="li tap" href="new-here.html"><span class="ic am"><i class="fas fa-seedling"></i></span><div class="l"><div class="t">New to aDAO?</div></div></a><a class="li tap" href="new-here-tla.html"><span class="ic or"><i class="fas fa-seedling"></i></span><div class="l"><div class="t">New to TLA?</div></div></a><a class="li tap" href="index.html"><span class="ic cy"><i class="fas fa-globe"></i></span><div class="l"><div class="t">Open the full site</div></div></a></div>
+  <div class="dev">Ally ${REV} · read-only · nothing leaves your phone · <a href="transparency-hub.html" style="color:#67e8f9">how the data is captured</a></div>`;
+  $('m-wallet').onclick=openPicker; const cl=$('m-clear'); if(cl)cl.onclick=()=>{setWallet(null);paintTop();vMe();toast('Wallet cleared')};
+  $('me').querySelectorAll('[data-dao]').forEach(b=>b.onclick=()=>{setPrefs({dao:b.getAttribute('data-dao')});vMe();badge()});
+  $('me').querySelectorAll('[data-win]').forEach(b=>b.onclick=()=>{setPrefs({win:b.getAttribute('data-win')});vMe()});
+  $('me').querySelectorAll('[data-t]').forEach(c=>c.onchange=()=>{const on=[...$('me').querySelectorAll('[data-t]:checked')].map(x=>x.getAttribute('data-t'));if(on.length>5){c.checked=false;toast('Five max');return}if(on.length<1){c.checked=true;return}setPrefs({tabs:on});paintTabs();document.querySelector('.tab[data-v="me"]')?.classList.add('on')});
   $('m-reset').onclick=()=>{ls(SNAP,null);toast('Reset — next open is a first look')}; $('m-ob').onclick=()=>onboarding();
 }
-VIEWS={home:vHome,portfolio:vPortfolio,market:vMarket,vote:vVote,tla:vTla,nft:vNft,more:vMore};
+try{window.__ally={D,model,me,todayRows,prefs,setPrefs,setWallet,show,activity,loadWindow,loadNfts,PAST,win}}catch(e){}
+VIEWS={today:vToday,nfts:vNfts,tla:vTla,dao:vDao,me:vMe,vote:vVote,market:vMarket,portfolio:vPortfolio};
 /* ---- boot ---- */
 (async()=>{
   try{if(/[?&]source=pwa/.test(location.search)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches))setPrefs({mode:'app'})}catch(e){}
+  const pr=$('page-rev');if(pr)pr.textContent='Ally app '+REV+' · '+REV_DATE;
   paintTabs();
   try{await load()}catch(e){}
-  paintTop(); record(me(),model()); loadTransfers(feedMonths).then(()=>{if((location.hash||'').slice(1)==='nft')vNft()});
-  const v=(location.hash||'#home').slice(1); show(VIEWS[v]?v:'home');
+  try{await loadWindow()}catch(e){}
+  paintTop(); record(me(),model());
+  const v=(location.hash||'#today').slice(1); show(VIEWS[v]?v:'today');
   if(!prefs().onboarded)onboarding();
   if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){try{navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{})}catch(e){}}
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&D._at&&Date.now()-new Date(D._at)>10*60e3)refreshAll()});
