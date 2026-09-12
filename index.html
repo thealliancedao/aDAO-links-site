@@ -3665,7 +3665,7 @@
             // --- NFT Analytics banner: live preview stats (non-blocking; "—" on any failure) ---
             (async function populateNftAnalyticsBanner() {
                 try {
-                    const V2 = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/';
+                    const V2 = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/';
                     const [aR, sR] = await Promise.all([fetch(V2 + 'nft-analytics.json'), fetch(V2 + 'summary.json')]);
                     if (!aR.ok || !sR.ok) return;
                     const a = await aR.json(), s = await sR.json();
@@ -3707,7 +3707,7 @@
             
             // --- Function to fetch Avg Daily Gain from GitHub snapshots ---
             // Backing cron data repo
-            const BACKING_INDEX_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/backing-history.json';
+            const BACKING_INDEX_URL = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/backing-history.json';
             let backingCronHistory = null; // Cache
 
             async function fetchBackingCronHistory() {
@@ -4101,7 +4101,7 @@
                     return _trappedNftsCache.result;
                 }
                 try {
-                    const data = await window.__jsonOnce('https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json');   // Rev 3.86: shared
+                    const data = await window.__jsonOnce('https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/nfts.json');   // Rev 3.86: shared
                     if (!data) return null;
                     const records = data?.records || [];
 
@@ -4266,7 +4266,7 @@
                 const COLLECTION = result.totalRecords || 10000;
                 const m = result.mintedTotal;
                 const daoBroken = result.daoControlledTotal;                 // 1,000
-                const sum = await (async () => { try { return await window.__jsonOnce('https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/summary.json'); } catch (_) { return null; } })();
+                const sum = await (async () => { try { return await window.__jsonOnce('https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/summary.json'); } catch (_) { return null; } })();
                 const listedBbl = sum?.bbl_listed_count ?? null, listedAtr = sum?.atrium_listed_count ?? null, listedBoost = sum?.boost_listed_count ?? null;
                 const listed = [listedBbl, listedAtr, listedBoost].some(v => v == null) ? null : listedBbl + listedAtr + listedBoost;
                 const unstaking = sum?.daodao_pending_claim_count != null ? sum.daodao_pending_claim_count + (sum.daodao_custody_unattributed_count || 0) : 0;   // in DAODAO custody but out of governance (7-day window / claimable)
@@ -5110,7 +5110,7 @@
                 // archive moved from tla-snapshot-data/data/daily/dao-dashboard-DATE.json
                 // to member-data/dao-dashboard/daily/DATE.json (own tree, no prefix).
                 const DD_DAILY_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/dao-dashboard/daily';
-                const BK_BASE   = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/backing-history.json';  // ORG: one canonical series (rows[]), not per-day files
+                const BK_BASE   = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/backing-history.json';  // ORG: one canonical series (rows[]), not per-day files
                 // ORG ADAPTER (2026-08-11): the retired backing cron wrote one file per
                 // day; the org series is a single file with rows[]. Fetch once, index by
                 // date, and hand each day's row to the same consumer below unchanged.
@@ -5149,7 +5149,7 @@
                     const days = await _stateMonths.get(ym);
                     return days[date] || null;
                 }
-                const V2_BASE   = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/state-history';  // ORG: {yyyy}/{mm}.json with days keyed by date
+                const V2_BASE   = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/state-history';  // ORG: {yyyy}/{mm}.json with days keyed by date
                 const RATIO_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/network-and-prices/ratio-history.json';
                 // Backfilled daily LUNA price (luna_market.usd_price), covering the full
                 // chart range (since 2026-05-13) — fixes USD lines that previously started
@@ -5364,7 +5364,7 @@
             // ═══════════════════════════════════════════════════════════════════════
             const _mcCache = {};
             async function mcJson(url) { if (_mcCache[url] === undefined) { try { _mcCache[url] = await window.__jsonOnce(url); } catch (_) { _mcCache[url] = null; } } return _mcCache[url]; }
-            const MC_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/';
+            const MC_BASE = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/';
             async function mcFloorByDate() {   // date → base-tier listing floor USD
                 const fh = await mcJson(MC_BASE + 'floor-history.json'); const m = {};
                 for (const r of (fh && fh.rows) || []) { const v = r.per_tier && r.per_tier.base && r.per_tier.base.listing_floor_usd; if (v != null) m[r.date] = Number(v); }
@@ -7681,7 +7681,7 @@
                 (async function paintFromCron() {
                     const t0 = performance.now();
                     try {
-                        const V2 = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/';
+                        const V2 = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/';
                         const NET = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/network-and-prices/current.json';
                         const [sumR, netR] = await Promise.all([
                             fetch(V2 + 'summary.json').catch(() => null),
@@ -7808,7 +7808,7 @@
                  // Rev 3.53: deving.zone (dead pipeline, stale data, slow responses) replaced
                  // with the v2 chain-of-truth inventory. The adapter below maps records[]
                  // into the legacy {collection_stats, nfts} shape this function consumes.
-                 const onChainStatsUrl = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json';
+                 const onChainStatsUrl = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/nfts.json';
                  const contractRewardsQuery = btoa(JSON.stringify({ all_nft_info: { token_id: "9068" } }));
                  const contractUrl = `https://terra.publicnode.com/cosmwasm/wasm/v1/contract/terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9/smart/${contractRewardsQuery}`;
                  const ampLunaRateQuery = btoa(JSON.stringify({ exchange_rates: {} }));
@@ -12182,8 +12182,8 @@
                 const PIXELIONS_IMG_CID = 'https://ipfs.io/ipfs/bafybeihgrne4vcqirlb26rs4y2gpaka32dqssidwvx2qui2kx5osc6oxie';
                 const pixelionsImageUrl = (id) => `${PIXELIONS_IMG_CID}/${id}.png`;
                 // Rev 3.53: deving.zone replaced with the v2 chain-of-truth inventory
-                const STATUS_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json';
-                const SALES_BASE_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/';  // ORG: sales-history.json (chain backfill, 1221 sales from 2023-12-27) replaces nft-sales-YYYY.json
+                const STATUS_URL = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/nfts.json';
+                const SALES_BASE_URL = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/';  // ORG: sales-history.json (chain backfill, 1221 sales from 2023-12-27) replaces nft-sales-YYYY.json
                 const BBL_CONTRACT = 'terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9';
                 const PIXELIONS_CONTRACT = 'terra17z7fpaa8kah698xn5tarrcucvualdy4wsztkfc404g3garucpu6qmxp50g';
                 const TLA_LOCKS_CONTRACT = 'terra1uqhj8agyeaz8fu6mdggfuwr3lp32jlrx5hqag4jxexde92rzkamq3l62zg';
@@ -13506,7 +13506,7 @@
                 // One lazy load shared by: Atrium listings, multi-venue Live Activity, live Top 10,
                 // and the analytics banner's market cap. Good data or no data — failures leave
                 // legacy behaviour untouched.
-                const V2_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/';
+                const V2_BASE = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/';
                 const V2_RARITY = '/assets/nft-metadata/adao-rarity-intended.json';
                 window.v2Events = null; window.v2Top10 = null;
                 let _v2Promise = null;
@@ -13824,7 +13824,7 @@
                     // showed only BBL auctions — the venue with the LEAST aDAO
                     // traffic — so it sat empty while Atrium/Boost sales, listings,
                     // cancels, transfers and 400+/wk lock events went unseen.
-                    // Now: nfts/adao/flows + nfts/adao/transfers + tla-voting/events/
+                    // Now: nft-collections adao/flows + adao/transfers + tla-core tla-voting/events/
                     // locks from tla-core (nightly rollup). Full taxonomy + Pixel
                     // Lions stream land with SPEC-activity-feed's build.
                     // ============================================================
@@ -13835,14 +13835,15 @@
                     container.innerHTML = `<div class="text-gray-500 text-sm py-4 px-3 text-center"><i class="fas fa-spinner fa-spin mr-1"></i> Loading activity...</div>`;
 
                     const CORE_RAW = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
+                    const NFTC_RAW = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main';   // 4.18: aDAO products live here
                     const now = new Date();
                     const months = [now, new Date(now.getFullYear(), now.getMonth() - 1, 15)]
                         .map(d => `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`);
-                    const grab = (p) => fetch(`${CORE_RAW}/${p}?t=${Date.now()}`, { cache: 'no-store' })
+                    const grab = (p) => fetch(`${p.startsWith('adao/') ? NFTC_RAW : CORE_RAW}/${p}?t=${Date.now()}`, { cache: 'no-store' })
                         .then(r => r.ok ? r.json() : null).catch(() => null);
                     const [fl0, fl1, tr0, tr1, lk0, lk1] = await Promise.all([
-                        grab(`nfts/adao/flows/${months[0]}.json`), grab(`nfts/adao/flows/${months[1]}.json`),
-                        grab(`nfts/adao/transfers/${months[0]}.json`), grab(`nfts/adao/transfers/${months[1]}.json`),
+                        grab(`adao/flows/${months[0]}.json`), grab(`adao/flows/${months[1]}.json`),
+                        grab(`adao/transfers/${months[0]}.json`), grab(`adao/transfers/${months[1]}.json`),
                         grab(`tla-voting/events/locks/${months[0]}.json`), grab(`tla-voting/events/locks/${months[1]}.json`),
                     ]);
 
@@ -15852,7 +15853,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '4.17', REV_DATE = '2026-09-10';   // 4.17 (phone): marketplaces one line each (unbroken floor · listed) + tap to expand, activity count wraps, link tiles (Treasury/Deposits) join the row layout, chart button off the number; 4.16 (phone): DAO/NFT tiles become full-width rows (title left, value right, round dots, no 'click to see' text), sideways scroll locked (lib 1.7.1); 4.15: link tree actually folds on phones (Tailwind .grid + rule order beat 4.14's CSS); 4.14 (mobile/app): Ecosystem Pulse hidden on phones, link tiles fold into a tree, rewards card compact, marketplace opens on the device's default collection, open proposals reported to the app badge (seen on alert open); 4.13: five more popups on the multi-series renderer — Treasury (by token + LUNA), TLA Deposits (LPs · zLUNA · APR), Deposit rewards (unclaimed vs lifetime claimed), Vote rewards (by token), TLA Locks (USD vs LUNA-equivalent); 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
+        const REV = '4.18', REV_DATE = '2026-09-12';   // 4.18: aDAO NFT products read from nft-collections/adao/ (snapshots · flows · transfers · state-history) — the aDAO migration (the old tla-core copy is frozen); 4.17 (phone): marketplaces one line each (unbroken floor · listed) + tap to expand, activity count wraps, link tiles (Treasury/Deposits) join the row layout, chart button off the number; 4.16 (phone): DAO/NFT tiles become full-width rows (title left, value right, round dots, no 'click to see' text), sideways scroll locked (lib 1.7.1); 4.15: link tree actually folds on phones (Tailwind .grid + rule order beat 4.14's CSS); 4.14 (mobile/app): Ecosystem Pulse hidden on phones, link tiles fold into a tree, rewards card compact, marketplace opens on the device's default collection, open proposals reported to the app badge (seen on alert open); 4.13: five more popups on the multi-series renderer — Treasury (by token + LUNA), TLA Deposits (LPs · zLUNA · APR), Deposit rewards (unclaimed vs lifetime claimed), Vote rewards (by token), TLA Locks (USD vs LUNA-equivalent); 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}

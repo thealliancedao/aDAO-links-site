@@ -172,11 +172,11 @@ input.in{width:100%;font-family:inherit;font-size:16px;color:#fff;background:var
 (function(){
 'use strict';
 /* ---------------- constants ---------------- */
-const CORE='https://raw.githubusercontent.com/thealliancedao/tla-core/main/';
+const CORE='https://raw.githubusercontent.com/thealliancedao/tla-core/main/',NFTC='https://raw.githubusercontent.com/thealliancedao/nft-collections/main/';
 const DAO ='https://raw.githubusercontent.com/thealliancedao/dao-originations/main/';
 const CDN ='https://imagedelivery.net/v_zOWVQCPb7Xpcbu-gQC1A/alliance_dao';
 const DAOS=[['aDAO','adao','p_adao'],['Lion DAO','lion-dao','p_lion'],['Pixel Lions','pixel-lions','p_pixel']];
-const REV='2.0.2', REV_DATE='2026-09-12';
+const REV='2.0.3', REV_DATE='2026-09-12';   // 2.0.3: aDAO NFT products (snapshots, transfers) read from nft-collections/adao/ — the aDAO migration
 const NFT_CONTRACT='terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9';   /* aDAO collection — the activity guard keys on it */   /* rev footer law → #page-rev */
 const TABS={today:['Today','fa-house'],nfts:['NFTs','fa-images'],tla:['TLA','fa-chart-line'],dao:['DAO','fa-landmark'],me:['Me','fa-user'],vote:['Vote','fa-check-to-slot'],market:['Market','fa-store'],portfolio:['Portfolio','fa-chart-pie']};   /* first five = the proposal; the last three stay pickable */
 const DEFAULT_TABS=['today','nfts','tla','dao','me'];
@@ -212,16 +212,16 @@ const img=id=>`${CDN}/${id}.png/public`;
 const D={};
 async function getJ(u){const r=await fetch(u+(u.includes('?')?'&':'?')+'t='+Math.floor(Date.now()/6e4),{cache:'no-cache'});if(!r.ok)throw new Error(r.status);return r.json()}
 const JOBS={
-  summary:CORE+'nfts/adao/snapshots/summary.json', floor:CORE+'nfts/adao/snapshots/floor-history.json', sales:CORE+'nfts/adao/snapshots/sales-enriched.json',
-  bundle:CORE+'nfts/adao/snapshots/explorer-bundle.json', lhist:CORE+'nfts/adao/snapshots/listing-history.json', known:CORE+'docs/curated/known_contracts.json', tla:CORE+'member-data/tla-snapshot/current.json', members:CORE+'member-data/participants/current.json',
+  summary:NFTC+'adao/snapshots/summary.json', floor:NFTC+'adao/snapshots/floor-history.json', sales:NFTC+'adao/snapshots/sales-enriched.json',
+  bundle:NFTC+'adao/snapshots/explorer-bundle.json', lhist:NFTC+'adao/snapshots/listing-history.json', known:CORE+'docs/curated/known_contracts.json', tla:CORE+'member-data/tla-snapshot/current.json', members:CORE+'member-data/participants/current.json',
   roster:CORE+'member-data/participants/participants.json', adao:CORE+'member-data/positions/members.json', nap:CORE+'network-and-prices/current.json',
-  dash:CORE+'member-data/dao-dashboard/current.json', backing:CORE+'nfts/adao/snapshots/backing-history.json', catalog:CORE+'token-catalog/snapshots/current.json', claims:CORE+'nfts/adao/snapshots/pending-claims.json',
+  dash:CORE+'member-data/dao-dashboard/current.json', backing:NFTC+'adao/snapshots/backing-history.json', catalog:CORE+'token-catalog/snapshots/current.json', claims:NFTC+'adao/snapshots/pending-claims.json',
   p_adao:DAO+'adao/governance/proposals.json', p_lion:DAO+'lion-dao/governance/proposals.json', p_pixel:DAO+'pixel-lions/governance/proposals.json',
-  votion:CORE+'votion/snapshots/current.json', lfs:CORE+'nfts/adao/snapshots/listing-first-seen.json', lunaDaily:CORE+'nfts/adao/snapshots/luna-usd-daily.json', brokenAt:CORE+'nfts/adao/snapshots/broken-at.json'
+  votion:CORE+'votion/snapshots/current.json', lfs:NFTC+'adao/snapshots/listing-first-seen.json', lunaDaily:NFTC+'adao/snapshots/luna-usd-daily.json', brokenAt:NFTC+'adao/snapshots/broken-at.json'
 };
 async function load(){const out=await Promise.all(Object.entries(JOBS).map(([k,u])=>getJ(u).then(v=>[k,v]).catch(e=>[k,null,e.message])));out.forEach(([k,v,e])=>{D[k]=v;if(e)console.warn('load',k,e)});D._at=new Date().toISOString();D._failed=out.filter(o=>o[2]).map(o=>o[0]);D.transfers=D.transfers||{}}
 /* NFT transfer ledger (tla-flows aux): monthly files, loaded on demand, newest first */
-async function loadTransfers(months){const now=new Date();const keys=[];for(let i=0;i<months;i++){const d=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-i,1));keys.push(d.getUTCFullYear()+'/'+String(d.getUTCMonth()+1).padStart(2,'0'))}await Promise.all(keys.filter(k=>!(k in D.transfers)).map(k=>getJ(CORE+'nfts/adao/transfers/'+k+'.json').then(v=>{D.transfers[k]=Array.isArray(v)?v:[]}).catch(()=>{D.transfers[k]=null})));return keys}
+async function loadTransfers(months){const now=new Date();const keys=[];for(let i=0;i<months;i++){const d=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-i,1));keys.push(d.getUTCFullYear()+'/'+String(d.getUTCMonth()+1).padStart(2,'0'))}await Promise.all(keys.filter(k=>!(k in D.transfers)).map(k=>getJ(NFTC+'adao/transfers/'+k+'.json').then(v=>{D.transfers[k]=Array.isArray(v)?v:[]}).catch(()=>{D.transfers[k]=null})));return keys}
 function labelAddr(a){if(!a)return'';const kc=D.known&&D.known.contracts;if(kc&&kc[a]&&kc[a].name)return kc[a].name;const r=roster().find(x=>x.a===a);if(r&&r.n)return r.n;const w=wallet();if(a===w)return'you';return fmt.addr(a)}
 const PHOENIX=new Set();   // filled from the explorer bundle's Rarity dictionary at first use
 function tierOf(id){const b=D.bundle;if(!b)return'base';const row=b.rows.find(r=>r[0]==id);if(!row)return'base';if((row[10]||0)&2)return'broken';const grade=b.dict&&b.dict.Rarity&&b.dict.Rarity[row[6]];return grade===40?'phoenix':'base'}   /* site rule: broken → broken; grade 40 → Phoenix; else base */
@@ -480,7 +480,7 @@ async function loadBribeEvents(){const keys=monthKeys(winStart()-864e5);await Pr
 async function loadWindow(){await Promise.all([loadPast(),loadBribeEvents(),loadTransfers(Math.max(2,Math.ceil(winDays()/30)+1))]);}
 /* nfts.json (7 MB) carries per-token ownership — hydrated only when a view needs "your NFTs" */
 let NFTS=null, NFTS_P=null;
-function loadNfts(){if(NFTS)return Promise.resolve(NFTS);if(NFTS_P)return NFTS_P;NFTS_P=getJ(CORE+'nfts/adao/snapshots/nfts.json').then(v=>{NFTS=v;return v}).catch(e=>{NFTS_P=null;throw e});return NFTS_P}
+function loadNfts(){if(NFTS)return Promise.resolve(NFTS);if(NFTS_P)return NFTS_P;NFTS_P=getJ(NFTC+'adao/snapshots/nfts.json').then(v=>{NFTS=v;return v}).catch(e=>{NFTS_P=null;throw e});return NFTS_P}
 const myTokens=w=>NFTS&&w?(NFTS.records||[]).filter(r=>r.real_owner===w||r.owner===w):null;
 
 /* ---- helpers shared by the rows ---- */

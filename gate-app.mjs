@@ -2,13 +2,13 @@
 // (fresh tla-core / dao-originations pull on disk) and asserts specific rows and values, never "something rendered".
 //   node gate-app.mjs <path/to/app.html> <path/to/tla-core-main> <path/to/dao-originations-main>
 import fs from 'node:fs'; import path from 'node:path'; import { JSDOM } from 'jsdom';
-const [,, APP='app.html', CORE_DIR='tla-core-main', DAO_DIR='dao-originations-main'] = process.argv;
+const [,, APP='app.html', CORE_DIR='tla-core-main', DAO_DIR='dao-originations-main', NFTC_DIR='nft-collections-main'] = process.argv;   // 2.0.3: aDAO products come from nft-collections/adao/
 const html = fs.readFileSync(APP, 'utf8');
-const CORE='https://raw.githubusercontent.com/thealliancedao/tla-core/main/', DAO='https://raw.githubusercontent.com/thealliancedao/dao-originations/main/';
+const CORE='https://raw.githubusercontent.com/thealliancedao/tla-core/main/', DAO='https://raw.githubusercontent.com/thealliancedao/dao-originations/main/', NFTC='https://raw.githubusercontent.com/thealliancedao/nft-collections/main/';
 let pass=0, fail=0; const ok=(c,msg,extra)=>{if(c){pass++;console.log('  ✓',msg)}else{fail++;console.log('  ✗',msg,extra!=null?'→ '+String(extra).slice(0,200):'')}};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const fetched=[];
-function fakeFetch(u){const url=String(u).split('?')[0];let file=null;if(url.startsWith(CORE))file=path.join(CORE_DIR,url.slice(CORE.length));else if(url.startsWith(DAO))file=path.join(DAO_DIR,url.slice(DAO.length));fetched.push(url);
+function fakeFetch(u){const url=String(u).split('?')[0];let file=null;if(url.startsWith(CORE))file=path.join(CORE_DIR,url.slice(CORE.length));else if(url.startsWith(DAO))file=path.join(DAO_DIR,url.slice(DAO.length));else if(url.startsWith(NFTC))file=path.join(NFTC_DIR,url.slice(NFTC.length));fetched.push(url);
   if(!file||!fs.existsSync(file))return Promise.resolve({ok:false,status:404,json:()=>Promise.reject(new Error('404'))});
   const txt=fs.readFileSync(file,'utf8');return Promise.resolve({ok:true,status:200,json:()=>Promise.resolve(JSON.parse(txt))})}
 const W='terra1hr8zsfpch47qygc96c8e6rzkd2t7mafqx77ulw';   // owner wallet — a TLA participant + aDAO staker in the fixtures
@@ -25,25 +25,25 @@ const rowsOf=(doc,rootId)=>[...doc.getElementById(rootId).querySelectorAll('.lg'
 const rowBy=(rows,label)=>rows.find(r=>r.label===label);
 
 /* ---- expected values, computed here from the same fixtures (independent of the page's code) ---- */
-const J=p=>JSON.parse(fs.readFileSync(path.join(CORE_DIR,p),'utf8'));
+const J=p=>JSON.parse(fs.readFileSync(path.join(p.startsWith('adao/')?NFTC_DIR:CORE_DIR,p),'utf8'));
 const now=Date.now(); const winStart=d=>now-d*864e5;
 const cat=J('token-catalog/snapshots/current.json').tokens, nap=J('network-and-prices/current.json').token_prices;
 const priceOf=s=>{const k=Object.keys(nap).find(x=>x.toLowerCase()===String(s).toLowerCase()||(nap[x].canonical||'').toLowerCase()===String(s).toLowerCase());return k?nap[k].final_price_usd:null};
 const dinfo=den=>{const d=den.includes(':')?den.split(':').slice(1).join(':'):den;const t=cat.find(x=>x.denom===d);if(t){const e=t.effective||{},g=t.discovered||{};return[e.symbol||g.symbol||null,e.decimals??g.decimals??6]}return d==='uluna'?['LUNA',6]:[null,6]};
 const bribeEv=['09','08'].flatMap(m=>{try{return J('tla-voting/events/bribes/2026/'+m+'.json')}catch(e){return[]}});
 const expBribes=d=>{const sel=bribeEv.filter(e=>new Date(e.timestamp).getTime()>=winStart(d));let usd=0;sel.forEach(e=>(e.coins||[]).forEach(c=>{const [s,dec]=dinfo(c.denom);const px=s?priceOf(s):null;if(px!=null)usd+=Number(c.amount)/10**dec*px}));return{n:sel.length,usd}};
-const sales=J('nfts/adao/snapshots/sales-enriched.json').sales; const expSales=d=>sales.filter(s=>new Date(s.timestamp).getTime()>=winStart(d)).length;
-const claims=J('nfts/adao/snapshots/pending-claims.json').entries; const expUnstaked=d=>claims.filter(u=>new Date(u.unstaked_at).getTime()>=winStart(d)).length;
-const fh=J('nfts/adao/snapshots/floor-history.json').rows; const floorNow=fh[fh.length-1].per_tier.base.listing_floor_usd;
+const sales=J('adao/snapshots/sales-enriched.json').sales; const expSales=d=>sales.filter(s=>new Date(s.timestamp).getTime()>=winStart(d)).length;
+const claims=J('adao/snapshots/pending-claims.json').entries; const expUnstaked=d=>claims.filter(u=>new Date(u.unstaked_at).getTime()>=winStart(d)).length;
+const fh=J('adao/snapshots/floor-history.json').rows; const floorNow=fh[fh.length-1].per_tier.base.listing_floor_usd;
 const T=J('member-data/tla-snapshot/current.json'); const M=J('member-data/participants/current.json').members.find(m=>m.wallet===W);
 const expClaimable=(M.summary.total_pending_rewards_usd||0)+((M.pending_rebase&&M.pending_rebase.usd_value)||0)+(M.summary.total_pending_bribes_usd||0);
 const usd=(n,d)=>{const a=Math.abs(n);if(d==null)d=a<1?4:a<100?2:0;return (n<0?'-':'')+'$'+a.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d})};
 const props=['adao','lion-dao','pixel-lions'].map(d=>JSON.parse(fs.readFileSync(path.join(DAO_DIR,d,'governance/proposals.json'),'utf8')));
 const allProps=props.flatMap(P=>Object.values(P.proposals)); const nOpen=allProps.filter(p=>p.status==='Open'||p.live).length, nVeto=allProps.filter(p=>/veto timelock/i.test(p.status)).length;
 const nExec=d=>allProps.filter(p=>p.status==='Executed'&&p.expiration&&new Date(p.expiration.at_time_iso).getTime()>=winStart(d)).length; const nPassed=allProps.filter(p=>p.status==='Passed').length;
-const nfts=J('nfts/adao/snapshots/nfts.json').records; const bundle=J('nfts/adao/snapshots/explorer-bundle.json'); const brow={};bundle.rows.forEach(r=>{brow[String(r[0])]=r});
+const nfts=J('adao/snapshots/nfts.json').records; const bundle=J('adao/snapshots/explorer-bundle.json'); const brow={};bundle.rows.forEach(r=>{brow[String(r[0])]=r});
 const mine=nfts.filter(r=>r.real_owner===W||r.owner===W).map(r=>({id:String(r.id),rank:brow[String(r.id)]?(brow[String(r.id)][9]??brow[String(r.id)][7]):null})).sort((a,b)=>(a.rank??1e9)-(b.rank??1e9));
-const summary=J('nfts/adao/snapshots/summary.json'); const myCount=summary.per_real_owner_counts[W];
+const summary=J('adao/snapshots/summary.json'); const myCount=summary.per_real_owner_counts[W];
 
 console.log('\n== A. Today · no wallet · 7d window ==');
 { const dom=await boot(); const doc=dom.window.document;
@@ -77,9 +77,9 @@ console.log('\n== A. Today · no wallet · 7d window ==');
   const b14=[...doc.querySelectorAll('#today [data-win]')].find(b=>b.textContent==='14d'); b14.click(); await sleep(900);
   const r14=rowsOf(doc,'today'); const sl14=rowBy(r14,'Sales'); ok((sl14?parseInt(sl14.value):0)===expSales(14),'14d: Sales = '+expSales(14),sl14&&sl14.value);
   const pe14=rowBy(r14,'Props executed'); ok((pe14?+pe14.value:0)===nExec(14),'14d: Props executed = '+nExec(14),pe14&&pe14.value);
-  const nl14=rowBy(r14,'New listings'); const lfs=J('nfts/adao/snapshots/listing-first-seen.json').entries; const expNl=Object.values(lfs).filter(v=>new Date(v.first_seen_at).getTime()>=winStart(14)).length; ok((nl14?+nl14.value:0)===expNl,'14d: New listings = '+expNl,nl14&&nl14.value);
+  const nl14=rowBy(r14,'New listings'); const lfs=J('adao/snapshots/listing-first-seen.json').entries; const expNl=Object.values(lfs).filter(v=>new Date(v.first_seen_at).getTime()>=winStart(14)).length; ok((nl14?+nl14.value:0)===expNl,'14d: New listings = '+expNl,nl14&&nl14.value);
   ok(doc.querySelector('.tab[data-v="today"]')!=null&&doc.querySelectorAll('.tab').length===5,'five tabs: '+[...doc.querySelectorAll('.tab')].map(t=>t.textContent.trim()).join(' · '));
-  ok(text(doc.getElementById('page-rev')).includes('2.0.2'),'#page-rev carries REV');
+  ok(text(doc.getElementById('page-rev')).includes('2.0.3'),'#page-rev carries REV');
   { const rules=[...doc.querySelector('style').sheet.cssRules]; const root=rules.find(r=>r.selectorText===':root'); ok(root&&/--bg:\s*#0a0b0f/.test(root.cssText),':root theme variables parse (2.0/2.0.1 shipped a literal <style> line that swallowed them → white body)',rules[0]&&rules[0].cssText.slice(0,60)); ok(rules[0].selectorText===':root','first rule is :root, nothing before it'); }
   { const w=dom.window; const lg=doc.querySelector('#today .lg'); ok(lg&&w.getComputedStyle(lg).display==='flex','v2 stylesheet is live: .lg is a flex row (2.0 shipped it outside </style>)',lg&&w.getComputedStyle(lg).display); ok(w.getComputedStyle(doc.querySelector('#today .sec')).textTransform==='uppercase','section headers styled'); ok(doc.querySelector('style').sheet.cssRules.length>170,'stylesheet parsed past the v1 rules ('+doc.querySelector('style').sheet.cssRules.length+' rules)'); }
 }
@@ -109,7 +109,7 @@ console.log('\n== C. NFTs · aDAO · 14d ==');
   ok(cnt('Sales')===expSales(14),'Sales section = '+expSales(14),cnt('Sales'));
   const stakeN=expUnstaked(14); ok(cnt('Stake changes')>=stakeN,'Stake changes ≥ '+stakeN+' unstakes from pending-claims',cnt('Stake changes'));
   const sl=[...doc.querySelectorAll('#nfts .li')].find(l=>/to unlock|claimable|released/.test(text(l))); ok(sl!=null,'unstake rows carry a countdown / claimable state',sl&&text(sl));
-  ok(secs.includes('Listings')===(Object.values(J('nfts/adao/snapshots/listing-first-seen.json').entries).some(v=>new Date(v.first_seen_at).getTime()>=winStart(14))),'Listings section present iff a listing was first seen in 14d');
+  ok(secs.includes('Listings')===(Object.values(J('adao/snapshots/listing-first-seen.json').entries).some(v=>new Date(v.first_seen_at).getTime()>=winStart(14))),'Listings section present iff a listing was first seen in 14d');
   const saleRow=[...doc.querySelectorAll('#nfts .li')].find(l=>/→/.test(text(l))&&/Atrium|BBL|Boost/.test(text(l))); if(expSales(14))ok(saleRow&&/vs prior|first sale/.test(text(saleRow)),'sale row: who → who + Δ vs that token\'s prior sale',saleRow&&text(saleRow));
   ok(doc.getElementById('load-mine')!=null,'"Your NFTs" hydrates nfts.json on demand (not on first paint)');
   ok(!fetched.some(u=>/nfts\.json$/.test(u)),'nfts.json NOT fetched before the tap');
@@ -118,7 +118,7 @@ console.log('\n== C. NFTs · aDAO · 14d ==');
   ok(my.length===3,'three of your NFTs shown',my.length); ok(my.map(x=>x.id).join()===mine.slice(0,3).map(x=>x.id).join(),'top three by BBL rank = #'+mine.slice(0,3).map(x=>x.id+' (rank '+x.rank+')').join(', #'),my.map(x=>x.id).join());
   ok(text(doc.querySelector('#mine-nfts [data-more-mine]')).includes(String(mine.length)),'"All '+mine.length+', by rank" expander');
   doc.querySelector('#mine-nfts [data-more-mine]').click(); await sleep(50); ok(doc.querySelectorAll('#mine-nfts .li').length===mine.length,'expanded to all '+mine.length);
-  { const months=['09','08'].map(m=>{try{return J('nfts/adao/transfers/2026/'+m+'.json')}catch(e){return []}}).flat(); const last=months.map(e=>e.timestamp).sort().pop(); const stale=last&&Date.now()-new Date(last)>36*36e5; ok(/transfer ledger's last record is/.test(text(doc.getElementById('nfts')))===!!stale,'transfer-ledger stale label shown iff the last record is >36h old (last '+last+')'); }
+  { const months=['09','08'].map(m=>{try{return J('adao/transfers/2026/'+m+'.json')}catch(e){return []}}).flat(); const last=months.map(e=>e.timestamp).sort().pop(); const stale=last&&Date.now()-new Date(last)>36*36e5; ok(/transfer ledger's last record is/.test(text(doc.getElementById('nfts')))===!!stale,'transfer-ledger stale label shown iff the last record is >36h old (last '+last+')'); }
   /* collection guard: the live 2026/09 aux file holds the owner's Pixel Lions bids (#1234/#899/#1576/#1787, no nft_contract) and one real aDAO delist (#4729) */
   const feed=text(doc.getElementById('nfts')); ok(!/#1234|#1576/.test(feed),'Pixel Lions bids in the aux stream do not appear under aDAO',feed.slice(0,200)); ok(/#4729/.test(feed),'the real aDAO delist #4729 still shows');
   ok(doc.getElementById('gear')!=null,'settings (Me) reachable from the top bar');
@@ -138,9 +138,10 @@ console.log('\n== D. TLA · DAO · Me ==');
   doc.querySelector('#dao .card[data-prop]').click(); await sleep(50); ok(doc.getElementById('sheet').classList.contains('on')&&/DAO DAO/.test(text(doc.getElementById('sheet-c'))),'DAO: card → proposal sheet with a DAO DAO link');
   dom.window.__ally.show('me'); await sleep(100); const me_=doc.getElementById('me');
   ok(me_.querySelectorAll('[data-t]').length===8&&me_.querySelectorAll('[data-t]:checked').length===5,'Me: 8 pickable tabs, 5 on'); ok(me_.querySelectorAll('[data-win]').length===3,'Me: default window setting');
-  ok(text(me_).includes(usd(M.summary.voting_power_human>1e6?0:0,0))||/VP/.test(text(me_)),'Me: totals strip'); ok(/Ally 2\.0\.2/.test(text(me_)),'Me: footer carries the rev');
+  ok(text(me_).includes(usd(M.summary.voting_power_human>1e6?0:0,0))||/VP/.test(text(me_)),'Me: totals strip'); ok(/Ally 2\.0\.3/.test(text(me_)),'Me: footer carries the rev');
   /* v1 prefs on a device migrate */
   const dom2=await boot({prefs:{tabs:['home','portfolio','market','vote','more']}}); ok([...dom2.window.document.querySelectorAll('.tab')].map(x=>x.getAttribute('data-v')).join()==='today,nfts,tla,dao,me','v1 default tab set migrates to the v2 default');
   const dom3=await boot({prefs:{tabs:['home','nft','tla','vote','more']}}); ok([...dom3.window.document.querySelectorAll('.tab')].map(x=>x.getAttribute('data-v')).join()==='today,nfts,tla,vote,me','a custom v1 tab set keeps its choices under v2 names');
 }
+ok(!fetched.some(u=>u.includes('tla-core/main/nfts/adao')),'no fetch to the frozen tla-core/nfts/adao');ok(fetched.some(u=>u.includes('nft-collections/main/adao/snapshots/')),'aDAO products fetched from nft-collections/adao/');
 console.log(`\n${pass}/${pass+fail} passed`); process.exit(fail?1:0);
