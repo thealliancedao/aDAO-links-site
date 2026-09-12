@@ -79,7 +79,8 @@ console.log('\n== A. Today · no wallet · 7d window ==');
   const pe14=rowBy(r14,'Props executed'); ok((pe14?+pe14.value:0)===nExec(14),'14d: Props executed = '+nExec(14),pe14&&pe14.value);
   const nl14=rowBy(r14,'New listings'); const lfs=J('nfts/adao/snapshots/listing-first-seen.json').entries; const expNl=Object.values(lfs).filter(v=>new Date(v.first_seen_at).getTime()>=winStart(14)).length; ok((nl14?+nl14.value:0)===expNl,'14d: New listings = '+expNl,nl14&&nl14.value);
   ok(doc.querySelector('.tab[data-v="today"]')!=null&&doc.querySelectorAll('.tab').length===5,'five tabs: '+[...doc.querySelectorAll('.tab')].map(t=>t.textContent.trim()).join(' · '));
-  ok(text(doc.getElementById('page-rev')).includes('2.0.1'),'#page-rev carries REV');
+  ok(text(doc.getElementById('page-rev')).includes('2.0.2'),'#page-rev carries REV');
+  { const rules=[...doc.querySelector('style').sheet.cssRules]; const root=rules.find(r=>r.selectorText===':root'); ok(root&&/--bg:\s*#0a0b0f/.test(root.cssText),':root theme variables parse (2.0/2.0.1 shipped a literal <style> line that swallowed them → white body)',rules[0]&&rules[0].cssText.slice(0,60)); ok(rules[0].selectorText===':root','first rule is :root, nothing before it'); }
   { const w=dom.window; const lg=doc.querySelector('#today .lg'); ok(lg&&w.getComputedStyle(lg).display==='flex','v2 stylesheet is live: .lg is a flex row (2.0 shipped it outside </style>)',lg&&w.getComputedStyle(lg).display); ok(w.getComputedStyle(doc.querySelector('#today .sec')).textTransform==='uppercase','section headers styled'); ok(doc.querySelector('style').sheet.cssRules.length>170,'stylesheet parsed past the v1 rules ('+doc.querySelector('style').sheet.cssRules.length+' rules)'); }
 }
 
@@ -137,7 +138,7 @@ console.log('\n== D. TLA · DAO · Me ==');
   doc.querySelector('#dao .card[data-prop]').click(); await sleep(50); ok(doc.getElementById('sheet').classList.contains('on')&&/DAO DAO/.test(text(doc.getElementById('sheet-c'))),'DAO: card → proposal sheet with a DAO DAO link');
   dom.window.__ally.show('me'); await sleep(100); const me_=doc.getElementById('me');
   ok(me_.querySelectorAll('[data-t]').length===8&&me_.querySelectorAll('[data-t]:checked').length===5,'Me: 8 pickable tabs, 5 on'); ok(me_.querySelectorAll('[data-win]').length===3,'Me: default window setting');
-  ok(text(me_).includes(usd(M.summary.voting_power_human>1e6?0:0,0))||/VP/.test(text(me_)),'Me: totals strip'); ok(/Ally 2\.0\.1/.test(text(me_)),'Me: footer carries the rev');
+  ok(text(me_).includes(usd(M.summary.voting_power_human>1e6?0:0,0))||/VP/.test(text(me_)),'Me: totals strip'); ok(/Ally 2\.0\.2/.test(text(me_)),'Me: footer carries the rev');
   /* v1 prefs on a device migrate */
   const dom2=await boot({prefs:{tabs:['home','portfolio','market','vote','more']}}); ok([...dom2.window.document.querySelectorAll('.tab')].map(x=>x.getAttribute('data-v')).join()==='today,nfts,tla,dao,me','v1 default tab set migrates to the v2 default');
   const dom3=await boot({prefs:{tabs:['home','nft','tla','vote','more']}}); ok([...dom3.window.document.querySelectorAll('.tab')].map(x=>x.getAttribute('data-v')).join()==='today,nfts,tla,vote,me','a custom v1 tab set keeps its choices under v2 names');
