@@ -79,7 +79,8 @@ console.log('\n== A. Today · no wallet · 7d window ==');
   const pe14=rowBy(r14,'Props executed'); ok((pe14?+pe14.value:0)===nExec(14),'14d: Props executed = '+nExec(14),pe14&&pe14.value);
   const nl14=rowBy(r14,'New listings'); const lfs=J('nfts/adao/snapshots/listing-first-seen.json').entries; const expNl=Object.values(lfs).filter(v=>new Date(v.first_seen_at).getTime()>=winStart(14)).length; ok((nl14?+nl14.value:0)===expNl,'14d: New listings = '+expNl,nl14&&nl14.value);
   ok(doc.querySelector('.tab[data-v="today"]')!=null&&doc.querySelectorAll('.tab').length===5,'five tabs: '+[...doc.querySelectorAll('.tab')].map(t=>t.textContent.trim()).join(' · '));
-  ok(text(doc.getElementById('page-rev')).includes('2.0'),'#page-rev carries REV');
+  ok(text(doc.getElementById('page-rev')).includes('2.0.1'),'#page-rev carries REV');
+  { const w=dom.window; const lg=doc.querySelector('#today .lg'); ok(lg&&w.getComputedStyle(lg).display==='flex','v2 stylesheet is live: .lg is a flex row (2.0 shipped it outside </style>)',lg&&w.getComputedStyle(lg).display); ok(w.getComputedStyle(doc.querySelector('#today .sec')).textTransform==='uppercase','section headers styled'); ok(doc.querySelector('style').sheet.cssRules.length>170,'stylesheet parsed past the v1 rules ('+doc.querySelector('style').sheet.cssRules.length+' rules)'); }
 }
 
 console.log('\n== B. Today · owner wallet · 7d ==');
@@ -116,7 +117,10 @@ console.log('\n== C. NFTs · aDAO · 14d ==');
   ok(my.length===3,'three of your NFTs shown',my.length); ok(my.map(x=>x.id).join()===mine.slice(0,3).map(x=>x.id).join(),'top three by BBL rank = #'+mine.slice(0,3).map(x=>x.id+' (rank '+x.rank+')').join(', #'),my.map(x=>x.id).join());
   ok(text(doc.querySelector('#mine-nfts [data-more-mine]')).includes(String(mine.length)),'"All '+mine.length+', by rank" expander');
   doc.querySelector('#mine-nfts [data-more-mine]').click(); await sleep(50); ok(doc.querySelectorAll('#mine-nfts .li').length===mine.length,'expanded to all '+mine.length);
-  ok(/transfer ledger's last record is/.test(text(doc.getElementById('nfts'))),'transfer-ledger last-record date labeled when the ledger is stale');
+  { const months=['09','08'].map(m=>{try{return J('nfts/adao/transfers/2026/'+m+'.json')}catch(e){return []}}).flat(); const last=months.map(e=>e.timestamp).sort().pop(); const stale=last&&Date.now()-new Date(last)>36*36e5; ok(/transfer ledger's last record is/.test(text(doc.getElementById('nfts')))===!!stale,'transfer-ledger stale label shown iff the last record is >36h old (last '+last+')'); }
+  /* collection guard: the live 2026/09 aux file holds the owner's Pixel Lions bids (#1234/#899/#1576/#1787, no nft_contract) and one real aDAO delist (#4729) */
+  const feed=text(doc.getElementById('nfts')); ok(!/#1234|#1576/.test(feed),'Pixel Lions bids in the aux stream do not appear under aDAO',feed.slice(0,200)); ok(/#4729/.test(feed),'the real aDAO delist #4729 still shows');
+  ok(doc.getElementById('gear')!=null,'settings (Me) reachable from the top bar');
   /* collection switch → honest empty state */
   [...doc.querySelectorAll('#nfts [data-col]')].find(b=>b.textContent==='Pixel Lions').click(); await sleep(50);
   ok(/isn't captured yet/.test(text(doc.getElementById('nfts'))),'Pixel Lions → "not captured yet" (no phantom feed)');
@@ -133,7 +137,7 @@ console.log('\n== D. TLA · DAO · Me ==');
   doc.querySelector('#dao .card[data-prop]').click(); await sleep(50); ok(doc.getElementById('sheet').classList.contains('on')&&/DAO DAO/.test(text(doc.getElementById('sheet-c'))),'DAO: card → proposal sheet with a DAO DAO link');
   dom.window.__ally.show('me'); await sleep(100); const me_=doc.getElementById('me');
   ok(me_.querySelectorAll('[data-t]').length===8&&me_.querySelectorAll('[data-t]:checked').length===5,'Me: 8 pickable tabs, 5 on'); ok(me_.querySelectorAll('[data-win]').length===3,'Me: default window setting');
-  ok(text(me_).includes(usd(M.summary.voting_power_human>1e6?0:0,0))||/VP/.test(text(me_)),'Me: totals strip'); ok(/Ally 2\.0/.test(text(me_)),'Me: footer carries the rev');
+  ok(text(me_).includes(usd(M.summary.voting_power_human>1e6?0:0,0))||/VP/.test(text(me_)),'Me: totals strip'); ok(/Ally 2\.0\.1/.test(text(me_)),'Me: footer carries the rev');
   /* v1 prefs on a device migrate */
   const dom2=await boot({prefs:{tabs:['home','portfolio','market','vote','more']}}); ok([...dom2.window.document.querySelectorAll('.tab')].map(x=>x.getAttribute('data-v')).join()==='today,nfts,tla,dao,me','v1 default tab set migrates to the v2 default');
   const dom3=await boot({prefs:{tabs:['home','nft','tla','vote','more']}}); ok([...dom3.window.document.querySelectorAll('.tab')].map(x=>x.getAttribute('data-v')).join()==='today,nfts,tla,vote,me','a custom v1 tab set keeps its choices under v2 names');

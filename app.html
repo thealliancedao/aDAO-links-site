@@ -19,7 +19,7 @@
 <div class="ob" id="ob"></div>
 <div class="ptr" id="ptr"><i class="fas fa-arrow-down"></i> pull to refresh</div>
 <div class="top">
-  <div class="r1"><div><div class="ttl" id="ttl">Today</div><div class="sub" id="ttl-sub"></div></div><span class="pill cy" id="epoch-pill"><i class="fas fa-clock"></i> —</span><button class="chipw" id="wchip" type="button"><i class="fas fa-wallet"></i> <span>Wallet</span></button><button class="ib" id="refresh" type="button" aria-label="Refresh"><i class="fas fa-rotate"></i></button></div>
+  <div class="r1"><div><div class="ttl" id="ttl">Today</div><div class="sub" id="ttl-sub"></div></div><span class="pill cy" id="epoch-pill"><i class="fas fa-clock"></i> —</span><button class="chipw" id="wchip" type="button"><i class="fas fa-wallet"></i> <span>Wallet</span></button><button class="ib" id="gear" type="button" aria-label="Settings"><i class="fas fa-gear"></i></button><button class="ib" id="refresh" type="button" aria-label="Refresh"><i class="fas fa-rotate"></i></button></div>
 </div>
 <main>
   <section class="view on" id="v-today"><div id="today"><div class="sk" style="height:2.2em;margin-bottom:.6em"></div><div class="sk" style="width:40%;margin:.8em .2em .5em"></div><div class="sk" style="height:2.8em;margin-bottom:.3em"></div><div class="sk" style="height:2.8em;margin-bottom:.3em"></div><div class="sk" style="height:2.8em;margin-bottom:.3em"></div><div class="sk" style="height:2.8em"></div></div></section>
@@ -150,7 +150,6 @@ input.in{width:100%;font-family:inherit;font-size:16px;color:#fff;background:var
 .fl.me{border:1px solid rgba(192,132,252,.35)}
 .marker{display:flex;align-items:center;gap:.6em;color:var(--pu);font-size:.72em;font-weight:700;margin:.5em 0}.marker::before,.marker::after{content:'';flex:1;height:1px;background:rgba(192,132,252,.35)}
 .chips{display:flex;gap:.4em;overflow-x:auto;padding:.1em 0 .5em;-ms-overflow-style:none;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}.chips .pill{cursor:pointer;flex:0 0 auto}.chips .pill.on{border-color:rgba(34,211,238,.5);background:rgba(34,211,238,.15);color:var(--cy2)}
-</style>
 /* ---------- v2: ledger rows (Today) + sections ---------- */
 .wrow{display:flex;align-items:center;gap:.6em;margin:.1em 0 .5em}
 .wrow .seg{margin:0;flex:0 0 auto}.seg.win button{padding:.42em .7em;font-size:.8em}.seg.win.sm button{padding:.4em .55em;font-size:.74em}
@@ -178,7 +177,8 @@ const CORE='https://raw.githubusercontent.com/thealliancedao/tla-core/main/';
 const DAO ='https://raw.githubusercontent.com/thealliancedao/dao-originations/main/';
 const CDN ='https://imagedelivery.net/v_zOWVQCPb7Xpcbu-gQC1A/alliance_dao';
 const DAOS=[['aDAO','adao','p_adao'],['Lion DAO','lion-dao','p_lion'],['Pixel Lions','pixel-lions','p_pixel']];
-const REV='2.0', REV_DATE='2026-09-11';   /* rev footer law → #page-rev */
+const REV='2.0.1', REV_DATE='2026-09-12';
+const NFT_CONTRACT='terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9';   /* aDAO collection — the activity guard keys on it */   /* rev footer law → #page-rev */
 const TABS={today:['Today','fa-house'],nfts:['NFTs','fa-images'],tla:['TLA','fa-chart-line'],dao:['DAO','fa-landmark'],me:['Me','fa-user'],vote:['Vote','fa-check-to-slot'],market:['Market','fa-store'],portfolio:['Portfolio','fa-chart-pie']};   /* first five = the proposal; the last three stay pickable */
 const DEFAULT_TABS=['today','nfts','tla','dao','me'];
 const TLA_TOTAL_VP_FALLBACK=29.4e6;   // reconciled vs Eris (doctrine); replaced by max bucket VP when the snapshot carries it
@@ -433,7 +433,9 @@ function activity(){
   /* one merged ledger: transfers (tla-flows aux: transfer / send_nft / list / cancel / sale) + sales (enriched) + listing history (list / delist / sold) */
   const kc=(D.known&&D.known.contracts)||{}; const isContract=a=>!!kc[a]; const nameOf=a=>kc[a]&&kc[a].name;
   const ev=[]; const push=x=>ev.push(x);
+  /* the tla-flows aux stream is collection-blind (it watches the registry superset, incl. the marketplaces, and its bid/sale records carry no nft_contract) — keep only records provably on the aDAO collection; token ids overlap across collections, so a bare marketplace record is dropped, never guessed */
   Object.values(D.transfers||{}).forEach(arr=>(arr||[]).forEach(e=>{
+    if(!(e.nft_contract===NFT_CONTRACT||e.contract===NFT_CONTRACT))return;
     const to=nameOf(e.to)||'', from=nameOf(e.from)||''; let kind='transfer',ic='fa-right-left',cls='cy',text;
     const typeOf=a=>(kc[a]&&kc[a].type||'').toLowerCase(); const stakeName=a=>(nameOf(a)||'').replace(/AllianceDAO Voting Module/i,'DAODAO').replace(/Pixel Lions Voting Module/i,'Pixel Lions DAO').replace(/ \(.*\)$/,'');
     const isStake=a=>typeOf(a)==='staking'||/voting module|enterprise/i.test(nameOf(a)||''); const isMarket=a=>typeOf(a)==='marketplace'||/bbl|backbone|necropolis|atrium|boost|market/i.test(nameOf(a)||'');
@@ -676,6 +678,9 @@ function vNfts(){
     /* listings: new (first seen) · removed · price changes (listing history segments) */
     const newL=Object.entries((D.lfs&&D.lfs.entries)||{}).map(([k,v])=>({venue:k.split(':')[0],id:String(v.token_id),t:v.first_seen_at})).filter(x=>inWin(x.t)).sort((a,b)=>new Date(b.t)-new Date(a.t));
     const remL=((D.lhist&&D.lhist.records)||[]).flatMap(r=>(r.segments||[]).filter(sg=>sg.to_ts&&sg.end_reason==='delist'&&inWin(sg.to_ts)).map(sg=>({id:String(r.token_id),venue:r.marketplace,t:sg.to_ts,px:num(sg.price)/1e6,den:sg.denom,seller:r.seller}))).sort((a,b)=>new Date(b.t)-new Date(a.t));
+    const seenL=new Set([...newL.map(x=>x.id+'|'+x.t.slice(0,13)),...remL.map(x=>x.id+'|'+x.t.slice(0,13))]);
+    ev.filter(e=>(e.kind==='delist'||e.kind==='list')&&!seenL.has(e.id+'|'+String(e.t).slice(0,13))).forEach(e=>{(e.kind==='delist'?remL:newL).push({id:String(e.id),venue:e.venue||'BBL',t:e.t,px:null,den:null,live:true})});
+    remL.sort((a,b)=>new Date(b.t)-new Date(a.t)); newL.sort((a,b)=>new Date(b.t)-new Date(a.t));
     const chgL=((D.lhist&&D.lhist.records)||[]).flatMap(r=>(r.segments||[]).slice(1).filter(sg=>inWin(sg.from_ts)).map((sg,i)=>({id:String(r.token_id),venue:r.marketplace,t:sg.from_ts,px:num(sg.price)/1e6,px0:num(r.segments[r.segments.indexOf(sg)-1].price)/1e6,den:sg.denom}))).sort((a,b)=>new Date(b.t)-new Date(a.t));
     /* broken in window */
     const BA=(D.brokenAt&&D.brokenAt.entries)||{}; const broken=Object.values(BA).filter(b=>inWin(b.broken_at)).sort((a,b)=>new Date(b.broken_at)-new Date(a.broken_at));
@@ -687,7 +692,7 @@ function vNfts(){
       section('Sales',sales,({x,pv,px,p0,d})=>nftLi(x.token_id,tierOf(x.token_id)==='broken'?' <span class="pill rd" style="font-size:.66em">broken</span>':tierOf(x.token_id)==='phoenix'?' <span class="pill am" style="font-size:.66em">phoenix</span>':'',labelAddr(x.seller)+youTag(x.seller)+' → '+labelAddr(x.buyer)+youTag(x.buyer)+' · '+esc(x.marketplace||'BBL')+' · '+fmt.ago(x.timestamp),px!=null?fmt.usd(px,px<10?2:0):'—',fmt.n(x.amount,x.amount<10?2:0)+' '+esc(x.denom_symbol||'')+(d!=null?' · <span class="dd '+(d>=0?'up':'dn')+'">'+fmt.pct(d,0)+' vs prior</span>':pv?'':' · first sale')))+
       section('Transfers',xfers,e=>nftLi(e.id,youTag(e.who[0])||youTag(e.who[1]),e.text+' · '+fmt.ago(e.t),null))+
       section('Stake changes',[...claims.map(u=>({k:'unstake',u})),...staked.map(e=>({k:'stake',e}))].sort((a,b)=>new Date(b.u?b.u.unstaked_at:b.e.t)-new Date(a.u?a.u.unstaked_at:a.e.t)),o=>o.k==='unstake'?nftLi(o.u.token_id,youTag(o.u.address),'unstaked by '+labelAddr(o.u.address)+' · '+fmt.ago(o.u.unstaked_at),new Date(o.u.release_at)>Date.now()?'<span style="color:#fbbf24">'+fmt.until(o.u.release_at)+'</span>':'<span style="color:#34d399">claimable</span>',new Date(o.u.release_at)>Date.now()?'to unlock':'released'):(()=>{const st=stakeOf(o.e.who[0]);return nftLi(o.e.id,youTag(o.e.who[0]),'staked by '+labelAddr(o.e.who[0])+' · '+fmt.ago(o.e.t),st?fmt.n(st.count)+' staked':'',st&&st.voting_power_pct!=null?st.voting_power_pct.toFixed(1)+'% of DAO VP':'')})())+
-      section('Listings',[...newL.map(x=>({k:'new',x})),...remL.map(x=>({k:'rem',x})),...chgL.map(x=>({k:'chg',x}))].sort((a,b)=>new Date(b.x.t)-new Date(a.x.t)),o=>{const r=m.listedRows.find(y=>String(y.id)===o.x.id);return nftLi(o.x.id,o.k==='new'?' <span class="pill am" style="font-size:.66em">new</span>':o.k==='rem'?' <span class="pill mut" style="font-size:.66em">removed</span>':' <span class="pill cy" style="font-size:.66em">price</span>',esc(o.x.venue)+(o.x.seller?' · '+labelAddr(o.x.seller)+youTag(o.x.seller):'')+' · '+fmt.ago(o.x.t),o.k==='new'?(r?fmt.usd(r.usd,0):'—'):o.k==='rem'?fmt.n(o.x.px,0)+' '+den(o.x.den):fmt.n(o.x.px,0)+' '+den(o.x.den),o.k==='chg'?'was '+fmt.n(o.x.px0,0):(r&&r.rank?'rank #'+r.rank:''))})+
+      section('Listings',[...newL.map(x=>({k:'new',x})),...remL.map(x=>({k:'rem',x})),...chgL.map(x=>({k:'chg',x}))].sort((a,b)=>new Date(b.x.t)-new Date(a.x.t)),o=>{const r=m.listedRows.find(y=>String(y.id)===o.x.id);return nftLi(o.x.id,o.k==='new'?' <span class="pill am" style="font-size:.66em">new</span>':o.k==='rem'?' <span class="pill mut" style="font-size:.66em">removed</span>':' <span class="pill cy" style="font-size:.66em">price</span>',esc(o.x.venue)+(o.x.seller?' · '+labelAddr(o.x.seller)+youTag(o.x.seller):'')+' · '+fmt.ago(o.x.t),o.k==='new'?(r?fmt.usd(r.usd,0):'—'):o.k==='rem'?(o.x.px!=null?fmt.n(o.x.px,0)+' '+den(o.x.den):'—'):fmt.n(o.x.px,0)+' '+den(o.x.den),o.k==='chg'?'was '+fmt.n(o.x.px0,0):(r&&r.rank?'rank #'+r.rank:''))})+
       section('Broken',broken,b=>nftLi(b.token_id,'','broken '+fmt.ago(b.broken_at),null))+
       ((sales.length||xfers.length||claims.length||staked.length||newL.length||remL.length||broken.length)?'':`<div class="empty"><i class="fas fa-wind"></i>No aDAO movement in the last ${winLabel()}.</div>`)+
       (()=>{const end=Object.values(D.transfers||{}).flat().filter(Boolean).map(e=>e.timestamp).sort().pop();return end&&Date.now()-new Date(end)>36*36e5?`<div class="sub" style="margin:.5em .3em 0;color:#fbbf24">The on-chain transfer ledger's last record is ${fmt.date(end)} — the 15-minute walk is live and has recorded no NFT-contract transfer since. Sales, listings and unstake queues come from their own live products.</div>`:''})()+
@@ -786,7 +791,7 @@ VIEWS={today:vToday,nfts:vNfts,tla:vTla,dao:vDao,me:vMe,vote:vVote,market:vMarke
 (async()=>{
   try{if(/[?&]source=pwa/.test(location.search)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches))setPrefs({mode:'app'})}catch(e){}
   const pr=$('page-rev');if(pr)pr.textContent='Ally app '+REV+' · '+REV_DATE;
-  paintTabs();
+  paintTabs(); const g=$('gear'); if(g)g.onclick=()=>show('me');
   try{await load()}catch(e){}
   try{await loadWindow()}catch(e){}
   paintTop(); record(me(),model());
