@@ -100,13 +100,13 @@
     <script>
     (() => {
         'use strict';
-        const REV = '1.0', REV_DATE = '2026-08-24';
+        const REV = '1.1', REV_DATE = '2026-09-13';   // 1.1: aDAO products link to nft-collections/adao/
         const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
-        const GH = 'https://github.com/thealliancedao/tla-core/blob/main';
+        const GH = 'https://github.com/thealliancedao/tla-core/blob/main', GH_NFTC = 'https://github.com/thealliancedao/nft-collections/blob/main';   // 1.1: aDAO products live in nft-collections
         const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         const explorer = (a) => a.startsWith('neutron1') ? `https://www.mintscan.io/neutron/address/${a}` : `https://chainsco.pe/terra2/address/${a}`;
 
-        // Canonical Alliance DAO set. Sources: alliance-dao.facts.json, nfts/adao/provenance/summary.json, known_contracts.json.
+        // Canonical Alliance DAO set. Sources: alliance-dao.facts.json, nft-collections adao/provenance/summary.json, known_contracts.json.
         const CORE_CONTRACTS = [
             { name: 'NFT collection (CW721)', addr: 'terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9', role: 'The 10,000 NFTs, the Ally denom, the backing, break()', tags: ['code 2322', 'audited'] },
             { name: 'NFT minter', addr: 'terra1m3ye6dl6s25el4xd8adg9lnquz88az9lur2ujztj9pfmzdyfz3xsm699r3', role: 'Game of Alliance claims, Dec 12 2023 – Jan 12 2024', tags: ['code 2325'] },
@@ -139,8 +139,8 @@
             { name: 'Current proposals (DAODAO)', href: 'https://daodao.zone/dao/terra1csp8gsjk2yyxzqewza6lkjvwkspn7zs2jvamk9uf05crtcakf6gszk2g8y/proposals', role: 'Everything since the move to DAODAO' },
         ];
         const DATA = [
-            { name: 'nfts/adao/provenance', path: 'nfts/adao/provenance/summary.json', role: 'Every mint, sale, break and transfer from genesis to 2025-01-07 (FCD archive). Candy machines reconciled: loaded = sold + returned + gov moves.', guard: 'reconciliation per machine' },
-            { name: 'nfts/adao/snapshots', path: 'nfts/adao/snapshots/summary.json', role: 'Live custody of all 10,000: who holds what, broken/unbroken, staked, listed, backing per NFT.', guard: 'counts sum to 10,000' },
+            { name: 'nft-collections/adao/provenance', nftc: true, path: 'adao/provenance/summary.json', role: 'Every mint, sale, break and transfer from genesis to 2025-01-07 (FCD archive). Candy machines reconciled: loaded = sold + returned + gov moves.', guard: 'reconciliation per machine' },
+            { name: 'nft-collections/adao/snapshots', nftc: true, path: 'adao/snapshots/summary.json', role: 'Live custody of all 10,000: who holds what, broken/unbroken, staked, listed, backing per NFT.', guard: 'counts sum to 10,000' },
             { name: 'token-catalog/supply/capa', path: 'token-catalog/supply/capa/current.json', role: 'Where every CAPA sits (13 custody forms) and per-wallet rows.', guard: '13 sum guards vs each contract\'s own total' },
             { name: 'token-catalog/supply/fuel', path: 'token-catalog/supply/fuel/current.json', role: 'FUEL on Neutron (Boost DAO stakers, treasury, escrow) and Terra IBC holders.', guard: '5 guards incl. cross-chain escrow' },
             { name: 'member-data/positions', path: 'member-data/positions/current.json', role: 'Every member\'s TLA positions as captured from chain.', guard: 'never-shrink, org-wins' },
@@ -159,7 +159,7 @@
         document.getElementById('core-rows').innerHTML = CORE_CONTRACTS.map(c => rowHtml(c.name, c.role, c.addr, c.tags, { noExplorer: c.noExplorer })).join('');
         document.getElementById('code-rows').innerHTML = CODE.map(c => rowHtml(c.name, c.role, null, [], { href: c.href })).join('');
         document.getElementById('gov-rows').innerHTML = GOV.map(c => rowHtml(c.name, c.role, null, [], { href: c.href })).join('');
-        document.getElementById('data-rows').innerHTML = DATA.map(c => rowHtml(c.name, c.role + ' Guard: ' + c.guard + '.', null, [], { href: c.path ? `${GH}/${c.path}` : c.href })).join('');
+        document.getElementById('data-rows').innerHTML = DATA.map(c => rowHtml(c.name, c.role + ' Guard: ' + c.guard + '.', null, [], { href: c.path ? `${c.nftc ? GH_NFTC : GH}/${c.path}` : c.href })).join('');
         document.getElementById('page-rev').textContent = `Rev ${REV} · ${REV_DATE}`;
 
         // live register

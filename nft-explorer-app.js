@@ -1,3 +1,4 @@
+// 2026-09-13 (explorer 4.31): aDAO products read from nft-collections/adao/ (the aDAO migration).
 // BUILD: Jan02-v2 - DAO Member name search, member names displayed with addresses, NFT modal member display
 // --- Global Elements ---
 const gallery = document.getElementById('nft-gallery');
@@ -114,8 +115,8 @@ let walletMobileSearchMode = 'full';
 
 // --- Config ---
 const METADATA_URL = "/assets/nft-metadata/all_nfts_metadata.json";  // served from this repo (Vercel edge-cached); was jsDelivr → defipatriot/nft-metadata
-const STATUS_DATA_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json";
-const BUNDLE_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/explorer-bundle.json"; // 442KB first-paint product (perf part 2)
+const STATUS_DATA_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/nfts.json";
+const BUNDLE_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/explorer-bundle.json"; // 442KB first-paint product (perf part 2)
 
 // Canonical rarity files (/assets/nft-metadata/, migrated from defipatriot 2026-08-09) — ranks come ONLY from these.
 const RARITY_INTENDED_URL = "/assets/nft-metadata/adao-rarity-intended.json";
@@ -1499,16 +1500,16 @@ function switchView(viewName, fromHistory = false) {
 //   data/v2/summary.json         (backing + marketplace listing state)
 //   data/v2/sales-enriched.json  (per-sale, for highest/biggest sales)
 // ============================================================================
-const ANALYTICS_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nft-analytics.json";
-const ANALYTICS_SUMMARY_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/summary.json";
-const ANALYTICS_ENRICHED_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/sales-enriched.json";
-const BROKEN_AT_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/broken-at.json";
+const ANALYTICS_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/nft-analytics.json";
+const ANALYTICS_SUMMARY_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/summary.json";
+const ANALYTICS_ENRICHED_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/sales-enriched.json";
+const BROKEN_AT_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/broken-at.json";
 // 2026-08-25: listing-history.json = every marketplace listing since 2023-12 with its price segments (BBL price
 // changes are cancel+recreate). The band builder was written for it; the constant pointed at the cron's
 // first-seen log (no `records`), so the listing bars silently never drew.
-const LISTING_HISTORY_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/listing-history.json";
-const LUNA_ORACLE_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/luna-usd-daily.json";
-const BLUNA_ORACLE_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/bluna-usd-daily.json";
+const LISTING_HISTORY_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/listing-history.json";
+const LUNA_ORACLE_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/luna-usd-daily.json";
+const BLUNA_ORACLE_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/bluna-usd-daily.json";
 const DENOM_BLUNA = "cw20:terra17aj4ty4sz4yhgm08na8drc0v03v2jwr3waxcqrwhajj729zhl7zqnpc0ml";
 const DENOM_SOLID = "cw20:terra10aa3zdkrc7jwuf8ekl3zq7e7m42vmzqehcmu74e4egc7xkm5kr2s0muyst";
 
@@ -3673,8 +3674,8 @@ const loadListingAges = async () => {
         catch { return null; }
     };
     const [hist, seen] = await Promise.all([
-        grab('https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/listing-history.json'),
-        grab('https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/listing-first-seen.json'),
+        grab('https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/listing-history.json'),
+        grab('https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/listing-first-seen.json'),
     ]);
     for (const rec of ((hist && hist.records) || [])) {
         if (rec.outcome !== 'active') continue;

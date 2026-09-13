@@ -159,7 +159,7 @@
                 <div class="rounded-lg bg-white/[0.03] border border-white/5 p-3"><div class="text-[10px] uppercase tracking-wider text-gray-500">To NFT backing · 7d</div><div class="text-lg font-bold text-cyan-300 font-mono" id="pi-backing"></div><div class="text-[11px] text-gray-400" id="pi-backing-s"></div></div>
             </div>
             <div class="mt-3 text-[11px] text-gray-400 font-mono" id="pi-rate"></div>
-            <div class="mt-1 text-[10px] text-gray-500" id="pi-note">Source: nfts/adao/claims/history.json — every row is a claim tx on chain (write-once by tx hash). The ledger starts at first capture; longer windows fill in as days accrue. Projections are "if the last 7 days repeat", not income.</div>
+            <div class="mt-1 text-[10px] text-gray-500" id="pi-note">Source: nft-collections adao/claims/history.json — every row is a claim tx on chain (write-once by tx hash). The ledger starts at first capture; longer windows fill in as days accrue. Projections are "if the last 7 days repeat", not income.</div>
         </div>
 
         <!-- Value Change Breakdown — the hero "What Changed" story panel.
@@ -1349,7 +1349,7 @@
         async function renderProtocolIncome() {
             const $ = (id) => document.getElementById(id);
             try {
-                const r = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/claims/history.json?t=' + Math.floor(Date.now() / 900000));
+                const r = await fetch('https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/claims/history.json?t=' + Math.floor(Date.now() / 900000));
                 if (!r.ok) { $('pi-last-s').textContent = 'ledger not published yet — the NFT cron writes it on its next run'; return null; }
                 const d = await r.json();
                 const amp = (v) => v == null ? '—' : (Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' ampLUNA');
@@ -2683,6 +2683,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '3.1', revDate: '2026-08-23', page: 'dao_treasury' });</script>
+<script>SiteFooter.mount({ rev: '3.2', revDate: '2026-09-13', page: 'dao_treasury' });</script>
 </body>
 </html>

@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // gate-release-history.mjs — release-history.html Rev 1.5: floor from the org
-// NFT market product (nfts/adao/snapshots/floor-history.json); the retired
+// NFT market product (nft-collections adao/snapshots/floor-history.json); the retired
 // personal-repo read and its hardcoded $43 "Estimate" are gone. Unavailable → dash.
 // Usage: TLA_CORE_DIR=/path/to/tla-core node gate-release-history.mjs
 import { JSDOM } from 'jsdom'; import fs from 'fs'; import path from 'path';
 const CORE = process.env.TLA_CORE_DIR; if (!CORE) { console.error('TLA_CORE_DIR required'); process.exit(1); }
+const NFTC = process.env.NFTC_DIR; if (!NFTC) { console.error('NFTC_DIR required (nft-collections checkout — aDAO products live there since 2026-09-13)'); process.exit(1); }
 const here = path.dirname(new URL(import.meta.url).pathname);
 let PASS = 0, FAIL = 0; const check = (n, ok, x) => { if (ok) { PASS++; console.log('  ✓ ' + n); } else { FAIL++; console.log('  ✗ ' + n + (x != null ? '  ← ' + JSON.stringify(x) : '')); } };
-const floorDoc = JSON.parse(fs.readFileSync(path.join(CORE, 'nfts/adao/snapshots/floor-history.json'), 'utf8'));
+const floorDoc = JSON.parse(fs.readFileSync(path.join(NFTC, 'adao/snapshots/floor-history.json'), 'utf8'));
 const last = floorDoc.rows[floorDoc.rows.length - 1];
 async function boot({ floorDown = false } = {}) {
   const html = fs.readFileSync(path.join(here, 'release-history.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '');
@@ -33,7 +34,7 @@ console.log('=== release-history 1.5 — floor from the org product ===');
 }
 console.log('\n=== Rev 1.6: phase numbers equal the provenance mint story (chain-exact) ===');
 {
-  const prov = JSON.parse(fs.readFileSync(path.join(CORE, 'nfts/adao/provenance/summary.json'), 'utf8')).mint_story;
+  const prov = JSON.parse(fs.readFileSync(path.join(NFTC, 'adao/provenance/summary.json'), 'utf8')).mint_story;
   const by = Object.fromEntries(prov.phases.map(p => [p.phase_id, p]));
   const html = fs.readFileSync(path.join(here, 'release-history.html'), 'utf8');
   const { w } = await boot(); const d = w.document; const t = d.body.textContent;

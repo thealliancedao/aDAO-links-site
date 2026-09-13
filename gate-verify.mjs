@@ -4,10 +4,11 @@
 // register renders grouped; rev. Usage: TLA_CORE_DIR=/path/to/tla-core node gate-verify.mjs
 import { JSDOM } from 'jsdom'; import fs from 'fs'; import path from 'path';
 const CORE = process.env.TLA_CORE_DIR; if (!CORE) { console.error('TLA_CORE_DIR required'); process.exit(1); }
+const NFTC = process.env.NFTC_DIR; if (!NFTC) { console.error('NFTC_DIR required (nft-collections checkout)'); process.exit(1); }
 const here = path.dirname(new URL(import.meta.url).pathname);
 let PASS = 0, FAIL = 0; const check = (n, ok, x) => { if (ok) { PASS++; console.log('  ✓ ' + n); } else { FAIL++; console.log('  ✗ ' + n + (x != null ? '  ← ' + JSON.stringify(x) : '')); } };
-const J = (rel) => JSON.parse(fs.readFileSync(path.join(CORE, rel), 'utf8'));
-const reg = J('docs/curated/known_contracts.json'), prov = J('nfts/adao/provenance/summary.json'), summ = J('nfts/adao/snapshots/summary.json');
+const J = (rel) => JSON.parse(fs.readFileSync(path.join(rel.startsWith('adao/') ? NFTC : CORE, rel), 'utf8'));
+const reg = J('docs/curated/known_contracts.json'), prov = J('adao/provenance/summary.json'), summ = J('adao/snapshots/summary.json');
 const known = new Set([...Object.keys(reg.contracts), ...Object.keys(prov.mint_story.candy_machines), prov.mint_story.mint_era_dao_treasury_address, ...Object.keys(summ.per_owner_counts)]);
 const html = fs.readFileSync(path.join(here, 'verify.html'), 'utf8');
 const addrs = [...html.matchAll(/addr: '((?:terra1|factory\/terra1)[^']+)'/g)].map(m => m[1]).map(a => a.startsWith('factory/') ? a.split('/')[1] : a);

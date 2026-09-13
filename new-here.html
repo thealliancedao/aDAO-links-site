@@ -222,13 +222,13 @@
 
     <script>
     (async () => {
-        const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main'; const T = Math.floor(Date.now() / 900000);
+        const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main'; const NFTC = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main'; const T = Math.floor(Date.now() / 900000);   // 1.1: aDAO products live in nft-collections
         const $ = (id) => document.getElementById(id);
         const num = (v, d = 0) => v == null ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: d });
         // days backed: since prop #4801 passed
         const days = Math.floor((Date.now() - Date.parse('2024-02-23T00:00:00Z')) / 864e5); $('h-days').textContent = num(days) + ' days';
-        const get = async (p) => { try { const r = await fetch(`${CORE}/${p}?t=${T}`); return r.ok ? r.json() : null; } catch { return null; } };
-        const [sum, bh, prices, dd] = await Promise.all([get('nfts/adao/snapshots/summary.json'), get('nfts/adao/snapshots/backing-history.json'), get('network-and-prices/current.json'), get('member-data/dao-dashboard/current.json')]);
+        const get = async (p) => { try { const r = await fetch(`${p.startsWith('adao/') ? NFTC : CORE}/${p}?t=${T}`); return r.ok ? r.json() : null; } catch { return null; } };
+        const [sum, bh, prices, dd] = await Promise.all([get('adao/snapshots/summary.json'), get('adao/snapshots/backing-history.json'), get('network-and-prices/current.json'), get('member-data/dao-dashboard/current.json')]);
         const bk = sum && sum.backing || {}; const last = bh && bh.rows && bh.rows[bh.rows.length - 1];
         if (bk.per_nft_ampluna != null) { $('h-backing').textContent = num(bk.per_nft_ampluna, 2) + ' ampLUNA'; $('f-backing').textContent = num(bk.per_nft_ampluna, 2); }
         if (bk.per_nft_value_usd != null) { $('h-backing-usd').textContent = '· $' + num(bk.per_nft_value_usd, 2); $('f-usd').textContent = '$' + num(bk.per_nft_value_usd, 2); }
@@ -264,6 +264,6 @@
     <div id="site-footer"></div>
     <script src="/lib/cron-registry.js"></script>
     <script src="/lib/site-footer.js"></script>
-    <script>SiteFooter.mount({ rev: '1.0', revDate: '2026-08-25', page: 'new-here' });</script>
+    <script>SiteFooter.mount({ rev: '1.1', revDate: '2026-09-13', page: 'new-here' });</script>
 </body>
 </html>

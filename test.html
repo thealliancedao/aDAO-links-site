@@ -280,10 +280,10 @@
         // Null = honest absence; the ally sections show their empty state until an
         // org ally/collection roster exists (rebuild or retire the feature).
         alliesUrl: null,
-        orgNftSummaryUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/summary.json',
+        orgNftSummaryUrl: 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/summary.json',
         snapshotUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/current.json',
-        nftsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/nfts.json',
-        floorsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/floor-history.json',
+        nftsUrl: 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/nfts.json',
+        floorsUrl: 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/floor-history.json',
         dailyBaseUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/daily',   // registered-member daily archive (trend engine)
         rollupsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/events/rollups.json', // voter claims = bribe income
         trackStart: '2026-06-13',   // first daily archive — every earlier day is permanently missing
@@ -293,7 +293,7 @@
             ['TLA participants', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/heartbeat.json'],
             ['aDAO positions', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/heartbeat.json'],
             ['aDAO allies', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/heartbeat.json'],
-            ['NFT tracker (org)', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/heartbeat.json'],
+            ['NFT tracker (org)', 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/heartbeat.json'],
             ['P&L rollup (org)', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-flows/pnl/heartbeat.json'],
         ],
         storageKey: 'tla_portfolio_wallet',
@@ -1998,6 +1998,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '1.0', revDate: '2026-08-12', page: 'test' });</script>
+<script>SiteFooter.mount({ rev: '1.1', revDate: '2026-09-13', page: 'test' });</script>
 </body>
 </html>

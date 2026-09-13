@@ -277,8 +277,8 @@
             // 0.21 fallback constant is gone: if the series is unreadable the tiles say
             // so (blank beats phantom). Series migrated to {rows:[…]} on 2026-08-11; this
             // page still read the legacy {history:[…]} key and had been on the fallback since.
-            const BACKING_INDEX_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/backing-history.json';
-            const V2_SUMMARY_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/summary.json';
+            const BACKING_INDEX_URL = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/backing-history.json';
+            const V2_SUMMARY_URL = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/summary.json';
 
             // --- UI ELEMENTS ---
             const totalLunaEl = document.getElementById('total-luna-in-contract');
@@ -498,7 +498,7 @@
     <div id="site-footer"></div>
     <script src="/lib/cron-registry.js"></script>
     <script src="/lib/site-footer.js"></script>
-    <script>SiteFooter.mount({ rev: '3.5', revDate: '2026-08-23', page: 'ally' });</script>
+    <script>SiteFooter.mount({ rev: '3.6', revDate: '2026-09-13', page: 'ally' });</script>
 
 </body>
 </html>

@@ -246,7 +246,7 @@
                     <div>
                         <p class="text-yellow-200 font-medium text-sm">Where these numbers come from</p>
                         <p class="text-gray-400 text-sm mt-1">
-                            Every mint, sale and break on this page is reconstructed from the chain itself &mdash; the collection and minter contracts' complete history to 2025-01-07 (FCD frozen archive; org product <code class="text-xs">nfts/adao/provenance</code>), with each candy machine reconciled: loaded = sold + returned + governance moves. USD figures use the LUNA price on each token's own mint day. Earlier versions of this page carried estimates from sales-bot memory; those are gone.
+                            Every mint, sale and break on this page is reconstructed from the chain itself &mdash; the collection and minter contracts' complete history to 2025-01-07 (FCD frozen archive; org product <code class="text-xs">nft-collections/adao/provenance</code>), with each candy machine reconciled: loaded = sold + returned + governance moves. USD figures use the LUNA price on each token's own mint day. Earlier versions of this page carried estimates from sales-bot memory; those are gone.
                         </p>
                     </div>
                 </div>
@@ -617,9 +617,9 @@
             // --- Floor price from the org NFT market product (Rev 1.5, 2026-08-24) ---
             // Was: the GitHub API of defipatriot/tla_json_storage (retired; returns 403),
             // falling back to a HARDCODED $43 "Estimate" — a phantom that had been on
-            // the page since the repo died. Now: nfts/adao/snapshots/floor-history.json
+            // the page since the repo died. Now: nft-collections adao/snapshots/floor-history.json
             // (org capture, daily rows per tier). Unavailable → blank, never a number.
-            const FLOOR_URL = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/nfts/adao/snapshots/floor-history.json';
+            const FLOOR_URL = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/floor-history.json';
             async function fetchFloorPrice() {
                 floorPriceData = null; marketPriceData = null;
                 try {
@@ -835,7 +835,7 @@
             }
 
             // --- MINT COSTS IN USD (at time of mint) ---
-            // Rev 1.6: per-token mint-day LUNA price from nfts/adao/provenance × luna-usd-daily (no gaps).
+            // Rev 1.6: per-token mint-day LUNA price from adao/provenance × luna-usd-daily (no gaps).
             // low/high = actual min/max paid; the ROI lines use the mid, which is within $1 of the true average for each phase.
             const mintCostUsd1b = { low: 32.59, high: 41.55 };  // 127 × 50 LUNA, avg $34.24
             const mintCostUsd2a = { low: 52.82, high: 89.90 };  // 525 × 75 LUNA, avg $54.62
@@ -1004,7 +1004,7 @@
     <div id="site-footer"></div>
     <script src="/lib/cron-registry.js"></script>
     <script src="/lib/site-footer.js"></script>
-    <script>SiteFooter.mount({ rev: '1.6', revDate: '2026-08-24', page: 'release-history' });</script>
+    <script>SiteFooter.mount({ rev: '1.7', revDate: '2026-09-13', page: 'release-history' });</script>
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
 </body>
 </html>

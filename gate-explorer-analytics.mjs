@@ -11,28 +11,29 @@ import path from 'path';
 
 const CORE = process.env.TLA_CORE_DIR;
 if (!CORE) { console.error('TLA_CORE_DIR required'); process.exit(1); }
-const SNAP = (f) => path.join(CORE, 'nfts/adao/snapshots', f);
+const NFTC = process.env.NFTC_DIR; if (!NFTC) { console.error('NFTC_DIR required (nft-collections checkout)'); process.exit(1); }
+const SNAP = (f) => path.join(NFTC, 'adao/snapshots', f);
 const here = path.dirname(new URL(import.meta.url).pathname);
 
 const FILES = {
   '/assets/nft-metadata/all_nfts_metadata.json': path.join(here, 'assets/nft-metadata/all_nfts_metadata.json'),
   '/assets/nft-metadata/adao-rarity-intended.json': path.join(here, 'assets/nft-metadata/adao-rarity-intended.json'),
   '/assets/nft-metadata/adao-rarity-bbl.json': path.join(here, 'assets/nft-metadata/adao-rarity-bbl.json'),
-  'nfts/adao/snapshots/nfts.json': SNAP('nfts.json'),
-  'nfts/adao/snapshots/summary.json': SNAP('summary.json'),
-  'nfts/adao/snapshots/nft-analytics.json': SNAP('nft-analytics.json'),
-  'nfts/adao/snapshots/sales-enriched.json': SNAP('sales-enriched.json'),
-  'nfts/adao/snapshots/broken-at.json': SNAP('broken-at.json'),
-  'nfts/adao/snapshots/listing-history.json': SNAP('listing-history.json'),
-  'nfts/adao/snapshots/luna-usd-daily.json': SNAP('luna-usd-daily.json'),
-  'nfts/adao/snapshots/bluna-usd-daily.json': SNAP('bluna-usd-daily.json'),
-  'nfts/adao/snapshots/explorer-bundle.json': SNAP('explorer-bundle.json'),
+  'nft-collections/main/adao/snapshots/nfts.json': SNAP('nfts.json'),
+  'nft-collections/main/adao/snapshots/summary.json': SNAP('summary.json'),
+  'nft-collections/main/adao/snapshots/nft-analytics.json': SNAP('nft-analytics.json'),
+  'nft-collections/main/adao/snapshots/sales-enriched.json': SNAP('sales-enriched.json'),
+  'nft-collections/main/adao/snapshots/broken-at.json': SNAP('broken-at.json'),
+  'nft-collections/main/adao/snapshots/listing-history.json': SNAP('listing-history.json'),
+  'nft-collections/main/adao/snapshots/luna-usd-daily.json': SNAP('luna-usd-daily.json'),
+  'nft-collections/main/adao/snapshots/bluna-usd-daily.json': SNAP('bluna-usd-daily.json'),
+  'nft-collections/main/adao/snapshots/explorer-bundle.json': SNAP('explorer-bundle.json'),
   'governance/members.csv': null,   // 404 — page tolerates
 };
 // Perf part 2: hold the 16MB products behind a latch so the test can PROVE the
 // page painted from the 442KB bundle before hydration ran.
 let releaseFull; const fullLatch = new Promise(r => { releaseFull = r; });
-const DEFERRED = ['nfts/adao/snapshots/nfts.json', '/assets/nft-metadata/all_nfts_metadata.json', '/assets/nft-metadata/adao-rarity-intended.json'];
+const DEFERRED = ['nft-collections/main/adao/snapshots/nfts.json', '/assets/nft-metadata/all_nfts_metadata.json', '/assets/nft-metadata/adao-rarity-intended.json'];
 const bodyFor = (url) => {
   for (const [k, p] of Object.entries(FILES)) if (url.includes(k)) return p && fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null;
   return null;
@@ -81,7 +82,7 @@ const check = (n, ok, d) => { console.log(`${ok ? '✓' : '✗'} ${n}${d ? ' —
 
 // minimal state the analytics builder consumes from the boot path: allNfts
 const meta = JSON.parse(fs.readFileSync(FILES['/assets/nft-metadata/all_nfts_metadata.json']));
-const statusDoc = JSON.parse(fs.readFileSync(FILES['nfts/adao/snapshots/nfts.json']));
+const statusDoc = JSON.parse(fs.readFileSync(FILES['nft-collections/main/adao/snapshots/nfts.json']));
 const byId = new Map(statusDoc.records.map(r => [String(r.id), r]));
 w.allNfts = meta.map(m => {
   const s = byId.get(String(m.id)) || null;
