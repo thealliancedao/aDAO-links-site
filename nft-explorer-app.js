@@ -1,3 +1,4 @@
+// 2026-09-14 (explorer 4.32): listing-price pill finally VISIBLE — styled in nft-explorer-style.css 6.1 (the app had built it since 2026-08-12 with no CSS); bundle-only listings show USD, not "No price set".
 // 2026-09-13 (explorer 4.31): aDAO products read from nft-collections/adao/ (the aDAO migration).
 // BUILD: Jan02-v2 - DAO Member name search, member names displayed with addresses, NFT modal member display
 // --- Global Elements ---
@@ -848,10 +849,13 @@ const fmtListingPrice = (listing) => {
         amt = Number(listing.price_amount).toLocaleString(undefined, { maximumFractionDigits: 4 })
             + (sym ? ' ' + sym : '');
     }
-    if (!amt) return { token: null, usd: null, text: 'No price set' };
     const usd = (listing.price_usd != null && isFinite(listing.price_usd))
         ? '$' + Number(listing.price_usd).toLocaleString(undefined, { maximumFractionDigits: 2 })
         : null;
+    // 6.1 (2026-09-14): on the bundle boot a listing carries only price_usd (the compact bundle has no amount/denom);
+    // that is a real price, not "No price set" — show the USD as the headline until hydration brings the token amount.
+    if (!amt && usd) return { token: usd, usd: null, text: usd };
+    if (!amt) return { token: null, usd: null, text: 'No price set' };
     return { token: amt, usd, text: amt };
 };
 
@@ -2821,7 +2825,7 @@ const createNftCard = (nft, toggleSelector) => {
     const priced = fmtListingPrice(nft.listing);
     if (priced) {
         const pill = document.createElement('div');
-        pill.className = 'listing-price-pill';
+        pill.className = 'listing-price-pill' + (nft.broken ? ' above-banner' : '');   // 6.1: sit above the BROKEN banner
         pill.title = `${marketplaceOf(nft) || 'Listed'}${priced.usd ? ` · ${priced.usd}` : ''}`;
         pill.innerHTML = priced.token
             ? `<span class="lp-amt">${priced.token}</span>${priced.usd ? `<span class="lp-usd">${priced.usd}</span>` : ''}`

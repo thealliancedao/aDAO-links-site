@@ -180,6 +180,22 @@ input[type="range"].direction-slider:disabled::-webkit-slider-thumb { background
 }
 .badges-hidden .top-right-stack,
 .badges-hidden .broken-banner,
+/* 2026-09-14 (6.1): the listing-price pill. The app has built this element since 2026-08-12 (token amount + USD
+   for every listed NFT) but no rule ever positioned or coloured it, so it rendered as an unstyled block off the
+   visible card — "listed NFTs don't show their price" (owner, 2026-09-14). Bottom-left of the art, out of the way
+   of the top-right marketplace badges and the bottom-right showcase picker. */
+.listing-price-pill {
+    position: absolute; left: 8px; bottom: 8px; z-index: 2;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+    padding: 4px 8px; border-radius: 8px;
+    background: rgba(17, 24, 39, 0.86); border: 1px solid rgba(45, 212, 191, 0.45);
+    backdrop-filter: blur(4px); pointer-events: none;
+    transition: opacity 0.2s;
+}
+.listing-price-pill .lp-amt { color: #f9fafb; font-size: 0.85rem; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+.listing-price-pill .lp-usd { color: #5eead4; font-size: 0.72rem; font-weight: 600; line-height: 1.1; white-space: nowrap; }
+.listing-price-pill .lp-none { color: #9ca3af; font-weight: 500; font-size: 0.72rem; }
+.broken .listing-price-pill, .listing-price-pill.above-banner { bottom: 44px; }   /* clear the red BROKEN banner */
 /* 2026-08-12: the eye exists to show the ART with nothing on top of it, so the
    listing-price pill and the showcase picker hide with the badges. */
 .badges-hidden .listing-price-pill,
