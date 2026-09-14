@@ -36,4 +36,11 @@ if (saleRec) { const rows = byTok(String(saleRec.token_id));
 if (bidRec) { const rows = byTok(String(bidRec.token_id));
   ok(`activity: bid #${bidRec.token_id} renders as "Bid <amount>" and says the currency is not in the record (never a guessed symbol)`, rows.some(i => i.kind === 'bid' && /^Bid [\d,.]+$/.test(i.label) && /currency not in record/.test(i.sub)), rows.map(i => [i.label, i.sub])); }
 ok('activity: no row is labelled "Transferred" with sub "to …" (the null-address fallthrough)', !items.some(i => i.label === 'Transferred' && i.sub === 'to …'), items.filter(i => i.label === 'Transferred').map(i => i.sub).slice(0, 5));
+// --- 4.20: mobile browser = desktop tiles fitted, not the app's rows (static CSS checks; the phone screenshot is the visual gate)
+const src = fs.readFileSync(FILE, 'utf8'); const mobStart = src.lastIndexOf('@media (max-width: 767px) {', src.indexOf('#pulse-card { display: none')); const mob = src.slice(mobStart, src.indexOf('#mob-links-toggle { width: 100%'));
+ok('4.20 mobile: #dao-stats is a two-column grid of cards (not one column)', /#dao-stats \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) !important/.test(mob) && !/#dao-stats \{ grid-template-columns: 1fr !important/.test(mob));
+ok('4.20 mobile: cards are centered blocks — no label-left/number-right row grid remains', /text-align: center !important; display: block/.test(mob) && !/grid-row: 1 \/ span/.test(mob) && !/grid-template-columns: minmax\(0, 1fr\) auto/.test(mob));
+ok('4.20 mobile: the DAO Total Value + NFT Analytics strips show their desktop formulas; the lone-number variant is hidden', /#dao-total-breakdown, #nft-analytics-strip \.hidden\.sm\\:flex \{ display: flex !important/.test(mob) && /#dao-total-value-card \.sm\\:hidden, #nft-analytics-strip \.sm\\:hidden \{ display: none !important/.test(mob));
+ok('4.20 mobile: marketplaces three-up, expanded card spans the row', /#marketplace-overview-grid \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\) !important/.test(mob) && /\.marketplace-section\.mob-open \{ grid-column: 1 \/ -1; \}/.test(mob));
+ok('4.20 marketplace summary markup stacks label + floor (small + b) for the card layout', /<small>Unbroken from<\/small><b>\$\$\{fp\.toFixed\(2\)\}<\/b>/.test(src));
 console.log(`\n=== GATE index-activity: ${pass} passed, ${fail} failed ===`); process.exit(fail ? 1 : 0);
