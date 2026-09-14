@@ -36,6 +36,25 @@ if (saleRec) { const rows = byTok(String(saleRec.token_id));
 if (bidRec) { const rows = byTok(String(bidRec.token_id));
   ok(`activity: bid #${bidRec.token_id} renders as "Bid <amount>" and says the currency is not in the record (never a guessed symbol)`, rows.some(i => i.kind === 'bid' && /^Bid [\d,.]+$/.test(i.label) && /currency not in record/.test(i.sub)), rows.map(i => [i.label, i.sub])); }
 ok('activity: no row is labelled "Transferred" with sub "to …" (the null-address fallthrough)', !items.some(i => i.label === 'Transferred' && i.sub === 'to …'), items.filter(i => i.label === 'Transferred').map(i => i.sub).slice(0, 5));
+// --- 4.21: 30-day build, ledger events, window + type toggles ---
+{ const it = w.__activityItems || []; const adao = it.filter(i => i.col === 'adao'); const kinds = new Set(adao.map(i => i.kind));
+  const oldest = Math.min(...it.map(i => i.ts)); const ageD = (Date.now() - oldest) / 864e5;
+  ok('4.21 items span ~30 days (oldest ' + ageD.toFixed(1) + 'd), not 7', ageD > 20 && ageD <= 31, ageD);
+  const ym = (dt) => `${dt.getUTCFullYear()}/${String(dt.getUTCMonth() + 1).padStart(2, '0')}`; const nowD = new Date(); const prevD = new Date(Date.UTC(nowD.getUTCFullYear(), nowD.getUTCMonth() - 1, 15));
+  const lg = [ym(nowD), ym(prevD)].flatMap(m => { try { return JSON.parse(fs.readFileSync(path.join(NFTC, 'adao/ledger/' + m + '.json'))); } catch { return []; } });
+  const cut = Date.now() - 30 * 864e5; const lgStakes = lg.filter(r => r.kind === 'stake' && Date.parse(r.ts) >= cut);
+  ok('4.21 ledger stakes in the window appear as Staked · aDAO (DAODAO) (' + lgStakes.length + ' in the ledger, 30d)', lgStakes.length === 0 || lgStakes.every(r => adao.some(i => i.kind === 'staked' && i.tx === r.txhash && String(i.token) === String(r.token_id) && i.sub === 'aDAO (DAODAO)')), lgStakes.slice(0, 2).map(r => r.txhash.slice(0, 8)));
+  const dup = adao.filter(i => i.kind === 'staked').map(i => `${i.tx}|${i.token}`); ok('4.21 no stake shown twice (ledger supersedes the transfers-derived row)', new Set(dup).size === dup.length, dup.length - new Set(dup).size);
+  const lgBreaks = lg.filter(r => r.kind === 'break' && Date.parse(r.ts) >= cut);
+  ok('4.21 breaks come from the ledger when present (' + lgBreaks.length + ' in 30d)', lgBreaks.every(r => adao.some(i => i.kind === 'break' && i.tx === r.txhash)));
+  const winEl = d.getElementById('activity-window'), kindsEl = d.getElementById('activity-kinds');
+  ok('4.21 window toggle renders 7 days / 30 days, default 7', winEl && /7 days/.test(winEl.textContent) && /30 days/.test(winEl.textContent) && w.__activityDays === 7, winEl && winEl.textContent);
+  ok('4.21 type toggles render with per-type counts (Sales, Listings, Delistings, Bids, Stakes, Unstakes, Breaks…)', kindsEl && ['Sales', 'Listings', 'Delistings', 'Bids', 'Stakes', 'Unstakes', 'Breaks'].every(l => kindsEl.textContent.includes(l)), kindsEl && kindsEl.textContent.slice(0, 120));
+  w.setActivityDays(30); const c30 = (d.getElementById('activity-count') || {}).textContent || '';
+  ok('4.21 switching to 30 days re-renders the count line "… in 30d"', /in 30d$/.test(c30.trim()), c30);
+  w.setActivityKinds(false); w.toggleActivityKind('sale'); const onlySales = (d.getElementById('activity-count') || {}).textContent || ''; const salesN = adao.filter(i => i.kind === 'sale').length;
+  ok('4.21 toggling to Sales only shows exactly the sales (' + salesN + ')', new RegExp(`of ${salesN} shown`).test(onlySales), onlySales);
+  w.setActivityKinds(true); w.setActivityDays(7); }
 // --- 4.20: mobile browser = desktop tiles fitted, not the app's rows (static CSS checks; the phone screenshot is the visual gate)
 const src = fs.readFileSync(FILE, 'utf8'); const mobStart = src.lastIndexOf('@media (max-width: 767px) {', src.indexOf('#pulse-card { display: none')); const mob = src.slice(mobStart, src.indexOf('#mob-links-toggle { width: 100%'));
 ok('4.20 mobile: #dao-stats is a two-column grid of cards (not one column)', /#dao-stats \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) !important/.test(mob) && !/#dao-stats \{ grid-template-columns: 1fr !important/.test(mob));
