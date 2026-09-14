@@ -198,8 +198,10 @@ check('spread: deep-negative → red', /spread == null[^]*?text-red-400[^]*?text
   const sld = d.querySelector('.direction-slider[data-slider-key="staked"]');
   tog.checked = true; sld.disabled = false; sld.value = '2';
   tog.dispatchEvent(new w.Event('change', { bubbles: true }));
-  check('dropdown: label counts holders of selection', d.getElementById('holders-dd-label').textContent.includes('155 holders'), d.getElementById('holders-dd-label').textContent);
   const rows = [...d.querySelectorAll('#holders-dd-menu .hdd-row')];
+  // 2026-09-14 (B.7 fixture refresh): the label must reconcile to what the same dropdown renders — one row per holder of
+  // the selection — not to a count frozen on the day the gate was written (was the literal '155 holders').
+  check('dropdown: label counts holders of selection (= rendered rows)', rows.length > 50 && d.getElementById('holders-dd-label').textContent.includes(`${rows.length} holders`), `${rows.length} rows vs "${d.getElementById('holders-dd-label').textContent}"`);
   const total = rows.reduce((s, b) => s + Number(b.querySelector('span:last-child').textContent.replace(/,/g, '')), 0);
   const dd = S.daodao_staked_count;
   check('dropdown: rows sum to the full filtered set', total === dd, `${total} vs ${dd}`);
@@ -221,7 +223,8 @@ check('spread: deep-negative → red', /spread == null[^]*?text-red-400[^]*?text
   check('hero: last-sale recency is honest', days <= 1 ? av.includes('last sale <b class="text-white">today') : av.includes(`last sale <b class="text-white">${days}d ago`), `${days}d`);
   // labeled counts: the staked filter is active from the features block above
   const cs = w.document.querySelector('.status-count[data-count-key="staked"]');
-  check('counts: labeled "N match", not a bare integer', cs && /match$/.test(cs.textContent.trim()) && cs.textContent.includes('1,631'), cs ? cs.textContent : 'missing');
+  // 2026-09-14 (B.7): the count is the snapshot's own daodao_staked_count, formatted — not a frozen literal (was '1,631')
+  check('counts: labeled "N match" = snapshot daodao_staked_count, not a bare integer', cs && /match$/.test(cs.textContent.trim()) && cs.textContent.includes(S.daodao_staked_count.toLocaleString('en-US')), cs ? `${cs.textContent} vs ${S.daodao_staked_count}` : 'missing');
 }
 
 // ---------- Perf part 2b: FALLBACK — bundle missing, old boot carries --------

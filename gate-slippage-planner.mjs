@@ -46,7 +46,12 @@ console.log('=== slippage Rev 3.0 — trade planner on committed reserves ===');
   check('S5 route card renders the crown, the two legs, "keep $" and the assumed-fee note', /👑/.test(d.getElementById('plan-routes').textContent) && /LUNA-CAPA/.test(d.getElementById('plan-routes').textContent) && /LUNA-ASTRO/.test(d.getElementById('plan-routes').textContent) && /keep \$/.test(d.getElementById('plan-routes').textContent) && /fees 0\.60% assumed/.test(d.getElementById('plan-routes').textContent));
   check('S6 over the 1% limit → red warning naming the largest trade under 1%', /over your 1% limit/.test(d.getElementById('plan-warn').textContent) && /Largest CAPA→ASTRO trade under 1%: \$/.test(d.getElementById('plan-warn').textContent), d.getElementById('plan-warn').textContent);
   const m1 = T.maxSizeUnder('CAPA', 'ASTRO', 1), m3 = T.maxSizeUnder('CAPA', 'ASTRO', 3), m05 = T.maxSizeUnder('CAPA', 'ASTRO', 0.5);
-  check('S7 threshold solve is monotone and consistent with the cost model (0.5% < 1% < 3%; cost at solved size ≤ tol)', m05 < m1 && m1 < m3 && T.planRoutes('CAPA', 'ASTRO', m1)[0].costPct <= 1.0001 && T.planRoutes('CAPA', 'ASTRO', m1 * 1.05)[0].costPct > 1, [m05, m1, m3]);
+  // 2026-09-14 (B.7 fixture refresh): the ×1.05 margin assumed a route worth hundreds of dollars; with LUNA-ASTRO
+  // inactive the CAPA→ASTRO route is worth single dollars and the solver floors to whole dollars, so the honest margin
+  // is the NEXT DOLLAR (floor law: the size we name is under the limit, one more is not). A 0 at 0.5% is correct
+  // whenever the two-hop fee floor (2 × 0.3% ≈ 0.599%) already exceeds the tolerance — assert that, don't assume a route.
+  const floor05 = T.planRoutes('CAPA', 'ASTRO', 1)[0].costPct;
+  check('S7 threshold solve is monotone (0.5% ≤ 1% < 3%), floors to whole dollars (cost at m1 ≤ 1%, at m1+1 > 1%), and a 0 at 0.5% is justified by the fee floor', m05 <= m1 && m1 < m3 && T.planRoutes('CAPA', 'ASTRO', m1)[0].costPct <= 1.0001 && T.planRoutes('CAPA', 'ASTRO', m1 + 1)[0].costPct > 1 && (m05 > 0 || floor05 >= 0.5), [m05, m1, m3, 'floor@$1=' + floor05.toFixed(3)]);
   check('S8 under 0.5% is impossible (fees alone are 0.6% on two legs) → $0', m05 === 0);
   const ladder = d.getElementById('ladder').textContent;
   check('S9 ladder carries the rungs + current size marker + tranche column; the $1,000 row equals the model at $1,000', /\$20/.test(ladder) && /\$5,000/.test(ladder) && /◂/.test(ladder) && (() => { const row = [...d.querySelectorAll('#ladder tr')].find(tr => /^\$1,000/.test(tr.textContent.trim())); const m = T.planRoutes('CAPA', 'ASTRO', 1000)[0]; return row && row.textContent.includes('≤' + m.costPct.toFixed(2) + '%'); })(), ladder.slice(0, 200));

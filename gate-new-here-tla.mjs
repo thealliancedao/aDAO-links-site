@@ -52,8 +52,11 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
   check('N5 home teaser: TLA shows 100,000 VP for 10K', /100,000 VP/.test(d.getElementById('t-tla').textContent), d.getElementById('t-tla').textContent);
   // pool picker math
   const P = T.pools(); const vp = T.vpFor(10000, 104); const funded = P.rows.filter(r => r.potUsd > 0); const bp = T.bribePlan(vp);
-  const VB = T.bucketVp(); const ea = JSON.parse(read('dex-data/eris-apr/current.json')); const la = ea.pools.find(x => x.pool_name === 'LUNA-ASTRO'); const laRow = P.rows.find(r => r.name === 'LUNA-ASTRO');
-  check('N6 pools: every gauge pool from eris-apr; votes = distribution × bucket VP (gauge truth, NOT Votion\'s own votes); pots from the worksheet', P.period && P.rows.length > 15 && funded.length >= 3 && Math.abs(laRow.votes - la.distribution * VB.project) < 1e-6 && laRow.votes > 900000 && laRow.bucketVotes === VB.project, [P.rows.length, funded.length, laRow && laRow.votes]);
+  const VB = T.bucketVp(); const ea = JSON.parse(read('dex-data/eris-apr/current.json')); // 2026-09-14 (B.7 fixture refresh): N6 was pinned to LUNA-ASTRO, now inactive_below_threshold and so out of the picker.
+  // The pool under test is the project-bucket gauge with the largest distribution that the picker lists today.
+  const proj = ea.pools.filter(x => x.gauge === 'project' && P.rows.some(r => r.name === x.pool_name)).sort((a, b) => b.distribution - a.distribution);
+  const la = proj[0]; const laRow = la && P.rows.find(r => r.name === la.pool_name);
+  check('N6 pools: every gauge pool from eris-apr; votes = distribution × bucket VP (gauge truth, NOT Votion\'s own votes); pots from the worksheet (' + (la && la.pool_name) + ')', P.period && P.rows.length > 15 && funded.length >= 3 && laRow && Math.abs(laRow.votes - la.distribution * VB.project) < 1e-6 && laRow.votes > 900000 && laRow.bucketVotes === VB.project, [P.rows.length, funded.length, la && la.pool_name, laRow && laRow.votes]);
   check('N6c realism: 100K VP earns a few dollars a week across the buckets, not tens (V is millions)', bp.total > 0.5 && bp.total < 15, bp.total);
   const r0 = funded[0]; const share = T.bribeShare(r0, vp);
   const best = T.bestPerBucket(vp);
@@ -75,9 +78,15 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
   const a = T.assetApy('ampLUNA');
   check('N15 ampLUNA APY from the yields product (hub_exchange_rates), LST yield tile filled', a && a.source === 'hub_exchange_rates' && a.apy > 0 && /LUNA/.test(d.getElementById('l-yield').textContent), a);
   const n = T.nativeApr();
-  check('N16 native APR PRIMARY = chain (provisions ÷ bonded ÷ alliance weights) = 27.02%; gross 37.78% (Allnodes) and SmartStake CSV carried as references', n && /^chain: provisions/.test(n.source) && Math.abs(n.before - 0.3778 / 1.398) < 5e-4 && Math.abs(n.apr - n.before * 0.95) < 1e-12 && Math.abs(n.gross - 0.3778) < 5e-4 && n.ref && n.ref.apr > 0.1 && n.refs.allnodes_2026_08_26 === 0.3778, n);
+  // 2026-09-14 (B.7 fixture refresh): the gross/staker numbers were frozen literals (37.78% / 27.02%) from the day the
+  // gate was written; they are chain state and move. Assert the DERIVATION from the product's own inputs instead:
+  // gross = provisions ÷ bonded · before = gross ÷ total_reward_weight · apr = before × (1 − 5% commission).
+  const ni = n && n.inputs; const gross = ni && ni.annual_provisions_luna / ni.bonded_luna;
+  check('N16 native APR PRIMARY = chain: gross = provisions ÷ bonded (' + (gross && (gross * 100).toFixed(2)) + '%), before = gross ÷ alliance reward weights, apr = before × (1 − 5% commission) (' + (n && (n.apr * 100).toFixed(2)) + '%); Allnodes 2026-08-26 + SmartStake CSV carried as references', n && /^chain: provisions/.test(n.source) && ni && gross > 0.1 && Math.abs(n.gross - gross) < 5e-7 && Math.abs(n.before - gross / ni.total_reward_weight) < 5e-7 && Math.abs(n.apr - n.before * 0.95) < 5e-7   /* product rounds to 7–8 dp */ && n.ref && n.ref.apr > 0.1 && n.refs.allnodes_2026_08_26 === 0.3778, n);
   d.querySelector('.how[data-how="native-apr"]').click();
-  check('N16b how? popup on native APR names gross, stakers, Allnodes/Stakely/SmartStake and the inputs', /37\.78%/.test(d.getElementById('how-b').textContent) && /Allnodes 37\.78%/.test(d.getElementById('how-b').textContent) && /bonded 255,306,000 LUNA/.test(d.getElementById('how-b').textContent), d.getElementById('how-b').textContent.slice(0, 200));
+  { const hb = d.getElementById('how-b').textContent; const grossPct = (gross * 100).toFixed(2) + '%'; const bondedTxt = 'bonded ' + ni.bonded_luna.toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' LUNA';   // same call the page's fmt() makes (fmt(x) = toLocaleString en-US, 0 dp)
+    // 2026-09-14 (B.7): live gross % and live bonded LUNA (rounded to the thousand, as the page does) must appear; Allnodes 37.78% is the recorded reference
+    check('N16b how? popup on native APR names the live gross (' + grossPct + '), the live bonded LUNA, and Allnodes 37.78% as the reference', hb.includes(grossPct) && /Allnodes 37\.78%/.test(hb) && hb.includes(bondedTxt), hb.slice(0, 260)); }
   S.route = 'native'; S.horizon = 'yearly'; T.render();
   const n2 = T.nativeApr(); const claim = num(d.getElementById('n-claim').textContent), comp = num(d.getElementById('n-comp').textContent);
   check('N17 native yearly: applied APR = chain × (1 − 5% default commission); claim = 10K × daily × 365.25; compound > claim', Math.abs(n2.apr - n2.before * 0.95) < 1e-12 && Math.abs(claim - 10000 * n2.daily * 365.25) < 0.1 && comp > claim, [n2.before, n2.apr, claim, comp]);
@@ -98,7 +107,8 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
   S.route = 'credia'; T.render(); const c = T.crediaLuna();
   check('N20 Credia is COMING SOON: screen shows the placeholder, live panel hidden, data still captured behind it', !T.CREDIA_LIVE && !d.getElementById('credia-soon').classList.contains('hidden') && d.getElementById('credia-live').classList.contains('hidden') && c && c.supplyApy > 0, c);
   const rg = T.crediaRange('uluna');
-  check('N20b the rate-history sidecar is read (range ready behind the flag)', rg && rg.borrow_apr && /this week 9\.0%–14\.2%/.test(d.getElementById('cr-util-sub').textContent), d.getElementById('cr-util-sub').textContent);
+  // 2026-09-14 (B.7): the range shipped (flag on) and the numbers are live — assert the shape, not last month's figures
+  check('N20b the rate-history sidecar is read and rendered: "this week lo%–hi% (N hourly points, Credia indexer)"', rg && rg.borrow_apr && /this week \d+\.\d%–\d+\.\d% \(\d+ hourly points, Credia indexer\)/.test(d.getElementById('cr-util-sub').textContent), d.getElementById('cr-util-sub').textContent);
   check('N20c home card, web hub, TLA tile, Votion tile and compare strip all say coming soon; compare carries no Credia number', /Coming soon/.test(d.getElementById('t-credia').textContent) && /Coming soon/.test(d.querySelector('#web .hub[data-route="credia"]').textContent) && d.getElementById('l-credia').textContent === 'coming soon' && d.getElementById('v-loop').textContent === 'coming soon' && T.totals().credia === null && /coming soon/.test([...d.querySelectorAll('#screen-credia .cmp')].map(x => x.textContent).join(' ')));
   check('N21 loop tile still computes behind the flag (verdict follows the numbers)', /does not pay|pays only/.test(d.getElementById('cr-loop').textContent), d.getElementById('cr-loop').textContent.slice(0, 120));
   // compare strip
@@ -121,7 +131,7 @@ console.log('=== new-here-tla Rev 1.0 — four routes on committed products ==='
   // LP boost simulator
   S.route = 'tla'; S.luna = 10000; S.weeks = 104; T.render();
   const sp = T.simPools(); const big = sp.sort((a, b) => b.tvl - a.tvl)[0]; const sim = T.simulate(big.key, 1000, 100000);
-  check('N27 simulator: pools from eris-apr; re-derived pool APR EQUALS eris-apr incentive_apr (same distribution, same bucket VP) — the owner\'s LUNA-ASTRO 267% is gone', sp.length > 10 && sim && sim.sanity != null && sim.sanity < 1e-3 && (() => { const s2 = T.simulate(sp.find(p => p.name === 'LUNA-ASTRO').key, 514, 100000); return s2 && s2.apy0 < 0.9 && s2.apy1 < 2 && s2.apy1 > s2.apyDep; })(), sim && { pool: big.name, apr0: sim.apr0, eris: big.aprNow });
+  check('N27 simulator: pools from eris-apr; re-derived pool APR EQUALS eris-apr incentive_apr (same distribution, same bucket VP) — the owner\'s LUNA-ASTRO 267% is gone', sp.length > 10 && sim && sim.sanity != null && sim.sanity < 1e-3 && (() => { const p2 = sp.find(p => p.name === 'LUNA-ASTRO') || sp.find(p => p.name === (la && la.pool_name)) || sp[0]; const s2 = T.simulate(p2.key, 514, 100000);   /* 2026-09-14 (B.7): LUNA-ASTRO left the picker (inactive_below_threshold); the magnitude bounds (apy0 < 0.9) were that pool's — the test is that the simulator's base APR EQUALS eris-apr's figure for the pool it runs on (the 267% inflation cannot come back) and VP still adds */ return s2 && Math.abs(s2.apr0 - p2.aprNow) < 1e-3 && isFinite(s2.apy1) && s2.apy1 > s2.apyDep; })(), sim && { pool: big.name, apr0: sim.apr0, eris: big.aprNow });
   check('N27b adding 100K VP raises the pool\'s emission share and APR; your $1,000 LP earns more with votes than without; bribe from the same pool reported', sim.share1 > sim.share0 && sim.apr1 > sim.aprDep && sim.yourYr1 > sim.yourYr0 && typeof sim.bribeWk === 'number', { share0: sim.share0, share1: sim.share1, y0: sim.yourYr0, y1: sim.yourYr1 });
   check('N27c share math: (v + a)/(V_b + a)', Math.abs(sim.share1 - (sim.votes + 100000) / (sim.bucketVotes + 100000)) < 1e-12);
   check('N27d simulator renders three tiles + the bribes sentence', d.querySelectorAll('#sim-out .tile').length === 3 && /Bribes from this pool/.test(d.getElementById('sim-out').textContent));

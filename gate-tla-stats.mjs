@@ -42,8 +42,14 @@ check('A3 pools with no Eris row read null, not a number', store.pools.filter(p 
 const aprBoard = d.getElementById('top-apr-pools'); const top = store.pools.filter(p => p.is_active && p.apr_amp > 0).sort((a, b) => b.apr_amp - a.apr_amp)[0];
 check('A4 Top-by-APR board leads with the highest Eris amplified APY among active pools', aprBoard && top && aprBoard.textContent.includes(top.name) && aprBoard.textContent.includes(top.apr_amp.toFixed(1)), top && [top.name, top.apr_amp]);
 check('A5 APR subtitle names Eris\'s definition', /Eris amplified APY/.test((d.getElementById('apr-tile-sub') || {}).textContent || ''));
-const capa = store.pools.find(p => p.name === 'LUNA-CAPA' && /astro/i.test(p.dex)); const capaVot = vot.aggregate.project.pools[capa.gauge_pool_id.replace(/^cw20:/, '')];
-check('V1 LUNA-CAPA votion_now_vp = optimization current_vp (' + Math.round(capaVot.current_vp) + '), planned = ' + Math.round(capaVot.planned_vp), capa.votion_now_vp === capaVot.current_vp && capa.votion_next_vp === capaVot.planned_vp, [capa.votion_now_vp, capa.votion_next_vp]);
+// 2026-09-14 (B.7 fixture refresh): V1 was pinned to LUNA-CAPA, which the optimizer stopped listing — the pool under test
+// is now whichever project-bucket pool the optimizer ranks largest today; the store must mirror its current/planned VP
+// exactly. V1b: a project gauge the optimizer does NOT list must read null (blank beats phantom), never 0 or a carry-over.
+const votProj = vot.aggregate.project.pools; const votTop = Object.entries(votProj).sort((a, b) => b[1].current_vp - a[1].current_vp)[0];
+const vpool = store.pools.find(p => p.gauge_pool_id.replace(/^cw20:/, '') === votTop[0]);
+check('V1 optimizer\'s largest project pool (' + (vpool && vpool.name) + '): store votion_now_vp = current_vp (' + Math.round(votTop[1].current_vp) + '), votion_next_vp = planned_vp (' + Math.round(votTop[1].planned_vp) + ')', vpool && vpool.votion_now_vp === votTop[1].current_vp && vpool.votion_next_vp === votTop[1].planned_vp, vpool && [vpool.votion_now_vp, vpool.votion_next_vp]);
+const unlisted = store.pools.find(p => p.bucket === 'PROJECT' && p.is_active && !votProj[p.gauge_pool_id.replace(/^cw20:/, '')]);
+check('V1b an active project gauge the optimizer does not list reads null Votion VP (' + (unlisted && unlisted.name) + ')', unlisted && unlisted.votion_now_vp == null && unlisted.votion_next_vp == null, unlisted && [unlisted.votion_now_vp, unlisted.votion_next_vp]);
 const votSum = store.pools.reduce((s, p) => s + (p.votion_now_vp || 0), 0);
 check('V2 Votion VP attributed across pools is millions, not 0.00', votSum > 5e6, Math.round(votSum));
 const movers = d.getElementById('vote-movers') || [...d.querySelectorAll('div')].find(x => /Votion plans/.test(x.textContent));
