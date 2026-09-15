@@ -55,6 +55,11 @@ ok('activity: no row is labelled "Transferred" with sub "to …" (the null-addre
   w.setActivityKinds(false); w.toggleActivityKind('sale'); const onlySales = (d.getElementById('activity-count') || {}).textContent || ''; const salesN = adao.filter(i => i.kind === 'sale').length;
   ok('4.21 toggling to Sales only shows exactly the sales (' + salesN + ')', new RegExp(`of ${salesN} shown`).test(onlySales), onlySales);
   w.setActivityKinds(true); w.setActivityDays(7); }
+// --- 4.22: no twins, no "#?" ---
+{ const it = (w.__activityItems || []).filter(i => i.col === 'adao'); const keys = it.filter(i => i.token).map(i => `${i.kind}|${i.token}|${new Date(i.ts).toISOString().slice(0, 10)}`);
+  ok('4.22 no event shown twice (same kind + token + day)', new Set(keys).size === keys.length, keys.filter((k, i) => keys.indexOf(k) !== i).slice(0, 3));
+  const day = (i) => new Date(i.ts).toISOString().slice(0, 10); const dl = it.filter(i => i.kind === 'delisting'); ok('4.22 delistings keep the row that has a tx hash when one exists that day', dl.every(i => i.tx || !it.some(j => j.kind === 'delisting' && j.token === i.token && j.tx && day(j) === day(i))), dl.map(i => [i.token, day(i), !!i.tx]).slice(0, 4));
+  const un = it.filter(i => i.kind === 'unstaked' && !i.token); ok('4.22 an unstake without token ids says "ids resolve at claim" (no #?)', un.every(i => i.noId && /ids resolve at claim/.test(i.sub)), un.map(i => i.sub)); }
 // --- 4.20: mobile browser = desktop tiles fitted, not the app's rows (static CSS checks; the phone screenshot is the visual gate)
 const src = fs.readFileSync(FILE, 'utf8'); const mobStart = src.lastIndexOf('@media (max-width: 767px) {', src.indexOf('#pulse-card { display: none')); const mob = src.slice(mobStart, src.indexOf('#mob-links-toggle { width: 100%'));
 ok('4.20 mobile: #dao-stats is a two-column grid of cards (not one column)', /#dao-stats \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) !important/.test(mob) && !/#dao-stats \{ grid-template-columns: 1fr !important/.test(mob));
