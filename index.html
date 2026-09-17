@@ -1240,7 +1240,7 @@
     <script src="/lib/site-header.js"></script>
     <script src="/lib/prop-audit.js"></script>
     <script src="/lib/address-picker.js"></script>
-    <script src="/lib/alert-center.js?v=1.0.0"></script>
+    <script src="/lib/alert-center.js?v=1.1.0"></script>
     <script>SiteHeader.mount({ page: 'index', mobileTabs: false }); if (window.AddressPicker) AddressPicker.mount({});
     // Uniform chrome: the refresh strip rides in the shared sub-nav's right slot (no tabs on Home).
     (function () {
@@ -17172,7 +17172,15 @@
                 stakedSupply, myTokens: myTokens(), explorerUrl: 'nft-explorer-index.html',
             }, { since: st.windowMs ? null : AlertCenter.marker.get(), windowMs: st.windowMs || AlertCenter.RULES.WINDOW_DEFAULT_MS });
             window.__alertCenter = result;   // gate hook
-            AlertCenter.render(c, result, { onWindow: (ms) => { st.windowMs = ms; draw(); }, onClose: () => { st.windowMs = null; draw(); } });
+            const fullOpts = {
+                propHtml: (card) => (window.__pulseTest && __pulseTest.cardHtml) ? __pulseTest.cardHtml(card, { audit: false, history: false }) : null,   // the governance card the modal already renders
+                nftImage: (tok) => `https://imagedelivery.net/v_zOWVQCPb7Xpcbu-gQC1A/alliance_dao/${tok}.png/public`,
+                explorerUrl: 'nft-explorer-index.html',
+                onWindow: (ms, reopen) => { st.windowMs = ms; st.reopen = reopen; draw(); },
+                onClose: (now, seen) => { if (seen) { st.windowMs = null; } draw(); },
+            };
+            AlertCenter.render(c, result, Object.assign({}, fullOpts, { onOpen: (tile) => AlertCenter.openFull(result, Object.assign({}, fullOpts, { openTile: tile })) }));
+            if (st.reopen) { const r = st.reopen; st.reopen = null; AlertCenter.openFull(result, Object.assign({}, fullOpts, { openTile: r.openTile, openCounter: r.openCounter })); }
         }
         window.__acRefresh = function () { clearTimeout(st.timer); st.timer = setTimeout(draw, 150); };
         setTimeout(async () => {

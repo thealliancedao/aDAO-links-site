@@ -64,12 +64,31 @@ const assetRow = eco.counters.find(c => c.key === 'assets').rows[0]; const flagg
 ok(`G3 the USDC.n row names the ${flagged.length} lp-grades gauges that carry the alert, their VP share and staked USD, and links the migration guide`, assetRow && assetRow.raw.pools.length === flagged.length && /gauges? · [\d.]+% of VP · \$[\d,]+ staked/.test(assetRow.value) && /skip\.build/.test(assetRow.link), assetRow && assetRow.value);
 ok('G3 TLA and PD counters are 0 with a "not captured yet" gap note (blank beats phantom)', ['tla', 'pd'].every(k => { const c = eco.counters.find(x => x.key === k); return c.n === 0 && /not captured yet/.test(c.gap); }));
 ok('G3 Ecosystem tile is amber (registry entries are active)', tiles.find(t => t.dataset.tile === 'ecosystem').dataset.state === 'amber');
-// panel
+// full-page window (1.1.0): a tile opens it; rail = every tile + counter; main = rich cards
 tiles.find(t => t.dataset.tile === 'ecosystem').click(); await new Promise(r => setTimeout(r, 100));
-const panel = d.getElementById('ac-panel'); const rowsEl = [...panel.querySelectorAll('.ac-row')];
-ok('panel opens on the first non-zero counter with rows: label · value · time · link, and the why line (rule · source · raw)', panel.style.display === 'block' && rowsEl.length >= 1 && rowsEl.every(r => r.querySelector('.ac-l') && r.querySelector('.ac-why') && /rule .+ · /.test(r.querySelector('.ac-why').textContent)), rowsEl.length);
-const forumTab = [...panel.querySelectorAll('[data-ctab]')].find(b => b.dataset.ctab === 'projects'); forumTab.click(); await new Promise(r => setTimeout(r, 50));
-ok('Projects tab: the Capapult forum row links to the common.xyz thread', [...panel.querySelectorAll('.ac-row a')].some(a => /common\.xyz\/capapult/.test(a.href)));
+const full = d.getElementById('ac-full');
+ok('full window opens on tile click, covers the viewport (fixed inset 0), body scroll locked', full && full.getAttribute('role') === 'dialog' && d.body.style.overflow === 'hidden');
+const rail = [...full.querySelectorAll('.ac-rc')];
+ok('rail lists every counter of every tile with its count (10 buttons for 3 tiles)', rail.length === R.tiles.reduce((s2, t) => s2 + t.counters.length, 0) && rail.every(b => /\d+$/.test(b.textContent)), rail.length);
+const main = full.querySelector('#ac-main');
+ok('opens on the first non-zero Ecosystem counter (Projects) with a rich forum card: headline, summary, pools, forum link', /Projects · 1 in window/.test(main.textContent) && main.querySelector('.ac-card') && /read \/ reply on the forum/.test(main.textContent) && [...main.querySelectorAll('.ac-chips span')].length >= 3 && /USDC\.n pool/.test(main.textContent));
+rail.find(b => b.dataset.counter === 'assets').click(); await new Promise(r => setTimeout(r, 50));
+const tbl = main.querySelector('table.ac-t');
+ok('Assets: the USDC.n card shows the timeline (mint stop · step-down · snapshot …), what to do, and a gauge table with VP share + staked and a total row', /What to do/.test(main.textContent) && main.querySelectorAll('.ac-tl li').length >= 5 && tbl && tbl.querySelectorAll('tbody tr').length === flagged.length + 1 && /gauges/.test(tbl.textContent), tbl && tbl.querySelectorAll('tbody tr').length);
+ok('the next upcoming date is highlighted and past dates dimmed', main.querySelector('.ac-tl li.next') && main.querySelector('.ac-tl li.past'));
+rail.find(b => b.dataset.counter === 'tla').click(); await new Promise(r => setTimeout(r, 50));
+ok('a gap counter renders "0 — not measured, not assumed" with its note, never an empty list', /not measured, not assumed/.test(main.textContent) && /not captured yet/.test(main.textContent));
+ok('every card carries the why line (rule · source · raw)', [...main.querySelectorAll('.ac-card')].every(c => c.querySelector('.why')) || main.querySelectorAll('.ac-card').length === 0);
+const R6b = w.AlertCenter.build({ now: Date.now(), alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [{ dao: 'Alliance DAO', id: 42, title: 'Test prop', desc: 'x', live: true, pending: false, yesPct: 61.5, noPct: 10, turnoutPct: 40, daysLeft: 2, link: 'https://daodao.zone/x' }], isOpen: (c) => c.live || c.pending }, items: [{ col: 'adao', kind: 'sale', token: 745, ts: Date.now() - 3600e3, tx: 'C50E', label: 'Sold for 200 bLUNA', sub: 'BBL' }], chainOnlyListings: [] }, { windowMs: 864e5 });
+const fw = w.AlertCenter.openFull(R6b, { document: d, openTile: 'props', nftImage: (t) => 'https://img/' + t + '.png' });
+const m2 = d.getElementById('ac-main');
+ok('Props card (lib default): status pill, yes/no bar, turnout, days left, governance link', /voting/.test(m2.textContent) && m2.querySelector('.ac-bar .y') && /Turnout/.test(m2.textContent) && /2d left/.test(m2.textContent) && /daodao\.zone/.test(m2.innerHTML));
+[...d.querySelectorAll('#ac-rail .ac-rc')].find(b => b.dataset.counter === 'market').click(); await new Promise(r => setTimeout(r, 50));
+ok('NFT card: thumbnail via nftImage(token), "#745 Sold for 200 bLUNA", venue, tx link', /img\/745\.png/.test(m2.innerHTML) && /#745 Sold for 200 bLUNA/.test(m2.textContent) && /chainsco\.pe\/terra2\/tx\/C50E/.test(m2.innerHTML));
+fw.close(false);
+d.body.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+// reopen the page's window for the marker checks below
+tiles.find(t => t.dataset.tile === 'ecosystem').click(); await new Promise(r => setTimeout(r, 100));
 // G4 — selected address: pick a wallet that touched a token in the window, re-build with myTokens
 const inv = w.__invRecords || []; const wk = (w.__activityItems || []).filter(x => x.col === 'adao' && x.ts >= R.meta.now - 7 * 864e5); const anyRow = wk.find(x => x.token != null && ['transferred', 'staked', 'unstaked', 'sale'].includes(x.kind)); const owner = anyRow && (inv.find(r => String(r.id) === String(anyRow.token)) || {}).real_owner;
 if (owner) {
@@ -80,9 +99,9 @@ if (owner) {
   ok('G4 Ecosystem and Props tiles are never red for an address (red is "about you", not "big")', R2.tiles.filter(t => t.key !== 'nfts-adao').every(t => t.state !== 'red'));
 } else console.log('  (G4 skipped: no token row in the window to pick an owner from)');
 // G5 — marker
-const close = panel.querySelector('#ac-close'); close.click(); await new Promise(r => setTimeout(r, 300));
+d.getElementById('ac-full-close').click(); await new Promise(r => setTimeout(r, 300));
 const seen = w.AlertCenter.marker.get();
-ok('G5 closing the panel sets the "seen" marker to now and hides the panel', seen && Math.abs(seen - R.meta.now) < 60e3 && d.getElementById('ac-panel').style.display === 'none', seen);
+ok('G5 closing the full window sets the "seen" marker to now, removes the window and unlocks body scroll', seen && Math.abs(seen - R.meta.now) < 60e3 && !d.getElementById('ac-full') && d.body.style.overflow !== 'hidden', seen);
 const R3 = w.AlertCenter.build({ now: seen + 1000, alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [] }, items: w.__activityItems, chainOnlyListings: [] }, { since: seen, windowMs: w.AlertCenter.RULES.WINDOW_DEFAULT_MS });
 ok('G5 rebuilt "since you last looked" (registry empty): every NFT counter 0 → all tiles green', R3.tiles.every(t => t.state === 'green' && t.total === 0), R3.tiles.map(t => [t.key, t.total]));
 // G6 — pure lib on an empty world
