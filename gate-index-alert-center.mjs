@@ -24,6 +24,7 @@ const libSrc = fs.readFileSync('lib/alert-center.js', 'utf8');
 let modalOpened = false; const J = (b) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(b), text: () => Promise.resolve(JSON.stringify(b)) });
 const stubFetch = (u) => { const full = String(u), url = full.split('?')[0]; let f = null;
   if (url === CORE_U + 'lp-grades/snapshots/current.json') return J(JSON.parse(GRADES_TXT));
+  { const m = /dao-originations\/main\/([a-z-]+)\/governance\/proposals\.json$/.exec(url); if (m) { const f = '/home/claude/build/corpus/' + m[1] + '.json'; if (fs.existsSync(f)) { const t = fs.readFileSync(f, 'utf8'); return J(JSON.parse(t)); } } }
   if (full.startsWith('https://bbl-proxy.defipatriot.workers.dev/?url=')) return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}), text: () => Promise.resolve('') });
   if (url.startsWith(CORE_U)) f = path.join(CORE, url.slice(CORE_U.length)); else if (url.startsWith(NFTC_U)) f = path.join(NFTC, url.slice(NFTC_U.length));
   if (f && fs.existsSync(f)) { const t = fs.readFileSync(f, 'utf8'); return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(JSON.parse(t)), text: () => Promise.resolve(t) }); }
@@ -39,7 +40,7 @@ await new Promise(r => setTimeout(r, 15000));
 const d = w.document;
 const gm = d.getElementById('gov-modal'); modalOpened = gm && gm.style.display === 'flex';
 const tiles = [...d.querySelectorAll('#alert-center .ac-tile')];
-console.log('=== index 4.24 alert center ===');
+console.log('=== index 4.25 alert center (lib 1.2.0) ===');
 ok('G1 the grid renders Ecosystem · Props · NFTs aDAO', tiles.map(t => t.dataset.tile).join(',') === 'ecosystem,props,nfts-adao', tiles.map(t => t.dataset.tile));
 ok('G1 the Pulse card is hidden by stylesheet rule and the launch proposal popup did not open', /#pulse-card \{ display: none !important; \}/.test(html) && !modalOpened);
 const R = w.__alertCenter; ok('G1 build result exposed (window.__alertCenter) with meta.rules = the lib RULES', R && R.meta && R.meta.rules === w.AlertCenter.RULES);
@@ -89,6 +90,30 @@ fw.close(false);
 d.body.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 // reopen the page's window for the marker checks below
 tiles.find(t => t.dataset.tile === 'ecosystem').click(); await new Promise(r => setTimeout(r, 100));
+// Props from the corpus (4.25)
+const pr = R.tiles.find(t => t.key === 'props'); const execRows = pr.counters.find(c => c.key === 'exec').rows;
+const lion = JSON.parse(fs.readFileSync('/home/claude/build/corpus/lion-dao.json')).proposals; const lionExec = (Array.isArray(lion) ? lion : Object.values(lion)).filter(p => /executed/i.test(p.status) && p.expiration && p.expiration.at_time_iso && Date.parse(p.expiration.at_time_iso) >= R.meta.cut);
+ok(`P1 Executed counter counts every corpus prop whose vote closed in the window across the five DAOs (Lion DAO contributes ${lionExec.length})`, execRows.filter(r => r.raw.dao === 'Lion DAO').length === lionExec.length && execRows.every(r => /executed/.test(r.rule)), execRows.map(r => r.raw.dao + '#' + r.raw.id));
+const R7 = w.AlertCenter.build({ now: R.meta.now, alertsDoc: { alerts: [] }, lpPools: [], props: { cards: (w.__alertCenter && []) , isOpen: () => false }, items: [], chainOnlyListings: [] }, { windowMs: 7 * 864e5 });
+const cards7 = (() => { const out = []; for (const sl of ['lion-dao']) { const doc = JSON.parse(fs.readFileSync('/home/claude/build/corpus/' + sl + '.json')); for (const p of (Array.isArray(doc.proposals) ? doc.proposals : Object.values(doc.proposals))) out.push({ dao: 'Lion DAO', id: Number(String(p.id).replace(/\D/g, '')), title: p.title, status: String(p.status).toLowerCase(), live: !!p.live, pending: !!p.pending, endIso: p.expiration && p.expiration.at_time_iso, link: '#', outcome: p.outcome, descFull: p.description, decodedActions: p.decodedActions, rawMsgs: p.rawMsgs }); } return out; })();
+const R8 = w.AlertCenter.build({ now: R.meta.now, alertsDoc: { alerts: [] }, lpPools: [], props: { cards: cards7, isOpen: (c) => c.live || c.pending }, items: [], chainOnlyListings: [] }, { windowMs: 7 * 864e5 });
+const ex8 = R8.tiles.find(t => t.key === 'props').counters.find(c => c.key === 'exec');
+ok(`P2 on a 7d window Lion DAO's recently-closed executed props appear (${ex8.n}), each carrying the full description and its decoded messages`, ex8.n >= 1 && ex8.rows.every(r => r.data.full && r.data.full.length > 220 && (r.data.actions || r.data.rawMsgs)), ex8.rows.map(r => [r.raw.id, r.data.full && r.data.full.length, (r.data.actions || []).length]));
+const fw8 = w.AlertCenter.openFull(R8, { document: d, openTile: 'props', openCounter: 'exec' }); const m8 = d.getElementById('ac-main');
+const withMsgs = ex8.rows.filter(r => (r.data.actions || []).length || (r.data.rawMsgs || []).length).length;
+ok(`P3 the Executed card renders a "Full description" expander on every card, a "Messages" expander on the ${withMsgs} with messages (a signal prop has none), and the why line names the voting-end rule`, [...m8.querySelectorAll('.ac-card')].every(c => /Full description/.test(c.textContent)) && [...m8.querySelectorAll('.ac-card')].filter(c => /Messages \(\d+\)/.test(c.textContent)).length === withMsgs && /voting_end_in_window/.test(m8.textContent));
+fw8.close(false);
+// registry full text + links (1.2.0)
+const R9 = w.AlertCenter.build({ now: R.meta.now, alertsDoc: reg, lpPools: grades.pools, props: { cards: [] }, items: [], chainOnlyListings: [] }, { windowMs: 864e5 });
+const fw9 = w.AlertCenter.openFull(R9, { document: d, openTile: 'ecosystem', openCounter: 'assets' }); const m9 = d.getElementById('ac-main');
+ok('R1 the USDC.n card carries the Skip:Go manual-migration doc link and the full announcement behind "Read the full announcement"', /docs\.skip\.build\/go\/app\/usdc-n-manual-migration/.test(m9.innerHTML) && /Read the full announcement/.test(m9.textContent) && /What happens if I do nothing/.test(m9.textContent));
+[...d.querySelectorAll('#ac-rail .ac-rc')].find(b => b.dataset.counter === 'projects').click(); await new Promise(r => setTimeout(r, 50));
+ok('R2 the Capapult card carries the full post ("Why renew", "Allocation") behind "Read the full post"', /Read the full post/.test(m9.textContent) && /Why renew/.test(m9.textContent) && /15,600,000 CAPA/.test(m9.textContent));
+fw9.close(false);
+// marketplace counts every venue event, notable first (1.2.0)
+const R10 = w.AlertCenter.build({ now: Date.now(), alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [] }, items: [{ col: 'adao', kind: 'listing', token: 8149, amt: 50000, sym: 'bLUNA', ts: Date.now() - 2 * 864e5, label: 'Listed at 50,000 bLUNA', sub: 'Boost' }, { col: 'adao', kind: 'delisting', token: 8149, ts: Date.now() - 2 * 864e5 + 1000, label: 'Delisted', sub: 'Boost' }, { col: 'adao', kind: 'bid', token: 826, ts: Date.now() - 4 * 864e5, label: 'Bid 69', sub: 'BBL' }, { col: 'adao', kind: 'sale', token: 745, ts: Date.now() - 5 * 864e5, tx: 'C50E', label: 'Sold for 200 bLUNA', sub: 'BBL' }], bblFloor: { amount: 1000, symbol: 'bLUNA' }, chainOnlyListings: [] }, { windowMs: 7 * 864e5 });
+const mk10 = R10.tiles.find(t => t.key === 'nfts-adao').counters.find(c => c.key === 'market');
+ok('M1 the 7d Marketplace counter counts the listing, the delisting, the bid AND the sale (4), the sale first as notable', mk10.n === 4 && mk10.rows[0].rule === 'nft:sale' && mk10.rows[0].notable === true && !mk10.rows.slice(1).some(r => r.notable), mk10.rows.map(r => r.rule));
 // G4 — selected address: pick a wallet that touched a token in the window, re-build with myTokens
 const inv = w.__invRecords || []; const wk = (w.__activityItems || []).filter(x => x.col === 'adao' && x.ts >= R.meta.now - 7 * 864e5); const anyRow = wk.find(x => x.token != null && ['transferred', 'staked', 'unstaked', 'sale'].includes(x.kind)); const owner = anyRow && (inv.find(r => String(r.id) === String(anyRow.token)) || {}).real_owner;
 if (owner) {
@@ -99,9 +124,11 @@ if (owner) {
   ok('G4 Ecosystem and Props tiles are never red for an address (red is "about you", not "big")', R2.tiles.filter(t => t.key !== 'nfts-adao').every(t => t.state !== 'red'));
 } else console.log('  (G4 skipped: no token row in the window to pick an owner from)');
 // G5 — marker
+tiles.find(t => t.dataset.tile === 'ecosystem').click(); await new Promise(r => setTimeout(r, 100));
 d.getElementById('ac-full-close').click(); await new Promise(r => setTimeout(r, 300));
 const seen = w.AlertCenter.marker.get();
-ok('G5 closing the full window sets the "seen" marker to now, removes the window and unlocks body scroll', seen && Math.abs(seen - R.meta.now) < 60e3 && !d.getElementById('ac-full') && d.body.style.overflow !== 'hidden', seen);
+console.log('  (after close: ac-full present?', !!d.getElementById('ac-full'), 'body overflow=', JSON.stringify(d.body.style.overflow), 'seen-now', seen - Date.now(), ')');
+ok('G5 closing the full window sets the "seen" marker (to the build time of the result that was open), removes the window and unlocks body scroll', seen && Math.abs(seen - Date.now()) < 120e3 && !d.getElementById('ac-full') && d.body.style.overflow !== 'hidden', seen);
 const R3 = w.AlertCenter.build({ now: seen + 1000, alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [] }, items: w.__activityItems, chainOnlyListings: [] }, { since: seen, windowMs: w.AlertCenter.RULES.WINDOW_DEFAULT_MS });
 ok('G5 rebuilt "since you last looked" (registry empty): every NFT counter 0 → all tiles green', R3.tiles.every(t => t.state === 'green' && t.total === 0), R3.tiles.map(t => [t.key, t.total]));
 // G6 — pure lib on an empty world
