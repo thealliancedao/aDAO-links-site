@@ -24,6 +24,7 @@ const libSrc = fs.readFileSync('lib/alert-center.js', 'utf8'); const denomsSrc =
 let modalOpened = false; const J = (b) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(b), text: () => Promise.resolve(JSON.stringify(b)) });
 const stubFetch = (u) => { const full = String(u), url = full.split('?')[0]; let f = null;
   if (url === CORE_U + 'lp-grades/snapshots/current.json') return J(JSON.parse(GRADES_TXT));
+  if (url === CORE_U + 'member-data/tla-alerts/current.json') { const f = '/home/claude/build/p3core/member-data-tla-alerts/current.json'; if (fs.existsSync(f)) return J(JSON.parse(fs.readFileSync(f, 'utf8'))); }   // the product the folded duty writes (built by the calibration replay)
   if (url === NFTC_U + 'adao/transfers/2026/09.json' && fs.existsSync('/home/claude/build/pkg6/nft-collections/adao/transfers/2026/09.json')) { const t = fs.readFileSync('/home/claude/build/pkg6/nft-collections/adao/transfers/2026/09.json', 'utf8'); return J(JSON.parse(t)); }   // the delivered data file (phantom rows labeled superseded)
   { const m = /dao-originations\/main\/([a-z-]+)\/governance\/proposals\.json$/.exec(url); if (m) { const f = '/home/claude/build/corpus/' + m[1] + '.json'; if (fs.existsSync(f)) { const t = fs.readFileSync(f, 'utf8'); return J(JSON.parse(t)); } } }
   if (full.startsWith('https://bbl-proxy.defipatriot.workers.dev/?url=')) return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}), text: () => Promise.resolve('') });
@@ -41,8 +42,8 @@ await new Promise(r => setTimeout(r, 15000));
 const d = w.document;
 const gm = d.getElementById('gov-modal'); modalOpened = gm && gm.style.display === 'flex';
 const tiles = [...d.querySelectorAll('#alert-center .ac-tile')];
-console.log('=== index 4.28 alert center (lib 1.4.0 · denoms 1.0.0) ===');
-ok('G1 the grid renders Ecosystem · Props · NFTs aDAO', tiles.map(t => t.dataset.tile).join(',') === 'ecosystem,props,nfts-adao', tiles.map(t => t.dataset.tile));
+console.log('=== index 4.30 alert center (lib 1.6.0 · denoms 1.0.0 · tla-alerts) ===');
+ok('G1 the grid renders Ecosystem · TLA · Props · NFTs aDAO', tiles.map(t => t.dataset.tile).join(',') === 'ecosystem,tla,props,nfts-adao', tiles.map(t => t.dataset.tile));
 ok('G1 the Pulse card is hidden by stylesheet rule and the launch proposal popup did not open', /#pulse-card \{ display: none !important; \}/.test(html) && !modalOpened);
 const R = w.__alertCenter; ok('G1 build result exposed (window.__alertCenter) with meta.rules = the lib RULES', R && R.meta && R.meta.rules === w.AlertCenter.RULES);
 // G2 — relation to the same rows
@@ -64,22 +65,46 @@ const activeAssets = reg.alerts.filter(a => a.kind === 'asset' && w.AlertCenter.
 ok(`G3 Ecosystem Assets = ${activeAssets} active asset entries · Projects = ${activeForum} active forum entries`, eco.counters.find(c => c.key === 'assets').n === activeAssets && eco.counters.find(c => c.key === 'projects').n === activeForum, eco.counters.map(c => [c.key, c.n]));
 const assetRow = eco.counters.find(c => c.key === 'assets').rows[0]; const flagged = grades.pools.filter(p => (p.alerts || []).some(a => a.kind === 'asset'));
 ok(`G3 the USDC.n row names the ${flagged.length} lp-grades gauges that carry the alert, their VP share and staked USD, and links the migration guide`, assetRow && assetRow.raw.pools.length === flagged.length && /gauges? · [\d.]+% of VP · \$[\d,]+ staked/.test(assetRow.value) && /skip\.build/.test(assetRow.link), assetRow && assetRow.value);
-ok('G3 TLA and PD counters are 0 with a "not captured yet" gap note (blank beats phantom)', ['tla', 'pd'].every(k => { const c = eco.counters.find(x => x.key === k); return c.n === 0 && /not captured yet/.test(c.gap); }));
+ok('G3 PD counter is 0 with a "not captured yet" gap note; Ecosystem·TLA is live from the tla-alerts product', (() => { const pd = eco.counters.find(x => x.key === 'pd'); const tl = eco.counters.find(x => x.key === 'tla'); return pd.n === 0 && /not captured yet/.test(pd.gap) && !tl.gap; })());
+// TLA tile + thresholds tab (4.30 / lib 1.6.0)
+const TAdoc = JSON.parse(fs.readFileSync('/home/claude/build/p3core/member-data-tla-alerts/current.json', 'utf8'));
+const tlaT = R.tiles.find(t => t.key === 'tla'); const inWinRows = TAdoc.rows.filter(r => Date.parse(r.ts) >= R.meta.cut);
+const cnt2 = (k) => tlaT.counters.find(c => c.key === k).n;
+ok(`T1 TLA tile counters = the product's rows in the window by rule family (VP ${cnt2('vp')} · Liq/Vol ${cnt2('liq')} · APR ${cnt2('apr')})`, cnt2('vp') === inWinRows.filter(r => /vp_move/.test(r.rule)).length && cnt2('liq') === inWinRows.filter(r => /liquidity_move|volume_spike/.test(r.rule)).length && cnt2('apr') === inWinRows.filter(r => r.rule === 'pool_apr_move').length);
+ok('T2 Ecosystem·TLA = gauge set changes + epoch flips in the window', eco.counters.find(x => x.key === 'tla').n === inWinRows.filter(r => /gauge_set_change|epoch_flip/.test(r.rule)).length);
+ok('T3 every TLA row names its rule, its source (the config path) and the raw values', tlaT.counters.flatMap(c => c.rows).every(r => /^tla:/.test(r.rule) && /alert-thresholds\.json/.test(r.source) && r.raw));
+ok('T4 NFT thresholds come from the config (floor_drop_pct etc.) — meta.rules unchanged, but build used config values', TAdoc.config.nft.floor_drop_pct === 10 && R.meta.rules === w.AlertCenter.RULES);
+tiles.find(t => t.dataset.tile === 'tla').click(); await new Promise(r => setTimeout(r, 100));
+const fullT = d.getElementById('ac-full'); const cfgBtn = fullT.querySelector('[data-tile="__config"]');
+ok('T5 the window has a ⚙ Thresholds entry in the rail', !!cfgBtn && /✓/.test(cfgBtn.textContent));
+cfgBtn.click(); await new Promise(r => setTimeout(r, 60)); const mT = fullT.querySelector('#ac-main');
+const ruleCards = [...mT.querySelectorAll('.ac-rule')];
+ok(`T6 the Thresholds tab lists every rule (${ruleCards.length}) with enabled toggle, its numbers as inputs, and fire rates at 0.5×/1×/2×`, ruleCards.length === Object.keys(TAdoc.config.tla).length && ruleCards.every(c => c.querySelector('input[data-en]') && c.querySelector('.ac-rates') && /at 0\.5×/.test(c.textContent) && /at 1×/.test(c.textContent) && /at 2×/.test(c.textContent)));
+ok('T7 pool_vp_move shows unchecked (off by calibration) and its description says why', (() => { const c = ruleCards.find(x => x.dataset.rule === 'pool_vp_move'); return c && !c.querySelector('input[data-en]').checked && /routine/.test(c.textContent); })());
+ok('T8 the upload directions link to the exact GitHub edit URL of the config and name the cron + the TLA_ALERTS=1 knob', /github\.com\/thealliancedao\/tla-core\/edit\/main\/docs\/curated\/alert-thresholds\.json/.test(mT.innerHTML) && /TLA_ALERTS=1/.test(mT.textContent) && /23:00 UTC/.test(mT.textContent));
+// edit a number, download → the produced JSON carries the edit, the previous sha, and the same shape
+const inp = mT.querySelector('input[data-rule="bucket_vp_move"][data-param="min_pct"]'); inp.value = '4'; let produced = null;
+const origCreate = d.createElement.bind(d); d.createElement = (tag) => { const el = origCreate(tag); if (tag === 'a') { el.click = () => { produced = decodeURIComponent(el.href.split(',')[1] || ''); }; } return el; };
+mT.querySelector('#ac-cfg-download').click(); await new Promise(r => setTimeout(r, 30)); d.createElement = origCreate;
+const pj = produced ? JSON.parse(produced) : null;
+ok('T9 Download produces alert-thresholds.json with the edited number (bucket_vp_move.min_pct 3 → 4), today\'s updatedAt, the previous config sha, every other rule intact', pj && pj.tla.bucket_vp_move.params.min_pct === 4 && pj.edited_on_site.previous_sha === TAdoc.config.sha && pj.updatedAt === new Date().toISOString().slice(0, 10) && Object.keys(pj.tla).length === Object.keys(TAdoc.config.tla).length && pj.nft.floor_drop_pct === 10 && pj.sensitivity, pj && [pj.tla.bucket_vp_move.params, pj.edited_on_site]);
+fullT.querySelector('#ac-full-close').click(); await new Promise(r => setTimeout(r, 100));
 ok('G3 Ecosystem tile is amber (registry entries are active)', tiles.find(t => t.dataset.tile === 'ecosystem').dataset.state === 'amber');
 // full-page window (1.1.0): a tile opens it; rail = every tile + counter; main = rich cards
 tiles.find(t => t.dataset.tile === 'ecosystem').click(); await new Promise(r => setTimeout(r, 100));
 const full = d.getElementById('ac-full');
 ok('full window opens on tile click, covers the viewport (fixed inset 0), body scroll locked', full && full.getAttribute('role') === 'dialog' && d.body.style.overflow === 'hidden');
 const rail = [...full.querySelectorAll('.ac-rc')];
-ok('rail lists every counter of every tile with its count (10 buttons for 3 tiles)', rail.length === R.tiles.reduce((s2, t) => s2 + t.counters.length, 0) && rail.every(b => /\d+$/.test(b.textContent)), rail.length);
+ok('rail lists every counter of every tile with its count (+ the ⚙ Thresholds entry)', rail.length === R.tiles.reduce((s2, t) => s2 + t.counters.length, 0) + 1 && rail.filter(b => b.dataset.tile !== '__config').every(b => /\d+$/.test(b.textContent)), rail.length);
 const main = full.querySelector('#ac-main');
-ok('opens on the first non-zero Ecosystem counter (Projects) with a rich forum card: headline, summary, pools, forum link', /Projects · 1 in window/.test(main.textContent) && main.querySelector('.ac-card') && /read \/ reply on the forum/.test(main.textContent) && [...main.querySelectorAll('.ac-chips span')].length >= 3 && /USDC\.n pool/.test(main.textContent));
+rail.find(b => b.dataset.counter === 'projects').click(); await new Promise(r => setTimeout(r, 50));
+ok('Projects counter opens a rich forum card: headline, summary, pools, forum link', /Projects · 1 in window/.test(main.textContent) && main.querySelector('.ac-card') && /read \/ reply on the forum/.test(main.textContent) && [...main.querySelectorAll('.ac-chips span')].length >= 3 && /USDC\.n pool/.test(main.textContent));
 rail.find(b => b.dataset.counter === 'assets').click(); await new Promise(r => setTimeout(r, 50));
 const tbl = main.querySelector('table.ac-t');
 ok('Assets: the USDC.n card shows the timeline (mint stop · step-down · snapshot …), what to do, and a gauge table with VP share + staked and a total row', /What to do/.test(main.textContent) && main.querySelectorAll('.ac-tl li').length >= 5 && tbl && tbl.querySelectorAll('tbody tr').length === flagged.length + 1 && /gauges/.test(tbl.textContent), tbl && tbl.querySelectorAll('tbody tr').length);
 ok('the next upcoming date is highlighted and past dates dimmed', main.querySelector('.ac-tl li.next') && main.querySelector('.ac-tl li.past'));
-rail.find(b => b.dataset.counter === 'tla').click(); await new Promise(r => setTimeout(r, 50));
-ok('a gap counter renders "0 — not measured, not assumed" with its note, never an empty list', /not measured, not assumed/.test(main.textContent) && /not captured yet/.test(main.textContent));
+rail.find(b => b.dataset.counter === 'pd').click(); await new Promise(r => setTimeout(r, 50));
+ok('a gap counter (PD) renders "0 — not measured, not assumed" with its note, never an empty list', /not measured, not assumed/.test(main.textContent) && /not captured yet/.test(main.textContent));
 ok('every card carries the why line (rule · source · raw)', [...main.querySelectorAll('.ac-card')].every(c => c.querySelector('.why')) || main.querySelectorAll('.ac-card').length === 0);
 const R6b = w.AlertCenter.build({ now: Date.now(), alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [{ dao: 'Alliance DAO', id: 42, title: 'Test prop', desc: 'x', live: true, pending: false, yesPct: 61.5, noPct: 10, turnoutPct: 40, daysLeft: 2, link: 'https://daodao.zone/x' }], isOpen: (c) => c.live || c.pending }, items: [{ col: 'adao', kind: 'sale', token: 745, ts: Date.now() - 3600e3, tx: 'C50E', label: 'Sold for 200 bLUNA', sub: 'BBL' }], chainOnlyListings: [] }, { windowMs: 864e5 });
 const fw = w.AlertCenter.openFull(R6b, { document: d, openTile: 'props', nftImage: (t) => 'https://img/' + t + '.png' });
@@ -161,9 +186,16 @@ if (actRow) { actRow.click(); await new Promise(r => setTimeout(r, 50)); const d
   ok('L1 clicking a Live Activity aDAO row renders the Alert Center card under it (thumbnail, status pill, parties, why line)', det && !det.classList.contains('hidden') && det.querySelector('.ac-card') && det.querySelector('.ac-nft') && det.querySelector('.why'), det && det.textContent.replace(/\s+/g, ' ').slice(0, 200));
   actRow.click(); await new Promise(r => setTimeout(r, 50)); ok('L2 clicking again collapses it', det.classList.contains('hidden')); }
 else console.log('  (L1/L2 skipped: no aDAO row rendered in the feed)');
+// 4.29 — inline facts in the row (desktop); the expand target is mobile-only
+const inl = [...d.querySelectorAll('[data-act-i] .ac-inline')];
+const rowsN = d.querySelectorAll('[data-act-i]').length, pills = inl.filter(b => b.querySelector('.ac-pill')).length, party = inl.filter(b => b.querySelector('.ac-il-party a')).length;
+console.log(`  (inline: rows ${rowsN} · blocks ${inl.length} · with status ${pills} · with a party ${party})`);
+ok(`L3 every aDAO feed row carries an inline facts block; status pills wherever the inventory knows the token; a party on ≥80%`, inl.length > 0 && inl.length === rowsN && pills >= inl.length * 0.8 && party >= inl.length * 0.8, inl.slice(0, 2).map(b => b.textContent.replace(/\s+/g, ' ').slice(0, 120)));
+const inlPriced = inl.filter(b => b.querySelector('.ac-il-price'));
+ok('L4 priced rows show USD then · now · spread inline; the "details ▾" hint and the expand block are phone-only (md:hidden)', inlPriced.length > 0 && inlPriced.every(b => /\$[\d,.]+ then · \$[\d,.]+ now/.test(b.textContent)) && d.querySelector('[data-act-i] .md\\:hidden') && d.querySelector('.activity-details.md\\:hidden'));
 // G6 — pure lib on an empty world
 const R4 = w.AlertCenter.build({ now: Date.now(), alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [] }, items: [], chainOnlyListings: [] }, { windowMs: 864e5 });
-ok('G6 no events, empty registry → three green tiles, ten counters all 0, gap counters carry their note', R4.tiles.length === 3 && R4.tiles.every(t => t.state === 'green') && R4.tiles.flatMap(t => t.counters).every(c => c.n === 0) && R4.tiles[0].counters.filter(c => c.gap).length === 2);
+ok('G6 no events, empty registry, no tla product → four green tiles, all counters 0, gap counters carry their note', R4.tiles.length === 4 && R4.tiles.every(t => t.state === 'green') && R4.tiles.flatMap(t => t.counters).every(c => c.n === 0) && R4.tiles[0].counters.filter(c => c.gap).length === 2 && R4.tiles.find(t => t.key === 'tla').counters.every(c => c.gap));
 const R5 = w.AlertCenter.build({ now: Date.now(), alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [] }, items: Array.from({ length: 6 }, (_, i) => ({ col: 'adao', kind: 'unstaked', token: 100 + i, ts: Date.now() - i * 60e3, label: 'Unstaked', sub: 'aDAO (DAODAO)' })), stakedSupply: 1661, chainOnlyListings: [] }, { windowMs: 864e5 });
 const stk5 = R5.tiles.find(t => t.key === 'nfts-adao').counters.find(c => c.key === 'staking');
 ok(`G6 six unstakes in 24h → one "Mass unstake" row (${w.AlertCenter.RULES.MASS_UNSTAKE_N} threshold) on top of the six, with the % of staked supply`, stk5.n === 7 && /^Mass unstake: 6 NFTs in 24h/.test(stk5.rows[0].label) && /% of staked/.test(stk5.rows[0].value), stk5.rows[0]);
