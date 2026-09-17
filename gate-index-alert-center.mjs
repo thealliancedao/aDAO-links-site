@@ -41,7 +41,7 @@ await new Promise(r => setTimeout(r, 15000));
 const d = w.document;
 const gm = d.getElementById('gov-modal'); modalOpened = gm && gm.style.display === 'flex';
 const tiles = [...d.querySelectorAll('#alert-center .ac-tile')];
-console.log('=== index 4.27 alert center (lib 1.3.0 · denoms 1.0.0) ===');
+console.log('=== index 4.28 alert center (lib 1.4.0 · denoms 1.0.0) ===');
 ok('G1 the grid renders Ecosystem · Props · NFTs aDAO', tiles.map(t => t.dataset.tile).join(',') === 'ecosystem,props,nfts-adao', tiles.map(t => t.dataset.tile));
 ok('G1 the Pulse card is hidden by stylesheet rule and the launch proposal popup did not open', /#pulse-card \{ display: none !important; \}/.test(html) && !modalOpened);
 const R = w.__alertCenter; ok('G1 build result exposed (window.__alertCenter) with meta.rules = the lib RULES', R && R.meta && R.meta.rules === w.AlertCenter.RULES);
@@ -152,7 +152,15 @@ const seen = w.AlertCenter.marker.get();
 console.log('  (after close: ac-full present?', !!d.getElementById('ac-full'), 'body overflow=', JSON.stringify(d.body.style.overflow), 'seen-now', seen - Date.now(), ')');
 ok('G5 closing the full window sets the "seen" marker (to the build time of the result that was open), removes the window and unlocks body scroll', seen && Math.abs(seen - Date.now()) < 120e3 && !d.getElementById('ac-full') && d.body.style.overflow !== 'hidden', seen);
 const R3 = w.AlertCenter.build({ now: seen + 1000, alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [] }, items: w.__activityItems, chainOnlyListings: [] }, { since: seen, windowMs: w.AlertCenter.RULES.WINDOW_DEFAULT_MS });
-ok('G5 rebuilt "since you last looked" (registry empty): every NFT counter 0 → all tiles green', R3.tiles.every(t => t.state === 'green' && t.total === 0), R3.tiles.map(t => [t.key, t.total]));
+ok('G5 (1.4.0) rebuilt with the marker: the week is still counted (window never shrinks) and no row is newer than the marker', R3.meta.cut === (seen + 1000) - w.AlertCenter.RULES.WINDOW_DEFAULT_MS && R3.tiles.every(t => (t.newCount || 0) === 0), R3.tiles.map(t => [t.key, t.total, t.newCount]));
+ok('W1 default window is 7 days and the toggle offers 30d', w.AlertCenter.RULES.WINDOW_DEFAULT_MS === 7 * 864e5 && w.AlertCenter.RULES.WINDOW_LONG_MS === 30 * 864e5 && [...d.querySelectorAll('#alert-center [data-win]')].map(b => b.textContent).join(',') === '7d,30d');
+const Rn = w.AlertCenter.build({ now: Date.now(), alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [] }, items: [{ col: 'adao', kind: 'sale', token: 1, ts: Date.now() - 3600e3, label: 'Sold', sub: 'BBL' }, { col: 'adao', kind: 'sale', token: 2, ts: Date.now() - 3 * 864e5, label: 'Sold', sub: 'BBL' }], chainOnlyListings: [] }, { since: Date.now() - 2 * 864e5, windowMs: 7 * 864e5 });
+ok('W2 with a marker 2d old: both sales count (7d window), exactly the 1h-old one is new', Rn.tiles.find(t => t.key === 'nfts-adao').total === 2 && Rn.tiles.find(t => t.key === 'nfts-adao').newCount === 1);
+const actRow = d.querySelector('[data-act-i]');
+if (actRow) { actRow.click(); await new Promise(r => setTimeout(r, 50)); const det = d.querySelector(`[data-act-d="${actRow.dataset.actI}"]`);
+  ok('L1 clicking a Live Activity aDAO row renders the Alert Center card under it (thumbnail, status pill, parties, why line)', det && !det.classList.contains('hidden') && det.querySelector('.ac-card') && det.querySelector('.ac-nft') && det.querySelector('.why'), det && det.textContent.replace(/\s+/g, ' ').slice(0, 200));
+  actRow.click(); await new Promise(r => setTimeout(r, 50)); ok('L2 clicking again collapses it', det.classList.contains('hidden')); }
+else console.log('  (L1/L2 skipped: no aDAO row rendered in the feed)');
 // G6 — pure lib on an empty world
 const R4 = w.AlertCenter.build({ now: Date.now(), alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [] }, items: [], chainOnlyListings: [] }, { windowMs: 864e5 });
 ok('G6 no events, empty registry → three green tiles, ten counters all 0, gap counters carry their note', R4.tiles.length === 3 && R4.tiles.every(t => t.state === 'green') && R4.tiles.flatMap(t => t.counters).every(c => c.n === 0) && R4.tiles[0].counters.filter(c => c.gap).length === 2);
