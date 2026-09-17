@@ -5591,6 +5591,11 @@
     // an input. Recommend seldom: propose a change only when it is material; otherwise say "hold" and why.
     // a pool's display name: the product's name, or the catalog symbol when the product only knows the raw gauge id
     const poolDisplayName = (n, gaugeId) => { const raw = String(n || ''); if (!/^(cw20|native):|^terra1[0-9a-z]{38,}$|^Unknown$|^$/.test(raw)) return raw; const src = gaugeId ? String(gaugeId) : raw; /* the snapshot's 'name' for unnamed gauges is a truncated id — the full gauge id is the lookup key */ const bare = src.replace(/^(cw20|native):/, ''); const kc = store.knownContracts && store.knownContracts[bare]; return KNOWN_TOKEN_NAMES[src] || KNOWN_TOKEN_NAMES[bare] || KNOWN_TOKEN_NAMES['cw20:' + bare] || KNOWN_TOKEN_NAMES['native:' + bare] || (kc && kc.name) || (bare.length > 20 ? bare.slice(0, 10) + '…' + bare.slice(-4) : raw); };
+    // T3.21 — curated alert pills (lp-grades `alerts`, stamped upstream from docs/curated/alerts.json).
+    // asset (migrating / winding_down) → amber "winding down · migrate by <date>"; forum → cyan "forum: <project>", linked.
+    window.alertPills = window.alertPills || ((p) => (p && p.alerts || []).map(a => a.kind === 'asset'
+        ? `<a class="alert-pill alert-asset inline-block align-middle ml-1 px-1.5 py-px rounded text-[9px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/40 no-underline" href="${a.source_url || '#'}" target="_blank" rel="noopener" title="${(a.headline || '').replace(/"/g, '&quot;')}${a.action ? ' — ' + a.action.replace(/"/g, '&quot;') : ''}">${a.status === 'watch' ? 'watch' : 'winding down'}${a.deadline ? ' · migrate by ' + a.deadline : ''}</a>`
+        : `<a class="alert-pill alert-forum inline-block align-middle ml-1 px-1.5 py-px rounded text-[9px] font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 no-underline" href="${a.source_url || '#'}" target="_blank" rel="noopener" title="${(a.headline || '').replace(/"/g, '&quot;')}">forum: ${a.project || 'discussion'}</a>`).join(''));
     const ADVISOR = { streak_required: 4, min_letter: 'C', chunk_bps: 1000, max_per_pool_bps: 5000, material_gain_pct: 10, rescue_band_pct: 2,
         GAUGE_CONTROLLER: 'terra1hfksrhchkmsj4qdq33wkksrslnfles6y2l77fmmzeep0xmq24l2smsd3lj',
         overrides: [] };   // council-declared reasons: [{ gauge_pool_id, reason }] — none today; added by DAO decision, shown verbatim
@@ -5611,8 +5616,12 @@
             const all = prod.pools.filter(p => String(p.bucket || '').toLowerCase() === bucket && p.gaugeActive !== false);
             for (const p of all) nameOf[p.gauge_pool_id] = poolDisplayName(p.name);
             const ov = (p) => ADVISOR.overrides.find(o => o.gauge_pool_id === p.gauge_pool_id);
+            // T3.21 (2026-09-17): a pool whose asset is winding down (lp-grades `alerts` kind asset, migrating / winding_down —
+            // stamped upstream from docs/curated/alerts.json via the token-catalog) is NEVER eligible, whatever its grade; if
+            // we vote it today the shift out is material on its own — the liquidity is leaving whether we like it or not.
+            const winding = (p) => (p.alerts || []).find(a => a.kind === 'asset' && (a.status === 'migrating' || a.status === 'winding_down'));
             const earned = (p) => p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter] && (p.v2.streak || 0) >= ADVISOR.streak_required;
-            const eligible = all.filter(p => (p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter]) || ov(p));   // the lenses' answer uses every C+ pool
+            const eligible = all.filter(p => !winding(p) && ((p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter]) || ov(p)));   // the lenses' answer uses every C+ pool that is not winding down
             const earning = all.filter(p => p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter] && !earned(p) && !ov(p)).map(p => ({ p, streak: p.v2.streak || 0 }));
             const cur = current[bucket] || new Map();
             const score = (p, assignedBps) => {
@@ -5637,15 +5646,16 @@
             const valueOf = (alloc) => { let v = 0; for (const [g, bps] of alloc) { const p = all.find(x => x.gauge_pool_id === g); if (!p) continue; for (let k = 0; k < bps / ADVISOR.chunk_bps; k++) v += score(p, k * ADVISOR.chunk_bps); } return v; };
             const vCur = valueOf(cur), vRec = valueOf(rec);
             const gainPct = vCur > 0 ? (vRec - vCur) / vCur * 100 : (vRec > 0 ? 100 : 0);
-            const shifts = []; for (const g of new Set([...cur.keys(), ...rec.keys()])) { const d = (rec.get(g) || 0) - (cur.get(g) || 0); if (d) shifts.push({ gauge_pool_id: g, name: nameOf[g] || g.slice(0, 14) + '…', delta_bps: d, reason: reasons.get(g) || (d < 0 ? 'no longer earned (letter or streak below the bar)' : '') }); }
+            const shifts = []; for (const g of new Set([...cur.keys(), ...rec.keys()])) { const d = (rec.get(g) || 0) - (cur.get(g) || 0); if (d) { const wp = all.find(x => x.gauge_pool_id === g); const wa = wp && winding(wp); shifts.push({ gauge_pool_id: g, name: nameOf[g] || g.slice(0, 14) + '…', delta_bps: d, winding: !!wa, reason: wa ? `winding down — ${wa.headline}${wa.deadline ? ` (by ${wa.deadline})` : ''}` : (reasons.get(g) || (d < 0 ? 'no longer earned (letter or streak below the bar)' : '')) }); } }
+            const windingVoted = shifts.some(x => x.winding && x.delta_bps < 0);
             shifts.sort((x, y) => y.delta_bps - x.delta_bps);
             const notEarned = [...rec.keys()].filter(g => { const p = all.find(x => x.gauge_pool_id === g); return p && rec.get(g) > 0 && !(earned(p) || ov(p)); }).map(g => { const p = all.find(x => x.gauge_pool_id === g); return { name: nameOf[g], streak: p.v2 ? p.v2.streak || 0 : 0 }; });
-            const material = eligible.length > 0 && shifts.length > 0 && gainPct >= ADVISOR.material_gain_pct;
+            const material = eligible.length > 0 && shifts.length > 0 && (gainPct >= ADVISOR.material_gain_pct || windingVoted);   // T3.21: a winding-down pool we vote is material by itself
             const hold = !material || notEarned.length > 0;   // proposable only when material AND every recommended pool has earned it
             const movedBps = shifts.filter(x => x.delta_bps > 0).reduce((s2, x) => s2 + x.delta_bps, 0);
             const emisRedirectWk = (bucketVp[bucket] > 0 ? (movedBps / 10000 * totalVp) / bucketVp[bucket] : 0) * (bucketWk[bucket] || 0);
             const rescued = eligible.filter(p => rec.get(p.gauge_pool_id) > 0 && p.pct_of_bucket != null && p.pct_of_bucket < ADVISOR.rescue_band_pct).map(p => p.name);
-            byBucket[bucket] = { all, eligible, earning, cur, rec, shifts, hold, material, notEarned, gainPct, emisRedirectWk, rescued, bucketVp: bucketVp[bucket] || 0 };
+            byBucket[bucket] = { all, eligible, earning, cur, rec, shifts, hold, material, notEarned, gainPct, emisRedirectWk, rescued, windingVoted, winding: all.filter(winding).map(p => nameOf[p.gauge_pool_id]), bucketVp: bucketVp[bucket] || 0 };
         }
         return { totalVp, chunkVp, byBucket, nameOf, preview };
     }
@@ -5664,7 +5674,8 @@
         const bucketsHtml = Object.entries(adv.byBucket).map(([bucket, b]) => `
             <div class="rounded-lg bg-white/[0.02] border border-white/[0.05] p-3">
                 <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">${bucket}</span>
-                    <span class="text-[10px] ${!b.material ? 'text-gray-500' : b.hold ? 'text-amber-300' : 'text-emerald-300'}">${!b.material ? (b.eligible.length ? (b.shifts.length ? `hold — the lenses' answer is only ${b.gainPct.toFixed(0)}% better, not material` : 'hold — the lenses agree with how we vote today') : 'hold — no C+ pool in this bucket') : b.hold ? `not proposable yet — ${b.notEarned.map(n => `${n.name} ${n.streak}/${ADVISOR.streak_required}`).join(', ')} still earning` : `proposable · ${b.gainPct.toFixed(0)}% more system value`}</span></div>
+                    <span class="text-[10px] ${!b.material ? 'text-gray-500' : b.hold ? 'text-amber-300' : 'text-emerald-300'}">${!b.material ? (b.eligible.length ? (b.shifts.length ? `hold — the lenses' answer is only ${b.gainPct.toFixed(0)}% better, not material` : 'hold — the lenses agree with how we vote today') : 'hold — no C+ pool in this bucket') : b.hold ? `not proposable yet — ${b.notEarned.map(n => `${n.name} ${n.streak}/${ADVISOR.streak_required}`).join(', ')} still earning` : (b.windingVoted ? `proposable · move votes off a winding-down pool` : `proposable · ${b.gainPct.toFixed(0)}% more system value`)}</span></div>
+                ${b.winding && b.winding.length ? `<div class="text-[10px] text-amber-400/90 mt-1"><i class="fas fa-triangle-exclamation mr-1"></i>winding down, never eligible: ${b.winding.join(', ')}</div>` : ''}
                 <div class="text-[9px] text-gray-600 mb-0.5">NOW</div>${barOf(b.cur, adv.nameOf)}
                 ${b.material ? `<div class="text-[9px] text-gray-600 mt-1.5 mb-0.5">THE LENSES SAY${b.hold ? ' <span class="text-amber-400/80 normal-case">(when earned)</span>' : ''}</div>${barOf(b.rec, adv.nameOf)}
                 <div class="mt-2 space-y-0.5">${b.shifts.map(x => `<div class="text-[11px]"><span class="mono ${x.delta_bps > 0 ? 'text-emerald-300' : 'text-red-300'}">${x.delta_bps > 0 ? '+' : ''}${pct(x.delta_bps)} ${x.name}</span> <span class="text-gray-500">— ${x.reason}</span></div>`).join('')}</div>
@@ -5790,7 +5801,7 @@
                 return `<div class="rounded-lg border-t border-white/[0.04] ${mine ? 'bg-amber-500/[0.04]' : ''}">
                     <div class="grid gap-x-3 items-center px-2 py-1.5 cursor-pointer hover:bg-white/[0.03]" style="grid-template-columns: 36px minmax(140px,1.2fr) repeat(5, 92px) 70px minmax(120px,1fr) 100px" onclick="const d=document.getElementById('${id}'); d.classList.toggle('hidden');">
                         <div class="mono text-base font-bold text-center rounded ${LETTER_CLS[v.letter]}" title="composite ${v.composite}/100 · confidence ${v.confidence}">${v.letter}</div>
-                        <div class="min-w-0"><div class="text-sm font-medium truncate">${mine ? '<span class="text-amber-400 text-[10px] mr-1" title="aDAO votes here">★</span>' : ''}${poolDisplayName(p.name)}</div><div class="flex items-center gap-1">${dexTag(p.dex, p.is_single)}<span class="text-[9px] text-gray-600">${String(v.pair_class || '').replace(/_/g, ' ')}</span>${v.confidence !== 'firm' ? `<span class="text-[9px] text-gray-600" title="some lens components have no source">${v.confidence}</span>` : ''}</div></div>
+                        <div class="min-w-0"><div class="text-sm font-medium truncate">${mine ? '<span class="text-amber-400 text-[10px] mr-1" title="aDAO votes here">★</span>' : ''}${poolDisplayName(p.name)}${alertPills(p)}</div><div class="flex items-center gap-1">${dexTag(p.dex, p.is_single)}<span class="text-[9px] text-gray-600">${String(v.pair_class || '').replace(/_/g, ' ')}</span>${v.confidence !== 'firm' ? `<span class="text-[9px] text-gray-600" title="some lens components have no source">${v.confidence}</span>` : ''}</div></div>
                         ${['purpose', 'work', 'efficiency', 'durability', 'governance'].map(lid => bar(lid, v.lenses[lid])).join('')}
                         <div class="text-center"><span class="text-[10px] px-1.5 py-0.5 rounded ${streakCls} mono" title="consecutive epochs at C or better${v.streak_basis === 'v1-backfilled' ? ' (earlier epochs from the previous rubric)' : ''}">${streak} ep</span></div>
                         <div class="text-[10px] text-gray-500 truncate" title="${v.why}">${v.why}</div>
@@ -10280,7 +10291,7 @@
                     ${cell(f$(tot.pot), 'funded pots')}${selM ? '<div></div>' : ''}
                 </div>
                 ${rs.map(r => `<div data-erow class="grid gap-x-3 items-center px-2 py-1.5 border-t border-white/[0.04] hover:bg-white/[0.03] ${r.mine ? 'bg-amber-500/[0.04]' : ''}" style="${GRID}">
-                    <div class="min-w-0"><div class="flex items-center gap-1.5"><span class="mono text-xs font-bold px-1.5 rounded ${r.v2 && r.v2.letter ? LETTER_CLS2[r.v2.letter] : 'bg-white/5 text-gray-600'}" title="${r.v2 ? 'five-lens grade · composite ' + r.v2.composite + ' · streak ' + (r.v2.streak || 0) + ' ep' : 'not graded'}">${r.v2 && r.v2.letter ? r.v2.letter : '–'}</span><span class="text-sm font-medium truncate">${poolDisplayName(r.p.name, r.p.gauge_pool_id)}</span></div><div class="flex items-center gap-1 mt-0.5">${dexTag(r.p.dex)}<span class="text-[9px] text-gray-600">${r.v2 ? String(r.v2.pair_class || '').replace(/_/g, ' ') : ''}</span>${flags(r)}<button type="button" onclick="togglePoolDrill(this, '${r.key.replace(/'/g, '')}')" class="text-[9px] text-gray-600 hover:text-cyan-400 ml-1" title="history"><i class="fas fa-chevron-down"></i></button></div></div>
+                    <div class="min-w-0"><div class="flex items-center gap-1.5"><span class="mono text-xs font-bold px-1.5 rounded ${r.v2 && r.v2.letter ? LETTER_CLS2[r.v2.letter] : 'bg-white/5 text-gray-600'}" title="${r.v2 ? 'five-lens grade · composite ' + r.v2.composite + ' · streak ' + (r.v2.streak || 0) + ' ep' : 'not graded'}">${r.v2 && r.v2.letter ? r.v2.letter : '–'}</span><span class="text-sm font-medium truncate">${poolDisplayName(r.p.name, r.p.gauge_pool_id)}</span>${alertPills(r.p)}</div><div class="flex items-center gap-1 mt-0.5">${dexTag(r.p.dex)}<span class="text-[9px] text-gray-600">${r.v2 ? String(r.v2.pair_class || '').replace(/_/g, ' ') : ''}</span>${flags(r)}<button type="button" onclick="togglePoolDrill(this, '${r.key.replace(/'/g, '')}')" class="text-[9px] text-gray-600 hover:text-cyan-400 ml-1" title="history"><i class="fas fa-chevron-down"></i></button></div></div>
                     ${cell(f$(r.staked), `${f$(r.depth)} depth · ${r.pctTla == null ? '—' : r.pctTla.toFixed(0) + '% in TLA'}`, 'text-cyan-300')}
                     ${cell(f$(r.vol), `${r.util == null ? 'util —' : 'util ' + r.util.toFixed(2)} · ${r.slip == null ? 'slip —' : 'slip ' + r.slip.toFixed(1) + '%'}`, r.vol > 0 ? 'text-gray-200' : 'text-gray-600')}
                     ${cell(`${pc(r.aprNon, 1)} <span class="text-gray-500">/</span> ${pc(r.aprAmp, 1)}`, `${r.emisWk == null ? '—' : f$(r.emisWk) + '/wk'}${r.emisPerVol != null ? ' · $' + r.emisPerVol.toFixed(2) + ' per $ traded' : ''}`, 'text-emerald-300/90')}
@@ -13611,6 +13622,6 @@
     <!-- Vercel Web Analytics (auto-enabled for Vercel-hosted sites) -->
     <script defer src="/_vercel/insights/script.js"></script>
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T3.20', revDate: '2026-09-13', page: 'tla-stats' });</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T3.21', revDate: '2026-09-17', page: 'tla-stats' });</script>
 </body>
 </html>
