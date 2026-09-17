@@ -20,7 +20,7 @@ const grades = JSON.parse(fs.readFileSync(path.join(CORE, 'lp-grades/snapshots/c
 const GRADES_TXT = JSON.stringify(grades);
 // --- page ---
 const html = fs.readFileSync('index.html', 'utf8').replace(/<link[^>]+>/g, '').replace(/<script src="[^"]*"><\/script>/g, '');
-const libSrc = fs.readFileSync('lib/alert-center.js', 'utf8');
+const libSrc = fs.readFileSync('lib/alert-center.js', 'utf8'); const denomsSrc = fs.readFileSync('lib/denoms.js', 'utf8');
 let modalOpened = false; const J = (b) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(b), text: () => Promise.resolve(JSON.stringify(b)) });
 const stubFetch = (u) => { const full = String(u), url = full.split('?')[0]; let f = null;
   if (url === CORE_U + 'lp-grades/snapshots/current.json') return J(JSON.parse(GRADES_TXT));
@@ -33,7 +33,7 @@ const stubFetch = (u) => { const full = String(u), url = full.split('?')[0]; let
 const dom = new JSDOM(html, { url: 'https://thealliancedao.com/index.html', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
   w.fetch = stubFetch; w.matchMedia = () => ({ matches: false, addListener() {}, addEventListener() {} }); w.scrollTo = () => {}; w.requestAnimationFrame = (f) => setTimeout(f, 0); w.IntersectionObserver = class { observe() {} disconnect() {} };
   w.SiteHeader = { mount() {}, init() {}, subnav() { return { querySelectorAll: () => [] }; } }; w.PropAudit = {}; w.CronRegistry = { fetchAll: async () => [], summarize: () => ({ counts: {}, overall: 'ok' }), CRONS: [] }; w.tokenPrices = { LUNA: 0.0449, bLUNA: 0.0785 };
-  w.eval(libSrc);
+  w.eval(denomsSrc); w.eval(libSrc); w.Denoms.load(stubFetch);   // the page's include calls Denoms.load() before any feed builds
 } });
 const w = dom.window;
 w.document.dispatchEvent(new w.Event('DOMContentLoaded', { bubbles: true })); w.dispatchEvent(new w.Event('load'));
@@ -41,7 +41,7 @@ await new Promise(r => setTimeout(r, 15000));
 const d = w.document;
 const gm = d.getElementById('gov-modal'); modalOpened = gm && gm.style.display === 'flex';
 const tiles = [...d.querySelectorAll('#alert-center .ac-tile')];
-console.log('=== index 4.26 alert center (lib 1.3.0) ===');
+console.log('=== index 4.27 alert center (lib 1.3.0 · denoms 1.0.0) ===');
 ok('G1 the grid renders Ecosystem · Props · NFTs aDAO', tiles.map(t => t.dataset.tile).join(',') === 'ecosystem,props,nfts-adao', tiles.map(t => t.dataset.tile));
 ok('G1 the Pulse card is hidden by stylesheet rule and the launch proposal popup did not open', /#pulse-card \{ display: none !important; \}/.test(html) && !modalOpened);
 const R = w.__alertCenter; ok('G1 build result exposed (window.__alertCenter) with meta.rules = the lib RULES', R && R.meta && R.meta.rules === w.AlertCenter.RULES);
@@ -132,6 +132,10 @@ const buyerHold = holds('terra1sw7x43lamdkm9gj0luzgzdym52y2sxcv7nk9hy'), sellerH
 ok('X4 the #745 sale card shows Seller and Buyer with their holdings (from the same inventory), the unbroken/broken pill, and "200 bLUNA · $x at the time · $y now (±%)"', saleCard && /Seller/.test(saleCard.textContent) && /Buyer/.test(saleCard.textContent) && new RegExp(`${buyerHold.total} NFT`).test(saleCard.textContent) && /200 bLUNA · \$[\d.]+ at the time · \$[\d.]+ now \([+-][\d.]+%\)/.test(saleCard.textContent) && /(unbroken|broken)/.test(saleCard.textContent), saleCard && saleCard.textContent.replace(/\s+/g, ' ').slice(0, 300));
 ok('X5 a Boost listing card shows the Lister and "50,000 LUNA · $… at the time · $… now"', (() => { const c = [...mx.querySelectorAll('.ac-card')].find(x => /#8149 Listed/.test(x.textContent)); return c && /Lister/.test(c.textContent) && /50,000 LUNA · \$[\d,.]+ at the time/.test(c.textContent); })());
 fwx.close(false);
+// 4.27 — one resolver: the feed has no hand map left; symbols come from denom_symbol or lib/denoms.js (catalog)
+ok('D1 lib/denoms.js loaded the catalog and resolves every spelling to one answer', w.Denoms.isLoaded() && w.Denoms.symbol('uluna') === 'LUNA' && w.Denoms.symbol('native:uluna') === 'LUNA' && w.Denoms.symbol('cw20:terra17aj4ty4sz4yhgm08na8drc0v03v2jwr3waxcqrwhajj729zhl7zqnpc0ml') === 'bLUNA' && w.Denoms.symbol('terra1ecgazyd0waaj3g7l9cmy5gulhxkps2gmxu9ghducvuypjq68mq2s5lvsct') === 'ampLUNA' && w.Denoms.symbol('cw20:terra1nothere') === null);
+ok('D2 the feed builder carries no denom → symbol map (the SYM literal is gone; symOf goes through denom_symbol → Denoms)', !/const SYM = \{ uluna: 'LUNA'/.test(html) && /const symOf = \(d, rec\) => \(rec && rec\.denom_symbol\) \|\| \(window\.Denoms/.test(html));
+ok('D3 every priced adao feed row in 7d has a symbol that the catalog knows (no "…" placeholder)', items26.filter(x => x.amt != null).every(x => x.sym && !/…/.test(x.sym)), items26.filter(x => x.amt != null && (!x.sym || /…/.test(x.sym))).map(x => [x.kind, x.token, x.sym]));
 // G4 — selected address: pick a wallet that touched a token in the window, re-build with myTokens
 const inv = w.__invRecords || []; const wk = (w.__activityItems || []).filter(x => x.col === 'adao' && x.ts >= R.meta.now - 7 * 864e5); const anyRow = wk.find(x => x.token != null && ['transferred', 'staked', 'unstaked', 'sale'].includes(x.kind)); const owner = anyRow && (inv.find(r => String(r.id) === String(anyRow.token)) || {}).real_owner;
 if (owner) {
