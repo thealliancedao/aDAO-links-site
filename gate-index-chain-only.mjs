@@ -47,7 +47,7 @@ w.document.dispatchEvent(new w.Event('DOMContentLoaded', { bubbles: true })); w.
 await new Promise(r => setTimeout(r, 14000));
 const d = w.document; const txt = (id) => ((d.getElementById(id) || {}).textContent || '').trim();
 ok(`warlock feed was read (${warlockHits} calls) — the live BBL path is what the merge lands on`, warlockHits > 0);
-ok('REV constant is 4.23', (w.__store && w.__store.REV) === '4.23' || /const REV = '4\.23'/.test(fs.readFileSync(FILE, 'utf8')), w.__store && w.__store.REV);
+ok('REV constant is ≥ 4.23 (4.23 shipped the chain-only card; later revs keep it)', /const REV = '4\.2[3-9]'/.test(fs.readFileSync(FILE, 'utf8')) || /const REV = '4\.[3-9]/.test(fs.readFileSync(FILE, 'utf8')));
 // --- BBL card ---
 ok(`BBL "Currently Listed" = warlock ${WARLOCK_N} + 1 chain-only = ${WARLOCK_N + 1}`, txt('bbl-listed-count') === String(WARLOCK_N + 1), txt('bbl-listed-count'));
 const note = d.getElementById('bbl-chain-only-note');

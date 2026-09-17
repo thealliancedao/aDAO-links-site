@@ -704,8 +704,10 @@
         /* --- 4.14 MOBILE (owner 2026-09-10): simplify Home on phones — drop Ecosystem Pulse (the alert modal still fires
                for new proposals), fold the link tiles into an expandable tree, compact the DAO rewards card --- */
         #mob-links-toggle { display: none; }   /* base FIRST — the phone rule below must win (4.14 had these reversed) */
+        /* 4.24: Ecosystem Pulse retired (owner 2026-09-17) — markup stays as hidden receivers for the governance loader
+           this delivery; its DOM + JS are pruned in Phase 2 of SPEC-alert-center. */
+        #pulse-card { display: none !important; }
         @media (max-width: 767px) {
-            #pulse-card { display: none !important; }
             .top-info-grid { display: none !important; }              /* !important: Tailwind's runtime .grid loads later */
             .top-info-grid.mob-open { display: grid !important; grid-template-columns: repeat(2, 1fr); gap: .5rem; }
             #mob-links-toggle { display: flex !important; }
@@ -1238,16 +1240,17 @@
     <script src="/lib/site-header.js"></script>
     <script src="/lib/prop-audit.js"></script>
     <script src="/lib/address-picker.js"></script>
+    <script src="/lib/alert-center.js?v=1.0.0"></script>
     <script>SiteHeader.mount({ page: 'index', mobileTabs: false }); if (window.AddressPicker) AddressPicker.mount({});
     // Uniform chrome: the refresh strip rides in the shared sub-nav's right slot (no tabs on Home).
     (function () {
       // Home's in-page tabs (Ecosystem News · Ecosystem Pulse) on the shared component,
       // at the top of the pulse card like every other page. The page's own buttons stay
       // as hidden receivers. The refresh strip is retired (hidden; its JS is left intact).
+      // 4.24 (owner 2026-09-17): Ecosystem Pulse retired; the Alert Center is the default window (SPEC-alert-center).
       SiteHeader.subnav([
-        { id: 'news',  label: 'Ecosystem News',  icon: 'fa-bullhorn' },
-        { id: 'pulse', label: 'Ecosystem Pulse', icon: 'fa-heart-pulse', active: true },
-      ], { onSelect: function (id) { var b = document.getElementById('ptab-' + id); if (b) b.click(); }, attach: '#pulse-card',
+        { id: 'alerts', label: 'Ecosystem Alerts', icon: 'fa-bell', active: true },
+      ], { onSelect: function () {}, attach: '#alert-center-card',
            // Rev 3.81: epoch countdown (local time default, UTC toggle) rides in the right slot; filled by epochClock() below.
            right: '<span id="sh-epoch-pill" title="TLA gauge epoch — 7-day periods from 2022-10-31 00:00 UTC; votes settle and rewards distribute at rollover" style="display:inline-flex;align-items:center;gap:8px;padding:4px 6px 4px 10px;border-radius:9px;border:1px solid rgba(34,211,238,.35);background:rgba(34,211,238,.08)"><span style="font-size:10px;letter-spacing:.08em;color:#22d3ee;font-weight:700">EPOCH</span><span id="sh-epoch-clock" style="font-family:ui-monospace,monospace;font-size:13px;color:#fff;font-weight:600">…</span><span id="sh-epoch-tzseg" style="display:inline-flex;border:1px solid rgba(255,255,255,.15);border-radius:6px;overflow:hidden;font-size:11px"><button type="button" data-tz="local" style="padding:3px 8px;border:0;background:transparent;color:#9ca3af;cursor:pointer">Local</button><button type="button" data-tz="utc" style="padding:3px 8px;border:0;background:transparent;color:#9ca3af;cursor:pointer">UTC</button></span></span>' });
       document.addEventListener('DOMContentLoaded', function () {
@@ -1312,6 +1315,12 @@
             .pulse-metric-btn { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.05); color: #9ca3af; cursor: pointer; }
             .pulse-metric-btn.active { background: rgba(34,211,238,0.18); color: #22d3ee; }
         </style>
+        <!-- ═══ ALERT CENTER (Rev 4.24 — SPEC-alert-center Phase 1, owner 2026-09-17): the default window. Tiles = Ecosystem ·
+             Props · NFTs aDAO; green when every counter is measured 0, amber+pulse when any > 0, red only for the selected
+             address. Composed on the page by lib/alert-center.js from products already loaded here — no new cron. ═══ -->
+        <div class="pulse-card p-4 sm:p-5 mb-6 sm:mb-8" id="alert-center-card">
+            <div id="alert-center"><span class="text-gray-500 text-xs">Reading products…</span></div>
+        </div>
         <div class="pulse-card p-4 sm:p-5 mb-6 sm:mb-8" id="pulse-card">
             <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
                 <div class="flex items-center gap-1">
@@ -5378,6 +5387,8 @@
             async function mcFloorByDate() {   // date → base-tier listing floor USD
                 const fh = await mcJson(MC_BASE + 'floor-history.json'); const m = {};
                 for (const r of (fh && fh.rows) || []) { const v = r.per_tier && r.per_tier.base && r.per_tier.base.listing_floor_usd; if (v != null) m[r.date] = Number(v); }
+                // 4.24: per-tier series for the Alert Center's floor-drop rule (newest last)
+                try { const byTier = {}; for (const r of (fh && fh.rows) || []) for (const [tier, t] of Object.entries(r.per_tier || {})) if (t && t.listing_floor_usd != null) (byTier[tier] = byTier[tier] || []).push({ date: r.date, floor_usd: Number(t.listing_floor_usd) }); for (const k of Object.keys(byTier)) byTier[k].sort((a, b) => a.date.localeCompare(b.date)); window.__floorHistory = byTier; if (window.__acRefresh) window.__acRefresh('floor'); } catch (e) {}
                 return m;
             }
             async function mcSalesByDate() {   // date → { count, usd } (all marketplaces, USD at sale)
@@ -13563,6 +13574,7 @@
                             cache.floorChainOnly = !!cheapest.chainOnly;
                         }
                         if (added && typeof selectedOverviewCollection !== 'undefined' && selectedOverviewCollection === 'alliance_dao' && marketplaceCache.loaded) displayCachedOverviewData('alliance_dao');
+                        if (added && window.__acRefresh) window.__acRefresh('chain-only');   // 4.24
                         return added > 0;
                     } catch (e) { console.warn('chain-only BBL merge skipped:', e.message); return false; }
                 }
@@ -13737,6 +13749,7 @@
                             return Array.isArray(r) ? r : (r ? Object.values(r) : []);
                         })();
                         const brokenAt = ba.entries || {};
+                        window.__invRecords = invRecords;   // 4.24: the Alert Center derives "my tokens" + staked supply from the same inventory
                         const isBrokenNow = (id) => !!brokenAt[String(id)];
                         const px = () => ({ LUNA: window.tokenPrices?.LUNA || 0, bLUNA: window.tokenPrices?.bLUNA || 0, SOLID: 1 });
                         const DEN = { 'uluna': 'LUNA', 'cw20:terra17aj4ty4sz4yhgm08na8drc0v03v2jwr3waxcqrwhajj729zhl7zqnpc0ml': 'bLUNA', 'cw20:terra10aa3zdkrc7jwuf8ekl3zq7e7m42vmzqehcmu74e4egc7xkm5kr2s0muyst': 'SOLID' };
@@ -13990,14 +14003,14 @@
                             if (act === 'sale') { if (flowSales.has(`${e.txhash}|${e.token_id}`)) continue; const p = priceOf(e); items.push({ ts, col: 'adao', kind: 'sale', token: e.token_id, tx: e.txhash || null, label: `Sold${p ? ' for ' + p : ''}`, sub: e.contract_label ? e.contract_label.split(' ')[0] : 'BBL' }); continue; }
                             if (act === 'bid') { const p = priceOf(e); const amt = e.bid_amount != null ? (parseFloat(e.bid_amount) / 1e6).toLocaleString() : null;   // bids in this leg carry the amount but not the denom — say the amount, never guess the currency
                                 items.push({ ts, col: 'adao', kind: 'bid', token: e.token_id, tx: e.txhash || null, label: p ? `Bid ${p}` : amt ? `Bid ${amt}` : 'Bid', sub: (e.contract_label ? e.contract_label.split(' ')[0] : 'BBL') + (!p && amt ? ' · currency not in record' : '') }); continue; }
-                            if (act === 'list') { const p = priceOf(e); items.push({ ts, col: 'adao', kind: 'listing', token: e.token_id, tx: e.txhash || null, label: `Listed${p ? ' at ' + p : ''}`, sub: e.contract_label ? e.contract_label.split(' ')[0] : 'BBL' }); continue; }
+                            if (act === 'list') { const p = priceOf(e); const rawAmt = e.gross_amount ?? e.price ?? e.amount; items.push({ ts, col: 'adao', kind: 'listing', token: e.token_id, tx: e.txhash || null, amt: rawAmt != null ? parseFloat(rawAmt) / 1e6 : null, sym: e.denom ? symOf(e.denom) : null, label: `Listed${p ? ' at ' + p : ''}`, sub: e.contract_label ? e.contract_label.split(' ')[0] : 'BBL' }); continue; }
                             if (act === 'cancel') { items.push({ ts, col: 'adao', kind: 'delisting', token: e.token_id, tx: e.txhash || null, label: 'Delisted', sub: e.contract_label ? e.contract_label.split(' ')[0] : 'BBL' }); continue; }
                             if (act !== 'transfer_nft') continue;   // other venue verbs (settle_hook etc.) are not human rows
                             if (MARKETS[to] || MARKETS[from]) continue;   // escrow legs — the sale/list/cancel rows tell that story
                             let label = 'Transferred', sub = `to ${to.slice(0, 12)}…`;
                             if (STAKING[to]) { label = 'Staked'; sub = STAKING[to]; }
                             else if (STAKING[from]) { label = 'Unstaked'; sub = STAKING[from]; }
-                            items.push({ ts, col: 'adao', kind: label.toLowerCase(), token: e.token_id, tx: e.txhash || null, label, sub });
+                            items.push({ ts, col: 'adao', kind: label.toLowerCase(), token: e.token_id, tx: e.txhash || null, label, sub, from, to });   // 4.24: from/to for the P2P rules
                         }
                     }
                     // 4.21: ledger rows — stake / unstake / break / claim (the ledger's sales/lists are already covered above; its
@@ -14037,6 +14050,7 @@
                       items.length = 0; items.push(...keep); }
                     items.sort((a, b) => b.ts - a.ts);
                     window.__activityItems = items;
+                    if (window.__acRefresh) window.__acRefresh('items');   // 4.24: the Alert Center reads the same rows
                     const view = window.__activityView || 'adao';   // Rev 4.05 (owner): aDAO first; All / TLA Locks one tap away
                     const TABS = [
                         { id: 'all', label: 'All' },
@@ -16006,7 +16020,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '4.23', REV_DATE = '2026-09-17';   // 4.23: chain-only BBL listings (the #745 lesson) — nfts.json listings labeled source:chain_only join the BBL card (floor, count, tier rows, cross-venue floor, listing cards), badged "on-chain only · not on BBL's UI"; the pipeline paint shows the cron's chain_only_count · 4.22: feed dedupe (flows + transfers twins → one row, the one with a tx), unstake-without-ids says 'ids resolve at claim' instead of #? · 4.21: Live Activity — 7d/30d window, type toggles (sales · listings · delistings · bids · stakes · unstakes · breaks · transfers · claims), ledger joins the feed (stakes/unstakes/breaks/claims from adao/ledger) · 4.20: mobile browser = desktop tiles fitted (2-col cards, strips keep their formulas, marketplaces three-up) — the 4.16/4.17 app-style rows retired (owner's phone screenshots 2026-09-14) · 4.19: staked-tile % subline on load (was modal-only); Live Activity: a transfer_nft on a tx with a sale renders as Sold (BBL buy-now #745 showed as Transferred) · 4.18: aDAO NFT products read from nft-collections/adao/ (snapshots · flows · transfers · state-history) — the aDAO migration (the old tla-core copy is frozen); 4.17 (phone): marketplaces one line each (unbroken floor · listed) + tap to expand, activity count wraps, link tiles (Treasury/Deposits) join the row layout, chart button off the number; 4.16 (phone): DAO/NFT tiles become full-width rows (title left, value right, round dots, no 'click to see' text), sideways scroll locked (lib 1.7.1); 4.15: link tree actually folds on phones (Tailwind .grid + rule order beat 4.14's CSS); 4.14 (mobile/app): Ecosystem Pulse hidden on phones, link tiles fold into a tree, rewards card compact, marketplace opens on the device's default collection, open proposals reported to the app badge (seen on alert open); 4.13: five more popups on the multi-series renderer — Treasury (by token + LUNA), TLA Deposits (LPs · zLUNA · APR), Deposit rewards (unclaimed vs lifetime claimed), Vote rewards (by token), TLA Locks (USD vs LUNA-equivalent); 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
+        const REV = '4.24', REV_DATE = '2026-09-17';   // 4.24: ALERT CENTER (SPEC-alert-center Phase 1) — the default window: Ecosystem (Assets · Projects/forum from docs/curated/alerts.json; TLA · PD "not captured yet") · Props (live · veto lock · executed) · NFTs aDAO (marketplace · staking · P2P from the Live Activity rows, chain-only listings, floor-history drops, mass-unstake / mass-transfer rules); green = measured 0, amber+pulse = something, red = about the selected address; "since you last looked" marker; Ecosystem Pulse retired (hidden, JS pruned in Phase 2); the launch proposal popup retired (the Props tile carries it) · 4.23: chain-only BBL listings (the #745 lesson) — nfts.json listings labeled source:chain_only join the BBL card (floor, count, tier rows, cross-venue floor, listing cards), badged "on-chain only · not on BBL's UI"; the pipeline paint shows the cron's chain_only_count · 4.22: feed dedupe (flows + transfers twins → one row, the one with a tx), unstake-without-ids says 'ids resolve at claim' instead of #? · 4.21: Live Activity — 7d/30d window, type toggles (sales · listings · delistings · bids · stakes · unstakes · breaks · transfers · claims), ledger joins the feed (stakes/unstakes/breaks/claims from adao/ledger) · 4.20: mobile browser = desktop tiles fitted (2-col cards, strips keep their formulas, marketplaces three-up) — the 4.16/4.17 app-style rows retired (owner's phone screenshots 2026-09-14) · 4.19: staked-tile % subline on load (was modal-only); Live Activity: a transfer_nft on a tx with a sale renders as Sold (BBL buy-now #745 showed as Transferred) · 4.18: aDAO NFT products read from nft-collections/adao/ (snapshots · flows · transfers · state-history) — the aDAO migration (the old tla-core copy is frozen); 4.17 (phone): marketplaces one line each (unbroken floor · listed) + tap to expand, activity count wraps, link tiles (Treasury/Deposits) join the row layout, chart button off the number; 4.16 (phone): DAO/NFT tiles become full-width rows (title left, value right, round dots, no 'click to see' text), sideways scroll locked (lib 1.7.1); 4.15: link tree actually folds on phones (Tailwind .grid + rule order beat 4.14's CSS); 4.14 (mobile/app): Ecosystem Pulse hidden on phones, link tiles fold into a tree, rewards card compact, marketplace opens on the device's default collection, open proposals reported to the app badge (seen on alert open); 4.13: five more popups on the multi-series renderer — Treasury (by token + LUNA), TLA Deposits (LPs · zLUNA · APR), Deposit rewards (unclaimed vs lifetime claimed), Vote rewards (by token), TLA Locks (USD vs LUNA-equivalent); 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16582,9 +16596,9 @@
             const open = liveCards(newsState.all);
             // 4.14 (app): tell the shell which proposals are open → home-screen badge + tab dot (filtered by the device's default DAO)
             try { if (window.AllyApp) AllyApp.reportProps(open.map(c => ({ dao: c.dao, id: c.id }))); } catch (e) {}
-            if (!open.length) return;
-            if (sessionStorage.getItem('tla:gov-alert') === alertSig(open)) return;
-            gmOpen('alert', open, open.length + ' proposal' + (open.length === 1 ? '' : 's') + ' need' + (open.length === 1 ? 's' : '') + ' your attention', null);
+            // 4.24 (owner): the launch popup is retired — the Props tile of the Alert Center carries open proposals now.
+            window.__govCards = { all: newsState.all, isOpen, liveCards };
+            if (window.__acRefresh) window.__acRefresh('props');
         }
         // Per-DAO history: cron corpus when we capture it (date · outcome · votes for every
         // proposal), else a deeper live read (daodao reverse_proposals 25 / Astroport list).
@@ -17129,6 +17143,46 @@
      but its System Health dot is lit from lib/cron-registry.js — the same
      source every other page uses, so they can never disagree. -->
 <script src="/lib/site-footer.js"></script>
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: '4.09', revDate: '2026-08-24', page: 'index', appInfo: true });</script>
+<script>
+    // ═══ ALERT CENTER wiring (Rev 4.24 — SPEC-alert-center Phase 1). Products already on the page arrive through window
+    // hooks (__activityItems, __govCards, __invRecords, __floorHistory, __bblChainOnly, marketplace cache via __bblChainOnly);
+    // the two reads this section adds (the curated registry + the lp-grades product) are small and cached by the CDN.
+    (function () {
+        const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/';
+        const st = { alertsDoc: null, lpPools: null, windowMs: null, timer: null, ready: false };
+        const el = () => document.getElementById('alert-center');
+        const j = (u) => fetch(u + '?t=' + Math.floor(Date.now() / 3e5)).then(r => r.ok ? r.json() : null).catch(() => null);
+        function myTokens() {
+            try { const a = window.AddressPicker && AddressPicker.get(); const w = a && a.wallet; if (!w || !window.__invRecords) return null;
+                return new Set(window.__invRecords.filter(r => r.real_owner === w || r.owner === w).map(r => String(r.id))); } catch (e) { return null; }
+        }
+        function draw() {
+            const c = el(); if (!c || !window.AlertCenter) return;
+            const bbl = (() => { try { const h = window.__bblChainOnly && window.__bblChainOnly(); return h; } catch (e) { return null; } })();
+            const inv = window.__invRecords || [];
+            const stakedSupply = inv.length ? inv.filter(r => r.daodao_staked).length : null;
+            const chainOnly = (bbl && bbl.staged) || [];
+            const gov = window.__govCards || null;
+            const result = AlertCenter.build({
+                now: Date.now(), alertsDoc: st.alertsDoc, lpPools: st.lpPools,
+                props: gov ? { cards: gov.all || [], isOpen: gov.isOpen } : { cards: [] },
+                items: window.__activityItems || [], chainOnlyListings: chainOnly,
+                floorHistory: window.__floorHistory || null,
+                bblFloor: bbl && bbl.cache && bbl.cache.floor ? { amount: bbl.cache.floor, symbol: 'bLUNA' } : null,
+                stakedSupply, myTokens: myTokens(), explorerUrl: 'nft-explorer-index.html',
+            }, { since: st.windowMs ? null : AlertCenter.marker.get(), windowMs: st.windowMs || AlertCenter.RULES.WINDOW_DEFAULT_MS });
+            window.__alertCenter = result;   // gate hook
+            AlertCenter.render(c, result, { onWindow: (ms) => { st.windowMs = ms; draw(); }, onClose: () => { st.windowMs = null; draw(); } });
+        }
+        window.__acRefresh = function () { clearTimeout(st.timer); st.timer = setTimeout(draw, 150); };
+        setTimeout(async () => {
+            const [a, g] = await Promise.all([j(CORE + 'docs/curated/alerts.json'), j(CORE + 'lp-grades/snapshots/current.json')]);
+            st.alertsDoc = a; st.lpPools = g && g.pools || null; st.ready = true; draw();
+        }, 0);
+        document.addEventListener('DOMContentLoaded', () => setTimeout(draw, 800));
+        window.addEventListener('tla:wallet', () => window.__acRefresh());
+    })();
+</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: '4.24', revDate: '2026-09-17', page: 'index', appInfo: true });</script>
 </body>
 </html>
