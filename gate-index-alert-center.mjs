@@ -24,6 +24,7 @@ const libSrc = fs.readFileSync('lib/alert-center.js', 'utf8');
 let modalOpened = false; const J = (b) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(b), text: () => Promise.resolve(JSON.stringify(b)) });
 const stubFetch = (u) => { const full = String(u), url = full.split('?')[0]; let f = null;
   if (url === CORE_U + 'lp-grades/snapshots/current.json') return J(JSON.parse(GRADES_TXT));
+  if (url === NFTC_U + 'adao/transfers/2026/09.json' && fs.existsSync('/home/claude/build/pkg6/nft-collections/adao/transfers/2026/09.json')) { const t = fs.readFileSync('/home/claude/build/pkg6/nft-collections/adao/transfers/2026/09.json', 'utf8'); return J(JSON.parse(t)); }   // the delivered data file (phantom rows labeled superseded)
   { const m = /dao-originations\/main\/([a-z-]+)\/governance\/proposals\.json$/.exec(url); if (m) { const f = '/home/claude/build/corpus/' + m[1] + '.json'; if (fs.existsSync(f)) { const t = fs.readFileSync(f, 'utf8'); return J(JSON.parse(t)); } } }
   if (full.startsWith('https://bbl-proxy.defipatriot.workers.dev/?url=')) return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}), text: () => Promise.resolve('') });
   if (url.startsWith(CORE_U)) f = path.join(CORE, url.slice(CORE_U.length)); else if (url.startsWith(NFTC_U)) f = path.join(NFTC, url.slice(NFTC_U.length));
@@ -40,7 +41,7 @@ await new Promise(r => setTimeout(r, 15000));
 const d = w.document;
 const gm = d.getElementById('gov-modal'); modalOpened = gm && gm.style.display === 'flex';
 const tiles = [...d.querySelectorAll('#alert-center .ac-tile')];
-console.log('=== index 4.25 alert center (lib 1.2.0) ===');
+console.log('=== index 4.26 alert center (lib 1.3.0) ===');
 ok('G1 the grid renders Ecosystem · Props · NFTs aDAO', tiles.map(t => t.dataset.tile).join(',') === 'ecosystem,props,nfts-adao', tiles.map(t => t.dataset.tile));
 ok('G1 the Pulse card is hidden by stylesheet rule and the launch proposal popup did not open', /#pulse-card \{ display: none !important; \}/.test(html) && !modalOpened);
 const R = w.__alertCenter; ok('G1 build result exposed (window.__alertCenter) with meta.rules = the lib RULES', R && R.meta && R.meta.rules === w.AlertCenter.RULES);
@@ -55,7 +56,7 @@ ok('G2 Staking counter = staked+unstaked+break+claimed rows in window (+ one mas
 ok('G2 P2P counter = transferred rows in window (+ mass rows)', cnt('p2p') >= expP2P && cnt('p2p') <= expP2P + 3, [cnt('p2p'), expP2P]);
 ok('G2 Marketplace counter ≥ sales in window and every marketplace row carries rule · source · raw', cnt('market') >= expSales && nft.counters.find(c => c.key === 'market').rows.every(r => r.rule && r.source && 'raw' in r), cnt('market'));
 const tileTxt = (k) => tiles.find(t => t.dataset.tile === k).textContent.replace(/\s+/g, ' ');
-ok('G2 the tile shows the same numbers the build produced', /Marketplace = \d+/.test(tileTxt('nfts-adao')) && tileTxt('nfts-adao').includes(`Marketplace = ${cnt('market')}`) && tileTxt('nfts-adao').includes(`Staking = ${cnt('staking')}`));
+ok('G2 the tile shows the same numbers the build produced', /Marketplace = \d+/.test(tileTxt('nfts-adao')) && tileTxt('nfts-adao').includes(`Marketplace = ${cnt('market')}`) && tileTxt('nfts-adao').includes(`Staking / Breaks = ${cnt('staking')}`));
 ok('G2 tile state follows the counters: amber iff total > 0, else green (no address selected → never red)', tiles.every(t => { const T = R.tiles.find(x => x.key === t.dataset.tile); return t.dataset.state === (T.total > 0 ? 'amber' : 'green'); }), tiles.map(t => [t.dataset.tile, t.dataset.state]));
 // G3 — Ecosystem
 const eco = R.tiles.find(t => t.key === 'ecosystem');
@@ -114,6 +115,23 @@ fw9.close(false);
 const R10 = w.AlertCenter.build({ now: Date.now(), alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [] }, items: [{ col: 'adao', kind: 'listing', token: 8149, amt: 50000, sym: 'bLUNA', ts: Date.now() - 2 * 864e5, label: 'Listed at 50,000 bLUNA', sub: 'Boost' }, { col: 'adao', kind: 'delisting', token: 8149, ts: Date.now() - 2 * 864e5 + 1000, label: 'Delisted', sub: 'Boost' }, { col: 'adao', kind: 'bid', token: 826, ts: Date.now() - 4 * 864e5, label: 'Bid 69', sub: 'BBL' }, { col: 'adao', kind: 'sale', token: 745, ts: Date.now() - 5 * 864e5, tx: 'C50E', label: 'Sold for 200 bLUNA', sub: 'BBL' }], bblFloor: { amount: 1000, symbol: 'bLUNA' }, chainOnlyListings: [] }, { windowMs: 7 * 864e5 });
 const mk10 = R10.tiles.find(t => t.key === 'nfts-adao').counters.find(c => c.key === 'market');
 ok('M1 the 7d Marketplace counter counts the listing, the delisting, the bid AND the sale (4), the sale first as notable', mk10.n === 4 && mk10.rows[0].rule === 'nft:sale' && mk10.rows[0].notable === true && !mk10.rows.slice(1).some(r => r.notable), mk10.rows.map(r => r.rule));
+// 4.26 — NFT card context: parties + holdings + USD then/now + status; phantom bids skipped; Boost rows name the token
+const inv26 = w.__invRecords || []; const items26 = (w.__activityItems || []).filter(x => x.col === 'adao');
+ok('X1 no feed item comes from a superseded row (the seven Pixel Lions phantom "bids" are gone) — 7d has no aDAO bid rows', !items26.some(x => x.kind === 'bid' && /currency not in record/.test(x.sub || '')), items26.filter(x => x.kind === 'bid').map(x => x.token));
+const boost = items26.filter(x => x.kind === 'listing' && /Boost/.test(x.sub || ''));
+ok(`X2 Boost listing rows name the token (${boost.length} rows, e.g. "${boost[0] && boost[0].label}") and carry amt + sym`, boost.length > 0 && boost.every(x => /(LUNA|ampLUNA|bLUNA|SOLID)$/.test(x.label) && x.amt > 0 && x.sym), boost.map(x => x.label));
+const sale = items26.find(x => x.kind === 'sale' && x.token == 745);
+ok('X3 the #745 sale item carries seller + buyer + 200 bLUNA', sale && sale.seller === 'terra1nj74mncupt0xhpxljls09gg7ufy0nx68fyarfy' && sale.buyer === 'terra1sw7x43lamdkm9gj0luzgzdym52y2sxcv7nk9hy' && sale.amt === 200 && sale.sym === 'bLUNA', sale && [sale.seller, sale.buyer, sale.amt, sale.sym]);
+const holds = (a) => { const mine = inv26.filter(r => r.real_owner === a); return { total: mine.length, listed: mine.filter(r => r.listing && r.listing.marketplace).length, liquid: mine.filter(r => r.user_held).length, staked: mine.filter(r => r.daodao_staked || r.enterprise_staked).length, broken: mine.filter(r => r.broken).length }; };
+const daily = { LUNA: JSON.parse(fs.readFileSync(path.join(NFTC, 'adao/snapshots/luna-usd-daily.json'))).daily, bLUNA: JSON.parse(fs.readFileSync(path.join(NFTC, 'adao/snapshots/bluna-usd-daily.json'))).daily };
+const usdAt = (sym, amt, ts) => { const d = new Date(ts).toISOString().slice(0, 10); const m = daily[sym] || {}; let px = m[d]; if (px == null) { const ks = Object.keys(m).filter(k => k <= d).sort(); px = ks.length ? m[ks[ks.length - 1]] : null; } return px != null ? amt * px : null; };
+const Rx = w.AlertCenter.build({ now: Date.now(), alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [] }, items: items26, chainOnlyListings: [] }, { windowMs: 7 * 864e5 });
+const fwx = w.AlertCenter.openFull(Rx, { document: d, openTile: 'nfts-adao', openCounter: 'market', nftImage: (t) => 'https://img/' + t + '.png', nameOf: () => null, holdingsOf: holds, usdAt, usdNow: (sym, amt) => amt * ({ LUNA: 0.0449, bLUNA: 0.0785 }[sym] || 0), tokenInfo: (t) => { const r = inv26.find(x => String(x.id) === String(t)); return r ? { broken: !!r.broken, owner: r.real_owner, listed: !!(r.listing && r.listing.marketplace), venue: r.listing && r.listing.marketplace, staked: !!(r.daodao_staked || r.enterprise_staked), where: r.user_held ? 'wallet' : null } : null; } });
+const mx = d.getElementById('ac-main'); const saleCard = [...mx.querySelectorAll('.ac-card')].find(c => /#745 Sold/.test(c.textContent));
+const buyerHold = holds('terra1sw7x43lamdkm9gj0luzgzdym52y2sxcv7nk9hy'), sellerHold = holds('terra1nj74mncupt0xhpxljls09gg7ufy0nx68fyarfy');
+ok('X4 the #745 sale card shows Seller and Buyer with their holdings (from the same inventory), the unbroken/broken pill, and "200 bLUNA · $x at the time · $y now (±%)"', saleCard && /Seller/.test(saleCard.textContent) && /Buyer/.test(saleCard.textContent) && new RegExp(`${buyerHold.total} NFT`).test(saleCard.textContent) && /200 bLUNA · \$[\d.]+ at the time · \$[\d.]+ now \([+-][\d.]+%\)/.test(saleCard.textContent) && /(unbroken|broken)/.test(saleCard.textContent), saleCard && saleCard.textContent.replace(/\s+/g, ' ').slice(0, 300));
+ok('X5 a Boost listing card shows the Lister and "50,000 LUNA · $… at the time · $… now"', (() => { const c = [...mx.querySelectorAll('.ac-card')].find(x => /#8149 Listed/.test(x.textContent)); return c && /Lister/.test(c.textContent) && /50,000 LUNA · \$[\d,.]+ at the time/.test(c.textContent); })());
+fwx.close(false);
 // G4 — selected address: pick a wallet that touched a token in the window, re-build with myTokens
 const inv = w.__invRecords || []; const wk = (w.__activityItems || []).filter(x => x.col === 'adao' && x.ts >= R.meta.now - 7 * 864e5); const anyRow = wk.find(x => x.token != null && ['transferred', 'staked', 'unstaked', 'sale'].includes(x.kind)); const owner = anyRow && (inv.find(r => String(r.id) === String(anyRow.token)) || {}).real_owner;
 if (owner) {
