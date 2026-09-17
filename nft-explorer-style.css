@@ -196,6 +196,10 @@ input[type="range"].direction-slider:disabled::-webkit-slider-thumb { background
 .listing-price-pill .lp-usd { color: #5eead4; font-size: 0.72rem; font-weight: 600; line-height: 1.1; white-space: nowrap; }
 .listing-price-pill .lp-none { color: #9ca3af; font-weight: 500; font-size: 0.72rem; }
 .broken .listing-price-pill, .listing-price-pill.above-banner { bottom: 44px; }   /* clear the red BROKEN banner */
+/* 4.33 / 6.2 (2026-09-17, the #745 lesson): a chain-only BBL listing — live on the contract, hidden by BBL's UI.
+   Amber ring + a third line inside the same pill; the eye still hides it with the rest. */
+.listing-price-pill.chain-only { border-color: rgba(251, 191, 36, 0.7); }
+.listing-price-pill .lp-chain { color: #fbbf24; font-size: 0.62rem; font-weight: 600; line-height: 1.15; white-space: nowrap; letter-spacing: 0.01em; }
 /* 2026-08-12: the eye exists to show the ART with nothing on top of it, so the
    listing-price pill and the showcase picker hide with the badges. */
 .badges-hidden .listing-price-pill,

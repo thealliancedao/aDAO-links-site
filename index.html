@@ -7801,6 +7801,8 @@
                             if (mk.atrium?.count != null) setIfLoading('atrium-listed-count', loc(mk.atrium.count));
                             const fB = floorOf('bbl');
                             if (fB) { setIfLoading('bbl-floor-bluna', loc(fB.amt)); if (fB.usd != null) setIfLoading('bbl-floor-usd', `($${fix(fB.usd, 2)})`); }
+                            // 4.23: the cron's count and floor already include chain-only auctions (C.6) — label them from the first paint.
+                            if (mk.bbl && mk.bbl.chain_only_count != null && typeof renderBblChainOnlyNote === 'function') renderBblChainOnlyNote(mk.bbl.chain_only_count, false);
                             const fO = floorOf('boost');
                             if (fO) { setIfLoading('boost-floor-luna', loc(fO.amt)); setIfLoading('boost-floor-token-label', fO.token); if (fO.usd != null) setIfLoading('boost-floor-usd', `($${fix(fO.usd, 2)})`); }
                             const fA = floorOf('atrium');
@@ -12492,7 +12494,11 @@
                         const data = await response.json();
                         
                         if (data.pagination?.totalResults !== undefined) {
-                            document.getElementById('bbl-listed-count').textContent = data.pagination.totalResults;
+                            // 4.23: warlock's total never includes chain-only auctions — add the cron's count so this
+                            // late overwrite agrees with the card (count = visible on BBL + on-chain only).
+                            const co = (marketplaceCache.bbl?.alliance_dao?.chainOnlyCount) ?? (_chainOnlyBbl ? _chainOnlyBbl.length : 0);
+                            document.getElementById('bbl-listed-count').textContent = String(data.pagination.totalResults + co);
+                            if (marketplaceCache.bbl?.alliance_dao) { marketplaceCache.bbl.alliance_dao.warlockCount = data.pagination.totalResults; marketplaceCache.bbl.alliance_dao.count = data.pagination.totalResults + co; }
                         }
                     } catch (err) {
                         // Fallback to nfts.json count, show rate limit indicator if needed
@@ -13364,6 +13370,7 @@
                         document.getElementById('bbl-floor-bluna').textContent = bblData.floor > 0 ? bblData.floor.toLocaleString() : '--';
                         const fu = document.getElementById('bbl-floor-usd'); fu.textContent = bblData.floor > 0 && blunaPrice > 0 ? `($${(bblData.floor * blunaPrice).toFixed(2)})` : ''; if (bl.source) fu.title = 'bLUNA at ' + bl.source;
                         document.getElementById('bbl-listed-count').textContent = bblData.count || 0;
+                        renderBblChainOnlyNote(collectionKey === 'alliance_dao' ? (bblData.chainOnlyCount || 0) : 0, !!bblData.floorChainOnly);   // 4.23
                         
                         // Volume and total sales only available for aDAO (from our tracked data)
                         if (collectionKey === 'alliance_dao') {
@@ -13530,6 +13537,53 @@
                 window.v2Events = null; window.v2Top10 = null;
                 let _v2Promise = null;
                 let _v2TierCtx = null; // { gradeMap, atriumListings, brokenAt, salesDesc, rarRecords } once the module loads
+                // 4.23 (the #745 lesson): chain-only BBL listings — live on the BBL contract (is_settled false, no bidder,
+                // end_time 0), hidden by BBL's UI/API. The inventory cron (C.6) publishes them in nfts.json with
+                // listing.source === 'chain_only'. Warlock (this page's live BBL feed) will never return them, so they
+                // are MERGED into the BBL cache here: the card floor, the tier rows, the cross-venue floor tile and the
+                // listing cards all count them, each one badged. #745 sold from the contract for $16.76 while this
+                // card said $80 because we trusted BBL's UI over the contract.
+                const CHAIN_ONLY_LABEL = "on-chain only · not on BBL's UI";
+                let _chainOnlyBbl = null;   // listings in the BBL-cache shape, from nfts.json; null until the v2 module loads
+                function applyChainOnlyBbl() {
+                    try {
+                        const cache = marketplaceCache.bbl && marketplaceCache.bbl.alliance_dao;
+                        if (!cache || !_chainOnlyBbl) return false;
+                        if (cache.warlockCount == null) cache.warlockCount = cache.count || cache.listings.length;
+                        const have = new Set(cache.listings.map(l => String(l.tokenId)));
+                        let added = 0;
+                        _chainOnlyBbl.forEach(l => { if (!have.has(String(l.tokenId))) { cache.listings.push(l); have.add(String(l.tokenId)); added++; } });
+                        const chainOnly = cache.listings.filter(l => l.chainOnly);
+                        cache.chainOnlyCount = chainOnly.length;
+                        cache.count = cache.warlockCount + chainOnly.length;
+                        const priced = cache.listings.filter(l => l.price > 0);
+                        if (priced.length) {
+                            const cheapest = priced.reduce((a, b) => (b.price < a.price ? b : a));
+                            cache.floor = cheapest.price;
+                            cache.floorChainOnly = !!cheapest.chainOnly;
+                        }
+                        if (added && typeof selectedOverviewCollection !== 'undefined' && selectedOverviewCollection === 'alliance_dao' && marketplaceCache.loaded) displayCachedOverviewData('alliance_dao');
+                        return added > 0;
+                    } catch (e) { console.warn('chain-only BBL merge skipped:', e.message); return false; }
+                }
+                // The BBL card's note: "+N on-chain only" under the count, and the floor flagged when the cheapest ask is one.
+                window.__bblChainOnly = () => ({ cache: marketplaceCache.bbl && marketplaceCache.bbl.alliance_dao, staged: _chainOnlyBbl, apply: applyChainOnlyBbl });   // gate hook (gate-index-chain-only.mjs)
+                function renderBblChainOnlyNote(count, floorChainOnly) {
+                    const countEl = document.getElementById('bbl-listed-count');
+                    if (!countEl) return;
+                    let note = document.getElementById('bbl-chain-only-note');
+                    const row = countEl.parentElement;
+                    if (!note && row && row.parentElement) { note = document.createElement('div'); note.id = 'bbl-chain-only-note'; note.className = 'flex justify-between items-center text-[10px] mt-1'; row.parentElement.insertBefore(note, row.nextSibling); }
+                    if (!note) return;
+                    if (count > 0) {
+                        note.innerHTML = `<span class="text-gray-500">of which</span><span class="text-amber-400 font-semibold" title="Live auctions on the BBL contract that BBL's own UI and API do not show — buyable by executing place_bid at the reserve. The floor counts them.">+${count} ${CHAIN_ONLY_LABEL}</span>`;
+                        note.classList.remove('hidden');
+                    } else note.classList.add('hidden');
+                    let fl = document.getElementById('bbl-floor-chain-only');
+                    const usdEl = document.getElementById('bbl-floor-usd');
+                    if (!fl && usdEl && usdEl.parentElement) { fl = document.createElement('div'); fl.id = 'bbl-floor-chain-only'; fl.className = 'text-[9px] text-amber-400 text-right hidden'; usdEl.parentElement.appendChild(fl); }
+                    if (fl) { fl.textContent = 'floor is ' + CHAIN_ONLY_LABEL; fl.classList.toggle('hidden', !(count > 0 && floorChainOnly)); }
+                }
 
                 // Analytics-strip market cap. Idempotent and re-entrant: it needs FOUR
                 // async things (v2 module data, BBL/Boost caches, the page's 10k NFT
@@ -13726,6 +13780,28 @@
                                 };
                             }).filter(Boolean);
                         marketplaceCache.atrium = { alliance_dao: { listings: atriumListings, count: atriumListings.length } };
+
+                        // 4.23: chain-only BBL listings (cron label source:'chain_only') — same live-inventory source as Atrium.
+                        _chainOnlyBbl = (invRecords || [])
+                            .filter(n => n.listing && n.listing.marketplace === 'BBL' && n.listing.source === 'chain_only')
+                            .map(n => {
+                                const l = n.listing;
+                                const sym = l.price_token_symbol || DEN[l.denom] || 'bLUNA';
+                                const amt = Number(l.price_amount);
+                                if (!isFinite(amt)) return null;
+                                const usd = (Number.isFinite(Number(l.price_usd)) && Number(l.price_usd) > 0) ? Number(l.price_usd) : (p[sym] || 0) * amt;
+                                return {
+                                    marketplace: 'bbl', collection: 'alliance_dao', tokenId: String(n.id),
+                                    name: `#${n.id}`,
+                                    price: amt, priceToken: sym, priceUsd: usd,
+                                    imageUrl: getNftImageUrl(n.id),
+                                    isBroken: !!n.broken || isBrokenNow(n.id), rank: null,
+                                    chainOnly: true, seller: l.seller || null, auctionId: l.internal_id != null ? String(l.internal_id) : null,
+                                    // BBL's page will not show it — send people to the explorer card, which does.
+                                    url: `https://thealliancedao.com/nft-explorer-index.html`
+                                };
+                            }).filter(Boolean);
+                        applyChainOnlyBbl();
 
                         // Fill the Atrium overview card
                         try {
@@ -14272,6 +14348,7 @@
                         }
                     });
                     
+                    applyChainOnlyBbl();   // 4.23: chain-only BBL listings join the warlock set (either load order)
                     marketplaceCache.loaded = true;
                     console.log('Marketplace cache populated:', marketplaceCache);
                     
@@ -14422,6 +14499,10 @@
                         }
                         if (listing.rank) {
                             statusLine += `<span class="text-purple-400 ${statusLine ? 'ml-2' : ''}">Rank #${listing.rank}</span>`;
+                        }
+                        // 4.23: a chain-only BBL listing is a buying opportunity BBL's page won't confirm — say so on the card.
+                        if (listing.chainOnly) {
+                            statusLine += `<span class="chain-only-badge text-amber-400 ${statusLine ? 'ml-2' : ''}" title="Live on the BBL contract (place_bid at the reserve buys it); BBL's UI and API do not show it.">${CHAIN_ONLY_LABEL}</span>`;
                         }
                         
                         // TLA Lock specific status line (simpler - just show discount)
@@ -15925,7 +16006,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '4.22', REV_DATE = '2026-09-14';   // 4.22: feed dedupe (flows + transfers twins → one row, the one with a tx), unstake-without-ids says 'ids resolve at claim' instead of #? · 4.21: Live Activity — 7d/30d window, type toggles (sales · listings · delistings · bids · stakes · unstakes · breaks · transfers · claims), ledger joins the feed (stakes/unstakes/breaks/claims from adao/ledger) · 4.20: mobile browser = desktop tiles fitted (2-col cards, strips keep their formulas, marketplaces three-up) — the 4.16/4.17 app-style rows retired (owner's phone screenshots 2026-09-14) · 4.19: staked-tile % subline on load (was modal-only); Live Activity: a transfer_nft on a tx with a sale renders as Sold (BBL buy-now #745 showed as Transferred) · 4.18: aDAO NFT products read from nft-collections/adao/ (snapshots · flows · transfers · state-history) — the aDAO migration (the old tla-core copy is frozen); 4.17 (phone): marketplaces one line each (unbroken floor · listed) + tap to expand, activity count wraps, link tiles (Treasury/Deposits) join the row layout, chart button off the number; 4.16 (phone): DAO/NFT tiles become full-width rows (title left, value right, round dots, no 'click to see' text), sideways scroll locked (lib 1.7.1); 4.15: link tree actually folds on phones (Tailwind .grid + rule order beat 4.14's CSS); 4.14 (mobile/app): Ecosystem Pulse hidden on phones, link tiles fold into a tree, rewards card compact, marketplace opens on the device's default collection, open proposals reported to the app badge (seen on alert open); 4.13: five more popups on the multi-series renderer — Treasury (by token + LUNA), TLA Deposits (LPs · zLUNA · APR), Deposit rewards (unclaimed vs lifetime claimed), Vote rewards (by token), TLA Locks (USD vs LUNA-equivalent); 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
+        const REV = '4.23', REV_DATE = '2026-09-17';   // 4.23: chain-only BBL listings (the #745 lesson) — nfts.json listings labeled source:chain_only join the BBL card (floor, count, tier rows, cross-venue floor, listing cards), badged "on-chain only · not on BBL's UI"; the pipeline paint shows the cron's chain_only_count · 4.22: feed dedupe (flows + transfers twins → one row, the one with a tx), unstake-without-ids says 'ids resolve at claim' instead of #? · 4.21: Live Activity — 7d/30d window, type toggles (sales · listings · delistings · bids · stakes · unstakes · breaks · transfers · claims), ledger joins the feed (stakes/unstakes/breaks/claims from adao/ledger) · 4.20: mobile browser = desktop tiles fitted (2-col cards, strips keep their formulas, marketplaces three-up) — the 4.16/4.17 app-style rows retired (owner's phone screenshots 2026-09-14) · 4.19: staked-tile % subline on load (was modal-only); Live Activity: a transfer_nft on a tx with a sale renders as Sold (BBL buy-now #745 showed as Transferred) · 4.18: aDAO NFT products read from nft-collections/adao/ (snapshots · flows · transfers · state-history) — the aDAO migration (the old tla-core copy is frozen); 4.17 (phone): marketplaces one line each (unbroken floor · listed) + tap to expand, activity count wraps, link tiles (Treasury/Deposits) join the row layout, chart button off the number; 4.16 (phone): DAO/NFT tiles become full-width rows (title left, value right, round dots, no 'click to see' text), sideways scroll locked (lib 1.7.1); 4.15: link tree actually folds on phones (Tailwind .grid + rule order beat 4.14's CSS); 4.14 (mobile/app): Ecosystem Pulse hidden on phones, link tiles fold into a tree, rewards card compact, marketplace opens on the device's default collection, open proposals reported to the app badge (seen on alert open); 4.13: five more popups on the multi-series renderer — Treasury (by token + LUNA), TLA Deposits (LPs · zLUNA · APR), Deposit rewards (unclaimed vs lifetime claimed), Vote rewards (by token), TLA Locks (USD vs LUNA-equivalent); 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}

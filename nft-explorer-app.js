@@ -1,3 +1,4 @@
+// 2026-09-17 (explorer 4.33): chain-only BBL listings (the #745 lesson) — the pill badges "on-chain only · not on BBL's UI" (listing.source === 'chain_only', or the bundle's listing_chain_only bit on boot); the pill title names the contract as the venue.
 // 2026-09-14 (explorer 4.32): listing-price pill finally VISIBLE — styled in nft-explorer-style.css 6.1 (the app had built it since 2026-08-12 with no CSS); bundle-only listings show USD, not "No price set".
 // 2026-09-13 (explorer 4.31): aDAO products read from nft-collections/adao/ (the aDAO migration).
 // BUILD: Jan02-v2 - DAO Member name search, member names displayed with addresses, NFT modal member display
@@ -574,7 +575,8 @@ function decodeBundle(b) {
             daodao_custody_unattributed: !!(flags & BIT.daodao_custody_unattributed),
             owned_by_alliance_dao: !!(flags & (BIT.unminted | BIT.treasury_held | BIT.dao_wallet_8ywv_held)),
             liquid: !!(flags & BIT.user_held),
-            listing: listedUsd != null ? { price_usd: listedUsd } : null,
+            // 4.33: the bundle's derived bit marks a chain-only BBL listing (buyable from the contract, absent from BBL's UI)
+            listing: listedUsd != null ? (flags & (BIT.listing_chain_only || 0) ? { price_usd: listedUsd, source: 'chain_only', warlock_visible: false } : { price_usd: listedUsd }) : null,
             intended_rank: r[F.intended_rank], intended_grade: null,
             bbl_rank: r[F.bbl_rank], bbl_top_percent: null,
             _bundleOnly: true,   // cleared by hydration
@@ -827,6 +829,10 @@ const MARKETPLACES = [
 // Which marketplaces are currently switched on in the Listed filter. Rebuilt
 // from live data each render — a marketplace with zero listings never appears.
 let activeMarketplaces = new Set(MARKETPLACES.map(m => m.key));
+
+// 4.33: chain-only listing = the cron's label (source 'chain_only'), set on nfts.json hydration or from the bundle bit.
+const CHAIN_ONLY_LABEL = "on-chain only · not on BBL's UI";
+const isChainOnlyListing = (listing) => !!(listing && listing.source === 'chain_only');
 
 const marketplaceOf = (nft) => {
     const m = MARKETPLACES.find(x => nft[x.field]);
@@ -2824,12 +2830,19 @@ const createNftCard = (nft, toggleSelector) => {
 
     const priced = fmtListingPrice(nft.listing);
     if (priced) {
+        // 4.33 (the #745 lesson): a chain-only BBL listing is live on the contract but hidden by BBL's UI — a buying
+        // opportunity the venue won't show. Say so on the card, in the same pill, so the price is never mistaken for
+        // one BBL's page will confirm.
+        const chainOnly = isChainOnlyListing(nft.listing);
         const pill = document.createElement('div');
-        pill.className = 'listing-price-pill' + (nft.broken ? ' above-banner' : '');   // 6.1: sit above the BROKEN banner
-        pill.title = `${marketplaceOf(nft) || 'Listed'}${priced.usd ? ` · ${priced.usd}` : ''}`;
-        pill.innerHTML = priced.token
+        pill.className = 'listing-price-pill' + (nft.broken ? ' above-banner' : '') + (chainOnly ? ' chain-only' : '');   // 6.1: sit above the BROKEN banner
+        pill.title = chainOnly
+            ? `${marketplaceOf(nft) || 'BBL'} contract — on-chain only · not on BBL's UI${priced.usd ? ` · ${priced.usd}` : ''}`
+            : `${marketplaceOf(nft) || 'Listed'}${priced.usd ? ` · ${priced.usd}` : ''}`;
+        pill.innerHTML = (priced.token
             ? `<span class="lp-amt">${priced.token}</span>${priced.usd ? `<span class="lp-usd">${priced.usd}</span>` : ''}`
-            : `<span class="lp-amt lp-none">No price set</span>`;
+            : `<span class="lp-amt lp-none">No price set</span>`)
+            + (chainOnly ? `<span class="lp-chain">${CHAIN_ONLY_LABEL}</span>` : '');
         imageContainer.appendChild(pill);
     }
 
