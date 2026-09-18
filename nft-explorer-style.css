@@ -1,3 +1,4 @@
+/* 6.4 (2026-09-18, explorer 4.35): .journey — the NFT's on-chain history in the sheet */
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     background-color: #121212;
@@ -824,3 +825,37 @@ input[type="range"].direction-slider:disabled::-webkit-slider-thumb { background
 .animate-spin {
     animation: spin 1s linear infinite;
 }
+
+/* ---- 6.4: NFT journey (modal) --------------------------------------------------------------- */
+.journey { margin-top: 1rem; border-top: 1px solid #374151; padding-top: 0.75rem; }
+.journey .jr-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.5rem; }
+.journey .jr-title { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: #9ca3af; font-weight: 600; }
+.journey .jr-src { font-size: 0.7rem; color: #6b7280; }
+.journey .jr-sum { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+.journey .jr-chip { font-size: 0.75rem; padding: 0.2rem 0.55rem; border-radius: 9999px; background: #111827; border: 1px solid #374151; color: #d1d5db; white-space: nowrap; }
+.journey .jr-chip b { color: #f9fafb; font-weight: 600; }
+.journey .jr-chip.hot { border-color: rgba(34, 211, 238, 0.45); color: #a5f3fc; }
+.journey .jr-chip.warn { border-color: rgba(251, 191, 36, 0.5); color: #fde68a; }
+.journey ol { list-style: none; margin: 0; padding: 0; position: relative; }
+.journey ol::before { content: ''; position: absolute; left: 0.45rem; top: 0.4rem; bottom: 0.4rem; width: 2px; background: #374151; }
+.journey li { position: relative; padding: 0.3rem 0 0.3rem 1.6rem; font-size: 0.85rem; line-height: 1.3; }
+.journey li::before { content: ''; position: absolute; left: 0.2rem; top: 0.62rem; width: 0.55rem; height: 0.55rem; border-radius: 9999px; background: #6b7280; border: 2px solid #1f2937; }
+.journey li .jr-day { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem; color: #9ca3af; margin-right: 0.5rem; }
+.journey li .jr-h { color: #e5e7eb; }
+.journey li .jr-sub { display: block; color: #9ca3af; font-size: 0.75rem; margin-top: 0.05rem; }
+.journey li .jr-tx { color: #6b7280; text-decoration: none; font-size: 0.7rem; margin-left: 0.4rem; }
+.journey li .jr-tx:hover { color: #67e8f9; }
+.journey li.jr-origin::before { background: #22d3ee; }
+.journey li.jr-sale::before { background: #34d399; }
+.journey li.jr-sale .jr-h { color: #a7f3d0; }
+.journey li.jr-market::before { background: #fbbf24; }
+.journey li.jr-stake::before { background: #a78bfa; }
+.journey li.jr-move::before { background: #60a5fa; }
+.journey li.jr-break::before { background: #f87171; }
+.journey li.jr-admin, .journey li.jr-minor { opacity: 0.6; }
+.journey li.jr-admin .jr-h, .journey li.jr-minor .jr-h { color: #9ca3af; font-size: 0.8rem; }
+.journey li.jr-gap .jr-h::before { content: '⚠ '; color: #fbbf24; }
+.journey .jr-empty, .journey .jr-loading, .journey .jr-error { font-size: 0.8rem; color: #9ca3af; padding: 0.25rem 0; }
+.journey .jr-error { color: #fca5a5; }
+.journey .jr-toggle { background: none; border: 0; color: #67e8f9; font-size: 0.75rem; cursor: pointer; padding: 0.2rem 0; }
+.journey.jr-collapsed li.jr-admin, .journey.jr-collapsed li.jr-minor { display: none; }

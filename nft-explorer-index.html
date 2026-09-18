@@ -33,7 +33,7 @@
     </script>
     <script src="/_vercel/insights/script.js" defer></script>
 
-    <link rel="stylesheet" href="nft-explorer-style.css?v=6.2">
+    <link rel="stylesheet" href="nft-explorer-style.css?v=6.4">
     
     <!-- CoinGecko Price Widget -->
     <script src="https://widgets.coingecko.com/gecko-coin-price-static-headline-widget.js"></script>
@@ -51,6 +51,7 @@
     <div id="site-header"></div>
     <script src="/lib/site-header.js"></script>
     <script src="/lib/address-picker.js"></script>
+    <script src="/lib/nft-history.js?v=1.0.0"></script>
     <script>SiteHeader.mount({ page: 'nft-explorer-index' });</script>
     <script>
     (function () {
@@ -419,7 +420,7 @@
     </div>
 
     <div id="nft-modal" class="modal-backdrop hidden">
-        <div class="modal-content" style="width: 500px;">
+        <div class="modal-content" style="width: 640px;">
             <svg id="modal-close" class="modal-close-btn w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             <div class="flex flex-col items-center text-center">
                 <h2 id="modal-title" class="text-2xl font-bold text-white mb-4"></h2>
@@ -431,6 +432,8 @@
                         <button id="download-post-btn" class="control-btn">Download Post</button>
                     </div>
                 </div>
+                <!-- 4.35: the token's on-chain journey (ledger by-token shard, folded by /lib/nft-history.js) -->
+                <div id="modal-journey" class="journey w-full text-left" data-state="idle"></div>
             </div>
         </div>
     </div>
@@ -517,7 +520,7 @@
 
     <canvas id="share-canvas" class="hidden"></canvas>
 
-    <script src="nft-explorer-app.js?v=6.3" defer></script>
+    <script src="nft-explorer-app.js?v=6.4" defer></script>
     <script>
     // Header picker → explorer (step 4). Runs after the deferred app script so its
     // globals (handleFilterChange, searchWallet, switchView) exist.
@@ -544,6 +547,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '4.34', revDate: '2026-09-18', page: 'nft-explorer' });</script>
+<script>SiteFooter.mount({ rev: '4.35', revDate: '2026-09-18', page: 'nft-explorer' });</script>
 </body>
 </html>

@@ -1,3 +1,9 @@
+// 2026-09-18 (explorer 4.35): NFT JOURNEY in the sheet — the token's whole on-chain history from nft-collections/<slug>/ledger/
+//   by-token/<shard>.json (org-nft-flows 1.4.0: every live ledger row of the token, superseded rows never included), folded by
+//   /lib/nft-history.js (owner rules: a priced mint_purchase is row one; a same-owner delist → relist inside 24 h is a price
+//   change inside one listing episode; hands changed / listings / days on market in the summary; a move the ledger did not see
+//   is flagged, never papered over). Contract labels come from the collection manifest (collection.json capture block), names
+//   from the member registry, USD then from the record itself, USD now from the oracle series (labeled with its day).
 // 2026-09-17 (explorer 4.33): chain-only BBL listings (the #745 lesson) — the pill badges "on-chain only · not on BBL's UI" (listing.source === 'chain_only', or the bundle's listing_chain_only bit on boot); the pill title names the contract as the venue.
 // 2026-09-14 (explorer 4.32): listing-price pill finally VISIBLE — styled in nft-explorer-style.css 6.1 (the app had built it since 2026-08-12 with no CSS); bundle-only listings show USD, not "No price set".
 // 2026-09-13 (explorer 4.31): aDAO products read from nft-collections/adao/ (the aDAO migration).
@@ -3594,9 +3600,71 @@ const showNftDetails = (nft) => {
     // Update hash and show modal (same as before)
     window.location.hash = nft.id || ''; 
     nftModal.classList.remove('hidden');
+    journeyInto(nft);   // 4.35: the token's on-chain journey, async — the sheet paints first, the ledger fills in
 };
 
 ;
+
+// =============================================================================
+// 4.35 — NFT JOURNEY (the sheet's history section)
+// -----------------------------------------------------------------------------
+const JOURNEY = {
+    slug: 'adao',                                                               // the collection this page is on (registry-driven switch comes with the tenant work)
+    base: 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/',
+    core: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/',
+    index: null, shards: {}, manifest: null, series: {}, seq: 0
+};
+const journeyJson = async (url) => { const r = await fetch(url, { cache: 'no-cache' }); if (!r.ok) throw new Error(`HTTP ${r.status} ${url.split('/').slice(-2).join('/')}`); return r.json(); };
+const journeyShardOf = (id, shardSize) => (typeof NftHistory !== 'undefined' ? NftHistory.shardOf(id, shardSize) : null);
+async function journeyLoad(id) {
+    const slug = JOURNEY.slug;
+    if (!JOURNEY.index) JOURNEY.index = journeyJson(`${JOURNEY.base}${slug}/ledger/by-token/index.json`).catch(e => { JOURNEY.index = null; throw e; });
+    const index = await JOURNEY.index; const sh = journeyShardOf(id, index.shard_size);
+    if (!index.shards || !index.shards[sh]) return { recs: [], manifest: null, nowMap: {}, index };   // the index lists every shard that has records: absent = no ledger row for this token, no fetch
+    if (!JOURNEY.shards[sh]) JOURNEY.shards[sh] = journeyJson(`${JOURNEY.base}${slug}/ledger/by-token/${sh}.json`).catch(e => { delete JOURNEY.shards[sh]; throw e; });
+    if (!JOURNEY.manifest) JOURNEY.manifest = journeyJson(`${JOURNEY.base}${slug}/collection.json`).catch(() => null);
+    const nowOf = (sym) => { if (!JOURNEY.series[sym]) JOURNEY.series[sym] = journeyJson(`${JOURNEY.core}price-history/series/${sym}.json`).then(d => { const ks = Object.keys(d.daily || {}).sort(); const day = ks[ks.length - 1]; return day ? { usd: d.daily[day], day } : null; }).catch(() => null); return JOURNEY.series[sym]; };
+    const [shard, manifest] = await Promise.all([JOURNEY.shards[sh], JOURNEY.manifest]);
+    const recs = (shard.tokens && shard.tokens[String(id)]) || [];
+    // "now" prices for every symbol the token's records carry (LUNA, bLUNA … whatever the oracle series folder has)
+    const syms = [...new Set(recs.filter(r => r.price && r.denom_symbol).map(r => r.denom_symbol))]; const nowMap = {};
+    await Promise.all(syms.map(async (sy) => { nowMap[sy] = await nowOf(sy); }));
+    return { recs, manifest, nowMap, index };
+}
+const journeyEsc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const journeyWho = (w) => w ? `<span class="jr-who" title="${journeyEsc(w.addr)}">${journeyEsc(w.text)}</span>` : '';
+function journeyRender(el, id, data) {
+    const NH = NftHistory; const opts = NH.optsFromManifest(data.manifest || null);
+    opts.nameOf = (a) => (typeof getMemberName === 'function' ? (getMemberName(a) || null) : null);
+    opts.usdNow = (sym) => data.nowMap[sym] || null;
+    const { rows, summary: S } = NH.fold(data.recs, opts);
+    if (!rows.length) { el.innerHTML = `<div class="jr-head"><span class="jr-title">On-chain journey</span></div><div class="jr-empty">No ledger record for #${journeyEsc(id)} — the collection's ledger holds nothing for this token yet.</div>`; el.dataset.state = 'empty'; return; }
+    const chips = [];
+    if (S.mint) chips.push(`<span class="jr-chip hot">${S.mint.kind === 'paid' && S.mint.amount ? `Minted for <b>${journeyEsc(S.mint.amount.display)}</b>${S.mint.amount.usd_then != null ? ` (${journeyEsc(NH.fmtUsd(S.mint.amount.usd_then))})` : ''}` : 'Minted <b>free</b>'} · ${journeyEsc(S.mint.ts.slice(0, 10))}</span>`);
+    chips.push(`<span class="jr-chip">Changed hands <b>${S.hands_changed}</b></span>`);
+    chips.push(`<span class="jr-chip">Listed <b>${S.listings}</b> time${S.listings === 1 ? '' : 's'}</span>`);
+    chips.push(`<span class="jr-chip">Days on market <b>${S.days_on_market}</b></span>`);
+    if (S.sales) chips.push(`<span class="jr-chip">Sold <b>${S.sales}</b> time${S.sales === 1 ? '' : 's'}${S.last_sale && S.last_sale.amount ? ` · last <b>${journeyEsc(S.last_sale.amount.display)}</b>${S.last_sale.amount.usd_then != null ? ` (${journeyEsc(NH.fmtUsd(S.last_sale.amount.usd_then))})` : ''}` : ''}</span>`);
+    if (S.listed_now) chips.push(`<span class="jr-chip hot">Listed now on ${journeyEsc(S.listed_now.on)} · <b>${S.listed_now.days}</b> day${S.listed_now.days === 1 ? '' : 's'}${S.listed_now.price ? ` · ${journeyEsc(S.listed_now.price.display)}` : ''}</span>`);
+    if (S.custody_now) chips.push(`<span class="jr-chip">In <b>${journeyEsc(S.custody_now)}</b></span>`);
+    if (S.gaps) chips.push(`<span class="jr-chip warn" title="a move the ledger did not capture — shown where it happens, never filled in">⚠ <b>${S.gaps}</b> move${S.gaps === 1 ? '' : 's'} not in the ledger</span>`);
+    if (S.unpriced) chips.push(`<span class="jr-chip warn">${S.unpriced} amount${S.unpriced === 1 ? '' : 's'} unpriced</span>`);
+    const quiet = rows.filter(r => r.tone === 'admin' || r.tone === 'minor').length;
+    const li = rows.map(r => `<li class="jr-${journeyEsc(r.tone)}${r.gap ? ' jr-gap' : ''}"><span class="jr-day">${journeyEsc(r.day)}</span><span class="jr-h">${journeyEsc(r.headline)}</span><a class="jr-tx" href="https://chainsco.pe/terra2/tx/${journeyEsc(r.txhash)}" target="_blank" rel="noopener" title="${journeyEsc(r.txhash)}">tx ↗</a>${r.gap ? `<span class="jr-sub">${journeyEsc(r.gap_note)}</span>` : ''}${r.sub ? `<span class="jr-sub">${journeyEsc(r.sub)}</span>` : ''}</li>`).join('');
+    const nowDay = Object.values(data.nowMap).map(n => n && n.day).filter(Boolean).sort().pop();
+    el.innerHTML = `<div class="jr-head"><span class="jr-title">On-chain journey · ${rows.length} event${rows.length === 1 ? '' : 's'}</span><span class="jr-src" title="nft-collections/${journeyEsc(JOURNEY.slug)}/ledger/by-token · superseded rows excluded · USD then = the record's own oracle price${nowDay ? ` · USD now = oracle day ${journeyEsc(nowDay)}` : ''}">ledger${nowDay ? ` · now as of ${journeyEsc(nowDay)}` : ''}</span></div>` +
+        `<div class="jr-sum">${chips.join('')}</div><ol>${li}</ol>` +
+        (quiet ? `<button type="button" class="jr-toggle" data-quiet="${quiet}">${el.classList.contains('jr-collapsed') ? `Show ${quiet} treasury / admin row${quiet === 1 ? '' : 's'}` : `Hide ${quiet} treasury / admin row${quiet === 1 ? '' : 's'}`}</button>` : '');
+    const tg = el.querySelector('.jr-toggle'); if (tg) tg.addEventListener('click', () => { el.classList.toggle('jr-collapsed'); tg.textContent = (el.classList.contains('jr-collapsed') ? 'Show ' : 'Hide ') + quiet + ' treasury / admin row' + (quiet === 1 ? '' : 's'); });
+    el.dataset.state = 'ready'; el.dataset.rows = String(rows.length); el.dataset.hands = String(S.hands_changed); el.dataset.listings = String(S.listings); el.dataset.dom = String(S.days_on_market);
+}
+async function journeyInto(nft) {
+    const el = document.getElementById('modal-journey'); if (!el || typeof NftHistory === 'undefined') return;
+    const id = nft && nft.id; const seq = ++JOURNEY.seq;
+    el.classList.add('jr-collapsed'); el.dataset.state = 'loading'; el.innerHTML = `<div class="jr-head"><span class="jr-title">On-chain journey</span></div><div class="jr-loading">Reading the ledger…</div>`;
+    try { const data = await journeyLoad(id); if (seq !== JOURNEY.seq) return; journeyRender(el, id, data); }
+    catch (e) { if (seq !== JOURNEY.seq) return; el.dataset.state = 'error'; el.innerHTML = `<div class="jr-head"><span class="jr-title">On-chain journey</span></div><div class="jr-error">Ledger unavailable right now (${journeyEsc(e.message)}). Nothing is assumed — try again in a moment.</div>`; }
+}
 
 const hideNftDetails = () => {
     if (nftModal) nftModal.classList.add('hidden');
