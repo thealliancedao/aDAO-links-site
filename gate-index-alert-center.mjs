@@ -42,7 +42,7 @@ await new Promise(r => setTimeout(r, 15000));
 const d = w.document;
 const gm = d.getElementById('gov-modal'); modalOpened = gm && gm.style.display === 'flex';
 const tiles = [...d.querySelectorAll('#alert-center .ac-tile')];
-console.log('=== index 4.30 alert center (lib 1.6.0 · denoms 1.0.0 · tla-alerts) ===');
+console.log('=== index 4.31 alert center (lib 1.6.1 · denoms 1.0.0 · tla-alerts) ===');
 ok('G1 the grid renders Ecosystem · TLA · Props · NFTs aDAO', tiles.map(t => t.dataset.tile).join(',') === 'ecosystem,tla,props,nfts-adao', tiles.map(t => t.dataset.tile));
 ok('G1 the Pulse card is hidden by stylesheet rule and the launch proposal popup did not open', /#pulse-card \{ display: none !important; \}/.test(html) && !modalOpened);
 const R = w.__alertCenter; ok('G1 build result exposed (window.__alertCenter) with meta.rules = the lib RULES', R && R.meta && R.meta.rules === w.AlertCenter.RULES);
@@ -65,13 +65,13 @@ const activeAssets = reg.alerts.filter(a => a.kind === 'asset' && w.AlertCenter.
 ok(`G3 Ecosystem Assets = ${activeAssets} active asset entries · Projects = ${activeForum} active forum entries`, eco.counters.find(c => c.key === 'assets').n === activeAssets && eco.counters.find(c => c.key === 'projects').n === activeForum, eco.counters.map(c => [c.key, c.n]));
 const assetRow = eco.counters.find(c => c.key === 'assets').rows[0]; const flagged = grades.pools.filter(p => (p.alerts || []).some(a => a.kind === 'asset'));
 ok(`G3 the USDC.n row names the ${flagged.length} lp-grades gauges that carry the alert, their VP share and staked USD, and links the migration guide`, assetRow && assetRow.raw.pools.length === flagged.length && /gauges? · [\d.]+% of VP · \$[\d,]+ staked/.test(assetRow.value) && /skip\.build/.test(assetRow.link), assetRow && assetRow.value);
-ok('G3 PD counter is 0 with a "not captured yet" gap note; Ecosystem·TLA is live from the tla-alerts product', (() => { const pd = eco.counters.find(x => x.key === 'pd'); const tl = eco.counters.find(x => x.key === 'tla'); return pd.n === 0 && /not captured yet/.test(pd.gap) && !tl.gap; })());
+ok('G3 Ecosystem = Projects · PD · Assets; PD is 0 with a "not captured yet" note', eco.counters.map(c => c.key).join(',') === 'projects,pd,assets' && (() => { const pd = eco.counters.find(x => x.key === 'pd'); return pd.n === 0 && /not captured yet/.test(pd.gap); })());
 // TLA tile + thresholds tab (4.30 / lib 1.6.0)
 const TAdoc = JSON.parse(fs.readFileSync('/home/claude/build/p3core/member-data-tla-alerts/current.json', 'utf8'));
 const tlaT = R.tiles.find(t => t.key === 'tla'); const inWinRows = TAdoc.rows.filter(r => Date.parse(r.ts) >= R.meta.cut);
 const cnt2 = (k) => tlaT.counters.find(c => c.key === k).n;
 ok(`T1 TLA tile counters = the product's rows in the window by rule family (VP ${cnt2('vp')} · Liq/Vol ${cnt2('liq')} · APR ${cnt2('apr')})`, cnt2('vp') === inWinRows.filter(r => /vp_move/.test(r.rule)).length && cnt2('liq') === inWinRows.filter(r => /liquidity_move|volume_spike/.test(r.rule)).length && cnt2('apr') === inWinRows.filter(r => r.rule === 'pool_apr_move').length);
-ok('T2 Ecosystem·TLA = gauge set changes + epoch flips in the window', eco.counters.find(x => x.key === 'tla').n === inWinRows.filter(r => /gauge_set_change|epoch_flip/.test(r.rule)).length);
+ok('T2 TLA · Gauges · Epochs = gauge set changes + epoch flips in the window, in plain words (threshold / emissions / joined) with the VP that moved', cnt2('gauges') === inWinRows.filter(r => /gauge_set_change|epoch_flip/.test(r.rule)).length && tlaT.counters.find(c => c.key === 'gauges').rows.filter(r => /gauge_set_change/.test(r.rule)).every(r => /(vote threshold|emissions|joined|left)/.test(r.label)));
 ok('T3 every TLA row names its rule, its source (the config path) and the raw values', tlaT.counters.flatMap(c => c.rows).every(r => /^tla:/.test(r.rule) && /alert-thresholds\.json/.test(r.source) && r.raw));
 ok('T4 NFT thresholds come from the config (floor_drop_pct etc.) — meta.rules unchanged, but build used config values', TAdoc.config.nft.floor_drop_pct === 10 && R.meta.rules === w.AlertCenter.RULES);
 tiles.find(t => t.dataset.tile === 'tla').click(); await new Promise(r => setTimeout(r, 100));
@@ -195,7 +195,7 @@ const inlPriced = inl.filter(b => b.querySelector('.ac-il-price'));
 ok('L4 priced rows show USD then · now · spread inline; the "details ▾" hint and the expand block are phone-only (md:hidden)', inlPriced.length > 0 && inlPriced.every(b => /\$[\d,.]+ then · \$[\d,.]+ now/.test(b.textContent)) && d.querySelector('[data-act-i] .md\\:hidden') && d.querySelector('.activity-details.md\\:hidden'));
 // G6 — pure lib on an empty world
 const R4 = w.AlertCenter.build({ now: Date.now(), alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [] }, items: [], chainOnlyListings: [] }, { windowMs: 864e5 });
-ok('G6 no events, empty registry, no tla product → four green tiles, all counters 0, gap counters carry their note', R4.tiles.length === 4 && R4.tiles.every(t => t.state === 'green') && R4.tiles.flatMap(t => t.counters).every(c => c.n === 0) && R4.tiles[0].counters.filter(c => c.gap).length === 2 && R4.tiles.find(t => t.key === 'tla').counters.every(c => c.gap));
+ok('G6 no events, empty registry, no tla product → four green tiles, all counters 0, gap counters carry their note', R4.tiles.length === 4 && R4.tiles.every(t => t.state === 'green') && R4.tiles.flatMap(t => t.counters).every(c => c.n === 0) && R4.tiles[0].counters.filter(c => c.gap).length === 1 && R4.tiles.find(t => t.key === 'tla').counters.every(c => c.gap));
 const R5 = w.AlertCenter.build({ now: Date.now(), alertsDoc: { alerts: [] }, lpPools: [], props: { cards: [] }, items: Array.from({ length: 6 }, (_, i) => ({ col: 'adao', kind: 'unstaked', token: 100 + i, ts: Date.now() - i * 60e3, label: 'Unstaked', sub: 'aDAO (DAODAO)' })), stakedSupply: 1661, chainOnlyListings: [] }, { windowMs: 864e5 });
 const stk5 = R5.tiles.find(t => t.key === 'nfts-adao').counters.find(c => c.key === 'staking');
 ok(`G6 six unstakes in 24h → one "Mass unstake" row (${w.AlertCenter.RULES.MASS_UNSTAKE_N} threshold) on top of the six, with the % of staked supply`, stk5.n === 7 && /^Mass unstake: 6 NFTs in 24h/.test(stk5.rows[0].label) && /% of staked/.test(stk5.rows[0].value), stk5.rows[0]);
