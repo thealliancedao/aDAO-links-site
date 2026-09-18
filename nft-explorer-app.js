@@ -1518,8 +1518,10 @@ const BROKEN_AT_URL = "https://raw.githubusercontent.com/thealliancedao/nft-coll
 // changes are cancel+recreate). The band builder was written for it; the constant pointed at the cron's
 // first-seen log (no `records`), so the listing bars silently never drew.
 const LISTING_HISTORY_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/listing-history.json";
-const LUNA_ORACLE_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/luna-usd-daily.json";
-const BLUNA_ORACLE_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/bluna-usd-daily.json";
+// 4.34 (2026-09-18, owner): past prices come from THE org oracle — tla-core/price-history, one series per symbol (derived
+// by token-catalog from the month files). The per-collection luna/bluna-usd-daily copies are retired.
+const LUNA_ORACLE_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/price-history/series/LUNA.json";
+const BLUNA_ORACLE_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/price-history/series/bLUNA.json";
 const DENOM_BLUNA = "cw20:terra17aj4ty4sz4yhgm08na8drc0v03v2jwr3waxcqrwhajj729zhl7zqnpc0ml";
 const DENOM_SOLID = "cw20:terra10aa3zdkrc7jwuf8ekl3zq7e7m42vmzqehcmu74e4egc7xkm5kr2s0muyst";
 
@@ -1801,6 +1803,8 @@ function buildListingFloorBand(listingRecords, lunaOracle, blunaOracle) {
     const lp = lunaOracle.prices || lunaOracle.daily || lunaOracle.data || {};
     const bp = blunaOracle.prices || blunaOracle.daily || blunaOracle.data || {};
     const lpKeys = Object.keys(lp).sort(), bpKeys = Object.keys(bp).sort();
+    // 4.34: the oracle series has bLUNA every day since 2024-03 (LUNA×hub-ratio through CoinGecko's hole), so nearest()
+    // is now a same-day hit; the ±7d and ratio fallbacks stay as guards, not as the path.
     // 2026-08-25: the old nearest() walked back WITHOUT a limit — the bLUNA oracle has holes (e.g. no value
     // 2025-08-30 → 09-12), so a Sept-2025 listing got priced at a months-old $0.92 bLUNA and a 56,000-bLUNA
     // vanity ask read $51.7K instead of ~$13K. Now: nearest within ±7 days, else null; for bLUNA fall back to
