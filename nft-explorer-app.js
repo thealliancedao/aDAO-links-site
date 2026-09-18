@@ -1,3 +1,6 @@
+// 2026-09-18 (explorer 4.36): P&L in the journey — every sale row says what that owner paid → received in USD AND in LUNA terms
+//   (a bLUNA sale ÷ LUNA's oracle price that day = LUNA-equivalent); chips carry the last round trip and the current holder's
+//   basis (paid then / now, days held). Free mints have a basis of 0; a token that arrived by transfer says "basis unknown".
 // 2026-09-18 (explorer 4.35): NFT JOURNEY in the sheet — the token's whole on-chain history from nft-collections/<slug>/ledger/
 //   by-token/<shard>.json (org-nft-flows 1.4.0: every live ledger row of the token, superseded rows never included), folded by
 //   /lib/nft-history.js (owner rules: a priced mint_purchase is row one; a same-owner delist → relist inside 24 h is a price
@@ -3623,13 +3626,15 @@ async function journeyLoad(id) {
     if (!index.shards || !index.shards[sh]) return { recs: [], manifest: null, nowMap: {}, index };   // the index lists every shard that has records: absent = no ledger row for this token, no fetch
     if (!JOURNEY.shards[sh]) JOURNEY.shards[sh] = journeyJson(`${JOURNEY.base}${slug}/ledger/by-token/${sh}.json`).catch(e => { delete JOURNEY.shards[sh]; throw e; });
     if (!JOURNEY.manifest) JOURNEY.manifest = journeyJson(`${JOURNEY.base}${slug}/collection.json`).catch(() => null);
-    const nowOf = (sym) => { if (!JOURNEY.series[sym]) JOURNEY.series[sym] = journeyJson(`${JOURNEY.core}price-history/series/${sym}.json`).then(d => { const ks = Object.keys(d.daily || {}).sort(); const day = ks[ks.length - 1]; return day ? { usd: d.daily[day], day } : null; }).catch(() => null); return JOURNEY.series[sym]; };
+    const seriesOf = (sym) => { if (!JOURNEY.series[sym]) JOURNEY.series[sym] = journeyJson(`${JOURNEY.core}price-history/series/${sym}.json`).then(d => { const daily = d.daily || {}; const ks = Object.keys(daily).sort(); const day = ks[ks.length - 1]; return { daily, now: day ? { usd: daily[day], day } : null }; }).catch(() => null); return JOURNEY.series[sym]; };
+    const nowOf = async (sym) => { const s = await seriesOf(sym); return s ? s.now : null; };
     const [shard, manifest] = await Promise.all([JOURNEY.shards[sh], JOURNEY.manifest]);
     const recs = (shard.tokens && shard.tokens[String(id)]) || [];
     // "now" prices for every symbol the token's records carry (LUNA, bLUNA … whatever the oracle series folder has)
     const syms = [...new Set(recs.filter(r => r.price && r.denom_symbol).map(r => r.denom_symbol))]; const nowMap = {};
     await Promise.all(syms.map(async (sy) => { nowMap[sy] = await nowOf(sy); }));
-    return { recs, manifest, nowMap, index };
+    const lunaSeries = await seriesOf('LUNA');   // LUNA-equivalents for the P&L in LUNA terms (a bLUNA sale ÷ LUNA's oracle price that day)
+    return { recs, manifest, nowMap, index, lunaDaily: (lunaSeries && lunaSeries.daily) || {} };
 }
 const journeyEsc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const journeyWho = (w) => w ? `<span class="jr-who" title="${journeyEsc(w.addr)}">${journeyEsc(w.text)}</span>` : '';
@@ -3637,6 +3642,7 @@ function journeyRender(el, id, data) {
     const NH = NftHistory; const opts = NH.optsFromManifest(data.manifest || null);
     opts.nameOf = (a) => (typeof getMemberName === 'function' ? (getMemberName(a) || null) : null);
     opts.usdNow = (sym) => data.nowMap[sym] || null;
+    opts.lunaUsdOn = (day) => (data.lunaDaily && data.lunaDaily[day] != null) ? data.lunaDaily[day] : null;
     const { rows, summary: S } = NH.fold(data.recs, opts);
     if (!rows.length) { el.innerHTML = `<div class="jr-head"><span class="jr-title">On-chain journey</span></div><div class="jr-empty">No ledger record for #${journeyEsc(id)} — the collection's ledger holds nothing for this token yet.</div>`; el.dataset.state = 'empty'; return; }
     const chips = [];
@@ -3647,10 +3653,15 @@ function journeyRender(el, id, data) {
     if (S.sales) chips.push(`<span class="jr-chip">Sold <b>${S.sales}</b> time${S.sales === 1 ? '' : 's'}${S.last_sale && S.last_sale.amount ? ` · last <b>${journeyEsc(S.last_sale.amount.display)}</b>${S.last_sale.amount.usd_then != null ? ` (${journeyEsc(NH.fmtUsd(S.last_sale.amount.usd_then))})` : ''}` : ''}</span>`);
     if (S.listed_now) chips.push(`<span class="jr-chip hot">Listed now on ${journeyEsc(S.listed_now.on)} · <b>${S.listed_now.days}</b> day${S.listed_now.days === 1 ? '' : 's'}${S.listed_now.price ? ` · ${journeyEsc(S.listed_now.price.display)}` : ''}</span>`);
     if (S.custody_now) chips.push(`<span class="jr-chip">In <b>${journeyEsc(S.custody_now)}</b></span>`);
+    // 4.36: P&L two ways. The last completed round trip (that owner: paid → received in USD and in LUNA terms) and the
+    // current holder's basis (paid then / now). A dollar loss is not realised by a holder who kept the LUNA — both are shown.
+    const lastRT = [...S.realized].reverse().find(p => p.basis_known);
+    if (lastRT) chips.push(`<span class="jr-chip pnl ${lastRT.usd_delta != null && lastRT.usd_delta < 0 ? 'down' : 'up'}" title="${journeyEsc(lastRT.text)}">Last round trip · USD <b>${journeyEsc(lastRT.usd_delta != null ? (lastRT.usd_delta >= 0 ? '+' : '−') + NH.fmtUsd(Math.abs(lastRT.usd_delta)) + (lastRT.usd_pct != null ? ` (${lastRT.usd_pct >= 0 ? '+' : '−'}${Math.abs(lastRT.usd_pct).toFixed(0)}%)` : '') : 'n/a')}</b> · LUNA terms <b>${journeyEsc(lastRT.luna_delta != null ? (lastRT.luna_delta >= 0 ? '+' : '−') + NH.fmtAmt(Math.abs(lastRT.luna_delta)) + ' LUNA' + (lastRT.luna_pct != null ? ` (${lastRT.luna_pct >= 0 ? '+' : '−'}${Math.abs(lastRT.luna_pct).toFixed(0)}%)` : '') : 'n/a')}</b></span>`);
+    if (S.holding && S.owner_now) chips.push(`<span class="jr-chip hold" title="${journeyEsc(S.holding.text)}">${journeyEsc(S.owner_now.text)} holds · ${journeyEsc(S.holding.amount ? 'paid ' + S.holding.amount.display + (S.holding.usd != null ? ` (${NH.fmtUsd(S.holding.usd)} then${S.holding.usd_now != null ? ` · ${NH.fmtUsd(S.holding.usd_now)} now` : ''})` : '') : (S.holding.how === 'free mint' ? 'free mint' : 'basis unknown'))} · <b>${S.holding.held_days}</b> day${S.holding.held_days === 1 ? '' : 's'}</span>`);
     if (S.gaps) chips.push(`<span class="jr-chip warn" title="a move the ledger did not capture — shown where it happens, never filled in">⚠ <b>${S.gaps}</b> move${S.gaps === 1 ? '' : 's'} not in the ledger</span>`);
     if (S.unpriced) chips.push(`<span class="jr-chip warn">${S.unpriced} amount${S.unpriced === 1 ? '' : 's'} unpriced</span>`);
     const quiet = rows.filter(r => r.tone === 'admin' || r.tone === 'minor').length;
-    const li = rows.map(r => `<li class="jr-${journeyEsc(r.tone)}${r.gap ? ' jr-gap' : ''}"><span class="jr-day">${journeyEsc(r.day)}</span><span class="jr-h">${journeyEsc(r.headline)}</span><a class="jr-tx" href="https://chainsco.pe/terra2/tx/${journeyEsc(r.txhash)}" target="_blank" rel="noopener" title="${journeyEsc(r.txhash)}">tx ↗</a>${r.gap ? `<span class="jr-sub">${journeyEsc(r.gap_note)}</span>` : ''}${r.sub ? `<span class="jr-sub">${journeyEsc(r.sub)}</span>` : ''}</li>`).join('');
+    const li = rows.map(r => `<li class="jr-${journeyEsc(r.tone)}${r.gap ? ' jr-gap' : ''}"><span class="jr-day">${journeyEsc(r.day)}</span><span class="jr-h">${journeyEsc(r.headline)}</span><a class="jr-tx" href="https://chainsco.pe/terra2/tx/${journeyEsc(r.txhash)}" target="_blank" rel="noopener" title="${journeyEsc(r.txhash)}">tx ↗</a>${r.gap ? `<span class="jr-sub">${journeyEsc(r.gap_note)}</span>` : ''}${r.sub ? `<span class="jr-sub">${journeyEsc(r.sub)}</span>` : ''}${r.pnl && r.pnl.text ? `<span class="jr-sub jr-pnl${r.pnl.basis_known ? (r.pnl.usd_delta != null && r.pnl.usd_delta < 0 ? ' down' : ' up') : ''}">${journeyEsc(r.pnl.text)}</span>` : ''}</li>`).join('');
     const nowDay = Object.values(data.nowMap).map(n => n && n.day).filter(Boolean).sort().pop();
     el.innerHTML = `<div class="jr-head"><span class="jr-title">On-chain journey · ${rows.length} event${rows.length === 1 ? '' : 's'}</span><span class="jr-src" title="nft-collections/${journeyEsc(JOURNEY.slug)}/ledger/by-token · superseded rows excluded · USD then = the record's own oracle price${nowDay ? ` · USD now = oracle day ${journeyEsc(nowDay)}` : ''}">ledger${nowDay ? ` · now as of ${journeyEsc(nowDay)}` : ''}</span></div>` +
         `<div class="jr-sum">${chips.join('')}</div><ol>${li}</ol>` +

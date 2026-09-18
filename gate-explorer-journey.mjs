@@ -13,7 +13,7 @@ import { JSDOM } from 'jsdom'; import fs from 'fs'; import path from 'path'; imp
 const require = createRequire(import.meta.url);
 const NFTC_REAL = process.env.NFTC_DIR, CORE = process.env.TLA_CORE_DIR; if (!NFTC_REAL || !CORE) { console.error('NFTC_DIR and TLA_CORE_DIR required'); process.exit(1); }
 let pass = 0, fail = 0; const ok = (m, c, x) => { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++; console.log('  ✗ ' + m + (x !== undefined ? ' → ' + JSON.stringify(x).slice(0, 300) : '')); } };
-const TOKENS = ['745', '4513', '3022', '716'];
+const TOKENS = ['745', '4513', '3022', '716', '9068', '3445', '1128'];
 // --- fixture: by-token shards (real when on main, staged from the month files otherwise — same rows, same rule)
 const NFTC = fs.mkdtempSync(path.join(os.tmpdir(), 'nftc-journey-'));
 fs.mkdirSync(path.join(NFTC, 'adao/ledger/by-token'), { recursive: true });
@@ -33,7 +33,7 @@ console.log(`fixture: by-token shards ${staged ? 'STAGED from the ledger month f
 const NFTC_U = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/', CORE_U = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/';
 // --- static checks
 const html = fs.readFileSync('nft-explorer-index.html', 'utf8'); const css = fs.readFileSync('nft-explorer-style.css', 'utf8'); const app = fs.readFileSync('nft-explorer-app.js', 'utf8');
-ok('html: modal has #modal-journey, loads /lib/nft-history.js, app + style cache-busted to 6.4, footer rev 4.35', html.includes('id="modal-journey"') && html.includes('/lib/nft-history.js') && html.includes('nft-explorer-app.js?v=6.4') && html.includes('nft-explorer-style.css?v=6.4') && html.includes("rev: '4.35'"));
+ok('html: modal has #modal-journey, loads /lib/nft-history.js, app + style cache-busted to 6.5, footer rev 4.36', html.includes('id="modal-journey"') && html.includes('/lib/nft-history.js') && html.includes('nft-explorer-app.js?v=6.5') && html.includes('nft-explorer-style.css?v=6.5') && html.includes("rev: '4.36'"));
 ok('css: journey rules (tones, gap marker, collapsed admin rows)', /\.journey li\.jr-sale::before/.test(css) && /\.journey li\.jr-gap \.jr-h::before/.test(css) && /\.journey\.jr-collapsed li\.jr-admin/.test(css));
 ok('app: showNftDetails hands off to journeyInto; shard path from NftHistory.shardOf (no hand rule in the page)', /journeyInto\(nft\);/.test(app) && /NftHistory\.shardOf\(/.test(app) && !/Math\.floor\(Number\(id\) \/ 100\)/.test(app));
 // --- the lib on its own, on the real rows (values, not "something renders")
@@ -66,6 +66,19 @@ const opts = NH.optsFromManifest(manifest); opts.now = '2026-09-18T22:00:00Z';
 { const withNow = Object.assign({}, opts, { usdNow: (sym) => sym === 'bLUNA' ? { usd: 0.05, day: '2026-09-17' } : null });
   const { rows } = NH.fold(rowsOf('745'), withNow); const sale = rows.find(r => r.kind === 'sale');
   ok('USD now = amount × the oracle series\' last day, labeled with that day; USD then untouched', sale && Math.abs(sale.amount.usd_now - 10) < 1e-9 && sale.amount.now_day === '2026-09-17' && /\$16\.76 then · \$10 now \(2026-09-17\)/.test(sale.sub), sale && sale.sub); }
+// --- 1.1.0: P&L two ways + the holder's basis (LUNA-equivalents from the oracle LUNA series)
+{ const luna = JSON.parse(fs.readFileSync(path.join(CORE, 'price-history/series/LUNA.json'))).daily; const o2 = Object.assign({}, opts, { lunaUsdOn: (d) => luna[d] });
+  const r745 = NH.fold(rowsOf('745'), o2); const p = r745.summary.realized[0];
+  ok('#745 round trip: paid 115 LUNA ($73.97) → 200 bLUNA ($16.76): USD −$57.20 (−77%), LUNA terms +239 LUNA (+208%), held 832 days', p && p.basis_known && Math.abs(p.usd_delta + 57.2) < 0.05 && Math.round(p.usd_pct) === -77 && Math.round(p.luna_delta) === 239 && Math.round(p.luna_pct) === 208 && p.held_days === 832, p && p.text);
+  ok('#745 LUNA-equivalent of the bLUNA proceeds = usd ÷ LUNA\'s oracle price on 2026-09-12, basis labeled', p && Math.abs(p.received_luna - 16.76 / luna['2026-09-12']) < 0.5 && /bLUNA → LUNA at the oracle on 2026-09-12/.test(p.received_luna_basis), p && p.received_luna_basis);
+  const sale = r745.rows.find(r => r.kind === 'sale'); ok('#745 the sale row carries the P&L line, both ways, in words', sale && sale.pnl && /P&L for this owner · paid 115 LUNA \(\$73\.97\) → USD −\$57\.2 \(−77%\) · LUNA terms \+239 LUNA \(\+208%\) · held 832 days/.test(sale.pnl.text), sale && sale.pnl && sale.pnl.text);
+  ok('#745 holder basis: the buyer paid 200 bLUNA ($16.76 then), ≈ 354 LUNA at the time', r745.summary.holding && r745.summary.holding.amount.display === '200 bLUNA' && Math.abs(r745.summary.holding.usd - 16.76) < 0.01 && Math.round(r745.summary.holding.luna) === 354 && r745.summary.holding.known, r745.summary.holding && r745.summary.holding.text);
+  const r9068 = NH.fold(rowsOf('9068'), o2); const q = r9068.summary.realized[0];
+  ok('#9068 free mint sold for 1,600 LUNA ($1,053): basis 0 → USD +$1,053, LUNA terms +1,600 LUNA, no % (÷0 is not a number)', q && q.basis_known && q.paid_how === 'free mint' && Math.round(q.usd_delta) === 1053 && q.usd_pct === null && q.luna_delta === 1600 && q.luna_pct === null, q && q.text);
+  ok('#9068 holder (bought 1,600 LUNA): basis known, $1,053 then', r9068.summary.holding && r9068.summary.holding.known && r9068.summary.holding.amount.display === '1,600 LUNA' && Math.round(r9068.summary.holding.usd) === 1053, r9068.summary.holding && r9068.summary.holding.text);
+  const r3445 = NH.fold(rowsOf('3445'), o2); const t = r3445.summary.realized[0];
+  ok('#3445 the seller got it by transfer → "cost basis unknown", proceeds still stated; the buyer\'s basis is 1,500 bLUNA ($570) ≈ 2,151 LUNA', t && !t.basis_known && /cost basis unknown/.test(t.text) && /1,500 bLUNA \(\$570\)/.test(t.text) && r3445.summary.holding && r3445.summary.holding.known && Math.round(r3445.summary.holding.luna) === 2151, [t && t.text, r3445.summary.holding && r3445.summary.holding.text]);
+  const r1128 = NH.fold(rowsOf('1128'), o2); ok('#1128 a token that went back to the treasury stock: that transfer is an admin row, not a hand change', r1128.rows.filter(r => r.tone === 'admin').length === 3 && r1128.summary.hands_changed === 0, r1128.rows.map(r => r.tone)); }
 // --- the page: open the sheet for #745, read the journey section
 let pageHtml = html.replace(/<link[^>]+>/g, '').replace(/<script src="[^"]*"><\/script>/g, '').replace(/<script src="nft-explorer-app.js[^"]*" defer><\/script>/, '');
 const stub = (w) => { w.matchMedia = () => ({ matches: false, addListener() {}, addEventListener() {} }); w.scrollTo = () => {}; w.requestAnimationFrame = (f) => setTimeout(f, 0); w.IntersectionObserver = class { observe() {} disconnect() {} unobserve() {} }; w.ResizeObserver = class { observe() {} disconnect() {} unobserve() {} };
@@ -92,6 +105,7 @@ ok('page: 7 event rows, in chain order, sale row last and green-toned', lis.leng
 ok('page: every row links its tx on chainsco.pe', lis.length > 0 && lis.every(l => l.querySelector('a.jr-tx') && /chainsco\.pe\/terra2\/tx\/[0-9A-F]{64}/.test(l.querySelector('a.jr-tx').href)));
 ok('page: admin (treasury) rows collapsed by default with a toggle that names the count', j && j.classList.contains('jr-collapsed') && j.querySelector('.jr-toggle') && /Show 2 treasury \/ admin rows/.test(j.querySelector('.jr-toggle').textContent), j && j.querySelector('.jr-toggle') && j.querySelector('.jr-toggle').textContent);
 ok('page: buyer/seller show the registry name when there is one, else a short address (no raw 44-char address in a headline)', lis.every(l => !/terra1[a-z0-9]{38}/.test(l.querySelector('.jr-h').textContent)));
+ok('page: the sale row shows the P&L line (USD −77% · LUNA terms +208%) and the chips carry the last round trip + the holder\'s basis', lis.length && /USD −\$57\.2 \(−77%\) · LUNA terms \+239 LUNA \(\+208%\)/.test(lis[lis.length - 1].querySelector('.jr-pnl.down').textContent) && j.querySelector('.jr-chip.pnl.down') && /Last round trip · USD −\$57\.2 \(−77%\) · LUNA terms \+239 LUNA \(\+208%\)/.test(j.querySelector('.jr-chip.pnl').textContent) && j.querySelector('.jr-chip.hold') && /holds · paid 200 bLUNA \(\$16\.76 then · \$[\d.]+ now\) · 6 days/.test(j.querySelector('.jr-chip.hold').textContent), [j.querySelector('.jr-chip.pnl') && j.querySelector('.jr-chip.pnl').textContent, j.querySelector('.jr-chip.hold') && j.querySelector('.jr-chip.hold').textContent]);
 ok('page: USD then and USD now both on the sale row, now labeled with the oracle day', /\$16\.76 then · \$[\d.,]+ now \(20\d\d-\d\d-\d\d\)/.test(lis.length ? lis[lis.length - 1].textContent : ''), lis.length && lis[lis.length - 1].textContent);
 // a token with no ledger rows says so
 w.__g.show(Object.assign({}, nft745, { id: '99999', name: 'x' }));
