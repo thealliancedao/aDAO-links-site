@@ -1,4 +1,4 @@
-/* 6.6 (2026-09-18, explorer 4.37): .jr-seg sections + .jr-sale-card · 6.5 (2026-09-18, explorer 4.36): .jr-pnl / .jr-chip.pnl — P&L two ways on sale rows and chips · 6.4 (2026-09-18, explorer 4.35): .journey — the NFT's on-chain history in the sheet */
+/* 6.7 (2026-09-18, explorer 4.38): .jr-tile (minted / sold / handed-to) · 6.6 (2026-09-18, explorer 4.37): .jr-seg sections + .jr-sale-card · 6.5 (2026-09-18, explorer 4.36): .jr-pnl / .jr-chip.pnl — P&L two ways on sale rows and chips · 6.4 (2026-09-18, explorer 4.35): .journey — the NFT's on-chain history in the sheet */
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     background-color: #121212;
@@ -888,3 +888,23 @@ input[type="range"].direction-slider:disabled::-webkit-slider-thumb { background
 .journey .jr-side-body b.pos { color: #a7f3d0; }
 .journey .jr-side-body b.neg { color: #fecaca; }
 .journey .jr-note { color: #9ca3af; }
+
+/* ---- 6.7: boundary tiles — the events between holders ---------------------------------------- */
+.journey .jr-tile { display: flex; gap: 0.6rem; align-items: stretch; margin: 0.7rem 0 0.35rem; border-radius: 0.7rem; border: 1px solid #374151; overflow: hidden; background: #111827; }
+.journey .jr-tile-art { position: relative; flex: 0 0 4.2rem; display: flex; align-items: center; justify-content: center; font-size: 1.7rem; background: linear-gradient(135deg, #1f2937, #111827); }
+.journey .jr-tile-ribbon { position: absolute; bottom: 0.25rem; left: 0; right: 0; text-align: center; font-size: 0.55rem; letter-spacing: 0.18em; font-weight: 800; color: #e5e7eb; opacity: 0.85; }
+.journey .jr-tile-body { flex: 1 1 auto; padding: 0.45rem 0.6rem 0.4rem 0; min-width: 0; }
+.journey .jr-tile-head { font-size: 0.85rem; color: #e5e7eb; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem; }
+.journey .jr-tile-head b { color: #f9fafb; }
+.journey .jr-tile-amt { color: #fde68a; font-weight: 600; }
+.journey .jr-tile-sale { border-color: rgba(52, 211, 153, 0.55); background: linear-gradient(90deg, rgba(6, 78, 59, 0.35), rgba(17, 24, 39, 0.6)); box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.12), 0 6px 18px -12px rgba(52, 211, 153, 0.6); }
+.journey .jr-tile-sale .jr-tile-art { background: radial-gradient(circle at 30% 30%, rgba(52, 211, 153, 0.35), rgba(6, 78, 59, 0.25)); }
+.journey .jr-tile-sale .jr-tile-ribbon { color: #a7f3d0; }
+.journey .jr-tile-sale .jr-side { border-top: 1px dashed rgba(52, 211, 153, 0.25); }
+.journey .jr-tile-mint { border-color: rgba(34, 211, 238, 0.5); background: linear-gradient(90deg, rgba(8, 47, 73, 0.4), rgba(17, 24, 39, 0.6)); }
+.journey .jr-tile-mint .jr-tile-art { background: radial-gradient(circle at 30% 30%, rgba(34, 211, 238, 0.35), rgba(8, 47, 73, 0.3)); }
+.journey .jr-tile-mint .jr-tile-ribbon { color: #a5f3fc; }
+.journey .jr-tile-hand { border-style: dashed; margin-top: 0.45rem; }
+.journey .jr-tile-hand .jr-tile-art { flex-basis: 2.6rem; font-size: 1.1rem; }
+.journey .jr-tile-hand.jr-gap { border-color: rgba(251, 191, 36, 0.45); }
+.journey .jr-seg { margin-top: 0.15rem; }
