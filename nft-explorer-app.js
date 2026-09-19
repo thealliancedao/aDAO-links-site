@@ -637,6 +637,7 @@ async function hydrateFromFull() {
         updateAddressDropdown(allNfts);
         applyFiltersAndSort();                     // re-renders the current view on full records
         calculateAndDisplayLeaderboard();
+        if (analyticsLoaded) { analyticsLoaded = false; if (analyticsView && !analyticsView.classList.contains('hidden')) renderAnalytics(); }   // 4.48: the tab built before owners arrived read every wallet as "exited" — rebuild on the full records
         console.log(`hydrated: full records live (owners, listings, grades)`);
     } catch (e) {
         console.error('background hydration failed — page continues on the bundle (owners/leaderboard unavailable):', e);
@@ -2340,7 +2341,7 @@ function buildAnalyticsHtml(A, S, E) {
         const t = tradesByAddr[addr]; if (!t || !trendMonths.length) return "";
         const bought = t.b.reduce((a, b) => a + b, 0), sold = t.s.reduce((a, b) => a + b, 0), net = bought - sold;
         const peak = Math.max(1, ...t.b, ...t.s);
-        const n = trendMonths.length, bw = 3, gap = 1, W = n * (bw + gap), H = 30, mid = H / 2, up = "#34d399", dn = "#f87171";
+        const n = trendMonths.length, bw = 6, gap = 2, W = n * (bw + gap), H = 44, mid = H / 2, up = "#34d399", dn = "#f87171";
         const col = net >= 3 ? up : net <= -3 ? dn : "#f59e0b";
         let bars = "";
         for (let i = 0; i < n; i++) {
@@ -2351,17 +2352,17 @@ function buildAnalyticsHtml(A, S, E) {
             if (hs) bars += `<rect x="${x}" y="${mid}" width="${bw}" height="${hs.toFixed(1)}" fill="${dn}" opacity="0.9">${tip}</rect>`;
         }
         const firstM = trendMonths[0], lastM = trendMonths[n - 1];
-        return `<span class="flex flex-col w-full"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;width:100%;height:${H}px"><line x1="0" y1="${mid}" x2="${W}" y2="${mid}" stroke="currentColor" stroke-opacity="0.25" stroke-width="0.6"/>${bars}</svg><span class="flex justify-between text-[10px] leading-none mt-0.5 text-gray-500"><span>${firstM}</span><span style="color:${col}">${bought} bought · ${sold} sold · net ${net > 0 ? "+" : ""}${net}</span><span>${lastM}</span></span></span>`;
+        return `<span class="flex flex-col w-full"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;width:100%;height:${H}px" shape-rendering="crispEdges"><line x1="0" y1="${mid}" x2="${W}" y2="${mid}" stroke="currentColor" stroke-opacity="0.25" stroke-width="0.6"/>${bars}</svg><span class="flex justify-between text-[10px] leading-none mt-0.5 text-gray-500"><span>${firstM}</span><span style="color:${col}">${bought} bought · ${sold} sold · net ${net > 0 ? "+" : ""}${net}</span><span>${lastM}</span></span></span>`;
     };
     const clean = (arr) => (arr || []).filter(x => !(typeof isSystemAddress === "function" && isSystemAddress(x.address))).slice(0, 10);
     // Layout: [rank+name+behaviour | trend bars (desktop only, fill the blank middle) | count+$]
-    const lbRow = (x, i) => `<div class="flex items-center gap-3 py-2 ${i ? "border-t border-gray-700/50" : ""}">
-        <div class="flex-1 min-w-0">
+    const lbRow = (x, i) => `<div class="flex items-center gap-4 py-2.5 ${i ? "border-t border-gray-700/50" : ""}">
+        <div class="min-w-0 md:w-[230px] md:flex-none flex-1">
           <div class="flex items-center gap-2"><span class="text-gray-500 text-xs w-5 text-right flex-shrink-0">${i + 1}</span>
             <span class="truncate text-sm text-gray-200">${aLabel(x.address)}</span></div>
           <div class="pl-7 text-[11px] mt-0.5">${holdingsBlurb(hold[x.address])}</div>
         </div>
-        <div class="hidden md:flex items-center justify-center flex-1 min-w-[140px] max-w-[420px]" title="Marketplace buys (up) and sells (down) per month, whole history">${trendSvg(x.address)}</div>
+        <div class="hidden md:flex items-center justify-center flex-1 min-w-0" title="Marketplace buys (up) and sells (down) per month, whole history">${trendSvg(x.address)}</div>
         <div class="text-right flex-shrink-0">
           <div class="text-sm font-semibold text-cyan-300">${fmtUsd(x.usd)}</div>
           <div class="text-xs text-gray-400">${fmtNum(x.sales)}×</div>
