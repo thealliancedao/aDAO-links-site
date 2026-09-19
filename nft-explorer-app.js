@@ -202,7 +202,8 @@ let COLLECTION_TRAITS = ["Planet", "Inhabitant", "Object", "Weather", "Light"]; 
 let SPLIT_TRAITS = { Planet: [' North', ' South'], Inhabitant: [' M', ' F'] };       // slider-direction traits (name → its two suffixes)
 let FEATURES = { break_mechanism: true, backing: true, phoenix: true, custody: true };
 let LABELS = { unminted: 'Unminted' };
-let COLLECTION_MARK = null, COLLECTION_LABEL = 'The Alliance DAO';   // 4.41: the collection's mark image + label (manifest)
+let COLLECTION_MARK = null, COLLECTION_LABEL = 'The Alliance DAO';
+let SHORT_TITLE = (id) => `aDAO #${id}`;   // 4.42: card title; other collections use their token name pattern   // 4.41: the collection's mark image + label (manifest)
 
 // --- DAO Members Lookup ---
 let addressToMember = {}; // address -> { name, staked, votingPower }
@@ -328,6 +329,12 @@ function convertIpfsUrl(ipfsUrl) {
 }
 
 // Helper to get image with fallback - use for onerror handlers
+// 4.42: an IPFS-pattern collection image (the manifest's cdn_pattern on a public gateway) falls back to a second gateway on error
+function getImageFallbackUrl(nftId) {
+    const u = IMAGE_URL ? IMAGE_URL(nftId) : null; if (!u) return null;
+    const m = String(u).match(/^https:\/\/ipfs\.io\/ipfs\/([a-z0-9]+)\/(.+)$/i); if (!m) return null;
+    return `https://${m[1]}.ipfs.dweb.link/${m[2]}`;
+}
 function getIpfsFallbackUrl(nftId, ipfsUrl) {
     if (ipfsUrl && ipfsUrl.startsWith('ipfs://')) {
         return convertIpfsUrl(ipfsUrl);
@@ -672,6 +679,7 @@ function applyCollectionContext(ctx) {
     // 4.41: badge-key entries that describe a feature this collection lacks (broken/backing, DAO custody) are hidden
     document.querySelectorAll('[data-feature]').forEach(el => { const k = el.getAttribute('data-feature'); if (k in FEATURES && !FEATURES[k]) el.classList.add('hidden'); });
     COLLECTION_MARK = c.assets.mark || null; COLLECTION_LABEL = c.label || COLLECTION_LABEL;
+    if (c.slug !== 'adao') SHORT_TITLE = (id) => c.token_name(id);
     document.documentElement.setAttribute('data-tenant', ctx.tenant.slug);
     document.documentElement.setAttribute('data-collection', c.slug);
     console.log(`tenant: ${ctx.tenant.slug} (${ctx.selected_via}) · collection ${c.slug}${ctx.degraded ? ' · ⚠ ' + ctx.degraded : ''}`);
@@ -2779,10 +2787,10 @@ const createNftCard = (nft, toggleSelector) => {
     card.addEventListener('click', () => showNftDetails(nft));
     // Primary: Cloudflare CDN, Fallback: IPFS gateway
     const imageUrl = getImageUrl(nft.id) || `https://placehold.co/300x300/1f2937/e5e7eb?text=No+Image`;
-    const fallbackUrl = getIpfsFallbackUrl(nft.id, nft.thumbnail_image || nft.image);
+    const fallbackUrl = getImageFallbackUrl(nft.id) || getIpfsFallbackUrl(nft.id, nft.thumbnail_image || nft.image);   // 4.42: second gateway for manifest-pattern images
     
-    // Use shorter title format: "aDAO #XXXX" 
-    const shortTitle = `aDAO #${nft.id || '?'}`;
+    // Use shorter title format: "aDAO #XXXX" (4.42: the collection's own short title — aDAO's literal stays for aDAO)
+    const shortTitle = SHORT_TITLE(nft.id || '?');
     const fullTitle = (nft.name || `NFT #${nft.id || '?'}`).replace('The AllianceDAO NFT', 'AllianceDAO NFT');
 
     let traitsHtml = '';
@@ -3568,7 +3576,7 @@ const showNftDetails = (nft) => {
     
     // Primary: Cloudflare CDN, Fallback: IPFS gateway
     const primaryUrl = getImageUrl(nft.id) || `https://placehold.co/400x400/1f2937/e5e7eb?text=No+Image`;
-    const fallbackUrl = getIpfsFallbackUrl(nft.id, nft.image);
+    const fallbackUrl = getImageFallbackUrl(nft.id) || getIpfsFallbackUrl(nft.id, nft.image);
     imgEl.src = primaryUrl;
     imgEl.dataset.fallback = fallbackUrl;
     imgEl.onerror = function() {
