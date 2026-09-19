@@ -702,7 +702,7 @@ function applyCollectionContext(ctx) {
     SPLIT_TRAITS = {}; defs.forEach(t => { if (t.filter === 'slider-direction' && Array.isArray(t.split_suffixes) && t.split_suffixes.length === 2) SPLIT_TRAITS[t.name] = t.split_suffixes.slice(); });
     const hasRarityAttr = defs.some(t => t.name === 'Rarity');
     traitOrder = ['Rank', ...COLLECTION_TRAITS, ...(hasRarityAttr ? ['Rarity'] : [])];
-    defaultTraitsOn = ['Rank', ...COLLECTION_TRAITS.slice(0, 3)];
+    defaultTraitsOn = c.slug === 'adao' ? ['Rank', ...COLLECTION_TRAITS.slice(0, 3)] : ['Rank', ...COLLECTION_TRAITS];   // 4.47 (owner): every display toggle on by default on a tenant collection; aDAO keeps its four
     filterLayoutOrder = [...(hasRarityAttr ? ['Rarity'] : []), ...COLLECTION_TRAITS.filter(n => !SPLIT_TRAITS[n])];
     FEATURES = { break_mechanism: !!c.features.break_mechanism, backing: !!c.features.backing, phoenix: !!c.features.phoenix, custody: !!c.features.custody };
     LABELS = { unminted: c.labels.unminted || 'Unminted' };
