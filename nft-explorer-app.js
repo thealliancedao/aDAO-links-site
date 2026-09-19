@@ -330,7 +330,9 @@ function convertIpfsUrl(ipfsUrl) {
 
 // Helper to get image with fallback - use for onerror handlers
 // 4.42: an IPFS-pattern collection image (the manifest's cdn_pattern on a public gateway) falls back to a second gateway on error
+let IMAGE_FALLBACK = null;   // 4.44: the manifest's cdn_fallback (a second host for the same file), when it names one
 function getImageFallbackUrl(nftId) {
+    if (IMAGE_FALLBACK) { const f = IMAGE_FALLBACK(nftId); if (f) return f; }
     const u = IMAGE_URL ? IMAGE_URL(nftId) : null; if (!u) return null;
     const m = String(u).match(/^https:\/\/ipfs\.io\/ipfs\/([a-z0-9]+)\/(.+)$/i); if (!m) return null;
     return `https://${m[1]}.ipfs.dweb.link/${m[2]}`;
@@ -647,6 +649,22 @@ async function hydrateFromFull() {
 // byte (gate-explorer-tenant.mjs proves it); Lion DAO resolves to pixel-lions/…. Nothing else about the page changes here —
 // the manifest-driven filters, feature gating and the second collection are the next deliveries.
 let TENANT_CTX = null;
+// 4.45 — COLLECTION HERO (owner 2026-09-19: "feels like aDAO pretending to be Lion DAO"): above the tabs, the collection's own
+// mark + name, the tenant's one-line tagline from tenants.json, and four live numbers from the inventory summary (supply ·
+// holders · listed · floor). Rendered only for a non-default tenant — aDAO's page stays byte-identical until it asks for one.
+function renderCollectionHero(summary) {
+    const ctx = TENANT_CTX; const c = ctx && ctx.primary; if (!ctx || !c) return;
+    const isDefault = !!(ctx.tenants && ctx.tenants[ctx.tenant.slug] && ctx.tenants[ctx.tenant.slug].default); if (isDefault) return;
+    const host = document.getElementById('ex-top-tile'); if (!host) return;
+    let el = document.getElementById('collection-hero');
+    if (!el) { el = document.createElement('section'); el.id = 'collection-hero'; el.className = 'ch-hero'; host.parentNode.insertBefore(el, host); }
+    const S = summary || {}; const floor = (() => { const ps = (typeof allNfts !== 'undefined' ? allNfts : []).filter(n => n.listing && n.listing.price_usd != null).map(n => n.listing.price_usd); return ps.length ? Math.min(...ps) : null; })();
+    const listed = ['bbl', 'atrium', 'boost'].reduce((n, k) => n + (Number(S[k + '_listed_count']) || 0), 0);
+    const tag = (ctx.tenant.hero && ctx.tenant.hero.tagline) || '';
+    const stat = (k, v) => `<div class="ch-stat"><div class="ch-k">${k}</div><div class="ch-v">${v}</div></div>`;
+    el.innerHTML = `<div class="ch-wrap">${c.assets.mark ? `<img class="ch-mark" src="${c.assets.mark}" alt="">` : ''}<div class="ch-text"><div class="ch-name">${c.label}</div><div class="ch-tenant">${ctx.tenant.label}</div>${tag ? `<div class="ch-tag">${tag}</div>` : ''}</div>
+      <div class="ch-stats">${stat('Supply', (c.supply || S.total_tokens || 0).toLocaleString())}${stat('Holders', (S.unique_holders != null ? S.unique_holders : '—').toLocaleString())}${stat('Listed', listed.toLocaleString())}${stat('Floor', floor != null ? '$' + floor.toFixed(2) : '—')}</div></div>`;
+}
 function applyCollectionContext(ctx) {
     const c = ctx && ctx.primary; if (!c) return;
     TENANT_CTX = ctx;
@@ -686,6 +704,7 @@ function applyCollectionContext(ctx) {
     FEATURES = { break_mechanism: !!c.features.break_mechanism, backing: !!c.features.backing, phoenix: !!c.features.phoenix, custody: !!c.features.custody };
     LABELS = { unminted: c.labels.unminted || 'Unminted' };
     IMAGE_URL = (typeof c.assets.image === 'function') ? c.assets.image : null;   // 4.41
+    IMAGE_FALLBACK = (typeof c.assets.image_fallback === 'function') ? c.assets.image_fallback : null;   // 4.44
     // 4.41: badge-key entries that describe a feature this collection lacks (broken/backing, DAO custody) are hidden
     document.querySelectorAll('[data-feature]').forEach(el => { const k = el.getAttribute('data-feature'); if (k in FEATURES && !FEATURES[k]) el.classList.add('hidden'); });
     COLLECTION_MARK = c.assets.mark || null; COLLECTION_LABEL = c.label || COLLECTION_LABEL;
@@ -706,6 +725,7 @@ const initializeExplorer = async () => {
             walletVpByAddress = {};
             for (const st of (s.daodao_stakers || [])) walletVpByAddress[st.address] = st.voting_power_pct;
             walletBackingInfo = s.backing || null;
+            renderCollectionHero(s);   // 4.45: the collection's own hero (non-default tenants) — mark, name, one registry line, four live numbers
         }).catch(() => {});
         // --- Perf part 2: bundle-first boot, full path as fallback ---------------
         // 442KB paints the page; the 16MB products hydrate in the background.
@@ -1798,11 +1818,11 @@ function renderFpChart() {
     });
     let gBand = "";
     if (band) {
-        // BLUE = listings that period: lowest listing → highest listing across all markets (drawn first, under the sales)
+        // BLUE = listings that period: lowest listing → p90 ask (4.45; hi_max keeps the true top, `above` the count past the edge) across all markets (drawn first, under the sales)
         band.forEach((v, i) => {
             if (v == null) return;
             const yH = y(v.hi), yL = y(v.lo);
-            gBand += `<rect x="${x(i)}" y="${yH}" width="${bw}" height="${Math.max(1.5, yL - yH)}" fill="rgba(34,211,238,.22)" stroke="rgba(34,211,238,.45)" stroke-width="0.5" rx="2"><title>${labels[i]}: ${v.n || 1} listing${(v.n || 1) === 1 ? "" : "s"} · lowest ${fmtUsd(v.lo)} · highest ${fmtUsd(v.hi)} · cheapest ask mid ${fmtUsd(v.mid)} (USD at the time)</title></rect>`;
+            gBand += `<rect x="${x(i)}" y="${yH}" width="${bw}" height="${Math.max(1.5, yL - yH)}" fill="rgba(34,211,238,.22)" stroke="rgba(34,211,238,.45)" stroke-width="0.5" rx="2"><title>${labels[i]}: ${v.n || 1} listing${(v.n || 1) === 1 ? "" : "s"} · lowest ${fmtUsd(v.lo)} · ${v.above ? `p90 ask ${fmtUsd(v.hi)} (${v.above} above, max ${fmtUsd(v.hi_max)})` : `highest ${fmtUsd(v.hi)}`} · cheapest ask mid ${fmtUsd(v.mid)} (USD at the time)</title></rect>`;
         });
         let path = "", lastY = null;
         band.forEach((v, i) => {
@@ -1964,10 +1984,19 @@ function buildListingFloorBand(listingRecords, lunaOracle, blunaOracle) {
                     const cur = floors[t][i];
                     // owner spec (2026-08-25): the blue bar is the whole listing range that period — lowest listing
                     // (lo) to highest listing (hi) across all markets; `mid` keeps the cheapest listing's mid for the floor read
-                    if (cur == null) floors[t][i] = { mid, lo: Math.min(...samples), hi: Math.max(...samples), n: 1 };
-                    else { floors[t][i] = { mid: Math.min(cur.mid, mid), lo: Math.min(cur.lo, ...samples), hi: Math.max(cur.hi, ...samples), n: cur.n + 1 }; }
+                    if (cur == null) floors[t][i] = { mid, lo: Math.min(...samples), hi: Math.max(...samples), hi_max: Math.max(...samples), n: 1, asks: [mid] };
+                    else { floors[t][i] = { mid: Math.min(cur.mid, mid), lo: Math.min(cur.lo, ...samples), hi: Math.max(cur.hi, ...samples), hi_max: Math.max(cur.hi_max, ...samples), n: cur.n + 1, asks: cur.asks.concat([mid]) }; }
                 });
             });
+        });
+        // 4.45 (owner, first look at Pixel Lions): the band's top edge is the 90th-percentile ask once a period has ≥ 5 listings — a
+        // handful of vanity asks (a 200,000-bLUNA lion) made every period a $15K bar and squashed the sales into a sliver. The true
+        // max stays on the record (hi_max) and the count above the edge is reported, never hidden.
+        for (const t of Object.keys(floors)) floors[t] = floors[t].map(v => {
+            if (!v) return v; const asks = [...v.asks].sort((a, b) => a - b);
+            if (asks.length >= 5) { const p90 = asks[Math.min(asks.length - 1, Math.floor(asks.length * 0.9))]; v.hi = Math.max(p90, v.lo); v.above = asks.filter(a => a > v.hi).length; }
+            else v.above = 0;
+            delete v.asks; return v;
         });
         out[gran] = { keys, floors };
     }
@@ -2267,7 +2296,7 @@ function buildAnalyticsHtml(A, S, E) {
       <div class="flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-gray-300 mt-3">
         <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 h-3 rounded-sm" style="background:rgba(34,211,238,.35);border:1px solid rgba(34,211,238,.7)"></span>sales that period (lowest → highest, median tick)</span>
         <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 rounded" style="height:3px;background:#fbbf24"></span>median sale</span>
-        <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 h-3 rounded-sm" style="background:rgba(34,211,238,.15);border:1.5px dashed rgba(34,211,238,.8)"></span>listings that period (lowest → highest, <span class="text-cyan-300 font-semibold">--&nbsp;mid</span>)</span>
+        <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 h-3 rounded-sm" style="background:rgba(34,211,238,.15);border:1.5px dashed rgba(34,211,238,.8)"></span>listings that period (lowest &rarr; p90 ask, <span class="text-cyan-300 font-semibold">--&nbsp;mid</span>; vanity asks above the edge are counted, not drawn)</span>
         <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4" style="height:0;border-top:2px dashed #34d399"></span>today's listing floor</span>
         <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4" style="height:0;border-top:2px solid #a78bfa"></span>LUNA price (own scale)</span>
         <span class="inline-flex items-center gap-1.5"><span class="inline-block w-4 rounded" style="height:3px;background:#4b5563"></span>no sales</span>
