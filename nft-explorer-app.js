@@ -144,9 +144,12 @@ let bblRarityBuilt = null; // BBL file top-level `built` — "last time BBL rank
 // Active-rank accessor honoring the toggle. BBL leaves most broken NFTs unranked (null).
 const getActiveRank = (nft) => rankMode === 'bbl' ? (nft.bbl_rank ?? null) : (nft.intended_rank ?? null);
 // Rank display string per spec: grade stays visible in both modes; the rank is what switches.
+// 4.46: a collection without a grade column (Pixel Lions: BBL's statistical rank is the whole system) reads "Rank N · top X%"
+// — no "Rarity —" for a grade it never had. aDAO keeps "Rarity G, Rank N".
 const rankDisplay = (nft) => {
-    const grade = nft.rarityClass ?? '—';
     const r = getActiveRank(nft);
+    if (!traitOrder.includes('Rarity')) { const pct = nft.intended_pct != null ? ` · top ${Number(nft.intended_pct).toFixed(1)}%` : ''; return r == null ? 'Unranked' : `Rank ${r}${pct}`; }
+    const grade = nft.rarityClass ?? '—';
     return r == null ? `Rarity ${grade}, Unranked` : `Rarity ${grade}, Rank ${r}`;
 };
 let MEMBERS_CSV_URL = "https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/members.csv";
@@ -1233,7 +1236,9 @@ const addAllEventListeners = () => {
     if (rankModeBblBtn) rankModeBblBtn.addEventListener('click', () => setRankMode('bbl'));
     applyRankModeUi(); // restore persisted mode on load
     // 4.40: no second rank oracle for this collection → no Intended/BBL toggle (intended is the only rank); no Rarity grade column → no grade sorts
-    if (!RARITY_SECONDARY) { if (rankMode === 'bbl') setRankMode('intended'); const wrap = rankModeBblBtn && rankModeBblBtn.parentElement; if (wrap) wrap.classList.add('hidden'); }
+    if (!RARITY_SECONDARY) { if (rankMode === 'bbl') setRankMode('intended'); const wrap = rankModeBblBtn && rankModeBblBtn.parentElement; if (wrap) wrap.classList.add('hidden');
+        const lab = wrap && wrap.parentElement && wrap.parentElement.querySelector('label'); const method = TENANT_CTX && TENANT_CTX.primary && TENANT_CTX.primary.assets.rarity_method;
+        if (lab) lab.textContent = method === 'bbl-statistical-mirror' ? "Rank system: BBL's statistical rank (ties share a rank)" : 'Rank system'; }   // 4.46: say which oracle, since there is no toggle
     if (!traitOrder.includes('Rarity')) document.querySelectorAll('#sort-rank option[value^="rarity-"]').forEach(o => { o.hidden = true; o.disabled = true; });
 
      document.querySelectorAll('.toggle-checkbox').forEach(toggle => {
@@ -4664,8 +4669,8 @@ const displayHolderPage = (page) => {
     // Pinned aDAO custody rows (informational, unranked) — page 1 only, above the ranked list.
     if (page === 1 && daoPinnedStats.length) {
         const note = document.createElement('div');
-        note.className = 'text-[11px] text-gray-500 px-2 pt-2 pb-1';
-        note.textContent = 'aDAO-owned wallets — informational, excluded from ranks';
+        note.className = 'lb-note text-[11px] text-gray-500 px-2 pt-2 pb-1';
+        note.textContent = `${(TENANT_CTX && TENANT_CTX.primary && TENANT_CTX.primary.governance && TENANT_CTX.primary.governance.dao_name) || 'aDAO'}-owned wallets — informational, excluded from ranks`;   // 4.46: the collection's DAO, not aDAO's name
         leaderboardTable.appendChild(note);
         daoPinnedStats.forEach(s => {
             leaderboardTable.appendChild(buildHolderRow(s, `<span class="text-center font-bold text-cyan-400">DAO</span>`, true));
