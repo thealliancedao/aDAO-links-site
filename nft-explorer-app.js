@@ -638,6 +638,7 @@ async function hydrateFromFull() {
         applyFiltersAndSort();                     // re-renders the current view on full records
         calculateAndDisplayLeaderboard();
         if (analyticsLoaded) { analyticsLoaded = false; if (analyticsView && !analyticsView.classList.contains('hidden')) renderAnalytics(); }   // 4.48: the tab built before owners arrived read every wallet as "exited" — rebuild on the full records
+        if (_heroSummary) renderCollectionHero(_heroSummary);   // 4.49: the hero's floor reads live listings — the bundle boot had none ("—")
         console.log(`hydrated: full records live (owners, listings, grades)`);
     } catch (e) {
         console.error('background hydration failed — page continues on the bundle (owners/leaderboard unavailable):', e);
@@ -656,18 +657,21 @@ let TENANT_CTX = null;
 // 4.45 — COLLECTION HERO (owner 2026-09-19: "feels like aDAO pretending to be Lion DAO"): above the tabs, the collection's own
 // mark + name, the tenant's one-line tagline from tenants.json, and four live numbers from the inventory summary (supply ·
 // holders · listed · floor). Rendered only for a non-default tenant — aDAO's page stays byte-identical until it asks for one.
+let _heroSummary = null;
 function renderCollectionHero(summary) {
     const ctx = TENANT_CTX; const c = ctx && ctx.primary; if (!ctx || !c) return;
     const isDefault = !!(ctx.tenants && ctx.tenants[ctx.tenant.slug] && ctx.tenants[ctx.tenant.slug].default); if (isDefault) return;
     const host = document.getElementById('ex-top-tile'); if (!host) return;
     let el = document.getElementById('collection-hero');
     if (!el) { el = document.createElement('section'); el.id = 'collection-hero'; el.className = 'ch-hero'; host.parentNode.insertBefore(el, host); }
-    const S = summary || {}; const floor = (() => { const ps = (typeof allNfts !== 'undefined' ? allNfts : []).filter(n => n.listing && n.listing.price_usd != null).map(n => n.listing.price_usd); return ps.length ? Math.min(...ps) : null; })();
+    const S = summary || {}; _heroSummary = summary;   // 4.49: kept so the hero re-renders once the full records (listings) arrive
+    const fl = (() => { let best = null; for (const n of (typeof allNfts !== 'undefined' ? allNfts : [])) { const l = n.listing; if (l && l.price_usd != null && (!best || l.price_usd < best.price_usd)) best = l; } return best; })();
+    const floor = fl ? fl.price_usd : null;
     const listed = ['bbl', 'atrium', 'boost'].reduce((n, k) => n + (Number(S[k + '_listed_count']) || 0), 0);
     const tag = (ctx.tenant.hero && ctx.tenant.hero.tagline) || '';
     const stat = (k, v) => `<div class="ch-stat"><div class="ch-k">${k}</div><div class="ch-v">${v}</div></div>`;
     el.innerHTML = `<div class="ch-wrap">${c.assets.mark ? `<img class="ch-mark" src="${c.assets.mark}" alt="">` : ''}<div class="ch-text"><div class="ch-name">${c.label}</div><div class="ch-tenant">${ctx.tenant.label}</div>${tag ? `<div class="ch-tag">${tag}</div>` : ''}</div>
-      <div class="ch-stats">${stat('Supply', (c.supply || S.total_tokens || 0).toLocaleString())}${stat('Holders', (S.unique_holders != null ? S.unique_holders : '—').toLocaleString())}${stat('Listed', listed.toLocaleString())}${stat('Floor', floor != null ? '$' + floor.toFixed(2) : '—')}</div></div>`;
+      <div class="ch-stats">${stat('Supply', (c.supply || S.total_tokens || 0).toLocaleString())}${stat('Holders', (S.unique_holders != null ? S.unique_holders : '—').toLocaleString())}${stat('Listed', listed.toLocaleString())}${stat('Floor', floor != null ? `$${floor.toFixed(2)}${fl.price_display ? `<span class="ch-sub" style="display:block;font-size:.52em;font-weight:400;color:#9ca3af;margin-top:.15em;letter-spacing:0">${fl.price_display}${fl.marketplace ? ' · ' + fl.marketplace : ''}</span>` : ''}` : '—')}</div></div>`;   // 4.49: USD · token amount · venue (the cheapest live ask)
 }
 function applyCollectionContext(ctx) {
     const c = ctx && ctx.primary; if (!c) return;
@@ -713,6 +717,9 @@ function applyCollectionContext(ctx) {
     document.querySelectorAll('[data-feature]').forEach(el => { const k = el.getAttribute('data-feature'); if (k in FEATURES && !FEATURES[k]) el.classList.add('hidden'); });
     COLLECTION_MARK = c.assets.mark || null; COLLECTION_LABEL = c.label || COLLECTION_LABEL;
     if (c.slug !== 'adao') SHORT_TITLE = (id) => c.token_name(id);
+    if (c.slug !== 'adao') {   // 4.49: the page footer's aDAO literals (rarity-explained page, SCV audit) are aDAO's; the contract link is this collection's
+      document.querySelectorAll('main + footer a[href]').forEach(a => { const h = a.getAttribute('href') || ''; if (/rarity-explained\.html|SCV-Security/.test(h)) a.classList.add('hidden'); else if (/chainsco\.pe/.test(h) && c.contract) a.setAttribute('href', `https://chainsco.pe/terra2/address/${c.contract}`); });
+    }
     document.documentElement.setAttribute('data-tenant', ctx.tenant.slug);
     document.documentElement.setAttribute('data-collection', c.slug);
     console.log(`tenant: ${ctx.tenant.slug} (${ctx.selected_via}) · collection ${c.slug}${ctx.degraded ? ' · ⚠ ' + ctx.degraded : ''}`);
