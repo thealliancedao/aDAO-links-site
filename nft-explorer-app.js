@@ -345,17 +345,15 @@ function getIpfsFallbackUrl(nftId, ipfsUrl) {
 // --- Data Fetching and Processing ---
 
 // Parse members CSV and populate lookup maps
+let MEMBERS_CSV_URLS = null;   // 4.43: every DAO of the tenant (tenants.json daos[]) — a name lives in the DAO the holder stakes in; first name wins
 const fetchAndParseMembers = async () => {
-    try {
-        const response = await fetch(MEMBERS_CSV_URL);
-        if (!response.ok) {
-            console.warn('Could not fetch members CSV:', response.status);
-            return;
-        }
-        const csvText = await response.text();
-        parseMembers(csvText);
-    } catch (error) {
-        console.warn('Error fetching members CSV:', error);
+    const urls = MEMBERS_CSV_URLS || [MEMBERS_CSV_URL];
+    for (const url of urls) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) { console.warn('Could not fetch members CSV:', response.status, url.split('/main/')[1]); continue; }
+            parseMembers(await response.text());
+        } catch (error) { console.warn('Error fetching members CSV:', error); }
     }
 };
 
@@ -378,8 +376,11 @@ const parseMembers = (csvText) => {
         const votingPower = parseFloat(fields[4].replace(/"/g, '')) || 0;
         
         if (address && address.startsWith('terra')) {
+            const prev = addressToMember[address];
+            if (prev && prev.name && !name) continue;                    // 4.43: a later DAO never blanks a name an earlier one gave
+            if (prev && prev.name) { addressToMember[address] = { name: prev.name, staked, votingPower }; continue; }
             addressToMember[address] = { name, staked, votingPower };
-            if (name) {
+            if (name && !memberNames.some(m => m.address === address)) {
                 memberNames.push({ name, address, staked, votingPower });
             }
         }
@@ -659,7 +660,16 @@ function applyCollectionContext(ctx) {
     if (c.assets.metadata) METADATA_URL = c.assets.metadata;
     if (c.assets.rarity) RARITY_INTENDED_URL = c.assets.rarity;
     RARITY_BBL_URL = c.assets.rarity_secondary || RARITY_BBL_URL;
-    const dao = (ctx.tenant.daos || [])[0]; if (dao) MEMBERS_CSV_URL = `https://raw.githubusercontent.com/thealliancedao/dao-originations/main/${dao}/governance/members.csv`;
+    const daos = (ctx.tenant.daos || []); if (daos.length) { MEMBERS_CSV_URL = `https://raw.githubusercontent.com/thealliancedao/dao-originations/main/${daos[0]}/governance/members.csv`; MEMBERS_CSV_URLS = daos.map(d => `https://raw.githubusercontent.com/thealliancedao/dao-originations/main/${d}/governance/members.csv`); }
+    // 4.43: system wallets from the manifest, never aDAO's literals on another collection — the DAO core, every custodian by its registry label
+    if (c.slug !== 'adao') {
+        for (const k of Object.keys(SYSTEM_WALLET_LABELS)) delete SYSTEM_WALLET_LABELS[k]; DAO_DISPLAY_WALLETS.length = 0;
+        const gname = (c.governance && c.governance.dao_name) || c.label;
+        if (c.governance && c.governance.dao_address) { SYSTEM_WALLET_LABELS[c.governance.dao_address] = `${gname} core (${LABELS.unminted})`; DAO_DISPLAY_WALLETS.push(c.governance.dao_address); }
+        const cust = (c.manifest && c.manifest.capture && c.manifest.capture.custodians) || {};
+        for (const [addr, info] of Object.entries(cust)) if (info && info.role !== 'daodao_voting' && info.role !== 'enterprise_staking' && info.label) { SYSTEM_WALLET_LABELS[addr] = info.label; DAO_DISPLAY_WALLETS.push(addr); }
+        if (c.manifest && c.manifest.custody) for (const [k, addr] of Object.entries(c.manifest.custody)) if (typeof addr === 'string' && /^terra1/.test(addr)) { SYSTEM_WALLET_LABELS[addr] = SYSTEM_WALLET_LABELS[addr] || `${gname} ${k.replace(/_/g, ' ')}`; if (!DAO_DISPLAY_WALLETS.includes(addr)) DAO_DISPLAY_WALLETS.push(addr); }
+    }
     JOURNEY.slug = c.slug;
     // 4.40: the collection's shape — supply, token name, whether a second rank oracle exists
     if (c.supply) EXPECTED_TOTAL_NFTS = c.supply;
