@@ -1153,7 +1153,7 @@ const populateStatusFilters = () => {
         { key: 'staked', label: 'Staked', left: 'Ent', right: 'DAO' },
         { key: 'listed', label: 'Listed', chips: true, tooltip: 'Filter by marketplace. Only marketplaces with live listings appear; each toggles independently, so any combination works.' },
         ...(FEATURES.break_mechanism ? [{ key: 'rewards', label: 'Rewards', left: 'Broken', right: 'Unbroken' }] : []),   // 4.40: only a collection with a break mechanism
-        { key: 'mint_status', label: 'Mint Status', left: LABELS.unminted === 'Unminted' ? 'Un-Minted' : LABELS.unminted, right: 'Minted' },   // 4.40: "DAO held" where nothing is unminted
+        ...(LABELS.unminted === 'Unminted' ? [{ key: 'mint_status', label: 'Mint Status', left: 'Un-Minted', right: 'Minted' }] : []),   // 4.48: only a collection with an unminted reserve (a custody block); "DAO held" is a badge, not a filter (owner 2026-09-19)
         ...(SPLIT_TRAITS.Planet && SPLIT_TRAITS.Inhabitant ? [{ key: 'matching_traits', label: 'Matching', left: 'P+I', right: 'P+I+O', tooltip: 'Home-system trait match \u2014 P+I: the Inhabitant is standing on its home planet (e.g. a Lusan on Lusa). P+I+O: planet + inhabitant + a native object of that world (e.g. Lusan Water Staff). Slide to choose which match the count shows.' }] : []),
         { key: 'liquid_status', label: 'Liquid', left: 'Liquid', right: 'Not Liq' }
     ];
@@ -2323,44 +2323,45 @@ function buildAnalyticsHtml(A, S, E) {
 
     // ----- LEADERBOARDS with behaviour context -----
     const lb = A.leaderboards || {}; const hold = buildHoldingsMap();
-    // 12-month net position change per wallet from marketplace trades (buys +1, sells −1 per month).
+    // 4.48: the wallet's WHOLE marketplace history, one bar per month — buys above the baseline, sells below (counts), the
+    // collection's first sale month to now, drawn across the free width of the row. 4.47 showed a 12-month holdings line,
+    // so a wallet whose trades were older sat blank (owner 2026-09-19: "why are only some shown?").
     const trendMonths = [];
-    { const now = new Date(); for (let i = 11; i >= 0; i--) { const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - i); trendMonths.push(d.toISOString().slice(0, 7)); } }
+    { const first = salesDesc.length ? (salesDesc[salesDesc.length - 1].timestamp || "").slice(0, 7) : null; const now = new Date().toISOString().slice(0, 7);
+      if (first) { let [y, m] = first.split("-").map(Number); while (`${y}-${String(m).padStart(2, "0")}` <= now) { trendMonths.push(`${y}-${String(m).padStart(2, "0")}`); if (++m > 12) { m = 1; y++; } if (trendMonths.length > 240) break; } } }
     const monthIdx = Object.fromEntries(trendMonths.map((m, i) => [m, i]));
-    const netByAddr = {};
+    const tradesByAddr = {};
     salesDesc.forEach(s => {
-        const m = (s.timestamp || "").slice(0, 7); const i = monthIdx[m]; if (i == null) return;
-        (netByAddr[s.buyer] = netByAddr[s.buyer] || new Array(12).fill(0))[i]++;
-        (netByAddr[s.seller] = netByAddr[s.seller] || new Array(12).fill(0))[i]--;
+        const i = monthIdx[(s.timestamp || "").slice(0, 7)]; if (i == null) return;
+        (tradesByAddr[s.buyer] = tradesByAddr[s.buyer] || { b: new Array(trendMonths.length).fill(0), s: new Array(trendMonths.length).fill(0) }).b[i]++;
+        (tradesByAddr[s.seller] = tradesByAddr[s.seller] || { b: new Array(trendMonths.length).fill(0), s: new Array(trendMonths.length).fill(0) }).s[i]++;
     });
     const trendSvg = (addr) => {
-        const net = netByAddr[addr]; if (!net) return "";
-        const yr = net.reduce((a, b) => a + b, 0);
-        // Reconstruct monthly holdings level from current holdings minus later net trades
-        // (marketplace trades only — stakes/transfers don't move this line).
-        const heldNow = (hold[addr] && hold[addr].held) || 0;
-        const levels = new Array(13).fill(0); levels[12] = heldNow;
-        for (let i = 11; i >= 0; i--) levels[i] = levels[i + 1] - net[i];
-        const col = yr >= 3 ? "#34d399" : yr <= -3 ? "#f87171" : "#f59e0b";
-        const Wd = 150, Ht = 26, pad = 2;
-        const lo = Math.min(...levels), hiV = Math.max(...levels);
-        const span = Math.max(hiV - lo, 1);
-        const px = (i) => pad + i * ((Wd - pad * 2) / 12);
-        const py = (v) => pad + (1 - (v - lo) / span) * (Ht - pad * 2);
-        let pth = "";
-        levels.forEach((v, i) => { pth += (i ? " L" : "M") + ` ${px(i).toFixed(1)} ${py(v).toFixed(1)}`; });
-        const dots = levels.map((v, i) => i === 0 ? "" : `<circle cx="${px(i).toFixed(1)}" cy="${py(v).toFixed(1)}" r="2.4" fill="transparent"><title>${trendMonths[i - 1]}: ~${v} held (from marketplace trades)</title></circle>`).join("");
-        return `<span class="inline-flex flex-col items-center"><svg width="${Wd}" height="${Ht}" style="display:block"><path d="${pth}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>${dots}</svg><span class="text-[10px] leading-none mt-0.5" style="color:${col}">${yr > 0 ? "+" : ""}${yr}/12m</span></span>`;
+        const t = tradesByAddr[addr]; if (!t || !trendMonths.length) return "";
+        const bought = t.b.reduce((a, b) => a + b, 0), sold = t.s.reduce((a, b) => a + b, 0), net = bought - sold;
+        const peak = Math.max(1, ...t.b, ...t.s);
+        const n = trendMonths.length, bw = 3, gap = 1, W = n * (bw + gap), H = 30, mid = H / 2, up = "#34d399", dn = "#f87171";
+        const col = net >= 3 ? up : net <= -3 ? dn : "#f59e0b";
+        let bars = "";
+        for (let i = 0; i < n; i++) {
+            const x = i * (bw + gap), hb = t.b[i] ? Math.max(1.5, (t.b[i] / peak) * (mid - 1)) : 0, hs = t.s[i] ? Math.max(1.5, (t.s[i] / peak) * (mid - 1)) : 0;
+            if (!hb && !hs) continue;
+            const tip = `<title>${trendMonths[i]}: ${t.b[i]} bought · ${t.s[i]} sold</title>`;
+            if (hb) bars += `<rect x="${x}" y="${(mid - hb).toFixed(1)}" width="${bw}" height="${hb.toFixed(1)}" fill="${up}" opacity="0.9">${tip}</rect>`;
+            if (hs) bars += `<rect x="${x}" y="${mid}" width="${bw}" height="${hs.toFixed(1)}" fill="${dn}" opacity="0.9">${tip}</rect>`;
+        }
+        const firstM = trendMonths[0], lastM = trendMonths[n - 1];
+        return `<span class="flex flex-col w-full"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;width:100%;height:${H}px"><line x1="0" y1="${mid}" x2="${W}" y2="${mid}" stroke="currentColor" stroke-opacity="0.25" stroke-width="0.6"/>${bars}</svg><span class="flex justify-between text-[10px] leading-none mt-0.5 text-gray-500"><span>${firstM}</span><span style="color:${col}">${bought} bought · ${sold} sold · net ${net > 0 ? "+" : ""}${net}</span><span>${lastM}</span></span></span>`;
     };
     const clean = (arr) => (arr || []).filter(x => !(typeof isSystemAddress === "function" && isSystemAddress(x.address))).slice(0, 10);
-    // Layout: [rank+name+behaviour | trend column (desktop only, sits in the blank middle) | count+$]
+    // Layout: [rank+name+behaviour | trend bars (desktop only, fill the blank middle) | count+$]
     const lbRow = (x, i) => `<div class="flex items-center gap-3 py-2 ${i ? "border-t border-gray-700/50" : ""}">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2"><span class="text-gray-500 text-xs w-5 text-right flex-shrink-0">${i + 1}</span>
             <span class="truncate text-sm text-gray-200">${aLabel(x.address)}</span></div>
           <div class="pl-7 text-[11px] mt-0.5">${holdingsBlurb(hold[x.address])}</div>
         </div>
-        <div class="hidden md:flex items-center justify-center flex-shrink-0" style="width:170px">${trendSvg(x.address)}</div>
+        <div class="hidden md:flex items-center justify-center flex-1 min-w-[140px] max-w-[420px]" title="Marketplace buys (up) and sells (down) per month, whole history">${trendSvg(x.address)}</div>
         <div class="text-right flex-shrink-0">
           <div class="text-sm font-semibold text-cyan-300">${fmtUsd(x.usd)}</div>
           <div class="text-xs text-gray-400">${fmtNum(x.sales)}×</div>
@@ -2910,7 +2911,7 @@ const createNftCard = (nft, toggleSelector) => {
         topRightStack.appendChild(img);
     };
 
-    if (isDaoOwned) addBadge('/assets/images/Alliance%20DAO%20Logo.png', 'Owned by DAO');
+    if (isDaoOwned) addBadge((TENANT_CTX && TENANT_CTX.tenant && TENANT_CTX.tenant.logo) || '/assets/images/Alliance%20DAO%20Logo.png', 'Owned by DAO');   // 4.48: the tenant's own logo (Lion DAO's lion on a DAO-held Pixel Lion, never aDAO's)
     if (nft.staked_daodao) addBadge('/assets/images/DAODAO.png', 'Staked on DAODAO');
     // Marketplace badges from the shared registry — Atrium was missing entirely
     // before 2026-08-12 despite having ~17 live listings.
