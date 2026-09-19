@@ -1,5 +1,10 @@
 #!/usr/bin/env node
-// gate-explorer-tenant.mjs — E1 + E2, the tenant layer and the manifest-driven page (lib/collection-context.js 1.0.0 · site-header 1.10.0 · explorer 4.40).
+// gate-explorer-tenant.mjs — E1 + E2 + E3, the tenant layer, the manifest-driven page, Pixel Lions lit (lib/collection-context.js 1.1.0 ·
+// site-header 1.11.0 · explorer 4.41).
+//   7. (E3) Images: aDAO cards keep the Cloudflare URL byte for byte, PL cards use the manifest's IPFS pattern. Theme: the header
+//      injects the tenant theme (accent #ffe600 …) for Lion DAO and nothing for aDAO. Marks: both collections' marks are files the
+//      site serves. Analytics on PL (STAGE_NFTC: the seed + explorer feed built by the real cron code): 2,012 sales, floor + holders
+//      tiles instead of backing, one floor row ("All"), no Broken/Phoenix chart buttons.
 //   6. (E2) Booted as adao, the filter panel DOM (trait dropdowns, status grid, trait toggles, wallet toggles) is IDENTICAL to the
 //      committed page's; booted as liondao the page renders Pixel Lions: 5,000 records, cards in the gallery, six trait dropdowns
 //      Back … Prop, no Planet/Inhabitant sections, no Rewards (broken) filter, "DAO held" mint label, no BBL rank toggle, token
@@ -15,7 +20,9 @@
 //   5. The explorer under jsdom: booted as adao, the set of nft-collections URLs it requests == the set the committed 4.38 page
 //      requests (same fixture, same stubs) — behaviour byte-identical; booted as liondao, every nft-collections URL is under
 //      pixel-lions/ and the journey slug is pixel-lions.
-// Usage: NFTC_DIR=<nft-collections> TLA_CORE_DIR=<tla-core> MAIN_SITE_DIR=<aDAO-links-site main checkout> node gate-explorer-tenant.mjs
+// Usage: NFTC_DIR=<nft-collections> TLA_CORE_DIR=<tla-core> MAIN_SITE_DIR=<aDAO-links-site main checkout> [STAGE_NFTC=<dir>] node gate-explorer-tenant.mjs
+//   STAGE_NFTC: a nft-collections copy where pixel-lions/snapshots carries sales-enriched + listing-history + nft-analytics — until the
+//   seed is on main, build it with: node gate-stage-pixel-lions.js <nft-collections> <tla-core> <platform-crons> <out dir>
 import { JSDOM } from 'jsdom'; import fs from 'fs'; import path from 'path'; import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const NFTC = process.env.NFTC_DIR, CORE = process.env.TLA_CORE_DIR, MAIN = process.env.MAIN_SITE_DIR;
@@ -86,18 +93,18 @@ console.log('\n== 5. the explorer under jsdom: same URL set as the committed pag
 const html = fs.readFileSync('nft-explorer-index.html', 'utf8'), app = fs.readFileSync('nft-explorer-app.js', 'utf8');
 ok('html loads /lib/collection-context.js before the app; app + style cache-busted together; footer rev ≥ 4.39', html.indexOf('/lib/collection-context.js') !== -1 && html.indexOf('/lib/collection-context.js') < html.indexOf('nft-explorer-app.js?v=') && (html.match(/nft-explorer-app\.js\?v=([\d.]+)/) || [])[1] === (html.match(/nft-explorer-style\.css\?v=([\d.]+)/) || [])[1] && Number((html.match(/rev: '([\d.]+)'/) || [])[1]) >= 4.39);
 ok('app: no aDAO snapshot literal is fetched inline any more (every collection read goes through the *_URL variables)', !/fetch\(['"`]https:\/\/raw\.githubusercontent\.com\/thealliancedao\/nft-collections\/main\/adao/.test(app) && !/grab\('https:\/\/raw/.test(app));
-async function bootExplorer(appSrc, tenant, withCtx) {
-  const seen = new Set();
+async function bootExplorer(appSrc, tenant, withCtx, opts_analytics, nftcDir) {
+  const seen = new Set(); const NFTC_X = nftcDir || NFTC;
   let pageHtml = html.replace(/<link[^>]+>/g, '').replace(/<script src="[^"]*"><\/script>/g, '').replace(/<script src="nft-explorer-app.js[^"]*" defer><\/script>/, '');
   const stub = (w) => { w.matchMedia = () => ({ matches: false, addListener() {}, addEventListener() {} }); w.scrollTo = () => {}; w.requestAnimationFrame = (f) => setTimeout(f, 0); w.IntersectionObserver = class { observe() {} disconnect() {} unobserve() {} }; w.ResizeObserver = class { observe() {} disconnect() {} unobserve() {} };
     w.SiteHeader = { mount() {}, init() {}, subnav() {}, setActive() {} }; w.SiteFooter = { mount() {} }; w.AddressPicker = { mount() {}, init() {} }; w.CronRegistry = { fetchAll: async () => [], summarize: () => ({ counts: {}, overall: 'ok' }), render() {} };
-    w.fetch = (u) => { const url = String(u).split('?')[0]; seen.add(url); if (url === CC.TENANTS_URL) return Promise.resolve({ ok: true, status: 200, json: async () => tenants }); let f = null; if (url.startsWith(NFTC_U)) f = path.join(NFTC, url.slice(NFTC_U.length)); else if (url.startsWith(CORE_U)) f = path.join(CORE, url.slice(CORE_U.length)); else if (url.startsWith('https://thealliancedao.com/assets/')) f = path.join('.', url.slice('https://thealliancedao.com'.length));
+    w.fetch = (u) => { const url = String(u).split('?')[0]; seen.add(url); if (url === CC.TENANTS_URL) return Promise.resolve({ ok: true, status: 200, json: async () => tenants }); let f = null; if (url.startsWith(NFTC_U)) f = path.join(NFTC_X, url.slice(NFTC_U.length)); else if (url.startsWith(CORE_U)) f = path.join(CORE, url.slice(CORE_U.length)); else if (url.startsWith('https://thealliancedao.com/assets/')) f = path.join('.', url.slice('https://thealliancedao.com'.length));
       if (f && fs.existsSync(f)) { const t = fs.readFileSync(f, 'utf8'); return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(JSON.parse(t)), text: () => Promise.resolve(t) }); }
       return Promise.resolve({ ok: false, status: 404, json: () => Promise.reject(new Error('404 ' + url)), text: () => Promise.resolve('') }); }; };
   const dom = new JSDOM(pageHtml, { url: 'https://thealliancedao.com/nft-explorer-index.html', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse: stub });
   const w = dom.window; if (tenant) w.localStorage.setItem('ally:prefs', JSON.stringify({ tenant }));
   w.eval(fs.readFileSync('lib/nft-history.js', 'utf8')); if (withCtx) w.eval(ctxLib);
-  w.eval(appSrc + "\n;window.__g = { slug: () => (typeof JOURNEY !== 'undefined' ? JOURNEY.slug : null), n: () => (typeof allNfts !== 'undefined' ? allNfts.length : 0), ranked: () => (typeof allNfts !== 'undefined' ? allNfts.filter(x => x.intended_rank != null).length : 0), owners: () => (typeof allNfts !== 'undefined' ? allNfts.filter(x => x.owner).length : 0), names: () => (typeof allNfts !== 'undefined' ? allNfts.slice(0, 3).map(x => x.name) : []) };");
+  w.eval(appSrc + "\n;window.__g = { analytics: () => switchView('analytics'), slug: () => (typeof JOURNEY !== 'undefined' ? JOURNEY.slug : null), n: () => (typeof allNfts !== 'undefined' ? allNfts.length : 0), ranked: () => (typeof allNfts !== 'undefined' ? allNfts.filter(x => x.intended_rank != null).length : 0), owners: () => (typeof allNfts !== 'undefined' ? allNfts.filter(x => x.owner).length : 0), names: () => (typeof allNfts !== 'undefined' ? allNfts.slice(0, 3).map(x => x.name) : []) };");
   w.document.dispatchEvent(new w.Event('DOMContentLoaded', { bubbles: true })); w.dispatchEvent(new w.Event('load'));
   await new Promise(r => setTimeout(r, 12000));
   const d = w.document; const q = (id) => d.getElementById(id); const inner = (id) => (q(id) ? q(id).innerHTML : null);
@@ -108,10 +115,13 @@ async function bootExplorer(appSrc, tenant, withCtx) {
     statusText: q('status-filters-grid') ? q('status-filters-grid').textContent.replace(/\s+/g, ' ') : '',
     planetHidden: hiddenSec('planet-filters-container'), inhabitantHidden: hiddenSec('inhabitant-filters-container'),
     bblToggleHidden: !!(q('rank-mode-bbl') && q('rank-mode-bbl').parentElement.classList.contains('hidden')),
+    firstImg: (d.querySelector('#nft-gallery .nft-card img') || { getAttribute: () => null }).getAttribute('src'),
     cards: d.querySelectorAll('#nft-gallery .nft-card').length, firstCardText: (d.querySelector('#nft-gallery .nft-card') || { textContent: '' }).textContent.replace(/\s+/g, ' ').slice(0, 120),
     ranked: w.__g.ranked(), owners: w.__g.owners(), names: w.__g.names() };
+  let analytics = null;
+  if (opts_analytics) { try { w.__g.analytics(); await new Promise(r => setTimeout(r, 6000)); const av = d.getElementById('analytics-view'); analytics = av ? av.textContent.replace(/\s+/g, ' ') : null; } catch (e) { analytics = 'ERR ' + e.message; } }
   const urls = [...seen].filter(u => u.startsWith(NFTC_U) && !/\/collection\.json$/.test(u)).sort();   // the manifest read is the registry, not a product; compared separately
-  const manifestReads = [...seen].filter(u => /nft-collections\/main\/[^/]+\/collection\.json$/.test(u)); const r = { urls, manifestReads, slug: w.__g.slug(), n: w.__g.n(), tenant: w.document.documentElement.getAttribute('data-tenant'), dom: snap }; w.close(); return r;
+  const manifestReads = [...seen].filter(u => /nft-collections\/main\/[^/]+\/collection\.json$/.test(u)); const r = { urls, manifestReads, slug: w.__g.slug(), n: w.__g.n(), tenant: w.document.documentElement.getAttribute('data-tenant'), dom: snap, analytics }; w.close(); return r;
 }
 const base = await bootExplorer(mainApp, null, false);
 const mine = await bootExplorer(app, 'adao', true);
@@ -127,6 +137,22 @@ ok('liondao: six trait dropdowns Back · Body · Eyes · Face · Mane · Prop, n
 ok('liondao: no Rewards (broken/unbroken) filter, no P+I matching filter, the mint filter reads "DAO held" instead of "Un-Minted", Staked/Listed/Liquid stay', !/Rewards/.test(P.statusText) && !/Matching/.test(P.statusText) && /DAO held/.test(P.statusText) && !/Un-Minted/.test(P.statusText) && /Staked/.test(P.statusText) && /Listed/.test(P.statusText) && /Liquid/.test(P.statusText), P.statusText.slice(0, 300));
 ok('liondao: the trait toggles are Rank + Back … Prop (no Rarity), wallet toggles Rank + Back/Body/Eyes, BBL rank toggle hidden (one rank oracle)', /Back/.test(P.toggles) && /Prop/.test(P.toggles) && !/Rarity|Planet/.test(P.toggles) && /Eyes/.test(P.walletToggles) && !/Object/.test(P.walletToggles) && P.bblToggleHidden, [P.bblToggleHidden]);
 ok(`liondao: after hydration every record is ranked from PL's rarity file (${P.ranked}/5000) and every owner resolved from PL's nfts.json (${P.owners}/5000)`, P.ranked === 5000 && P.owners === 5000, [P.ranked, P.owners]);
+console.log('\n== 7. E3 — Pixel Lions lit ==');
+ok('adao: the first card\'s image URL is unchanged (the Cloudflare rule through the context, byte for byte)', M.firstImg && M.firstImg === B.firstImg, [B.firstImg, M.firstImg]);
+ok('liondao: the first card\'s image comes from the manifest\'s IPFS pattern', P.firstImg && /^https:\/\/ipfs\.io\/ipfs\/[a-z0-9]+\/\d+\.png$/.test(P.firstImg), P.firstImg);
+ok('marks: both collections\' marks (images.mark) are files the site serves; the tenant logo and the collection mark differ for Lion DAO', a.assets.mark && p.assets.mark && fs.existsSync(path.join('.', decodeURIComponent(a.assets.mark))) && fs.existsSync(path.join('.', decodeURIComponent(p.assets.mark))) && p.assets.mark !== L.tenant.logo, [a.assets.mark, p.assets.mark, L.tenant.logo]);
+{ const h = await header('liondao', true); const st = h.w.document.getElementById('sh-tenant-theme');
+  ok('header (liondao): the tenant theme is injected — --ally-accent #ffe600, --ally-bg #0b0b0b, body background, the pixel font requested; <html data-tenant="liondao">', st && /--ally-accent:#ffe600/.test(st.textContent) && /--ally-bg:#0b0b0b/.test(st.textContent) && /html\[data-tenant="liondao"\] body\{background:#0b0b0b\}/.test(st.textContent) && !!h.w.document.querySelector('link[data-sh-font="Press Start 2P"]') && h.w.document.documentElement.getAttribute('data-tenant') === 'liondao', st && st.textContent.slice(0, 200)); }
+{ const h = await header(null, true); ok('header (adao, the default): NO theme injected, no font link — aDAO renders byte for byte as before', !h.w.document.getElementById('sh-tenant-theme') && !h.w.document.querySelector('link[data-sh-font]')); }
+const STAGE = process.env.STAGE_NFTC;
+if (STAGE && fs.existsSync(path.join(STAGE, 'pixel-lions/snapshots/nft-analytics.json'))) {
+  const feed = rj(path.join(STAGE, 'pixel-lions/snapshots/nft-analytics.json'));
+  const lionA = await bootExplorer(app, 'liondao', true, true, STAGE); const T = lionA.analytics || '';
+  ok(`liondao analytics: renders from the staged seed — ${feed.volume.sales_count} sales, all-time volume shown; Floor now + Holders tiles instead of Backing`, /All-time volume/.test(T) && new RegExp(String(feed.volume.sales_count).replace(/(\d)(?=(\d{3})+$)/g, '$1,') + ' sales').test(T) && /Floor now/.test(T) && /Holders/.test(T) && !/Backing \/ NFT/.test(T) && !/Total backing/.test(T), T.slice(0, 400));
+  ok('liondao analytics: floor by tier has a single "All" row (no Broken/Unbroken/Phoenix), the floor-history chart offers no Broken/Phoenix buttons, the supply bar says "DAO held" and has no "DAO broken"', /All/.test(T) && !/Unbroken \(base\)/.test(T) && !/Phoenix/.test(T) && !/Broken/.test(T) && /DAO held/.test(T) && !/DAO broken/.test(T), T.slice(0, 600));
+  const adaoA = await bootExplorer(mainApp, null, false, true); const adaoA2 = await bootExplorer(app, 'adao', true, true);
+  ok('adao analytics: the tab renders the same text as the committed page (backing tiles, three tiers, DAO broken segment)', adaoA2.analytics === adaoA.analytics && /Backing \/ NFT/.test(adaoA2.analytics || '') && /Phoenix/.test(adaoA2.analytics || ''), { main: (adaoA.analytics || '').slice(0, 200), mine: (adaoA2.analytics || '').slice(0, 200), same: adaoA2.analytics === adaoA.analytics });
+} else console.log('  (analytics on PL skipped: STAGE_NFTC with pixel-lions/snapshots/nft-analytics.json not given — run stage-pl.js first)');
 console.log(`  (liondao boots ${lion.n} records — E2 done on the page; E3 lights Pixel Lions (theme, logo, strip, analytics on the seeded products); until then tenants.json says liondao live:false and the header lists it only when selected)`);
 ok('registry: liondao is not live yet (live:false) — the dropdown does not offer a tenant the explorer cannot render', tenants.tenants.liondao.live === false);
 { const h = await header(null, true); ok('header, no pref: the dropdown lists live tenants only → hidden while aDAO is the only live ally (no select shown)', !h.on, h.opts); }

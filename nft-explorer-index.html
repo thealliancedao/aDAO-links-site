@@ -33,7 +33,7 @@
     </script>
     <script src="/_vercel/insights/script.js" defer></script>
 
-    <link rel="stylesheet" href="nft-explorer-style.css?v=6.9">
+    <link rel="stylesheet" href="nft-explorer-style.css?v=7.0">
     
     <!-- CoinGecko Price Widget -->
     <script src="https://widgets.coingecko.com/gecko-coin-price-static-headline-widget.js"></script>
@@ -447,7 +447,7 @@
             <svg id="badge-modal-close" class="modal-close-btn w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             <h2 class="text-2xl font-bold text-white mb-6 text-center">Badge & Status Key</h2>
             <div class="space-y-4">
-                <div class="flex items-center gap-4 p-3 bg-gray-800 rounded-lg">
+                <div class="flex items-center gap-4 p-3 bg-gray-800 rounded-lg" data-feature="break_mechanism">
                     <div class="w-24 flex-shrink-0 flex items-center justify-center">
                          <div class="h-10 w-full flex items-center justify-center" style="background-color: rgba(220, 38, 38, 0.85); color: white; font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">
                             BROKEN
@@ -485,7 +485,7 @@
                     </div>
                     <p class="text-sm">Listed for sale on the Atrium marketplace.</p>
                 </div>
-                 <div class="flex items-center gap-4 p-3 bg-gray-800 rounded-lg">
+                 <div class="flex items-center gap-4 p-3 bg-gray-800 rounded-lg" data-feature="custody">
                     <div class="w-24 flex-shrink-0 flex items-center justify-center">
                         <img src="/assets/images/Alliance%20DAO%20Logo.png" alt="Alliance DAO Logo" class="w-12 h-12 object-contain">
                     </div>
@@ -521,7 +521,7 @@
 
     <canvas id="share-canvas" class="hidden"></canvas>
 
-    <script src="nft-explorer-app.js?v=6.9" defer></script>
+    <script src="nft-explorer-app.js?v=7.0" defer></script>
     <script>
     // Header picker → explorer (step 4). Runs after the deferred app script so its
     // globals (handleFilterChange, searchWallet, switchView) exist.
@@ -548,6 +548,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '4.40', revDate: '2026-09-19', page: 'nft-explorer' });</script>
+<script>SiteFooter.mount({ rev: '4.41', revDate: '2026-09-19', page: 'nft-explorer' });</script>
 </body>
 </html>

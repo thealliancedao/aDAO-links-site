@@ -202,6 +202,7 @@ let COLLECTION_TRAITS = ["Planet", "Inhabitant", "Object", "Weather", "Light"]; 
 let SPLIT_TRAITS = { Planet: [' North', ' South'], Inhabitant: [' M', ' F'] };       // slider-direction traits (name → its two suffixes)
 let FEATURES = { break_mechanism: true, backing: true, phoenix: true, custody: true };
 let LABELS = { unminted: 'Unminted' };
+let COLLECTION_MARK = null, COLLECTION_LABEL = 'The Alliance DAO';   // 4.41: the collection's mark image + label (manifest)
 
 // --- DAO Members Lookup ---
 let addressToMember = {}; // address -> { name, staked, votingPower }
@@ -314,8 +315,10 @@ const showError = (container, message) => { if(container) container.innerHTML = 
 const CLOUDFLARE_CDN_BASE = 'https://imagedelivery.net/v_zOWVQCPb7Xpcbu-gQC1A/alliance_dao';
 const IPFS_GATEWAY = 'https://ipfs.io/ipfs'; // cloudflare-ipfs.com retired 2024 — ipfs.io primary, dweb.link manual fallback
 
+let IMAGE_URL = null;   // 4.41: the collection's image rule from the context (aDAO → the Cloudflare literal below, byte for byte; others → the manifest's cdn_pattern)
 function getImageUrl(nftId, variant = 'public') {
     if (!nftId) return '';
+    if (IMAGE_URL) { const u = IMAGE_URL(nftId, variant); if (u) return u; }
     return `${CLOUDFLARE_CDN_BASE}/${nftId}.png/${variant}`;
 }
 
@@ -628,6 +631,9 @@ async function hydrateFromFull() {
     }
 }
 
+// 4.41 (2026-09-19, E3) — Pixel Lions lit: images from the manifest, analytics tiles/tiers/supply by the collection's features,
+// badge-key entries by feature; the theme and marks ride in the header (site-header 1.11.0) and the context (1.1.0).
+// 4.40 (2026-09-19, E2) — the page is manifest-driven: supply, token name, traits, filters, rank shape, features, labels.
 // 4.39 (2026-09-19) — THE TENANT LAYER: every collection URL, the journey slug and the DAO members file come from
 // lib/collection-context.js (tenants.json + <slug>/collection.json). aDAO resolves to the literals declared above, byte for
 // byte (gate-explorer-tenant.mjs proves it); Lion DAO resolves to pixel-lions/…. Nothing else about the page changes here —
@@ -662,6 +668,10 @@ function applyCollectionContext(ctx) {
     filterLayoutOrder = [...(hasRarityAttr ? ['Rarity'] : []), ...COLLECTION_TRAITS.filter(n => !SPLIT_TRAITS[n])];
     FEATURES = { break_mechanism: !!c.features.break_mechanism, backing: !!c.features.backing, phoenix: !!c.features.phoenix, custody: !!c.features.custody };
     LABELS = { unminted: c.labels.unminted || 'Unminted' };
+    IMAGE_URL = (typeof c.assets.image === 'function') ? c.assets.image : null;   // 4.41
+    // 4.41: badge-key entries that describe a feature this collection lacks (broken/backing, DAO custody) are hidden
+    document.querySelectorAll('[data-feature]').forEach(el => { const k = el.getAttribute('data-feature'); if (k in FEATURES && !FEATURES[k]) el.classList.add('hidden'); });
+    COLLECTION_MARK = c.assets.mark || null; COLLECTION_LABEL = c.label || COLLECTION_LABEL;
     document.documentElement.setAttribute('data-tenant', ctx.tenant.slug);
     document.documentElement.setAttribute('data-collection', c.slug);
     console.log(`tenant: ${ctx.tenant.slug} (${ctx.selected_via}) · collection ${c.slug}${ctx.degraded ? ' · ⚠ ' + ctx.degraded : ''}`);
@@ -2046,6 +2056,8 @@ function buildAnalyticsHtml(A, S, E) {
     const bk = (S && S.backing) || {}; const roy = A.royalties || {};
     let askUsd = 0, listed = 0;
     if (S && S.marketplaces) for (const mk of Object.values(S.marketplaces)) { listed += mk.count || 0; for (const t of Object.values(mk.by_token || {})) askUsd += t.total_usd || 0; }
+    // 4.41: a collection without backing gets the floor + holders where aDAO shows its backing (the manifest decides) — the floor from the page's own live listings
+    const floorNowUsd = (() => { const src = (typeof allNfts !== "undefined" && Array.isArray(allNfts)) ? allNfts : []; const ps = src.filter(n => n.listing && n.listing.price_usd != null).map(n => n.listing.price_usd); return ps.length ? Math.min(...ps) : null; })();
     const tile = (label, big, sub, xkey) => `<div class="${card} ${xkey ? "cursor-pointer" : ""}" ${xkey ? `data-explain="${xkey}" title="Click: how this is computed"` : ""}><div class="text-xs uppercase tracking-wider text-gray-400">${label}${xkey ? ' <span class="text-gray-600">&#9432;</span>' : ""}</div><div class="text-2xl font-bold text-white mt-1">${big}</div><div class="text-xs text-gray-500 mt-0.5">${sub}</div></div>`;
     // Hero sentence (Rev 4.24): one line that reads the whole tab, written FROM
     // the products — never a static caption. Honest about quiet markets: when
@@ -2070,8 +2082,10 @@ function buildAnalyticsHtml(A, S, E) {
         } catch (e) { return ''; }
     })();
     const tiles = heroSentence + `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-      ${tile("Backing / NFT", `${(+bk.per_nft_ampluna || 0).toFixed(2)} <span class='text-base text-cyan-300'>ampLUNA</span>`, `${fmtUsd(bk.per_nft_value_usd)} · ${fmtNum(bk.unbroken_count)} unbroken`, "backing_nft")}
-      ${tile("Total backing", fmtUsdFull(bk.treasury_value_usd), `${fmtNum(bk.ampluna_balance)} ampLUNA in vault`, "total_backing")}
+      ${FEATURES.backing ? tile("Backing / NFT", `${(+bk.per_nft_ampluna || 0).toFixed(2)} <span class='text-base text-cyan-300'>ampLUNA</span>`, `${fmtUsd(bk.per_nft_value_usd)} · ${fmtNum(bk.unbroken_count)} unbroken`, "backing_nft")
+                        : tile("Floor now", fmtUsd(floorNowUsd), floorNowUsd != null ? `cheapest live ask · ${fmtNum(listed)} listed` : "no live listings")}
+      ${FEATURES.backing ? tile("Total backing", fmtUsdFull(bk.treasury_value_usd), `${fmtNum(bk.ampluna_balance)} ampLUNA in vault`, "total_backing")
+                        : tile("Holders", fmtNum(S && S.unique_holders), S && S.dao_members_count != null ? `${fmtNum(S.dao_members_count)} DAO stakers` : "")}
       ${tile("Royalties → DAO", roy.royalty_luna != null ? `${fmtNum(Math.round(roy.royalty_luna))} <span class="text-base text-cyan-300">LUNA</span>` : "—", roy.royalty_luna != null ? `${fmtUsd(roy.royalty_usd_today)} at today’s price · ${fmtNum(roy.sales_with_royalty)} royalty-paying sales` : "awaiting next warm capture")}
       ${tile("Listed now", fmtNum(listed), `${fmtUsd(askUsd)} ask-side liquidity`)}
     </div>`;
@@ -2107,10 +2121,10 @@ function buildAnalyticsHtml(A, S, E) {
         <div class="mt-3">${segBar([
             { l: "Staked", v: sup.staked, c: "#22d3ee" },
             { l: "Unclaimed (custody)", v: sup.pending, c: "#67e8f9" },
-            { l: "DAO broken", v: sup.daoBroken, c: "#f59e0b" },
+            ...(FEATURES.custody ? [{ l: "DAO broken", v: sup.daoBroken, c: "#f59e0b" }] : []),
             { l: "Float", v: sup.float, c: "#34d399" },
             { l: "Listed", v: sup.listedN, c: "#a78bfa" },
-            { l: "Unminted", v: sup.unminted, c: "#374151" }
+            { l: LABELS.unminted, v: sup.unminted, c: "#374151" }
         ])}</div></div>`;
 
     // --- Governance concentration (DAODAO VP) ---
@@ -2210,9 +2224,9 @@ function buildAnalyticsHtml(A, S, E) {
     const floorCard = `<div class="${card} mb-4">${h("Floor by tier", "listing floor vs what actually sells")}
       <div class="grid grid-cols-6 gap-2 text-[11px] uppercase tracking-wider text-gray-500 pb-1">
         <span>Tier</span><span class="text-center">Listed</span><span class="text-center">Listing floor</span><span class="text-center">Sales floor</span><span class="text-center">Mark</span><span class="text-center">Spread</span></div>
-      ${tierRow("Broken", "broken")}
-      ${tierRow("Unbroken (base)", "base")}
-      ${tierRow("Phoenix", "phoenix")}
+      ${FEATURES.break_mechanism ? tierRow("Broken", "broken") : ""}
+      ${tierRow(FEATURES.break_mechanism ? "Unbroken (base)" : "All", "base")}
+      ${FEATURES.phoenix ? tierRow("Phoenix", "phoenix") : ""}
       <div class="text-[11px] text-gray-600 mt-3">Sales floor = median of recent sales in that tier (USD at sale, tiered by break timestamps). Mark = midpoint of sales floor and listing floor (market-maker mid) — market cap above = Σ tier mark × supply. Spread = listing floor vs sales floor — a deep negative spread means the cheapest listing sits far below real trading prices. Backing reference: ${bkUsd ? fmtUsd(bkUsd) : "—"}/NFT. Sales are classified by the NFT's current broken state.</div></div>`;
 
     // --- Floor history (sales-derived; listing-floor overlay arrives with listing backfill) ---
@@ -2226,7 +2240,7 @@ function buildAnalyticsHtml(A, S, E) {
       <div class="flex items-baseline justify-between mb-3 flex-wrap gap-2">
         <h3 class="text-cyan-400 font-bold">Floor history <span class="text-xs text-gray-500 font-normal">from actual sales</span></h3>
         <div class="flex items-center gap-2 text-xs">
-          <span class="inline-flex rounded-md overflow-hidden border border-gray-600">${fpBtn("av-fp-tier", "broken", "Broken")}${fpBtn("av-fp-tier", "base", "Base")}${fpBtn("av-fp-tier", "phoenix", "Phoenix")}</span>
+          <span class="inline-flex rounded-md overflow-hidden border border-gray-600">${FEATURES.break_mechanism ? fpBtn("av-fp-tier", "broken", "Broken") : ""}${fpBtn("av-fp-tier", "base", FEATURES.break_mechanism ? "Base" : "All")}${FEATURES.phoenix ? fpBtn("av-fp-tier", "phoenix", "Phoenix") : ""}</span>
           <span class="inline-flex rounded-md overflow-hidden border border-gray-600">${fpBtn("av-fp-gran", "weekly", "12W")}${fpBtn("av-fp-gran", "monthly", "12M")}</span>
           <span class="inline-flex rounded-md overflow-hidden border border-gray-600"><button type="button" class="av-fp-scale av-scale-btn" data-scale="linear">linear</button><button type="button" class="av-fp-scale av-scale-btn" data-scale="log">log</button></span>
           <button id="av-fp-luna" type="button" class="av-scale-btn active rounded-md border border-gray-600">LUNA</button>
