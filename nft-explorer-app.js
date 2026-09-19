@@ -131,13 +131,13 @@ let walletMobileSearchMode = 'full';
 
 
 // --- Config ---
-const METADATA_URL = "/assets/nft-metadata/all_nfts_metadata.json";  // served from this repo (Vercel edge-cached); was jsDelivr → defipatriot/nft-metadata
-const STATUS_DATA_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/nfts.json";
-const BUNDLE_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/explorer-bundle.json"; // 442KB first-paint product (perf part 2)
+let METADATA_URL = "/assets/nft-metadata/all_nfts_metadata.json";  // served from this repo (Vercel edge-cached); was jsDelivr → defipatriot/nft-metadata
+let STATUS_DATA_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/nfts.json";
+let BUNDLE_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/explorer-bundle.json"; // 442KB first-paint product (perf part 2)
 
 // Canonical rarity files (/assets/nft-metadata/, migrated from defipatriot 2026-08-09) — ranks come ONLY from these.
-const RARITY_INTENDED_URL = "/assets/nft-metadata/adao-rarity-intended.json";
-const RARITY_BBL_URL = "/assets/nft-metadata/adao-rarity-bbl.json";
+let RARITY_INTENDED_URL = "/assets/nft-metadata/adao-rarity-intended.json";
+let RARITY_BBL_URL = "/assets/nft-metadata/adao-rarity-bbl.json";
 // Active rank system: 'intended' (default) or 'bbl'. Persisted per session.
 let rankMode = sessionStorage.getItem('adao_rank_mode') === 'bbl' ? 'bbl' : 'intended';
 let bblRarityBuilt = null; // BBL file top-level `built` — "last time BBL ranks moved"
@@ -149,7 +149,7 @@ const rankDisplay = (nft) => {
     const r = getActiveRank(nft);
     return r == null ? `Rarity ${grade}, Unranked` : `Rarity ${grade}, Rank ${r}`;
 };
-const MEMBERS_CSV_URL = "https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/members.csv";
+let MEMBERS_CSV_URL = "https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/members.csv";
 const DAO_WALLET_ADDRESS = "terra1sffd4efk2jpdt894r04qwmtjqrrjfc52tmj6vkzjxqhd8qqu2drs3m5vzm";
 const EXPECTED_TOTAL_NFTS = 10000; // Fixed collection size — used to hard-fail on a truncated/partial feed.
 
@@ -615,7 +615,32 @@ async function hydrateFromFull() {
     }
 }
 
+// 4.39 (2026-09-19) — THE TENANT LAYER: every collection URL, the journey slug and the DAO members file come from
+// lib/collection-context.js (tenants.json + <slug>/collection.json). aDAO resolves to the literals declared above, byte for
+// byte (gate-explorer-tenant.mjs proves it); Lion DAO resolves to pixel-lions/…. Nothing else about the page changes here —
+// the manifest-driven filters, feature gating and the second collection are the next deliveries.
+let TENANT_CTX = null;
+function applyCollectionContext(ctx) {
+    const c = ctx && ctx.primary; if (!c) return;
+    TENANT_CTX = ctx;
+    STATUS_DATA_URL = c.url('snapshots/nfts.json');
+    BUNDLE_URL = c.url('snapshots/explorer-bundle.json');
+    ANALYTICS_URL = c.url('snapshots/nft-analytics.json');
+    ANALYTICS_SUMMARY_URL = c.url('snapshots/summary.json');
+    ANALYTICS_ENRICHED_URL = c.url('snapshots/sales-enriched.json');
+    BROKEN_AT_URL = c.url('snapshots/broken-at.json');
+    LISTING_HISTORY_URL = c.url('snapshots/listing-history.json');
+    if (c.assets.metadata) METADATA_URL = c.assets.metadata;
+    if (c.assets.rarity) RARITY_INTENDED_URL = c.assets.rarity;
+    RARITY_BBL_URL = c.assets.rarity_secondary || RARITY_BBL_URL;
+    const dao = (ctx.tenant.daos || [])[0]; if (dao) MEMBERS_CSV_URL = `https://raw.githubusercontent.com/thealliancedao/dao-originations/main/${dao}/governance/members.csv`;
+    JOURNEY.slug = c.slug;
+    document.documentElement.setAttribute('data-tenant', ctx.tenant.slug);
+    document.documentElement.setAttribute('data-collection', c.slug);
+    console.log(`tenant: ${ctx.tenant.slug} (${ctx.selected_via}) · collection ${c.slug}${ctx.degraded ? ' · ⚠ ' + ctx.degraded : ''}`);
+}
 const initializeExplorer = async () => {
+    try { if (typeof CollectionContext !== 'undefined') applyCollectionContext(await CollectionContext.load()); } catch (e) { console.warn('tenant context unavailable — aDAO literals in force:', e.message); }
     showLoading(gallery, 'Loading collection metadata...');
     showLoading(leaderboardTable, 'Loading holder data...');
     showLoading(walletGallery, 'Search for or select a wallet to see owned NFTs.');
@@ -1525,14 +1550,14 @@ function switchView(viewName, fromHistory = false) {
 //   data/v2/summary.json         (backing + marketplace listing state)
 //   data/v2/sales-enriched.json  (per-sale, for highest/biggest sales)
 // ============================================================================
-const ANALYTICS_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/nft-analytics.json";
-const ANALYTICS_SUMMARY_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/summary.json";
-const ANALYTICS_ENRICHED_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/sales-enriched.json";
-const BROKEN_AT_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/broken-at.json";
+let ANALYTICS_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/nft-analytics.json";
+let ANALYTICS_SUMMARY_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/summary.json";
+let ANALYTICS_ENRICHED_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/sales-enriched.json";
+let BROKEN_AT_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/broken-at.json";
 // 2026-08-25: listing-history.json = every marketplace listing since 2023-12 with its price segments (BBL price
 // changes are cancel+recreate). The band builder was written for it; the constant pointed at the cron's
 // first-seen log (no `records`), so the listing bars silently never drew.
-const LISTING_HISTORY_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/listing-history.json";
+let LISTING_HISTORY_URL = "https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/listing-history.json";
 // 4.34 (2026-09-18, owner): past prices come from THE org oracle — tla-core/price-history, one series per symbol (derived
 // by token-catalog from the month files). The per-collection luna/bluna-usd-daily copies are retired.
 const LUNA_ORACLE_URL = "https://raw.githubusercontent.com/thealliancedao/tla-core/main/price-history/series/LUNA.json";
@@ -3819,8 +3844,8 @@ const loadListingAges = async () => {
         catch { return null; }
     };
     const [hist, seen] = await Promise.all([
-        grab('https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/listing-history.json'),
-        grab('https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/listing-first-seen.json'),
+        grab(LISTING_HISTORY_URL),                                   // 4.39: through the tenant layer (was the aDAO literal)
+        grab(LISTING_HISTORY_URL.replace(/listing-history\.json$/, 'listing-first-seen.json')),
     ]);
     for (const rec of ((hist && hist.records) || [])) {
         if (rec.outcome !== 'active') continue;

@@ -1,0 +1,110 @@
+#!/usr/bin/env node
+// gate-explorer-tenant.mjs — E1, the tenant layer (lib/collection-context.js 1.0.0 · site-header 1.10.0 · explorer 4.39).
+//   1. From the REAL registry (tla-core/docs/curated/tenants.json + adao/collection.json), the aDAO context reproduces every
+//      collection URL the committed explorer used as a literal — read from the committed app.js on main (MAIN_SITE_DIR), never
+//      typed here. The fallback block reproduces the same URLs and the same feature flags: the site never blanks, never lies.
+//   2. Lion DAO → primary pixel-lions: every URL under pixel-lions/, metadata + rarity from the manifest, no backing / break /
+//      tiers / custody, Enterprise legacy yes, traits Back … Prop, "DAO held" instead of "Unminted".
+//   3. pickTenant precedence: ?tenant= → /<slug> path → device pref → the registry's default; a URL choice becomes the pref.
+//   4. The header under jsdom: aDAO renders first (no dropdown until the registry answers); with the registry, a 2-option select,
+//      the logo swaps to the tenant's mark for liondao and stays aDAO for adao; a change calls CollectionContext.select.
+//   5. The explorer under jsdom: booted as adao, the set of nft-collections URLs it requests == the set the committed 4.38 page
+//      requests (same fixture, same stubs) — behaviour byte-identical; booted as liondao, every nft-collections URL is under
+//      pixel-lions/ and the journey slug is pixel-lions.
+// Usage: NFTC_DIR=<nft-collections> TLA_CORE_DIR=<tla-core> MAIN_SITE_DIR=<aDAO-links-site main checkout> node gate-explorer-tenant.mjs
+import { JSDOM } from 'jsdom'; import fs from 'fs'; import path from 'path'; import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const NFTC = process.env.NFTC_DIR, CORE = process.env.TLA_CORE_DIR, MAIN = process.env.MAIN_SITE_DIR;
+if (!NFTC || !CORE || !MAIN) { console.error('NFTC_DIR, TLA_CORE_DIR and MAIN_SITE_DIR required'); process.exit(1); }
+let pass = 0, fail = 0; const ok = (m, c, x) => { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++; console.log('  ✗ ' + m + (x !== undefined ? ' → ' + JSON.stringify(x).slice(0, 400) : '')); } };
+const rj = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
+const CC = require(path.resolve('lib/collection-context.js'));
+const tenants = rj(path.join(CORE, 'docs/curated/tenants.json'));
+const manifests = { adao: rj(path.join(NFTC, 'adao/collection.json')), 'pixel-lions': rj(path.join(NFTC, 'pixel-lions/collection.json')) };
+const NFTC_U = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/', CORE_U = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/';
+const mainApp = fs.readFileSync(path.join(MAIN, 'nft-explorer-app.js'), 'utf8');
+const lit = (name) => (mainApp.match(new RegExp('^(?:const|let) ' + name + ' = "([^"]+)"', 'm')) || [])[1];
+
+console.log('\n== 1. the registry reproduces the committed aDAO literals ==');
+const A = await CC.load({ tenant: 'adao', tenants, manifests });
+const a = A.primary;
+const expect = { 'snapshots/nfts.json': lit('STATUS_DATA_URL'), 'snapshots/explorer-bundle.json': lit('BUNDLE_URL'), 'snapshots/nft-analytics.json': lit('ANALYTICS_URL'), 'snapshots/summary.json': lit('ANALYTICS_SUMMARY_URL'), 'snapshots/sales-enriched.json': lit('ANALYTICS_ENRICHED_URL'), 'snapshots/broken-at.json': lit('BROKEN_AT_URL'), 'snapshots/listing-history.json': lit('LISTING_HISTORY_URL') };
+ok('every literal read from the committed app.js (7 collection URLs + metadata + 2 rarity files + members.csv)', Object.values(expect).every(Boolean) && lit('METADATA_URL') && lit('RARITY_INTENDED_URL') && lit('RARITY_BBL_URL') && lit('MEMBERS_CSV_URL'), expect);
+ok('aDAO context: the 7 snapshot URLs == the committed literals, byte for byte', Object.entries(expect).every(([rel, u]) => a.url(rel) === u), Object.entries(expect).filter(([rel, u]) => a.url(rel) !== u));
+ok('aDAO context: metadata + rarity stay on the site\'s edge-served assets (the literals), members.csv from the tenant\'s first DAO', a.assets.metadata === lit('METADATA_URL') && a.assets.rarity === lit('RARITY_INTENDED_URL') && a.assets.rarity_secondary === lit('RARITY_BBL_URL') && `https://raw.githubusercontent.com/thealliancedao/dao-originations/main/${A.tenant.daos[0]}/governance/members.csv` === lit('MEMBERS_CSV_URL'), [a.assets, A.tenant.daos]);
+ok('aDAO context: features from the manifest — backing ampLUNA, break mechanism, phoenix tier, custody, Enterprise, portfolio, name registry', a.features.backing && a.features.backing_symbol === 'ampLUNA' && a.features.break_mechanism && a.features.phoenix && a.features.custody && a.features.enterprise && a.features.member_portfolio && a.features.name_registry, a.features);
+ok('aDAO context: traits Planet · Inhabitant · Object · Weather · Light (Rarity is a computed column), venues bbl/atrium/boost, supply 10000, label "Unminted"', JSON.stringify(a.traits) === JSON.stringify(['Planet', 'Inhabitant', 'Object', 'Weather', 'Light']) && JSON.stringify(a.venues) === JSON.stringify(['bbl', 'atrium', 'boost']) && a.supply === 10000 && a.labels.unminted === 'Unminted', [a.traits, a.venues, a.supply, a.labels]);
+ok('tenant block: logo is a file the site serves', fs.existsSync(path.join('.', decodeURIComponent(A.tenant.logo))), A.tenant.logo);
+{ const F = await CC.load({ tenant: 'adao', tenants: CC.ADAO_FALLBACK, manifests: CC.ADAO_FALLBACK.manifests }); const f = F.primary;
+  const same = ['slug', 'supply', 'contract'].every(k => JSON.stringify(f[k]) === JSON.stringify(a[k])) && JSON.stringify(f.features) === JSON.stringify(a.features) && JSON.stringify(f.traits) === JSON.stringify(a.traits) && JSON.stringify(f.venues) === JSON.stringify(a.venues) && JSON.stringify(f.assets) === JSON.stringify(a.assets) && JSON.stringify(f.labels) === JSON.stringify(a.labels) && Object.keys(expect).every(rel => f.url(rel) === a.url(rel));
+  ok('the fallback block (registry unreachable) === the registry-driven aDAO context: slug, supply, contract, features, traits, venues, assets, labels, URLs', same, { f: [f.features, f.traits, f.assets], a: [a.features, a.traits, a.assets] });
+  ok('the fallback tenant block === tenants.json adao (label, short, logo, collections, daos, theme)', ['label', 'short', 'logo', 'collections', 'daos', 'theme'].every(k => JSON.stringify(CC.ADAO_FALLBACK.tenants.adao[k]) === JSON.stringify(tenants.tenants.adao[k])), [CC.ADAO_FALLBACK.tenants.adao, tenants.tenants.adao]); }
+
+console.log('\n== 2. Lion DAO → pixel-lions ==');
+const L = await CC.load({ tenant: 'liondao', tenants, manifests });
+const p = L.primary;
+ok('primary = pixel-lions (tenants.json order), one collection today, tenant label/logo/theme from the registry', p && p.slug === 'pixel-lions' && L.collections.length === tenants.tenants.liondao.collections.length && L.tenant.label === 'Lion DAO' && /ROAR_LOGO/.test(L.tenant.logo) && L.tenant.theme && L.tenant.theme.accent, L.tenant);
+ok('every snapshot URL under pixel-lions/', Object.keys(expect).every(rel => p.url(rel) === NFTC_U + 'pixel-lions/' + rel));
+ok('metadata + rarity from the manifest (nft-collections), no secondary rarity, images from the manifest cdn_pattern', p.assets.metadata === NFTC_U + 'pixel-lions/metadata/metadata.json' && p.assets.rarity === NFTC_U + 'pixel-lions/rarity/rarity.json' && p.assets.rarity_secondary === null && /ipfs/.test(p.assets.image('12')) && /\/12\.png$/.test(p.assets.image('12')), p.assets);
+ok('features: no backing, no break, no tiers, no custody; Enterprise legacy yes; portfolio off; no name registry', !p.features.backing && !p.features.break_mechanism && p.features.tiers.length === 0 && !p.features.custody && p.features.enterprise && !p.features.member_portfolio && !p.features.name_registry, p.features);
+ok('traits Back · Body · Eyes · Face · Mane · Prop, venues bbl/atrium/boost, supply 5000, a token in the DAO core is "DAO held"', JSON.stringify(p.traits) === JSON.stringify(['Back', 'Body', 'Eyes', 'Face', 'Mane', 'Prop']) && JSON.stringify(p.venues) === JSON.stringify(['bbl', 'atrium', 'boost']) && p.supply === 5000 && p.labels.unminted === 'DAO held', [p.traits, p.venues, p.supply, p.labels]);
+ok('tenant logo is a file the site serves', fs.existsSync(path.join('.', decodeURIComponent(L.tenant.logo))), L.tenant.logo);
+
+console.log('\n== 3. pickTenant precedence ==');
+{ const T = tenants.tenants; const set = (loc, prefs) => { globalThis.location = loc; globalThis.localStorage = { _s: prefs ? JSON.stringify(prefs) : null, getItem() { return this._s; }, setItem(k, v) { this._s = v; } }; };
+  set({ search: '?tenant=liondao', pathname: '/nft-explorer-index.html' }, { tenant: 'adao' }); ok('?tenant= wins over the device pref and becomes the pref', CC.pickTenant(T).slug === 'liondao' && JSON.parse(globalThis.localStorage._s).tenant === 'liondao');
+  set({ search: '', pathname: '/liondao' }, null); ok('/liondao (the Vercel rewrite path) selects liondao and becomes the pref', CC.pickTenant(T).slug === 'liondao' && JSON.parse(globalThis.localStorage._s).tenant === 'liondao');
+  set({ search: '', pathname: '/index.html' }, { tenant: 'liondao' }); ok('no URL choice → the device pref', CC.pickTenant(T).slug === 'liondao' && CC.pickTenant(T).via === 'prefs');
+  set({ search: '', pathname: '/index.html' }, null); ok('nothing chosen → the registry default (adao)', CC.pickTenant(T).slug === 'adao' && CC.pickTenant(T).via === 'default');
+  set({ search: '?tenant=nope', pathname: '/nope' }, { tenant: 'nope' }); ok('an unknown tenant anywhere → the default, never a blank', CC.pickTenant(T).slug === 'adao');
+  delete globalThis.location; delete globalThis.localStorage; }
+
+console.log('\n== 4. the header under jsdom ==');
+const headerLib = fs.readFileSync('lib/site-header.js', 'utf8'), ctxLib = fs.readFileSync('lib/collection-context.js', 'utf8');
+async function header(prefTenant, registryUp) {
+  const dom = new JSDOM('<!doctype html><html><head></head><body><div id="site-header"></div></body></html>', { url: 'https://thealliancedao.com/index.html', runScripts: 'outside-only', pretendToBeVisual: true });
+  const w = dom.window; w.matchMedia = () => ({ matches: false, addListener() {}, addEventListener() {} });
+  if (prefTenant) w.localStorage.setItem('ally:prefs', JSON.stringify({ tenant: prefTenant }));
+  w.fetch = (u) => { const url = String(u).split('?')[0]; if (url === CC.TENANTS_URL && registryUp) return Promise.resolve({ ok: true, json: async () => tenants }); let f = null; if (url.startsWith(NFTC_U)) f = path.join(NFTC, url.slice(NFTC_U.length)); if (f && fs.existsSync(f)) return Promise.resolve({ ok: true, json: async () => rj(f) }); return Promise.resolve({ ok: false, status: 404, json: async () => { throw new Error('404'); } }); };
+  w.eval(ctxLib); w.eval(headerLib); w.SiteHeader.mount({ page: 'index' });
+  await new Promise(r => setTimeout(r, 300));
+  const el = w.document.querySelector('#site-header'); const sel = el.querySelector('.sh-tenant'); const img = el.querySelector('.sh-logo img');
+  return { w, el, sel, img, opts: sel ? [...sel.options].map(o => o.value) : null, on: sel && sel.classList.contains('sh-on') };
+}
+{ const live = JSON.parse(JSON.stringify(tenants)); live.tenants.liondao.live = true; const saved = tenants.tenants.liondao.live; tenants.tenants.liondao.live = true;
+  const h = await header(null, true); tenants.tenants.liondao.live = saved;
+  ok('registry up (liondao live), no pref: aDAO logo, dropdown shown with both tenants, adao selected', /Alliance%20DAO%20Logo/.test(h.img.getAttribute('src')) && h.on && JSON.stringify(h.opts) === JSON.stringify(Object.keys(tenants.tenants)) && h.sel.value === 'adao' && h.el.getAttribute('data-sh-tenant') === 'adao', [h.img.getAttribute('src'), h.opts, h.sel.value]);
+  let picked = null; h.w.CollectionContext.select = (s) => { picked = s; }; h.sel.value = 'liondao'; h.sel.dispatchEvent(new h.w.Event('change')); ok('choosing Lion DAO calls CollectionContext.select("liondao") (remembers + reloads)', picked === 'liondao', picked); }
+{ const h = await header('liondao', true); ok('pref liondao (selected though not live): the logo swaps to the ROAR mark, alt "Lion DAO", the dropdown shows it so the tester can switch back', /ROAR_LOGO/.test(h.img.getAttribute('src')) && h.img.getAttribute('alt') === 'Lion DAO' && h.on && h.sel.value === 'liondao' && h.el.getAttribute('data-sh-tenant') === 'liondao', [h.img.getAttribute('src'), h.img.getAttribute('alt'), h.opts]); }
+{ const h = await header('liondao', false); ok('registry unreachable: the header still renders aDAO, no dropdown (one ally known), nothing blank', /Alliance%20DAO%20Logo/.test(h.img.getAttribute('src')) && !h.on, [h.img.getAttribute('src'), h.on]); }
+
+console.log('\n== 5. the explorer under jsdom: same URL set as the committed page (adao) · pixel-lions (liondao) ==');
+const html = fs.readFileSync('nft-explorer-index.html', 'utf8'), app = fs.readFileSync('nft-explorer-app.js', 'utf8');
+ok('html loads /lib/collection-context.js before the app; app + style cache-busted together; footer rev ≥ 4.39', html.indexOf('/lib/collection-context.js') !== -1 && html.indexOf('/lib/collection-context.js') < html.indexOf('nft-explorer-app.js?v=') && (html.match(/nft-explorer-app\.js\?v=([\d.]+)/) || [])[1] === (html.match(/nft-explorer-style\.css\?v=([\d.]+)/) || [])[1] && Number((html.match(/rev: '([\d.]+)'/) || [])[1]) >= 4.39);
+ok('app: no aDAO snapshot literal is fetched inline any more (every collection read goes through the *_URL variables)', !/fetch\(['"`]https:\/\/raw\.githubusercontent\.com\/thealliancedao\/nft-collections\/main\/adao/.test(app) && !/grab\('https:\/\/raw/.test(app));
+async function bootExplorer(appSrc, tenant, withCtx) {
+  const seen = new Set();
+  let pageHtml = html.replace(/<link[^>]+>/g, '').replace(/<script src="[^"]*"><\/script>/g, '').replace(/<script src="nft-explorer-app.js[^"]*" defer><\/script>/, '');
+  const stub = (w) => { w.matchMedia = () => ({ matches: false, addListener() {}, addEventListener() {} }); w.scrollTo = () => {}; w.requestAnimationFrame = (f) => setTimeout(f, 0); w.IntersectionObserver = class { observe() {} disconnect() {} unobserve() {} }; w.ResizeObserver = class { observe() {} disconnect() {} unobserve() {} };
+    w.SiteHeader = { mount() {}, init() {}, subnav() {}, setActive() {} }; w.SiteFooter = { mount() {} }; w.AddressPicker = { mount() {}, init() {} }; w.CronRegistry = { fetchAll: async () => [], summarize: () => ({ counts: {}, overall: 'ok' }), render() {} };
+    w.fetch = (u) => { const url = String(u).split('?')[0]; seen.add(url); if (url === CC.TENANTS_URL) return Promise.resolve({ ok: true, status: 200, json: async () => tenants }); let f = null; if (url.startsWith(NFTC_U)) f = path.join(NFTC, url.slice(NFTC_U.length)); else if (url.startsWith(CORE_U)) f = path.join(CORE, url.slice(CORE_U.length)); else if (url.startsWith('https://thealliancedao.com/assets/')) f = path.join('.', url.slice('https://thealliancedao.com'.length));
+      if (f && fs.existsSync(f)) { const t = fs.readFileSync(f, 'utf8'); return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(JSON.parse(t)), text: () => Promise.resolve(t) }); }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.reject(new Error('404 ' + url)), text: () => Promise.resolve('') }); }; };
+  const dom = new JSDOM(pageHtml, { url: 'https://thealliancedao.com/nft-explorer-index.html', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse: stub });
+  const w = dom.window; if (tenant) w.localStorage.setItem('ally:prefs', JSON.stringify({ tenant }));
+  w.eval(fs.readFileSync('lib/nft-history.js', 'utf8')); if (withCtx) w.eval(ctxLib);
+  w.eval(appSrc + "\n;window.__g = { slug: () => (typeof JOURNEY !== 'undefined' ? JOURNEY.slug : null), n: () => (typeof allNfts !== 'undefined' ? allNfts.length : 0) };");
+  w.document.dispatchEvent(new w.Event('DOMContentLoaded', { bubbles: true })); w.dispatchEvent(new w.Event('load'));
+  await new Promise(r => setTimeout(r, 12000));
+  const urls = [...seen].filter(u => u.startsWith(NFTC_U) && !/\/collection\.json$/.test(u)).sort();   // the manifest read is the registry, not a product; compared separately
+  const manifestReads = [...seen].filter(u => /nft-collections\/main\/[^/]+\/collection\.json$/.test(u)); const r = { urls, manifestReads, slug: w.__g.slug(), n: w.__g.n(), tenant: w.document.documentElement.getAttribute('data-tenant') }; w.close(); return r;
+}
+const base = await bootExplorer(mainApp, null, false);
+const mine = await bootExplorer(app, 'adao', true);
+ok(`adao: the 4.39 page requests exactly the nft-collections product URL set the committed 4.38 page requests (${base.urls.length} URLs) plus adao/collection.json (the registry), journey slug adao, data-tenant adao, ${base.n} records both`, JSON.stringify(mine.urls) === JSON.stringify(base.urls) && JSON.stringify(mine.manifestReads) === JSON.stringify([NFTC_U + 'adao/collection.json']) && base.manifestReads.length === 0 && mine.slug === 'adao' && mine.tenant === 'adao' && mine.n === base.n, { onlyMain: base.urls.filter(u => !mine.urls.includes(u)), onlyMine: mine.urls.filter(u => !base.urls.includes(u)), manifests: mine.manifestReads, n: [base.n, mine.n] });
+const lion = await bootExplorer(app, 'liondao', true);
+ok(`liondao: every nft-collections URL the page requests is under pixel-lions/ (${lion.urls.length} URLs), journey slug pixel-lions, data-tenant liondao`, lion.urls.length > 0 && lion.urls.every(u => u.startsWith(NFTC_U + 'pixel-lions/')) && JSON.stringify(lion.manifestReads) === JSON.stringify([NFTC_U + 'pixel-lions/collection.json']) && lion.slug === 'pixel-lions' && lion.tenant === 'liondao', { urls: lion.urls, slug: lion.slug });
+console.log(`  (liondao boots ${lion.n} records today — the page still asserts aDAO's supply on the bundle and needs the BBL rarity file: E2 makes it manifest-driven, E3 lights Pixel Lions; until then tenants.json says liondao live:false and the header lists it only when selected)`);
+ok('registry: liondao is not live yet (live:false) — the dropdown does not offer a tenant the explorer cannot render', tenants.tenants.liondao.live === false);
+{ const h = await header(null, true); ok('header, no pref: the dropdown lists live tenants only → hidden while aDAO is the only live ally (no select shown)', !h.on, h.opts); }
+console.log(`\n=== GATE explorer-tenant: ${pass} passed, ${fail} failed ===`); process.exit(fail ? 1 : 0);

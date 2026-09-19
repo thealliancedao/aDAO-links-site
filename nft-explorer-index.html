@@ -33,7 +33,7 @@
     </script>
     <script src="/_vercel/insights/script.js" defer></script>
 
-    <link rel="stylesheet" href="nft-explorer-style.css?v=6.7">
+    <link rel="stylesheet" href="nft-explorer-style.css?v=6.8">
     
     <!-- CoinGecko Price Widget -->
     <script src="https://widgets.coingecko.com/gecko-coin-price-static-headline-widget.js"></script>
@@ -52,6 +52,7 @@
     <script src="/lib/site-header.js"></script>
     <script src="/lib/address-picker.js"></script>
     <script src="/lib/nft-history.js?v=1.2.1"></script>
+    <script src="/lib/collection-context.js?v=1.0.0"></script>
     <script>SiteHeader.mount({ page: 'nft-explorer-index' });</script>
     <script>
     (function () {
@@ -520,7 +521,7 @@
 
     <canvas id="share-canvas" class="hidden"></canvas>
 
-    <script src="nft-explorer-app.js?v=6.7" defer></script>
+    <script src="nft-explorer-app.js?v=6.8" defer></script>
     <script>
     // Header picker → explorer (step 4). Runs after the deferred app script so its
     // globals (handleFilterChange, searchWallet, switchView) exist.
@@ -547,6 +548,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '4.38', revDate: '2026-09-18', page: 'nft-explorer' });</script>
+<script>SiteFooter.mount({ rev: '4.39', revDate: '2026-09-19', page: 'nft-explorer' });</script>
 </body>
 </html>

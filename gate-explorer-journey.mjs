@@ -33,7 +33,8 @@ console.log(`fixture: by-token shards ${staged ? 'STAGED from the ledger month f
 const NFTC_U = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/', CORE_U = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/';
 // --- static checks
 const html = fs.readFileSync('nft-explorer-index.html', 'utf8'); const css = fs.readFileSync('nft-explorer-style.css', 'utf8'); const app = fs.readFileSync('nft-explorer-app.js', 'utf8');
-ok('html: modal has #modal-journey, loads /lib/nft-history.js, app + style cache-busted to 6.7, footer rev 4.38', html.includes('id="modal-journey"') && html.includes('/lib/nft-history.js?v=1.2.1') && html.includes('nft-explorer-app.js?v=6.7') && html.includes('nft-explorer-style.css?v=6.7') && html.includes("rev: '4.38'"));
+{ const av = (html.match(/nft-explorer-app\.js\?v=([\d.]+)/) || [])[1], sv = (html.match(/nft-explorer-style\.css\?v=([\d.]+)/) || [])[1], rv = (html.match(/rev: '([\d.]+)'/) || [])[1];   // 4.39: relations, not literals frozen on the writing day
+  ok(`html: modal has #modal-journey, loads /lib/nft-history.js, app + style cache-busted together (${sv}/${av}), footer rev ${rv} ≥ 4.38`, html.includes('id="modal-journey"') && html.includes('/lib/nft-history.js?v=1.2.1') && av && sv && av === sv && rv && Number(rv) >= 4.38, [av, sv, rv]); }
 ok('css: journey rules (tones, gap marker, collapsed admin rows)', /\.journey li\.jr-sale::before/.test(css) && /\.journey li\.jr-gap \.jr-h::before/.test(css) && /\.journey\.jr-collapsed li\.jr-admin/.test(css));
 ok('app: showNftDetails hands off to journeyInto; shard path from NftHistory.shardOf (no hand rule in the page)', /journeyInto\(nft\);/.test(app) && /NftHistory\.shardOf\(/.test(app) && !/Math\.floor\(Number\(id\) \/ 100\)/.test(app));
 // --- the lib on its own, on the real rows (values, not "something renders")

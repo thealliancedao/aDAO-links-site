@@ -74,5 +74,11 @@
     }
    ]
   }
+ ],
+ "rewrites": [
+  {
+   "source": "/liondao",
+   "destination": "/index.html"
+  }
  ]
 }
