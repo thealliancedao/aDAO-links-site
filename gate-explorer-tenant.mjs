@@ -1,5 +1,9 @@
 #!/usr/bin/env node
-// gate-explorer-tenant.mjs — E1, the tenant layer (lib/collection-context.js 1.0.0 · site-header 1.10.0 · explorer 4.39).
+// gate-explorer-tenant.mjs — E1 + E2, the tenant layer and the manifest-driven page (lib/collection-context.js 1.0.0 · site-header 1.10.0 · explorer 4.40).
+//   6. (E2) Booted as adao, the filter panel DOM (trait dropdowns, status grid, trait toggles, wallet toggles) is IDENTICAL to the
+//      committed page's; booted as liondao the page renders Pixel Lions: 5,000 records, cards in the gallery, six trait dropdowns
+//      Back … Prop, no Planet/Inhabitant sections, no Rewards (broken) filter, "DAO held" mint label, no BBL rank toggle, token
+//      names "pixeLion #n", every record ranked from PL's rarity file, owners resolved for all 5,000 after hydration.
 //   1. From the REAL registry (tla-core/docs/curated/tenants.json + adao/collection.json), the aDAO context reproduces every
 //      collection URL the committed explorer used as a literal — read from the committed app.js on main (MAIN_SITE_DIR), never
 //      typed here. The fallback block reproduces the same URLs and the same feature flags: the site never blanks, never lies.
@@ -93,18 +97,37 @@ async function bootExplorer(appSrc, tenant, withCtx) {
   const dom = new JSDOM(pageHtml, { url: 'https://thealliancedao.com/nft-explorer-index.html', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse: stub });
   const w = dom.window; if (tenant) w.localStorage.setItem('ally:prefs', JSON.stringify({ tenant }));
   w.eval(fs.readFileSync('lib/nft-history.js', 'utf8')); if (withCtx) w.eval(ctxLib);
-  w.eval(appSrc + "\n;window.__g = { slug: () => (typeof JOURNEY !== 'undefined' ? JOURNEY.slug : null), n: () => (typeof allNfts !== 'undefined' ? allNfts.length : 0) };");
+  w.eval(appSrc + "\n;window.__g = { slug: () => (typeof JOURNEY !== 'undefined' ? JOURNEY.slug : null), n: () => (typeof allNfts !== 'undefined' ? allNfts.length : 0), ranked: () => (typeof allNfts !== 'undefined' ? allNfts.filter(x => x.intended_rank != null).length : 0), owners: () => (typeof allNfts !== 'undefined' ? allNfts.filter(x => x.owner).length : 0), names: () => (typeof allNfts !== 'undefined' ? allNfts.slice(0, 3).map(x => x.name) : []) };");
   w.document.dispatchEvent(new w.Event('DOMContentLoaded', { bubbles: true })); w.dispatchEvent(new w.Event('load'));
   await new Promise(r => setTimeout(r, 12000));
+  const d = w.document; const q = (id) => d.getElementById(id); const inner = (id) => (q(id) ? q(id).innerHTML : null);
+  const hiddenSec = (id) => { const c = q(id); return !!(c && c.parentElement && c.parentElement.classList.contains('hidden')); };
+  const snap = { traitFilters: inner('trait-filters-container'), status: inner('status-filters-grid'), toggles: inner('trait-toggles-container'), walletToggles: inner('wallet-trait-toggles-container'),
+    traitLabels: [...d.querySelectorAll('#trait-filters-container .multi-select-container > label')].map(l => l.textContent.trim()),
+    statusKeys: [...d.querySelectorAll('#status-filters-grid .status-toggle-cb')].map(i => i.dataset.key || i.getAttribute('data-key') || i.value || i.id),
+    statusText: q('status-filters-grid') ? q('status-filters-grid').textContent.replace(/\s+/g, ' ') : '',
+    planetHidden: hiddenSec('planet-filters-container'), inhabitantHidden: hiddenSec('inhabitant-filters-container'),
+    bblToggleHidden: !!(q('rank-mode-bbl') && q('rank-mode-bbl').parentElement.classList.contains('hidden')),
+    cards: d.querySelectorAll('#nft-gallery .nft-card').length, firstCardText: (d.querySelector('#nft-gallery .nft-card') || { textContent: '' }).textContent.replace(/\s+/g, ' ').slice(0, 120),
+    ranked: w.__g.ranked(), owners: w.__g.owners(), names: w.__g.names() };
   const urls = [...seen].filter(u => u.startsWith(NFTC_U) && !/\/collection\.json$/.test(u)).sort();   // the manifest read is the registry, not a product; compared separately
-  const manifestReads = [...seen].filter(u => /nft-collections\/main\/[^/]+\/collection\.json$/.test(u)); const r = { urls, manifestReads, slug: w.__g.slug(), n: w.__g.n(), tenant: w.document.documentElement.getAttribute('data-tenant') }; w.close(); return r;
+  const manifestReads = [...seen].filter(u => /nft-collections\/main\/[^/]+\/collection\.json$/.test(u)); const r = { urls, manifestReads, slug: w.__g.slug(), n: w.__g.n(), tenant: w.document.documentElement.getAttribute('data-tenant'), dom: snap }; w.close(); return r;
 }
 const base = await bootExplorer(mainApp, null, false);
 const mine = await bootExplorer(app, 'adao', true);
 ok(`adao: the 4.39 page requests exactly the nft-collections product URL set the committed 4.38 page requests (${base.urls.length} URLs) plus adao/collection.json (the registry), journey slug adao, data-tenant adao, ${base.n} records both`, JSON.stringify(mine.urls) === JSON.stringify(base.urls) && JSON.stringify(mine.manifestReads) === JSON.stringify([NFTC_U + 'adao/collection.json']) && base.manifestReads.length === 0 && mine.slug === 'adao' && mine.tenant === 'adao' && mine.n === base.n, { onlyMain: base.urls.filter(u => !mine.urls.includes(u)), onlyMine: mine.urls.filter(u => !base.urls.includes(u)), manifests: mine.manifestReads, n: [base.n, mine.n] });
 const lion = await bootExplorer(app, 'liondao', true);
 ok(`liondao: every nft-collections URL the page requests is under pixel-lions/ (${lion.urls.length} URLs), journey slug pixel-lions, data-tenant liondao`, lion.urls.length > 0 && lion.urls.every(u => u.startsWith(NFTC_U + 'pixel-lions/')) && JSON.stringify(lion.manifestReads) === JSON.stringify([NFTC_U + 'pixel-lions/collection.json']) && lion.slug === 'pixel-lions' && lion.tenant === 'liondao', { urls: lion.urls, slug: lion.slug });
-console.log(`  (liondao boots ${lion.n} records today — the page still asserts aDAO's supply on the bundle and needs the BBL rarity file: E2 makes it manifest-driven, E3 lights Pixel Lions; until then tenants.json says liondao live:false and the header lists it only when selected)`);
+console.log('\n== 6. E2 — the page is manifest-driven ==');
+const B = base.dom, M = mine.dom, P = lion.dom;
+ok('adao: the filter panel DOM is identical to the committed page (trait dropdowns, status grid, trait toggles, wallet toggles)', M.traitFilters === B.traitFilters && M.status === B.status && M.toggles === B.toggles && M.walletToggles === B.walletToggles, { traitLabels: [B.traitLabels, M.traitLabels], statusText: [B.statusText.slice(0, 200), M.statusText.slice(0, 200)] });
+ok(`adao: Planet + Inhabitant sections shown, Rewards filter present, BBL rank toggle shown, ${M.cards} cards, ${M.ranked}/${mine.n} ranked, names as before`, !M.planetHidden && !M.inhabitantHidden && /Rewards/.test(M.statusText) && !M.bblToggleHidden && M.cards === B.cards && M.cards > 0 && M.ranked === B.ranked && JSON.stringify(M.names) === JSON.stringify(B.names), [M.cards, B.cards, M.ranked, M.names]);
+ok(`liondao: 5,000 Pixel Lions boot from PL's bundle, ${P.cards} cards render, names "pixeLion #n"`, lion.n === 5000 && P.cards > 0 && P.names.every(x => /^pixeLion #\d+$/.test(x)), [lion.n, P.cards, P.names]);
+ok('liondao: six trait dropdowns Back · Body · Eyes · Face · Mane · Prop, no Planet/Inhabitant sections, no Rarity grade dropdown', JSON.stringify(P.traitLabels) === JSON.stringify(['Back', 'Body', 'Eyes', 'Face', 'Mane', 'Prop']) && P.planetHidden && P.inhabitantHidden, [P.traitLabels, P.planetHidden, P.inhabitantHidden]);
+ok('liondao: no Rewards (broken/unbroken) filter, no P+I matching filter, the mint filter reads "DAO held" instead of "Un-Minted", Staked/Listed/Liquid stay', !/Rewards/.test(P.statusText) && !/Matching/.test(P.statusText) && /DAO held/.test(P.statusText) && !/Un-Minted/.test(P.statusText) && /Staked/.test(P.statusText) && /Listed/.test(P.statusText) && /Liquid/.test(P.statusText), P.statusText.slice(0, 300));
+ok('liondao: the trait toggles are Rank + Back … Prop (no Rarity), wallet toggles Rank + Back/Body/Eyes, BBL rank toggle hidden (one rank oracle)', /Back/.test(P.toggles) && /Prop/.test(P.toggles) && !/Rarity|Planet/.test(P.toggles) && /Eyes/.test(P.walletToggles) && !/Object/.test(P.walletToggles) && P.bblToggleHidden, [P.bblToggleHidden]);
+ok(`liondao: after hydration every record is ranked from PL's rarity file (${P.ranked}/5000) and every owner resolved from PL's nfts.json (${P.owners}/5000)`, P.ranked === 5000 && P.owners === 5000, [P.ranked, P.owners]);
+console.log(`  (liondao boots ${lion.n} records — E2 done on the page; E3 lights Pixel Lions (theme, logo, strip, analytics on the seeded products); until then tenants.json says liondao live:false and the header lists it only when selected)`);
 ok('registry: liondao is not live yet (live:false) — the dropdown does not offer a tenant the explorer cannot render', tenants.tenants.liondao.live === false);
 { const h = await header(null, true); ok('header, no pref: the dropdown lists live tenants only → hidden while aDAO is the only live ally (no select shown)', !h.on, h.opts); }
 console.log(`\n=== GATE explorer-tenant: ${pass} passed, ${fail} failed ===`); process.exit(fail ? 1 : 0);

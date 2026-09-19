@@ -151,7 +151,9 @@ const rankDisplay = (nft) => {
 };
 let MEMBERS_CSV_URL = "https://raw.githubusercontent.com/thealliancedao/dao-originations/main/adao/governance/members.csv";
 const DAO_WALLET_ADDRESS = "terra1sffd4efk2jpdt894r04qwmtjqrrjfc52tmj6vkzjxqhd8qqu2drs3m5vzm";
-const EXPECTED_TOTAL_NFTS = 10000; // Fixed collection size — used to hard-fail on a truncated/partial feed.
+let EXPECTED_TOTAL_NFTS = 10000; // Collection size — used to hard-fail on a truncated/partial feed. 4.40: set from the collection manifest's supply (aDAO 10000, Pixel Lions 5000)
+let TOKEN_NAME = (id) => `The AllianceDAO NFT #${id}`;   // 4.40: the token name pattern comes from the manifest (token_name_pattern); aDAO's literal is the default
+let RARITY_SECONDARY = true;   // 4.40: a second rank oracle (BBL's rarity file) exists only where the manifest names one; without it bbl_rank stays null and its UI hides
 
 // Known DAO / system contract addresses (verified against live chain-of-truth data).
 // These are NOT holders — they're labeled in the holders dropdown so it's clear.
@@ -191,9 +193,15 @@ const SYSTEM_ADDRESSES = new Set([
 const isSystemAddress = (address) => SYSTEM_ADDRESSES.has(address);
 const DAO_LOCKED_WALLET_SUFFIXES = ["8ywv", "417v", "6ugw"]; // Added from previous logic
 const itemsPerPage = 20;
-const traitOrder = ["Rank", "Planet", "Inhabitant", "Object", "Weather", "Light", "Rarity"];
-const defaultTraitsOn = ["Rank", "Planet", "Inhabitant", "Object"];
-const filterLayoutOrder = ["Rarity", "Object", "Weather", "Light"];
+// 4.40: the trait system is the collection manifest's (`traits[]`: name + filter kind). aDAO's lists below are what the manifest
+// resolves to and stay as the default until the context loads; applyCollectionContext() rebinds them for any collection.
+let traitOrder = ["Rank", "Planet", "Inhabitant", "Object", "Weather", "Light", "Rarity"];
+let defaultTraitsOn = ["Rank", "Planet", "Inhabitant", "Object"];
+let filterLayoutOrder = ["Rarity", "Object", "Weather", "Light"];
+let COLLECTION_TRAITS = ["Planet", "Inhabitant", "Object", "Weather", "Light"];   // attribute columns in manifest order (Rarity is a computed column)
+let SPLIT_TRAITS = { Planet: [' North', ' South'], Inhabitant: [' M', ' F'] };       // slider-direction traits (name → its two suffixes)
+let FEATURES = { break_mechanism: true, backing: true, phoenix: true, custody: true };
+let LABELS = { unminted: 'Unminted' };
 
 // --- DAO Members Lookup ---
 let addressToMember = {}; // address -> { name, staked, votingPower }
@@ -493,19 +501,19 @@ async function loadFullData() {
             fetch(METADATA_URL),
             fetch(STATUS_DATA_URL),
             fetch(RARITY_INTENDED_URL),
-            fetch(RARITY_BBL_URL),
+            RARITY_SECONDARY ? fetch(RARITY_BBL_URL) : Promise.resolve(null),   // 4.40: only where the manifest names a second rank oracle
             fetchAndParseMembers() // Load DAO members (non-blocking)
         ]);
 
         if (!metaResponse.ok) throw new Error(`Metadata network response was not ok: ${metaResponse.status}`);
         if (!statusResponse.ok) throw new Error(`Status data network response was not ok: ${statusResponse.status}`);
         if (!rarityIntendedResponse.ok) throw new Error(`Intended-rarity feed was not ok: ${rarityIntendedResponse.status}`);
-        if (!rarityBblResponse.ok) throw new Error(`BBL-rarity feed was not ok: ${rarityBblResponse.status}`);
+        if (RARITY_SECONDARY && !rarityBblResponse.ok) throw new Error(`BBL-rarity feed was not ok: ${rarityBblResponse.status}`);
         
         const metadata = await metaResponse.json();
         const statusData = await statusResponse.json();
         const rarityIntended = await rarityIntendedResponse.json();
-        const rarityBbl = await rarityBblResponse.json();
+        const rarityBbl = RARITY_SECONDARY ? await rarityBblResponse.json() : { records: [], built: null };
 
         // Hard-fail integrity gate: good data or a visible error, nothing in between.
         if (!Array.isArray(metadata) || metadata.length === 0) {
@@ -524,17 +532,20 @@ async function loadFullData() {
         if (!Array.isArray(intendedRecords) || intendedRecords.length < EXPECTED_TOTAL_NFTS) {
             throw new Error(`Intended-rarity feed failed integrity check: expected ${EXPECTED_TOTAL_NFTS} records, got ${Array.isArray(intendedRecords) ? intendedRecords.length : 'none'}.`);
         }
-        if (!Array.isArray(bblRecords) || bblRecords.length < EXPECTED_TOTAL_NFTS) {
+        if (RARITY_SECONDARY && (!Array.isArray(bblRecords) || bblRecords.length < EXPECTED_TOTAL_NFTS)) {
             throw new Error(`BBL-rarity feed failed integrity check: expected ${EXPECTED_TOTAL_NFTS} records, got ${Array.isArray(bblRecords) ? bblRecords.length : 'none'}.`);
         }
         bblRarityBuilt = rarityBbl.built || null;
         const intendedMap = new Map(intendedRecords.map(r => [String(r.token_id), r]));
-        const bblMap = new Map(bblRecords.map(r => [String(r.token_id), r]));
+        const bblMap = new Map((bblRecords || []).map(r => [String(r.token_id), r]));
         allNfts.forEach(nft => {
             const ir = intendedMap.get(String(nft.id));
             const br = bblMap.get(String(nft.id));
-            nft.intended_rank = ir ? ir.intended_rank : null;
-            nft.intended_grade = ir ? ir.grade : null;
+            // 4.40: the rank file's shape differs per collection — aDAO's intended-rarity (intended_rank · grade · percentile),
+            // Pixel Lions' BBL statistical mirror (rank · top_percent · rarity_score); one record shape on the page
+            nft.intended_rank = ir ? (ir.intended_rank != null ? ir.intended_rank : (ir.rank != null ? ir.rank : null)) : null;
+            nft.intended_grade = ir ? (ir.grade != null ? ir.grade : null) : null;
+            nft.intended_pct = ir ? (ir.percentile != null ? ir.percentile : (ir.top_percent != null ? ir.top_percent : null)) : null;
             nft.bbl_rank = br ? br.bbl_rank : null;          // null = BBL unranked (mostly broken)
             nft.bbl_top_percent = br ? br.bbl_top_percent : null;
         });
@@ -561,7 +572,9 @@ function decodeBundle(b) {
     const F = Object.fromEntries(b.fields.map((f, i) => [f, i]));
     const BIT = b.flagBits;
     const dict = b.dict;
-    const T = [['Planet', 'planet'], ['Inhabitant', 'inhabitant'], ['Object', 'object'], ['Weather', 'weather'], ['Light', 'light'], ['Rarity', 'rarity']];
+    // 4.40: the bundle names its own trait columns (compact-bundle 1.3.0: one column per manifest trait, dictionary per trait) —
+    // every dict key with a matching field is an attribute, in field order; nothing about the collection is assumed here
+    const T = b.fields.filter(fl => dict[fl] || Object.keys(dict).some(k => k.toLowerCase() === fl)).map(fl => [Object.keys(dict).find(k => k.toLowerCase() === fl.toLowerCase()), fl]);
     return b.rows.map(r => {
         const flags = r[F.flags];
         const attributes = [];
@@ -572,7 +585,7 @@ function decodeBundle(b) {
         const listedUsd = r[F.listing_usd];
         return {
             id: r[F.id],
-            name: `The AllianceDAO NFT #${r[F.id]}`,
+            name: TOKEN_NAME(r[F.id]),
             attributes,
             // ownership hydrates from nfts.json in the background
             owner: null, custody_owner: null, real_owner: null,
@@ -592,7 +605,7 @@ function decodeBundle(b) {
             liquid: !!(flags & BIT.user_held),
             // 4.33: the bundle's derived bit marks a chain-only BBL listing (buyable from the contract, absent from BBL's UI)
             listing: listedUsd != null ? (flags & (BIT.listing_chain_only || 0) ? { price_usd: listedUsd, source: 'chain_only', warlock_visible: false } : { price_usd: listedUsd }) : null,
-            intended_rank: r[F.intended_rank], intended_grade: null,
+            intended_rank: r[F.intended_rank], intended_grade: null, intended_pct: r[F.intended_pct] != null ? r[F.intended_pct] : null,
             bbl_rank: r[F.bbl_rank], bbl_top_percent: null,
             _bundleOnly: true,   // cleared by hydration
         };
@@ -635,6 +648,20 @@ function applyCollectionContext(ctx) {
     RARITY_BBL_URL = c.assets.rarity_secondary || RARITY_BBL_URL;
     const dao = (ctx.tenant.daos || [])[0]; if (dao) MEMBERS_CSV_URL = `https://raw.githubusercontent.com/thealliancedao/dao-originations/main/${dao}/governance/members.csv`;
     JOURNEY.slug = c.slug;
+    // 4.40: the collection's shape — supply, token name, whether a second rank oracle exists
+    if (c.supply) EXPECTED_TOTAL_NFTS = c.supply;
+    if (c.token_name) TOKEN_NAME = (id) => c.token_name(id);
+    RARITY_SECONDARY = !!c.assets.rarity_secondary;
+    // 4.40: traits, filters, features and labels from the manifest
+    const defs = c.trait_defs || [];
+    COLLECTION_TRAITS = defs.map(t => t.name).filter(n => n && n !== 'Rarity');
+    SPLIT_TRAITS = {}; defs.forEach(t => { if (t.filter === 'slider-direction' && Array.isArray(t.split_suffixes) && t.split_suffixes.length === 2) SPLIT_TRAITS[t.name] = t.split_suffixes.slice(); });
+    const hasRarityAttr = defs.some(t => t.name === 'Rarity');
+    traitOrder = ['Rank', ...COLLECTION_TRAITS, ...(hasRarityAttr ? ['Rarity'] : [])];
+    defaultTraitsOn = ['Rank', ...COLLECTION_TRAITS.slice(0, 3)];
+    filterLayoutOrder = [...(hasRarityAttr ? ['Rarity'] : []), ...COLLECTION_TRAITS.filter(n => !SPLIT_TRAITS[n])];
+    FEATURES = { break_mechanism: !!c.features.break_mechanism, backing: !!c.features.backing, phoenix: !!c.features.phoenix, custody: !!c.features.custody };
+    LABELS = { unminted: c.labels.unminted || 'Unminted' };
     document.documentElement.setAttribute('data-tenant', ctx.tenant.slug);
     document.documentElement.setAttribute('data-collection', c.slug);
     console.log(`tenant: ${ctx.tenant.slug} (${ctx.selected_via}) · collection ${c.slug}${ctx.degraded ? ' · ⚠ ' + ctx.degraded : ''}`);
@@ -986,6 +1013,7 @@ const renderMarketplaceChips = () => {
 
 const populateInhabitantFilters = () => {
     inhabitantFiltersContainer.innerHTML = '';
+    showSplitSection(inhabitantFiltersContainer, !!SPLIT_TRAITS.Inhabitant); if (!SPLIT_TRAITS.Inhabitant) return;
     const uniqueInhabitants = Object.keys(inhabitantCounts).sort();
     uniqueInhabitants.forEach(name => {
         const container = createFilterItem({
@@ -999,8 +1027,11 @@ const populateInhabitantFilters = () => {
     });
 };
 
+// 4.40: the two slider-direction sections exist only when the collection has that trait (Pixel Lions has neither)
+const showSplitSection = (containerEl, present) => { const sec = containerEl && containerEl.parentElement; if (sec) sec.classList.toggle('hidden', !present); };
 const populatePlanetFilters = () => {
     planetFiltersContainer.innerHTML = '';
+    showSplitSection(planetFiltersContainer, !!SPLIT_TRAITS.Planet); if (!SPLIT_TRAITS.Planet) return;
     const planetNames = Object.keys(planetCounts).sort();
     planetNames.forEach(name => {
         const container = createFilterItem({
@@ -1070,9 +1101,9 @@ const populateStatusFilters = () => {
     const statusFilterConfig = [
         { key: 'staked', label: 'Staked', left: 'Ent', right: 'DAO' },
         { key: 'listed', label: 'Listed', chips: true, tooltip: 'Filter by marketplace. Only marketplaces with live listings appear; each toggles independently, so any combination works.' },
-        { key: 'rewards', label: 'Rewards', left: 'Broken', right: 'Unbroken' },
-        { key: 'mint_status', label: 'Mint Status', left: 'Un-Minted', right: 'Minted' },
-        { key: 'matching_traits', label: 'Matching', left: 'P+I', right: 'P+I+O', tooltip: 'Home-system trait match \u2014 P+I: the Inhabitant is standing on its home planet (e.g. a Lusan on Lusa). P+I+O: planet + inhabitant + a native object of that world (e.g. Lusan Water Staff). Slide to choose which match the count shows.' },
+        ...(FEATURES.break_mechanism ? [{ key: 'rewards', label: 'Rewards', left: 'Broken', right: 'Unbroken' }] : []),   // 4.40: only a collection with a break mechanism
+        { key: 'mint_status', label: 'Mint Status', left: LABELS.unminted === 'Unminted' ? 'Un-Minted' : LABELS.unminted, right: 'Minted' },   // 4.40: "DAO held" where nothing is unminted
+        ...(SPLIT_TRAITS.Planet && SPLIT_TRAITS.Inhabitant ? [{ key: 'matching_traits', label: 'Matching', left: 'P+I', right: 'P+I+O', tooltip: 'Home-system trait match \u2014 P+I: the Inhabitant is standing on its home planet (e.g. a Lusan on Lusa). P+I+O: planet + inhabitant + a native object of that world (e.g. Lusan Water Staff). Slide to choose which match the count shows.' }] : []),
         { key: 'liquid_status', label: 'Liquid', left: 'Liquid', right: 'Not Liq' }
     ];
 
@@ -1115,7 +1146,7 @@ const populateTraitToggles = () => {
 
 const populateWalletTraitToggles = () => {
     walletTraitTogglesContainer.innerHTML = '';
-    const walletTraits = ["Rank", "Planet", "Inhabitant", "Object"];
+    const walletTraits = ['Rank', ...COLLECTION_TRAITS.slice(0, 3)];   // 4.40: the collection's first three traits
     walletTraits.forEach(traitType => {
         const label = document.createElement('label');
         label.className = 'toggle-label';
@@ -1153,6 +1184,9 @@ const addAllEventListeners = () => {
     if (rankModeIntendedBtn) rankModeIntendedBtn.addEventListener('click', () => setRankMode('intended'));
     if (rankModeBblBtn) rankModeBblBtn.addEventListener('click', () => setRankMode('bbl'));
     applyRankModeUi(); // restore persisted mode on load
+    // 4.40: no second rank oracle for this collection → no Intended/BBL toggle (intended is the only rank); no Rarity grade column → no grade sorts
+    if (!RARITY_SECONDARY) { if (rankMode === 'bbl') setRankMode('intended'); const wrap = rankModeBblBtn && rankModeBblBtn.parentElement; if (wrap) wrap.classList.add('hidden'); }
+    if (!traitOrder.includes('Rarity')) document.querySelectorAll('#sort-rank option[value^="rarity-"]').forEach(o => { o.hidden = true; o.disabled = true; });
 
      document.querySelectorAll('.toggle-checkbox').forEach(toggle => {
         toggle.addEventListener('change', (e) => {
@@ -3552,7 +3586,7 @@ const showNftDetails = (nft) => {
     traitsHtml += `<div class="pt-2 mt-2 border-t border-gray-600"></div>`;
     
     // Traits with rarity info and medals
-    const traitsToShow = ['Planet', 'Inhabitant', 'Object', 'Weather', 'Light'];
+    const traitsToShow = COLLECTION_TRAITS;   // 4.40: the manifest's columns
     traitsToShow.forEach(traitType => {
         const attr = nft.attributes?.find(a => a.trait_type === traitType);
         if (!attr) return;
