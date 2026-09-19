@@ -1,3 +1,10 @@
+// 2026-09-19 (explorer 4.51): (1) a non-default tenant stays in the URL the page writes (?tenant=liondao survives every filter
+//   change — a shareable link); (2) the download poster is the tenant's: its logo in the header, nothing drawn over the art, one
+//   band at the bottom with the token name · rank · rarest trait and how many share it (aDAO's Planet/Inhabitant corners gone,
+//   BROKEN band kept); (3) the analytics tab RE-PRESENTED on both collections (owner: "sorta boring"): one hero (mark price,
+//   a 12-week sales-floor sparkline, the story sentence), a stat strip, the supply drawn as one pixel per token, a price ladder
+//   per tier (aDAO Broken/Unbroken/Phoenix · a tenant Base/Rank 1 or All), a hold-time histogram with the biggest gain and loss
+//   as SOLD tiles. Same numbers, same products; colours from the tenant theme.
 // 2026-09-19 (explorer 4.50 — C.1, the owner's analytics asks after the first full Lion DAO look): on a TENANT collection (never
 //   aDAO — its page stays byte-identical): default sort = price low → high (listed first, unlisted after, by id); a Rank 1 filter
 //   toggle where the rank oracle shares ranks (BBL's statistical rank), its count = the true number of rank-1 tokens; the Mark
@@ -2111,7 +2118,9 @@ async function renderAnalytics() {
 
     analyticsLoaded = true;
     _avMonths = A.monthly || [];
+    av2Css();   // 4.51
     root.innerHTML = buildAnalyticsHtml(A, S, E);
+    renderSupplyGrid();   // 4.51: one pixel per token
     renderVolChart();
     renderFpChart();
     const lin = document.getElementById("av-scale-lin"), log = document.getElementById("av-scale-log");
@@ -2123,6 +2132,173 @@ async function renderAnalytics() {
     document.querySelectorAll(".av-fp-scale").forEach(b => b.onclick = () => { _fpScale = b.dataset.scale; renderFpChart(); });
     const lunaBtn = document.getElementById("av-fp-luna");
     if (lunaBtn) lunaBtn.onclick = () => { _fpShowLuna = !_fpShowLuna; lunaBtn.classList.toggle("active", _fpShowLuna); renderFpChart(); };
+}
+
+// ---- 4.51: the analytics tab RE-PRESENTED (owner 2026-09-19: "sorta boring how it's shown") — same numbers, same products, on
+// both collections. One hero that reads (the mark price, a 12-week sales-floor sparkline, the story sentence), a stat strip
+// instead of a wall of equal tiles, the supply drawn as PIXELS (one per token, coloured by state), a price ladder per tier
+// instead of a six-column table, a hold-time histogram with the biggest gain and loss as SOLD tiles. Colours come from the
+// tenant theme (--ally-accent …); aDAO's defaults are its own cyan.
+let _avSupply = null;   // the pixel grid's data, drawn by renderSupplyGrid() once the HTML is in the DOM
+const AV2_CSS = `
+.av2-hero{border:1px solid var(--ally-border,#374151);background:var(--ally-surface,rgba(31,41,55,.5));padding:1.1rem 1.25rem;margin-bottom:1rem}
+.av2-hero-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:1rem 2.5rem}
+.av2-mark{font-family:var(--ally-font,inherit);font-size:2.8rem;line-height:1;font-weight:800;color:var(--ally-accent,#22d3ee);letter-spacing:-.01em}
+.av2-mark-k{font-size:.72rem;color:#9ca3af;margin-bottom:.35rem}
+.av2-mark-sub{font-size:.75rem;color:#9ca3af;margin-top:.5rem;max-width:34rem;line-height:1.5}
+.av2-spark{flex:1 1 260px;min-width:220px;max-width:420px}
+.av2-spark svg{display:block;width:100%;height:76px}
+.av2-spark-k{font-size:.7rem;color:#6b7280;margin-top:.25rem;display:flex;justify-content:space-between}
+.av2-sentence{font-size:.9rem;color:#d1d5db;line-height:1.55;margin:.9rem 0 0}
+.av2-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;border:1px solid var(--ally-border,#374151);background:var(--ally-surface2,rgba(17,24,39,.4));margin-bottom:1rem}
+.av2-stat{padding:.75rem .9rem;border-right:1px solid var(--ally-border,#374151);cursor:default}
+.av2-stat:last-child{border-right:0}
+.av2-stat[data-explain]{cursor:pointer}
+.av2-stat-k{font-size:.68rem;color:#9ca3af}
+.av2-stat-v{font-size:1.25rem;font-weight:700;color:#f3f4f6;margin-top:.15rem;line-height:1.15}
+.av2-stat-v small{font-size:.72rem;font-weight:500;color:var(--ally-accent,#67e8f9)}
+.av2-stat-s{font-size:.68rem;color:#6b7280;margin-top:.2rem;line-height:1.35}
+.av2-card{border:1px solid var(--ally-border,#374151);background:var(--ally-surface,rgba(31,41,55,.5));padding:1rem;margin-bottom:1rem}
+.av2-card h3{color:var(--ally-accent,#22d3ee);font-weight:700}
+.av2-card .av2-h{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.75rem;gap:.5rem;flex-wrap:wrap}
+.av2-card .av2-h span{font-size:.72rem;color:#6b7280}
+.av2-grid{display:block;width:100%;height:auto;image-rendering:pixelated;image-rendering:crisp-edges}
+.av2-legend{display:flex;flex-wrap:wrap;gap:.35rem 1.1rem;margin-top:.6rem;font-size:.75rem;color:#d1d5db}
+.av2-legend i{display:inline-block;width:.6rem;height:.6rem;margin-right:.35rem;vertical-align:-1px}
+.av2-reads{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-top:.9rem}
+.av2-read-k{font-size:.68rem;color:#9ca3af}.av2-read-v{font-size:1.15rem;font-weight:700;color:#f3f4f6}.av2-read-s{font-size:.68rem;color:#6b7280}
+.av2-ladders{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}
+.av2-ladder{display:grid;grid-template-columns:48px 1fr;gap:.6rem;align-items:stretch}
+.av2-ladder svg{display:block;width:48px;height:150px}
+.av2-ladder-t{font-weight:700;color:#f3f4f6;margin-bottom:.35rem}.av2-ladder-t span{font-weight:400;font-size:.72rem;color:#9ca3af;margin-left:.4rem}
+.av2-rung{display:flex;justify-content:space-between;align-items:baseline;font-size:.8rem;color:#d1d5db;padding:.2rem 0}
+.av2-rung b{font-weight:700}.av2-rung.mk b{color:var(--ally-accent,#22d3ee)}.av2-rung.ask b{color:#67e8f9}.av2-rung.sf b{color:#fbbf24}.av2-rung small{color:#6b7280;font-size:.68rem}
+.av2-hist{display:grid;grid-template-columns:1.2fr 1fr;gap:1.25rem;align-items:start}
+.av2-hist svg{display:block;width:100%;height:150px}
+.av2-tc-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem .9rem}
+.av2-sold{border:1px solid var(--ally-border,#374151);border-left:4px solid #34d399;padding:.6rem .75rem;margin-top:.6rem;font-size:.8rem;color:#d1d5db;background:rgba(0,0,0,.25)}
+.av2-sold.loss{border-left-color:#f87171}.av2-sold b{font-size:1.05rem}.av2-sold.gain b{color:#34d399}.av2-sold.loss b{color:#f87171}.av2-sold small{display:block;color:#6b7280;margin-top:.2rem}
+@media (max-width:640px){.av2-mark{font-size:2.2rem}.av2-hist{grid-template-columns:1fr}.av2-reads{grid-template-columns:1fr 1fr}}`;
+function av2Css() {
+    if (document.getElementById("av2-css")) return;
+    const st = document.createElement("style"); st.id = "av2-css"; st.textContent = AV2_CSS;
+    // the tenant theme (site-header injects accent/bg/surface/text) — its border and second surface are read straight from the
+    // registry block here; on the pixel style the frames are 2 px with the hard accent shadow the tenant's cards carry
+    const th = TENANT_CTX && TENANT_CTX.tenant && TENANT_CTX.tenant.theme;
+    if (document.getElementById("sh-tenant-theme") && th) {
+        st.textContent += `\n:root{${th.border ? `--ally-border:${th.border};` : ""}${th.surface2 ? `--ally-surface2:${th.surface2};` : ""}}` +
+            (th.style === "pixel" ? `\n.av2-hero,.av2-card,.av2-strip{border-width:2px}.av2-hero{box-shadow:6px 6px 0 var(--ally-accent)}.av2-mark{text-shadow:3px 3px 0 #000}` : "");
+    }
+    document.head.appendChild(st);
+}
+
+// the hero: mark price + which side won, a 12-week sales-floor sparkline (the fp data's weekly median per period), the story sentence
+function av2Hero(o) {
+    const m = o.mark;
+    const markSub = m ? `the lower of two prices — sales floor <span style="color:#fbbf24">${m.sf ? fmtUsd(m.sf) : "none"}</span> (median of the last ${m.k} sales) vs cheapest ask <span style="color:#67e8f9">${m.lf != null ? fmtUsd(m.lf) : "none"}</span> → ${m.won === "ask" ? "the ask" : "the sales floor"} wins` : "no sales and no live ask yet";
+    return `<div class="av2-hero"><div class="av2-hero-row">
+      <div data-explain="mark" class="cursor-pointer" title="Click: how this is computed"><div class="av2-mark-k">Mark price${o.markLabel || ""} <span class="text-gray-600">&#9432;</span></div><div class="av2-mark">${m ? fmtUsd(m.mk) : "—"}</div><div class="av2-mark-sub">${markSub}</div></div>
+      <div class="av2-spark">%%SPARK%%</div>
+    </div>${o.sentence || ""}</div>`;
+}
+function av2Spark(fp, tier, lfNow) {
+    const d = fp && fp.weekly; if (!d || !d.tiers || !d.tiers[tier]) return "";
+    const n = d.keys.length, start = Math.max(0, n - 12); const slots = d.tiers[tier].slice(start), labels = d.labels.slice(start);
+    const pts = slots.map((s, i) => s ? { i, v: s.med, n: s.n } : null).filter(Boolean);
+    if (!pts.length) return `<div class="av2-spark-k"><span>no sales in the last 12 weeks</span></div>`;
+    const W = 400, H = 76, pad = 6; const vals = pts.map(p => p.v).concat(lfNow != null ? [lfNow] : []); const lo = Math.min(...vals), hi = Math.max(...vals); const y = (v) => hi === lo ? H / 2 : pad + (H - 2 * pad) * (1 - (v - lo) / (hi - lo)); const x = (i) => pad + (W - 2 * pad) * (slots.length === 1 ? .5 : i / (slots.length - 1));
+    const path = pts.map((p, k) => `${k ? "L" : "M"}${x(p.i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+    const dots = pts.map(p => `<circle cx="${x(p.i).toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="3" fill="var(--ally-accent,#22d3ee)"><title>${labels[p.i]}: median sale ${fmtUsd(p.v)} (${p.n} sale${p.n === 1 ? "" : "s"})</title></circle>`).join("");
+    const lf = lfNow != null ? `<line x1="${pad}" x2="${W - pad}" y1="${y(lfNow).toFixed(1)}" y2="${y(lfNow).toFixed(1)}" stroke="#34d399" stroke-dasharray="4 3" stroke-width="1.5"><title>today's cheapest ask ${fmtUsd(lfNow)}</title></line>` : "";
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${lf}<path d="${path}" fill="none" stroke="var(--ally-accent,#22d3ee)" stroke-width="2"/>${dots}</svg>
+      <div class="av2-spark-k"><span>${labels[0]}</span><span>median sale per week · 12 weeks${lfNow != null ? ' · <span style="color:#34d399">-- ask today</span>' : ""}</span><span>${labels[labels.length - 1]}</span></div>`;
+}
+function av2Strip(items) {
+    return `<div class="av2-strip">${items.filter(Boolean).map(s => `<div class="av2-stat" ${s.x ? `data-explain="${s.x}" title="Click: how this is computed"` : ""}><div class="av2-stat-k">${s.k}${s.x ? ' <span class="text-gray-600">&#9432;</span>' : ""}</div><div class="av2-stat-v">${s.v}</div>${s.s ? `<div class="av2-stat-s">${s.s}</div>` : ""}</div>`).join("")}</div>`;
+}
+// the supply as pixels: one per token, grouped by state so the proportions read at a glance; the canvas is drawn by renderSupplyGrid
+function av2Supply(sup, total, opts) {
+    const segs = [
+        { key: "staked", l: "Staked", v: sup.staked, c: "var(--ally-accent,#22d3ee)", cc: opts.accent },
+        { key: "pending", l: "Unclaimed (custody)", v: sup.pending, c: "#67e8f9", cc: "#67e8f9" },
+        ...(opts.custody ? [{ key: "daoBroken", l: "DAO broken", v: sup.daoBroken, c: "#f59e0b", cc: "#f59e0b" }] : []),
+        { key: "float", l: "Float", v: sup.float, c: "#34d399", cc: "#34d399" },
+        { key: "listedN", l: "Listed", v: sup.listedN, c: "#a78bfa", cc: "#a78bfa" },
+        { key: "unminted", l: opts.unmintedLabel, v: sup.unminted, c: "#374151", cc: "#374151" }
+    ];
+    const cols = 100, rows = Math.ceil(total / cols);
+    _avSupply = { segs, total, cols, rows };
+    const locked = sup.staked + sup.pending + sup.daoBroken, liquid = sup.float + sup.listedN;
+    const pct = (a, b) => b ? `${(a / b * 100).toFixed(1)}%` : "—";
+    return `<div class="av2-card cursor-pointer" data-explain="supply" title="Click: definitions"><div class="av2-h"><h3>Supply &#9432;</h3><span>${fmtNum(total)} tokens, one pixel each · read like a token</span></div>
+      <canvas id="av2-supply-grid" class="av2-grid" width="${cols * 6 - 1}" height="${rows * 6 - 1}"></canvas>
+      <div class="av2-legend">${segs.filter(s => s.v > 0).map(s => `<span><i style="background:${s.c}"></i>${s.l} ${fmtNum(s.v)}</span>`).join("")}</div>
+      <div class="av2-reads">
+        <div><div class="av2-read-k">Locked supply</div><div class="av2-read-v">${fmtNum(locked)}</div><div class="av2-read-s">${pct(locked, sup.minted)} of minted · staked + custody${opts.custody ? " + DAO broken" : ""}</div></div>
+        <div><div class="av2-read-k">Liquid supply</div><div class="av2-read-v">${fmtNum(liquid)}</div><div class="av2-read-s">${pct(liquid, sup.minted)} of minted · wallets can sell these</div></div>
+        <div><div class="av2-read-k">Listed</div><div class="av2-read-v">${fmtNum(sup.listedN)}</div><div class="av2-read-s">${pct(sup.listedN, liquid)} of liquid</div></div>
+      </div>
+      <div class="text-[11px] text-gray-600 mt-2">Minted ${fmtNum(sup.minted)} of ${fmtNum(total)}${sup.unminted ? ` · ${fmtNum(sup.unminted)} ${String(opts.unmintedLabel).toLowerCase()}` : ""}</div></div>`;
+}
+function renderSupplyGrid() {
+    const c = document.getElementById("av2-supply-grid"); const d = _avSupply; if (!c || !d || !c.getContext) return;
+    let ctx = null; try { ctx = c.getContext("2d"); } catch (e) { ctx = null; } if (!ctx) return; ctx.clearRect(0, 0, c.width, c.height);
+    const cs = getComputedStyle(document.documentElement); const accent = (cs.getPropertyValue("--ally-accent") || "").trim() || "#22d3ee";
+    let i = 0;
+    for (const s of d.segs) { ctx.fillStyle = s.key === "staked" ? accent : s.cc; for (let k = 0; k < s.v && i < d.total; k++, i++) ctx.fillRect((i % d.cols) * 6, Math.floor(i / d.cols) * 6, 5, 5); }
+    ctx.fillStyle = "#1f2937"; for (; i < d.total; i++) ctx.fillRect((i % d.cols) * 6, Math.floor(i / d.cols) * 6, 5, 5);
+}
+// a price ladder per tier: the cheapest ask, the mark (the lower), the sales floor — placed by price so the spread is a distance
+function av2Ladders(tiers, note) {
+    const one = (t) => {
+        const vals = [t.lf, t.sf].filter(v => v != null && v > 0); const hi = vals.length ? Math.max(...vals) * 1.15 : 1; const H = 150, pad = 10;
+        const y = (v) => pad + (H - 2 * pad) * (1 - Math.min(v, hi) / hi);
+        const rung = (v, col, dash) => v != null ? `<line x1="6" x2="42" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="${col}" stroke-width="${dash ? 2 : 3}" ${dash ? 'stroke-dasharray="3 3"' : ""}/>` : "";
+        const spread = (t.lf != null && t.sf) ? ((t.lf - t.sf) / t.sf * 100) : null;
+        return `<div><div class="av2-ladder-t">${t.label}<span>${t.sub || ""}</span></div><div class="av2-ladder">
+          <svg viewBox="0 0 48 ${H}" preserveAspectRatio="none"><line x1="24" x2="24" y1="${pad}" y2="${H - pad}" stroke="#4b5563" stroke-width="1"/>${rung(t.lf, "#67e8f9", true)}${rung(t.sf, "#fbbf24", false)}${t.mk ? `<circle cx="24" cy="${y(t.mk).toFixed(1)}" r="5" fill="var(--ally-accent,#22d3ee)"/>` : ""}</svg>
+          <div>
+            <div class="av2-rung ask"><span>Cheapest ask <small>${t.listed} listed</small></span><b>${t.lf != null ? fmtUsd(t.lf) : "none"}</b></div>
+            <div class="av2-rung mk"><span>Mark <small>the lower</small></span><b>${t.mk ? fmtUsd(t.mk) : "—"}</b></div>
+            <div class="av2-rung sf"><span>Sales floor <small>median of last ${t.k}${t.nSales != null ? ` of ${t.nSales}` : ""}</small></span><b>${t.sf ? fmtUsd(t.sf) : "—"}</b></div>
+            <div class="av2-rung"><span>Ask vs sales</span><b class="${spread == null ? "text-gray-600" : spread < -15 ? "text-red-400" : spread > 15 ? "text-green-400" : "text-gray-300"}">${spread == null ? "—" : (spread > 0 ? "+" : "") + spread.toFixed(0) + "%"}</b></div>
+          </div></div></div>`;
+    };
+    return `<div class="av2-card"><div class="av2-h"><h3>Floor by tier</h3><span>the ask vs what actually sells</span></div><div class="av2-ladders">${tiers.map(one).join("")}</div><div class="text-[11px] text-gray-600 mt-3">${note}</div></div>`;
+}
+// trading character: round trips from sales-enriched (a marketplace buy, then a sale by the same wallet), a hold-time histogram,
+// the biggest gain and loss as SOLD tiles — P&L two ways
+function av2Trading(E, thr, card) {
+    const sales = (E && Array.isArray(E.sales)) ? E.sales.filter(s => s.timestamp && s.notional_usd != null) : [];
+    if (!sales.length) return `<div class="av2-card text-sm text-gray-500">Trading character — no sales on record yet.</div>`;
+    const byTok = {}; sales.forEach(s => { (byTok[String(s.token_id)] = byTok[String(s.token_id)] || []).push(s); });
+    const rts = [];
+    for (const rows of Object.values(byTok)) { rows.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+        for (let i = 0; i + 1 < rows.length; i++) { const b = rows[i], s = rows[i + 1]; if (b.buyer && b.buyer === s.seller) {
+            rts.push({ token: s.token_id, days: (Date.parse(s.timestamp) - Date.parse(b.timestamp)) / 86400000, buyUsd: b.notional_usd, sellUsd: s.notional_usd, pnlUsd: s.notional_usd - b.notional_usd, pnlLuna: (s.luna_equiv != null && b.luna_equiv != null) ? s.luna_equiv - b.luna_equiv : null, buyAt: b.timestamp, sellAt: s.timestamp }); } } }
+    const flips = rts.filter(r => r.days <= thr), holds = rts.filter(r => r.days > thr);
+    const sum = (a, k) => a.reduce((t, r) => t + (r[k] || 0), 0);
+    const med = (() => { const a = rts.map(r => r.days).sort((x, y) => x - y); if (!a.length) return null; const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; })();
+    const buyers = new Set(sales.map(s => s.buyer).filter(Boolean)), sellers = new Set(sales.map(s => s.seller).filter(Boolean));
+    const never = [...buyers].filter(a => !sellers.has(a)).length;
+    const best = rts.length ? rts.reduce((m, r) => r.pnlUsd > m.pnlUsd ? r : m) : null, worst = rts.length ? rts.reduce((m, r) => r.pnlUsd < m.pnlUsd ? r : m) : null;
+    const buckets = [["<1d", 0, 1], ["1–7d", 1, 7], ["7–30d", 7, 30], ["30–90d", 30, 90], ["90d–1y", 90, 365], ["1y+", 365, Infinity]].map(([l, a, b]) => ({ l, n: rts.filter(r => r.days >= a && r.days < b).length, flip: b <= thr }));
+    const W = 360, H = 150, padB = 22, padT = 14, mx = Math.max(1, ...buckets.map(b => b.n)); const bw = W / buckets.length;
+    const bars = buckets.map((b, i) => { const h = (H - padB - padT) * b.n / mx; const x = i * bw + 6, y = H - padB - h; return `<rect x="${x}" y="${y.toFixed(1)}" width="${bw - 12}" height="${h.toFixed(1)}" fill="${b.flip ? "#f59e0b" : "var(--ally-accent,#22d3ee)"}"><title>${b.l}: ${b.n} round trip${b.n === 1 ? "" : "s"}</title></rect><text x="${x + (bw - 12) / 2}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="10" fill="#d1d5db">${b.n || ""}</text><text x="${x + (bw - 12) / 2}" y="${H - 6}" text-anchor="middle" font-size="10" fill="#9ca3af">${b.l}</text>`; }).join("");
+    const lunaS = (v) => v == null ? "n/a in LUNA" : `${v >= 0 ? "+" : "−"}${fmtNum(Math.abs(v))} LUNA`;
+    const usdS = (v) => `${v >= 0 ? "+" : "−"}${fmtUsdFull(Math.abs(v))}`;
+    const sold = (r, cls, title) => `<div class="av2-sold ${cls}"><div class="text-[11px] text-gray-500">${title}</div>${r ? `<b>${usdS(r.pnlUsd)}</b> · ${lunaS(r.pnlLuna)}<small>#${r.token} · bought ${fmtUsd(r.buyUsd)} ${r.buyAt.slice(0, 10)} → sold ${fmtUsd(r.sellUsd)} ${r.sellAt.slice(0, 10)} · held ${Math.round(r.days)}d</small>` : `<span class="text-gray-600">—</span>`}</div>`;
+    const stat = (k, v, s) => `<div><div class="av2-read-k">${k}</div><div class="av2-read-v">${v}</div><div class="av2-read-s">${s}</div></div>`;
+    const pct = (a, b) => b ? `${(a / b * 100).toFixed(1)}%` : "—";
+    return `<div class="av2-card" data-explain="trading_character" title="Click: definitions"><div class="av2-h"><h3>Trading character &#9432;</h3><span>round trips in the sales record · P&amp;L two ways</span></div>
+      <div class="av2-hist"><div><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bars}</svg><div class="text-[11px] text-gray-500 mt-1">how long a buyer held before selling · <span style="color:#f59e0b">■</span> flips (≤${thr}d) · <span style="color:var(--ally-accent,#22d3ee)">■</span> holds</div></div>
+      <div><div class="av2-tc-stats">
+        ${stat("Round trips", fmtNum(rts.length), `${pct(rts.length, sales.length)} of ${fmtNum(sales.length)} sales close a buy by the same wallet`)}
+        ${stat("Flips vs holds", `${fmtNum(flips.length)} <span class="text-sm text-gray-400 font-normal">vs</span> ${fmtNum(holds.length)}`, `≤${thr}d: ${fmtUsdFull(sum(flips, "sellUsd"))} sold · &gt;${thr}d: ${fmtUsdFull(sum(holds, "sellUsd"))} sold`)}
+        ${stat("Median hold", med != null ? `${med.toFixed(1)}d` : "—", rts.length ? `of round trips · ${fmtNum(sales.length - rts.length)} sales were first-hand or not resold yet` : "")}
+        ${stat("Bought, never sold", fmtNum(never), `${pct(never, buyers.size)} of ${fmtNum(buyers.size)} buyers`)}
+      </div>${sold(best && best.pnlUsd > 0 ? best : null, "gain", "Biggest gain")}${sold(worst && worst.pnlUsd < 0 ? worst : null, "loss", "Biggest loss")}</div></div>
+      <div class="text-[11px] text-gray-600 mt-3">A round trip = a marketplace buy, then a sale of that token by the same wallet. USD = at the time of each leg; LUNA = LUNA-equivalent of each leg (a bLUNA sale ÷ LUNA's oracle price that day), n/a when a leg was paid in a stablecoin. Mint → first sale is not a round trip here (the mint cost is in the ledger, on each token's journey).</div></div>`;
 }
 
 function buildAnalyticsHtml(A, S, E) {
@@ -2177,14 +2353,7 @@ function buildAnalyticsHtml(A, S, E) {
             return `<p class="text-sm text-gray-300 mb-4 leading-relaxed">${parts.join(' \u00b7 ')}.</p>`;
         } catch (e) { return ''; }
     })();
-    const tiles = heroSentence + `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-      ${FEATURES.backing ? tile("Backing / NFT", `${(+bk.per_nft_ampluna || 0).toFixed(2)} <span class='text-base text-cyan-300'>ampLUNA</span>`, `${fmtUsd(bk.per_nft_value_usd)} · ${fmtNum(bk.unbroken_count)} unbroken`, "backing_nft")
-                        : tile("Floor now", fmtUsd(floorNowUsd), floorNowUsd != null ? (ANALYTICS_TENANT && floorAsk ? `${floorAsk.price_display || ''}${floorAsk.marketplace ? ' on ' + floorAsk.marketplace : ''} · cheapest live ask · ${fmtNum(listed)} listed` : `cheapest live ask · ${fmtNum(listed)} listed`) : "no live listings", ANALYTICS_TENANT ? "floor_now" : undefined)}
-      ${FEATURES.backing ? tile("Total backing", fmtUsdFull(bk.treasury_value_usd), `${fmtNum(bk.ampluna_balance)} ampLUNA in vault`, "total_backing")
-                        : tile("Holders", fmtNum(S && S.unique_holders), S && S.dao_members_count != null ? `${fmtNum(S.dao_members_count)} DAO stakers` : "")}
-      ${tile("Royalties → DAO", roy.royalty_luna != null ? `${fmtNum(Math.round(roy.royalty_luna))} <span class="text-base text-cyan-300">LUNA</span>` : "—", roy.royalty_luna != null ? `${fmtUsd(roy.royalty_usd_today)} at today’s price · ${fmtNum(roy.sales_with_royalty)} royalty-paying sales` : "awaiting next warm capture")}
-      ${tile("Listed now", fmtNum(listed), `${fmtUsd(askUsd)} ask-side liquidity`)}
-    </div>`;
+    const tiles = "";   // 4.51: the four tiles became the stat strip under the hero
 
     // ----- INVESTOR PANELS: supply screener · floor by tier · governance concentration -----
     const nfts = (typeof allNfts !== "undefined" && Array.isArray(allNfts)) ? allNfts : [];
@@ -2209,38 +2378,7 @@ function buildAnalyticsHtml(A, S, E) {
           <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-gray-400">${segs.map(x => `<span><span style="color:${x.c}">●</span> ${x.l} ${fmtNum(x.v)}</span>`).join("")}</div>`;
     };
     const srow = (l, v, sub) => `<div class="flex items-baseline justify-between py-1"><span class="text-sm text-gray-400">${l}</span><span class="text-sm font-semibold text-gray-100">${v}${sub ? ` <span class="text-xs text-gray-500 font-normal">${sub}</span>` : ""}</span></div>`;
-    const supplyCardAdao = `<div class="${card} cursor-pointer" data-explain="supply" title="Click: definitions">${h("Supply &#9432;", "the collection, read like a token")}
-        ${srow("Max supply", fmtNum(nfts.length || 10000))}
-        ${srow("Circulating (minted)", fmtNum(sup.minted), `${(sup.minted / (nfts.length || 10000) * 100).toFixed(1)}%`)}
-        ${srow("Staked / DAO-controlled", fmtNum(controlled), `${(controlled / Math.max(sup.minted, 1) * 100).toFixed(1)}% of circulating`)}
-        ${srow("Free float", fmtNum(sup.float + sup.listedN), `${fmtNum(sup.listedN)} of it listed`)}
-        <div class="mt-3">${segBar([
-            { l: "Staked", v: sup.staked, c: "#22d3ee" },
-            { l: "Unclaimed (custody)", v: sup.pending, c: "#67e8f9" },
-            ...(FEATURES.custody ? [{ l: "DAO broken", v: sup.daoBroken, c: "#f59e0b" }] : []),
-            { l: "Float", v: sup.float, c: "#34d399" },
-            { l: "Listed", v: sup.listedN, c: "#a78bfa" },
-            { l: LABELS.unminted, v: sup.unminted, c: "#374151" }
-        ])}</div></div>`;
-
-    // 4.50 (tenant): locked supply (staked + custody) · liquid supply · listed as a share of liquid — read like a token (owner 2026-09-19)
-    const liquidN = sup.float + sup.listedN;
-    const pctOf = (a, b) => b ? `${(a / b * 100).toFixed(1)}%` : "—";
-    const supplyCardTenant = `<div class="${card} cursor-pointer" data-explain="supply" title="Click: definitions">${h("Supply &#9432;", "the collection, read like a token")}
-        ${srow("Max supply", fmtNum(nfts.length || EXPECTED_TOTAL_NFTS))}
-        ${srow("Minted", fmtNum(sup.minted), `${pctOf(sup.minted, nfts.length || EXPECTED_TOTAL_NFTS)} of max`)}
-        ${srow("Locked supply", fmtNum(controlled), `${pctOf(controlled, sup.minted)} of minted · ${fmtNum(sup.staked)} staked${sup.pending ? ` · ${fmtNum(sup.pending)} in custody` : ""}${sup.daoBroken ? ` · ${fmtNum(sup.daoBroken)} DAO held` : ""}`)}
-        ${srow("Liquid supply", fmtNum(liquidN), `${pctOf(liquidN, sup.minted)} of minted · wallets can sell these`)}
-        ${srow("Listed", fmtNum(sup.listedN), `${pctOf(sup.listedN, liquidN)} of liquid`)}
-        <div class="mt-3">${segBar([
-            { l: "Staked", v: sup.staked, c: "#22d3ee" },
-            { l: "Unclaimed (custody)", v: sup.pending, c: "#67e8f9" },
-            ...(FEATURES.custody ? [{ l: "DAO broken", v: sup.daoBroken, c: "#f59e0b" }] : []),
-            { l: "Float", v: sup.float, c: "#34d399" },
-            { l: "Listed", v: sup.listedN, c: "#a78bfa" },
-            { l: LABELS.unminted, v: sup.unminted, c: "#374151" }
-        ])}</div></div>`;
-    const supplyCard = ANALYTICS_TENANT ? supplyCardTenant : supplyCardAdao;
+    const supplyCard = av2Supply(sup, nfts.length || EXPECTED_TOTAL_NFTS, { custody: !!FEATURES.custody, unmintedLabel: LABELS.unminted, accent: "#22d3ee" });   // 4.51: one pixel per token
 
     // --- Governance concentration (DAODAO VP) ---
     let govCard = "";
@@ -2271,7 +2409,7 @@ function buildAnalyticsHtml(A, S, E) {
           ${[["Top 1", top1], ["Top 5", top5], ["Top 10", top10]].map(([l, v]) => `<div class="flex items-center gap-3 py-1 text-sm"><span class="w-14 text-gray-400">${l}</span><div class="flex-1">${hBar(v, 100)}</div><span class="w-14 text-right text-gray-300">${v.toFixed(1)}%</span></div>`).join("")}
           <div class="text-[11px] text-gray-600 mt-2">1 staked NFT = 1 vote (broken NFTs keep their voting power)</div></div>`;
     }
-    const supplyGovRow = `<div class="grid md:grid-cols-2 gap-3 mb-4">${supplyCard}${govCard}</div>`;
+    const supplyGovRow = `<div class="grid md:grid-cols-2 gap-3 mb-4">${supplyCard}${govCard.replace(`class="${card}"`, 'class="av2-card"')}</div>`;   // 4.51
 
     // --- Floor by tier: listing floor vs sales-based floor ---
     const tierData = { broken: { listed: [] }, base: { listed: [] }, phoenix: { listed: [] } };
@@ -2353,28 +2491,28 @@ function buildAnalyticsHtml(A, S, E) {
         return { mk, sf: s.sf, lf: s.lf, won, k: rkStats ? rkStats.base.k : 10 }; })();
     _avX = { marketCap, fdv, tierMark, tierStats, tierCounts, bk, vol, sup, rkStats, mkT, rk1AtBase, flipThr: (A.flips && A.flips.threshold_days) || 30 };
 
-    hero = `<div class="${card} mb-4" style="background:linear-gradient(135deg,rgba(34,211,238,.08),rgba(17,24,39,.4))">
-        <div class="flex flex-wrap items-end gap-x-10 gap-y-3">
-          <div data-explain="market_cap" class="cursor-pointer" title="Click: how this is computed"><div class="text-xs uppercase tracking-wider text-gray-400">Market cap <span class="text-gray-600">&#9432;</span></div>
-            <div class="text-4xl font-extrabold text-white leading-none mt-1">${marketCap ? fmtUsdFull(marketCap) : "—"}</div>
-            <div class="text-xs text-gray-500 mt-1">circulating (minted) · FDV ${fdv ? fmtUsdFull(fdv) : "—"} all ${ANALYTICS_TENANT ? fmtNum(nfts.length || EXPECTED_TOTAL_NFTS) : "10,000"}</div></div>
-          <div data-explain="mark" class="cursor-pointer" title="Click: how this is computed"><div class="text-xs uppercase tracking-wider text-gray-400">Mark price${ANALYTICS_TENANT ? (rkStats ? " (base)" : "") : " (base)"} <span class="text-gray-600">&#9432;</span></div>
-            <div class="text-2xl font-bold text-gray-100 mt-1">${ANALYTICS_TENANT ? (mkT ? fmtUsd(mkT.mk) : "—") : (tierMark.base ? fmtUsd(tierMark.base) : "—")}</div>
-            <div class="text-[11px] text-gray-500 mt-0.5">${ANALYTICS_TENANT ? (mkT ? `the lower of two prices: <span class="${mkT.won === "sales" ? "text-amber-300" : ""}">sales floor ${mkT.sf ? fmtUsd(mkT.sf) : "none"}</span> (median of the last ${mkT.k} sales) vs <span class="${mkT.won === "ask" ? "text-cyan-300" : ""}">cheapest ask ${mkT.lf != null ? fmtUsd(mkT.lf) : "none"}</span> → ${mkT.won === "ask" ? "the ask" : "the sales floor"} wins` : "no sales and no live ask yet") : "lower of sales floor &amp; ask (conservative)"}</div></div>
-          <div data-explain="volume" class="cursor-pointer" title="Click: how this is computed"><div class="text-xs uppercase tracking-wider text-gray-400">All-time volume <span class="text-gray-600">&#9432;</span></div>
-            <div class="text-2xl font-bold text-cyan-300 mt-1">${fmtUsdFull(vol.usd_at_sale)}</div>
-            <div class="text-[11px] text-gray-500 mt-0.5">${fmtNum(vol.sales_count)} sales · USD at sale${ANALYTICS_TENANT ? `<br>${fmtNum(vol.luna_equiv_total)} LUNA-equivalent total · ${fmtUsdFull(vol.value_today_usd)} if that LUNA were priced today${vol.spot_luna_usd ? ` ($${Number(vol.spot_luna_usd).toFixed(4)})` : ""}` : ""}</div></div>
-          ${hiStat}
-        </div></div>`;
+    // 4.51: the hero reads — the mark (which side won), a 12-week sales-floor sparkline (filled in at return, once _fpData exists), the story sentence; the rest is a strip
+    hero = av2Hero({ mark: mkT, markLabel: (rkStats || FEATURES.break_mechanism) ? " (base)" : "", sentence: heroSentence ? heroSentence.replace('class="text-sm text-gray-300 mb-4 leading-relaxed"', 'class="av2-sentence"') : "" });
+    hero += av2Strip([
+        { k: "Market cap", v: marketCap ? fmtUsdFull(marketCap) : "—", s: `circulating (minted) · FDV ${fdv ? fmtUsdFull(fdv) : "—"} all ${fmtNum(nfts.length || EXPECTED_TOTAL_NFTS)}`, x: "market_cap" },
+        { k: "All-time volume", v: fmtUsdFull(vol.usd_at_sale), s: `${fmtNum(vol.sales_count)} sales · USD at sale<br>${fmtNum(vol.luna_equiv_total)} LUNA-equivalent · ${fmtUsdFull(vol.value_today_usd)} at today's LUNA${vol.spot_luna_usd ? ` ($${Number(vol.spot_luna_usd).toFixed(4)})` : ""}`, x: "volume" },
+        hi ? { k: "Highest sale", v: fmtUsdFull(hi.notional_usd), s: `#${hi.token_id} · ${fmtNum(hi.amount)} ${hi.denom_symbol} · ${(hi.timestamp || "").slice(0, 10)}` } : null,
+        { k: "Floor now", v: fmtUsd(floorNowUsd), s: floorNowUsd != null ? `${floorAsk && floorAsk.price_display ? `${floorAsk.price_display}${floorAsk.marketplace ? " on " + floorAsk.marketplace : ""} · ` : ""}cheapest live ask · ${fmtNum(listed)} listed` : "no live listings", x: ANALYTICS_TENANT ? "floor_now" : undefined },
+        FEATURES.backing ? { k: "Backing / NFT", v: `${(+bk.per_nft_ampluna || 0).toFixed(2)} <small>ampLUNA</small>`, s: `${fmtUsd(bk.per_nft_value_usd)} · ${fmtNum(bk.unbroken_count)} unbroken`, x: "backing_nft" } : { k: "Holders", v: fmtNum(S && S.unique_holders), s: S && S.dao_members_count != null ? `${fmtNum(S.dao_members_count)} DAO stakers` : "" },
+        FEATURES.backing ? { k: "Total backing", v: fmtUsdFull(bk.treasury_value_usd), s: `${fmtNum(bk.ampluna_balance)} ampLUNA in vault`, x: "total_backing" } : null,
+        { k: "Royalties → DAO", v: roy.royalty_luna != null ? `${fmtNum(Math.round(roy.royalty_luna))} <small>LUNA</small>` : "—", s: roy.royalty_luna != null ? `${fmtUsd(roy.royalty_usd_today)} at today’s price · ${fmtNum(roy.sales_with_royalty)} royalty-paying sales` : "awaiting next warm capture" },
+        { k: "Listed now", v: fmtNum(listed), s: `${fmtUsd(askUsd)} ask-side liquidity` }
+    ]);
     const bkUsd = (S && S.backing && S.backing.per_nft_value_usd) || null;
-    const floorCard = `<div class="${card} mb-4">${h("Floor by tier", "listing floor vs what actually sells")}
-      <div class="grid grid-cols-6 gap-2 text-[11px] uppercase tracking-wider text-gray-500 pb-1">
-        <span>Tier</span><span class="text-center">Listed</span><span class="text-center">Listing floor</span><span class="text-center">Sales floor</span><span class="text-center">Mark</span><span class="text-center">Spread</span></div>
-      ${rkStats ? tierRowHtml(`Base <span class="text-gray-500 font-normal text-xs">rank 2+ · ${fmtNum(rkStats.base.count)}</span>`, rkStats.base.listed, rkStats.base.lf, rkStats.base.sf, rkStats.base.mk) + tierRowHtml(`Rank 1 <span class="text-gray-500 font-normal text-xs">${fmtNum(rkStats.rank1.count)} tie${rkStats.rank1.count === 1 ? "" : "s"}</span>`, rkStats.rank1.listed, rkStats.rank1.lf, rkStats.rank1.sf, rkStats.rank1.mk) : ""}
-      ${rkStats ? "" : (FEATURES.break_mechanism ? tierRow("Broken", "broken") : "")}
-      ${rkStats ? "" : tierRow(FEATURES.break_mechanism ? "Unbroken (base)" : "All", "base")}
-      ${rkStats ? "" : (FEATURES.phoenix ? tierRow("Phoenix", "phoenix") : "")}
-      ${ANALYTICS_TENANT ? `<div class="text-[11px] text-gray-600 mt-3">Sales floor = median of the last ${rkStats ? rkStats.base.k : 10} sales in that tier (USD at sale${rkStats ? `; Rank 1: the last ${Math.min(rkStats.rank1.k, rkStats.rank1.n_sales)} of its ${rkStats.rank1.n_sales} sale${rkStats.rank1.n_sales === 1 ? "" : "s"} on record` : ""}). Mark = the LOWER of the sales floor and the cheapest live ask (conservative) — market cap above = Σ tier mark × tier count${rk1AtBase ? "; Rank 1 has no sale or ask of its own, so it is marked at base" : ""}. Spread = listing floor vs sales floor — a deep negative spread means the cheapest listing sits far below real trading prices.${rkStats ? " Tiers are the token's own rank (BBL's statistical rank; ties share rank 1)." : ""}</div></div>` : `<div class="text-[11px] text-gray-600 mt-3">Sales floor = median of recent sales in that tier (USD at sale, tiered by break timestamps). Mark = midpoint of sales floor and listing floor (market-maker mid) — market cap above = Σ tier mark × supply. Spread = listing floor vs sales floor — a deep negative spread means the cheapest listing sits far below real trading prices. Backing reference: ${bkUsd ? fmtUsd(bkUsd) : "—"}/NFT. Sales are classified by the NFT's current broken state.</div></div>`}`;
+    // 4.51: the six-column table became a price ladder per tier — the spread is a distance you can see
+    const ladderTiers = rkStats
+        ? [{ label: "Base", sub: `rank 2+ · ${fmtNum(rkStats.base.count)} tokens`, listed: rkStats.base.listed, lf: rkStats.base.lf, sf: rkStats.base.sf, mk: rkStats.base.mk, k: rkStats.base.k, nSales: rkStats.base.n_sales },
+           { label: "Rank 1", sub: `${fmtNum(rkStats.rank1.count)} tie${rkStats.rank1.count === 1 ? "" : "s"}`, listed: rkStats.rank1.listed, lf: rkStats.rank1.lf, sf: rkStats.rank1.sf, mk: rkStats.rank1.mk, k: rkStats.rank1.k, nSales: rkStats.rank1.n_sales }]
+        : [ ...(FEATURES.break_mechanism ? [{ label: "Broken", sub: `${fmtNum(tierCounts.circ.broken)} tokens`, listed: tierData.broken.listed.length, lf: tierStats.broken.lf, sf: tierStats.broken.sf, mk: tierMark.broken, k: 5 }] : []),
+            { label: FEATURES.break_mechanism ? "Unbroken (base)" : "All", sub: `${fmtNum(tierCounts.circ.base)} tokens`, listed: tierData.base.listed.length, lf: tierStats.base.lf, sf: tierStats.base.sf, mk: tierMark.base, k: 10 },
+            ...(FEATURES.phoenix ? [{ label: "Phoenix", sub: `${fmtNum(tierCounts.circ.phoenix)} tokens`, listed: tierData.phoenix.listed.length, lf: tierStats.phoenix.lf, sf: tierStats.phoenix.sf, mk: tierMark.phoenix, k: 3 }] : []) ];
+    const ladderNote = `Sales floor = median of the last sales in that tier (USD at sale${FEATURES.break_mechanism ? ", tiered by break timestamps" : ""}${rkStats ? "; tiers are the token's own rank — BBL's statistical rank, ties share rank 1" : ""}). Mark = the LOWER of the sales floor and the cheapest live ask (conservative) — market cap above = Σ tier mark × tier count${rk1AtBase ? "; Rank 1 has no sale or ask of its own, so it is marked at base" : ""}. Ask vs sales = the cheapest listing against the sales floor — deeply negative means the cheapest listing sits far below real trading prices.${FEATURES.backing && bkUsd ? ` Backing reference: ${fmtUsd(bkUsd)}/NFT.` : ""}`;
+    const floorCard = av2Ladders(ladderTiers, ladderNote);
 
     // --- Floor history (sales-derived; listing-floor overlay arrives with listing backfill) ---
     _fpData = buildFpData(salesDesc, tierOfSale);
@@ -2500,57 +2638,10 @@ function buildAnalyticsHtml(A, S, E) {
       <div class="${card}">${h("Sale frequency", "times changed hands")}${distRows}</div>
       <div class="${card}">${h("Paid in", "by sale count")}${denomRows}</div></div>`;
 
-    // ----- compact trading-character line (replaces the confusing flip card) -----
-    const fl = A.flips || {}; const ht = A.hold_time_days || {};
-    const flipLine = `<div class="${card} mb-4 text-sm text-gray-400">
-      <span class="text-gray-500 uppercase text-xs tracking-wider mr-2">Trading character</span>
-      ${fmtNum(fl.count)} flips (held ≤${fl.threshold_days ?? 30}d) · ${(+fl.pct_of_sales || 0).toFixed(1)}% of all sales · median hold ${(+ht.median || 0).toFixed(1)}d
-      <span class="text-gray-600">— a per-wallet cost-basis view is coming to the Wallet tab</span></div>`;
-
-    // 4.50 (tenant): a Trading character card that earns its space — from sales-enriched alone (no new product). A ROUND TRIP is a
-    // marketplace buy followed by a sale of the same token by the same wallet (mint → first sale is not counted here: the mint
-    // cost lives in the ledger, not in this product). P&L two ways: USD at the time of each leg, and LUNA-equivalent (n/a when a
-    // leg was paid in a stablecoin with no LUNA leg).
-    const tcCard = ANALYTICS_TENANT ? (() => {
-        const sales = (E && Array.isArray(E.sales)) ? E.sales.filter(s => s.timestamp && s.notional_usd != null) : [];
-        if (!sales.length) return `<div class="${card} mb-4 text-sm text-gray-500">Trading character — no sales on record yet.</div>`;
-        const byTok = {}; sales.forEach(s => { (byTok[String(s.token_id)] = byTok[String(s.token_id)] || []).push(s); });
-        const thr = (A.flips && A.flips.threshold_days) || 30;
-        const rts = [];
-        for (const rows of Object.values(byTok)) { rows.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-            for (let i = 0; i + 1 < rows.length; i++) { const b = rows[i], s = rows[i + 1]; if (b.buyer && b.buyer === s.seller) {
-                const days = (Date.parse(s.timestamp) - Date.parse(b.timestamp)) / 86400000;
-                const pnlUsd = s.notional_usd - b.notional_usd;
-                const pnlLuna = (s.luna_equiv != null && b.luna_equiv != null) ? s.luna_equiv - b.luna_equiv : null;
-                rts.push({ token: s.token_id, wallet: s.seller, days, buyUsd: b.notional_usd, sellUsd: s.notional_usd, pnlUsd, pnlLuna, buyAt: b.timestamp, sellAt: s.timestamp }); } } }
-        const flips = rts.filter(r => r.days <= thr), holds = rts.filter(r => r.days > thr);
-        const sum = (a, k) => a.reduce((t, r) => t + (r[k] || 0), 0);
-        const med = median(rts.map(r => r.days));
-        const buyers = new Set(sales.map(s => s.buyer).filter(Boolean)), sellers = new Set(sales.map(s => s.seller).filter(Boolean));
-        const neverSold = [...buyers].filter(a => !sellers.has(a)).length;
-        const best = rts.length ? rts.reduce((m, r) => r.pnlUsd > m.pnlUsd ? r : m) : null, worst = rts.length ? rts.reduce((m, r) => r.pnlUsd < m.pnlUsd ? r : m) : null;
-        const lunaS = (v) => v == null ? "n/a in LUNA" : `${v >= 0 ? "+" : "−"}${fmtNum(Math.abs(v))} LUNA`;
-        const usdS = (v) => `${v >= 0 ? "+" : "−"}${fmtUsdFull(Math.abs(v))}`;
-        const rtLine = (r, cls) => r ? `<div class="text-sm"><span class="${cls} font-semibold">${usdS(r.pnlUsd)}</span> <span class="text-gray-500">·</span> <span class="${cls}">${lunaS(r.pnlLuna)}</span>
-            <div class="text-[11px] text-gray-500">#${r.token} · bought ${fmtUsd(r.buyUsd)} ${r.buyAt.slice(0, 10)} → sold ${fmtUsd(r.sellUsd)} ${r.sellAt.slice(0, 10)} · held ${Math.round(r.days)}d</div></div>` : `<div class="text-sm text-gray-600">—</div>`;
-        const stat = (k, v, sub) => `<div><div class="text-xs uppercase tracking-wider text-gray-400">${k}</div><div class="text-xl font-bold text-white mt-0.5">${v}</div>${sub ? `<div class="text-[11px] text-gray-500">${sub}</div>` : ""}</div>`;
-        const pct = (a, b) => b ? `${(a / b * 100).toFixed(1)}%` : "—";
-        return `<div class="${card} mb-4" data-explain="trading_character" title="Click: definitions">${h("Trading character &#9432;", "round trips in sales-enriched · P&amp;L two ways")}
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            ${stat("Round trips", fmtNum(rts.length), `${pct(rts.length, sales.length)} of ${fmtNum(sales.length)} sales close a buy by the same wallet`)}
-            ${stat("Flips vs holds", `${fmtNum(flips.length)} <span class="text-sm text-gray-400 font-normal">vs</span> ${fmtNum(holds.length)}`, `≤${thr}d: ${fmtUsdFull(sum(flips, "sellUsd"))} sold · &gt;${thr}d: ${fmtUsdFull(sum(holds, "sellUsd"))} sold`)}
-            ${stat("Median hold", med != null ? `${med.toFixed(1)}d` : "—", rts.length ? `of round trips · ${fmtNum(sales.length - rts.length)} sales were first-hand or not resold yet` : "")}
-            ${stat("Bought, never sold", fmtNum(neverSold), `${pct(neverSold, buyers.size)} of ${fmtNum(buyers.size)} buyers`)}
-          </div>
-          <div class="grid md:grid-cols-2 gap-4 border-t border-gray-700/50 pt-3">
-            <div><div class="text-xs uppercase tracking-wider text-gray-400 mb-1">Biggest gain</div>${rtLine(best && best.pnlUsd > 0 ? best : null, "text-green-400")}</div>
-            <div><div class="text-xs uppercase tracking-wider text-gray-400 mb-1">Biggest loss</div>${rtLine(worst && worst.pnlUsd < 0 ? worst : null, "text-red-400")}</div>
-          </div>
-          <div class="text-[11px] text-gray-600 mt-3">A round trip = a marketplace buy, then a sale of that token by the same wallet. USD = at the time of each leg; LUNA = LUNA-equivalent of each leg (a bLUNA sale ÷ LUNA's oracle price that day), n/a when a leg was paid in a stablecoin. Mint → first sale is not a round trip here (the mint cost is in the ledger, on each token's journey).</div></div>`;
-    })() : "";
+    const tcCard = av2Trading(E, (A.flips && A.flips.threshold_days) || 30, card);   // 4.51: both collections
 
     const footer = `<div class="text-center text-[11px] text-gray-600 pb-6">Chain-of-truth analytics · built ${A.builtAt ? new Date(A.builtAt).toLocaleString() : ""}</div>`;
-    return hero + tiles + supplyGovRow + floorCard + fpCard + monthChart + leaderboards + mostTraded + row3 + (ANALYTICS_TENANT ? tcCard : flipLine) + footer;
+    return hero.replace("%%SPARK%%", av2Spark(_fpData, "base", _fpListingFloor.base)) + tiles + supplyGovRow + floorCard + fpCard + monthChart + leaderboards + mostTraded + row3 + tcCard + footer;
 }
 
 const updateAddressDropdown = (nftList) => {
@@ -2843,6 +2934,9 @@ const updateUrlState = () => {
     if (searchInput.value) params.set('id', searchInput.value);
     if (sortSelect.value !== 'asc') params.set('sort', sortSelect.value);
     if (rankMode === 'bbl') params.set('ranks', 'bbl');
+    // 4.51: a non-default tenant stays in the URL the page writes — every filter change used to rebuild the query and drop
+    // ?tenant=, so a shared link lost Lion DAO on the first click (owner 2026-09-19). The default tenant writes nothing.
+    { const ctx = TENANT_CTX; const isDefault = !!(ctx && ctx.tenants && ctx.tenants[ctx.tenant.slug] && ctx.tenants[ctx.tenant.slug].default); if (ctx && ctx.tenant && ctx.tenant.slug && !isDefault) params.set('tenant', ctx.tenant.slug); }
 
     document.querySelectorAll('.multi-select-container').forEach(container => {
         const traitElement = container.querySelector('[data-trait]');
@@ -4013,7 +4107,7 @@ const findRarestTrait = (nft) => {
             }
         }
     });
-    return rarestTrait || { value: 'N/A', trait_type: 'Unknown' };
+    return rarestTrait ? Object.assign({}, rarestTrait, { count: minCount }) : { value: 'N/A', trait_type: 'Unknown' };   // 4.51: how many tokens share it
 };
 
 // =============================================================================
@@ -4034,6 +4128,8 @@ const findRarestTrait = (nft) => {
 // The site's own header logo (index.html uses this exact asset), so a social
 // post looks like the site people land on. Shared by BOTH post types.
 const POST_LOGO_URL = '/assets/images/Alliance%20DAO%20Logo.png';
+// 4.51: every drawn post carries the TENANT's logo (Lion DAO's on a Pixel Lion), aDAO's literal only as the default's fallback
+const postLogoUrl = () => (TENANT_CTX && TENANT_CTX.tenant && TENANT_CTX.tenant.logo) || POST_LOGO_URL;
 
 const SHOWCASE_MAX = 10;
 let showcasePicks = new Set();
@@ -4258,7 +4354,7 @@ const generateShowcaseImage = async (button) => {
             l.onerror = () => res(null);          // post still works without it
             // The same mark the website header uses, so a social post is visually
         // continuous with the site.
-        l.src = POST_LOGO_URL;
+        l.src = postLogoUrl();   // 4.51: the tenant's mark
         });
         const images = await Promise.all(picks.map(loadNftImage));
         if (showcaseOpts.days) await loadListingAges();
@@ -4480,7 +4576,7 @@ const generateShareImage = (nft, button) => {
     }
     
     // Load both NFT image and logo (text logo with "THE ALLIANCE DAO")
-    const logoUrl = POST_LOGO_URL;   // shared with the listings showcase
+    const logoUrl = postLogoUrl();   // 4.51: the tenant's logo (shared with the listings showcase)
     const logo = new Image();
     logo.crossOrigin = "anonymous";
     
@@ -4566,32 +4662,27 @@ const drawPostImage = (canvas, ctx, img, logo, nft, button) => {
         ctx.fillText(text, x, y);
     };
 
-    drawText(`NFT #${nft.id || '?'}`, margin, imageTop + margin + 48, 'left');
-    drawText(rankDisplay(nft), canvas.width - margin, imageTop + margin + 48, 'right');
-    drawText(getTrait('Planet'), margin, imageTop + 1080 - margin, 'left');
-    
-    let inhabitantText = getTrait('Inhabitant');
-    if (inhabitantText.endsWith(' M')) inhabitantText = inhabitantText.replace(' M', ' Male');
-    else if (inhabitantText.endsWith(' F')) inhabitantText = inhabitantText.replace(' F', ' Female');
-    drawText(inhabitantText, canvas.width - margin, imageTop + 1080 - margin, 'right');
-    
-    const bannerHeight = 120;
-    const bannerY = imageTop + 1080 - bannerHeight - 80;
-    
+    // 4.51 (owner 2026-09-19): nothing is drawn over the art any more — the token's name, its rank and its rarest trait (with how
+    // many tokens share it) sit in ONE band at the bottom; the aDAO Planet/Inhabitant corners (N/A on any other collection) are
+    // gone. A broken aDAO NFT keeps its red BROKEN band with the name line above it.
+    const bandHeight = 190;
+    const bannerY = imageTop + 1080 - bandHeight;
+    const nameLine = `${(typeof TOKEN_NAME === 'function' ? TOKEN_NAME(nft.id) : `NFT #${nft.id || '?'}`)}  ·  ${rankDisplay(nft)}`;
+    ctx.fillStyle = nft.broken ? 'rgba(220, 38, 38, 0.85)' : 'rgba(0, 0, 0, 0.72)';
+    ctx.fillRect(0, bannerY, canvas.width, bandHeight);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 44px Inter, sans-serif';
+    drawText(nameLine, canvas.width / 2, bannerY + 72, 'center');
     if (nft.broken) {
-        ctx.fillStyle = 'rgba(220, 38, 38, 0.85)'; // Red
-        ctx.fillRect(0, bannerY, canvas.width, bannerHeight);
-        ctx.fillStyle = 'white';
         ctx.font = 'bold 60px Inter, sans-serif';
-        drawText('BROKEN', canvas.width / 2, bannerY + 85, 'center');
+        drawText('BROKEN', canvas.width / 2, bannerY + 150, 'center');
     } else {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; // Dark
-        ctx.fillRect(0, bannerY, canvas.width, bannerHeight);
         const strength = findRarestTrait(nft);
-        ctx.fillStyle = 'white';
-            ctx.font = 'bold 40px Inter, sans-serif';
-            drawText(`Rarest: ${strength.value || 'N/A'}`, canvas.width / 2, bannerY + 75, 'center');
-        }
+        const total = (typeof allNfts !== 'undefined' && allNfts.length) ? allNfts.filter(n => !n.unminted).length : null;
+        ctx.font = 'bold 36px Inter, sans-serif';
+        const share = (strength.count != null && total) ? `  —  ${strength.count.toLocaleString()} of ${total.toLocaleString()} have it` : '';
+        drawText(`Rarest trait: ${strength.value || 'N/A'}${share}`, canvas.width / 2, bannerY + 140, 'center');
+    }
         
         // Add black border around entire image (easy to crop if needed)
         const borderWidth = 8;

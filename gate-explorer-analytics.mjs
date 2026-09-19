@@ -104,8 +104,13 @@ const S = JSON.parse(fs.readFileSync(SNAP('summary.json')));
 
 // --- specific cells ----------------------------------------------------------
 // 1) trading character: real flips numbers, NO phantom P&L
-check('trading line: real flips count from product', html.includes(`${A.flips.count.toLocaleString('en-US')} flips`), `${A.flips.count}`);
-check('trading line: pct of sales rendered', html.includes(`${A.flips.pct_of_sales.toFixed(1)}% of all sales`));
+// 4.51: the trading-character card computes ROUND TRIPS (a marketplace buy, then a sale of that token by the same wallet) from
+// sales-enriched — recomputed here independently; the product's `flips` (hold from ANY acquisition) is a different, wider measure
+{ const E = JSON.parse(fs.readFileSync(SNAP('sales-enriched.json'))); const sales = (E.sales || []).filter(x => x.timestamp && x.notional_usd != null); const byTok = {}; sales.forEach(x => (byTok[x.token_id] = byTok[x.token_id] || []).push(x));
+  let rt = 0, flips = 0; for (const rows of Object.values(byTok)) { rows.sort((a, b) => a.timestamp.localeCompare(b.timestamp)); for (let i = 0; i + 1 < rows.length; i++) if (rows[i].buyer && rows[i].buyer === rows[i + 1].seller) { rt++; if ((Date.parse(rows[i + 1].timestamp) - Date.parse(rows[i].timestamp)) / 86400000 <= (A.flips.threshold_days || 30)) flips++; } }
+  check('trading card: round trips recomputed from sales-enriched', html.includes(`Round trips</div><div class="av2-read-v">${rt.toLocaleString('en-US')}`), `${rt}`);
+  check('trading card: flips vs holds by count', html.includes(`${flips.toLocaleString('en-US')} <span class="text-sm text-gray-400 font-normal">vs</span> ${(rt - flips).toLocaleString('en-US')}`), `${flips} vs ${rt - flips}`);
+  check('trading card: pct of sales rendered', html.includes(`${(rt / sales.length * 100).toFixed(1)}% of ${sales.length.toLocaleString('en-US')} sales close a buy by the same wallet`)); }
 check('trading line: NO phantom realized-P&L', !html.includes('realized P&L'));
 
 // 2) leaderboards: top buyer row carries the product usd (first NON-system buyer).
@@ -131,7 +136,7 @@ if (A.royalties.royalty_luna != null) {
 }
 
 // 5) conservative mark: min(sales floor, ask) — recompute independently per tier
-check('mark label: conservative wording', html.includes('lower of sales floor'));
+check('mark label: conservative wording', html.includes('the lower of two prices — sales floor'));   // 4.51 hero
 // base tier: sales floor from committed floor-history equivalents is embedded in the page's own
 // computation; assert the RELATION instead: rendered base mark ≤ both floors it shows.
 // let-scoped _avX isn't reachable from outside the eval'd script — assert the
@@ -148,7 +153,7 @@ check('governance: not the Enterprise-inflated 2,034', !html.includes('2,034 NFT
 // 7) supply: unclaimed custody bucket = pending + unattributed, never in float
 const pend = S.daodao_pending_claim_count ?? 0, unat = S.daodao_custody_unattributed_count ?? 0;
 check('supply: Unclaimed (custody) segment titled with pending+unattributed',
-  html.includes(`Unclaimed (custody): ${(pend + unat).toLocaleString('en-US')}`), `${pend}+${unat}`);
+  html.includes(`Unclaimed (custody) ${(pend + unat).toLocaleString('en-US')}`), `${pend}+${unat}`);   // 4.51 legend
 
 // 8) volume chart bars: real monthly usd (field truth) — svgBars ran with values
 w.renderVolChart();
