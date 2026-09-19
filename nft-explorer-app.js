@@ -1,3 +1,11 @@
+// 2026-09-19 (explorer 4.50 — C.1, the owner's analytics asks after the first full Lion DAO look): on a TENANT collection (never
+//   aDAO — its page stays byte-identical): default sort = price low → high (listed first, unlisted after, by id); a Rank 1 filter
+//   toggle where the rank oracle shares ranks (BBL's statistical rank), its count = the true number of rank-1 tokens; the Mark
+//   price tile says which side won (sales floor vs cheapest ask, both shown); All-time volume = USD at sale AND the same LUNA at
+//   today's price AND the LUNA total; Floor now = USD · the ask's own token amount · venue; the Supply card reads locked / liquid /
+//   listed-of-liquid; Floor by tier = Base + Rank 1 rows; a Trading character card built from sales-enriched (round trips = a
+//   marketplace buy then a sale by the same wallet; flips vs holds by count AND value; median hold; biggest gain/loss two ways;
+//   buyers who never sold) — no new product. The floor-history chart stays "All" (its tiers are aDAO's break/phoenix keys).
 // 2026-09-18 (explorer 4.38): BOUNDARY TILES between the holder sections — MINTED · SOLD (seller + buyer sides) · HANDED TO — the
 //   events you scan for; the sections underneath are what each holder did with it (lib 1.2.1 boundary rows).
 // 2026-09-18 (explorer 4.37): the journey in SECTIONS — one per holder (how it began, what happened on their watch, how it ended)
@@ -205,6 +213,9 @@ let COLLECTION_TRAITS = ["Planet", "Inhabitant", "Object", "Weather", "Light"]; 
 let SPLIT_TRAITS = { Planet: [' North', ' South'], Inhabitant: [' M', ' F'] };       // slider-direction traits (name → its two suffixes)
 let FEATURES = { break_mechanism: true, backing: true, phoenix: true, custody: true };
 let LABELS = { unminted: 'Unminted' };
+let ANALYTICS_TENANT = false;   // 4.50: the tenant analytics tiles (a non-default collection); aDAO keeps its own text byte for byte
+let RANK_TIES = false;          // 4.50: the rank oracle shares ranks (BBL's statistical rank) → a Rank 1 toggle and a Rank 1 floor row
+let DEFAULT_SORT = 'rank-best'; // 4.50: a tenant collection opens price low → high (owner 2026-09-19); aDAO keeps ranking best-first
 let COLLECTION_MARK = null, COLLECTION_LABEL = 'The Alliance DAO';
 let SHORT_TITLE = (id) => `aDAO #${id}`;   // 4.42: card title; other collections use their token name pattern   // 4.41: the collection's mark image + label (manifest)
 
@@ -711,6 +722,10 @@ function applyCollectionContext(ctx) {
     filterLayoutOrder = [...(hasRarityAttr ? ['Rarity'] : []), ...COLLECTION_TRAITS.filter(n => !SPLIT_TRAITS[n])];
     FEATURES = { break_mechanism: !!c.features.break_mechanism, backing: !!c.features.backing, phoenix: !!c.features.phoenix, custody: !!c.features.custody };
     LABELS = { unminted: c.labels.unminted || 'Unminted' };
+    ANALYTICS_TENANT = c.slug !== 'adao';   // 4.50
+    RANK_TIES = c.assets.rarity_method === 'bbl-statistical-mirror';   // 4.50: ties share a rank → "Rank 1" is a set, not one token
+    DEFAULT_SORT = c.slug === 'adao' ? 'rank-best' : 'price-asc';   // 4.50
+    if (sortSelect && DEFAULT_SORT !== 'rank-best') sortSelect.value = DEFAULT_SORT;
     IMAGE_URL = (typeof c.assets.image === 'function') ? c.assets.image : null;   // 4.41
     IMAGE_FALLBACK = (typeof c.assets.image_fallback === 'function') ? c.assets.image_fallback : null;   // 4.44
     // 4.41: badge-key entries that describe a feature this collection lacks (broken/backing, DAO custody) are hidden
@@ -1024,6 +1039,14 @@ const fmtListingPrice = (listing) => {
         container.appendChild(chipWrap);
         return container;
     }
+    // 4.50: a plain yes/no toggle (Rank 1) — the count only, no slider position to read
+    if (config.plain) {
+        const plainWrap = document.createElement('div');
+        plainWrap.className = 'flex flex-col items-end';
+        plainWrap.innerHTML = `<span class="text-[10px] text-gray-500 h-4 ${config.countClass || ''}" data-count-key="${config.key}" title="NFTs matching this toggle within the current filters"></span>`;
+        container.appendChild(plainWrap);
+        return container;
+    }
     container.appendChild(sliderContainer);
     return container;
 };
@@ -1161,7 +1184,8 @@ const populateStatusFilters = () => {
         { key: 'staked', label: 'Staked', left: 'Ent', right: 'DAO' },
         { key: 'listed', label: 'Listed', chips: true, tooltip: 'Filter by marketplace. Only marketplaces with live listings appear; each toggles independently, so any combination works.' },
         ...(FEATURES.break_mechanism ? [{ key: 'rewards', label: 'Rewards', left: 'Broken', right: 'Unbroken' }] : []),   // 4.40: only a collection with a break mechanism
-        ...(LABELS.unminted === 'Unminted' ? [{ key: 'mint_status', label: 'Mint Status', left: 'Un-Minted', right: 'Minted' }] : []),   // 4.48: only a collection with an unminted reserve (a custody block); "DAO held" is a badge, not a filter (owner 2026-09-19)
+        ...(LABELS.unminted === 'Unminted' ? [{ key: 'mint_status', label: 'Mint Status', left: 'Un-Minted', right: 'Minted' }] : []),
+        ...(RANK_TIES ? [{ key: 'rank1', label: 'Rank 1', plain: true, tooltip: "The rank oracle shares a rank across ties, so rank 1 is a set of tokens — the count is the true number of them in the current filters." }] : []),   // 4.50   // 4.48: only a collection with an unminted reserve (a custody block); "DAO held" is a badge, not a filter (owner 2026-09-19)
         ...(SPLIT_TRAITS.Planet && SPLIT_TRAITS.Inhabitant ? [{ key: 'matching_traits', label: 'Matching', left: 'P+I', right: 'P+I+O', tooltip: 'Home-system trait match \u2014 P+I: the Inhabitant is standing on its home planet (e.g. a Lusan on Lusa). P+I+O: planet + inhabitant + a native object of that world (e.g. Lusan Water Staff). Slide to choose which match the count shows.' }] : []),
         { key: 'liquid_status', label: 'Liquid', left: 'Liquid', right: 'Not Liq' }
     ];
@@ -1181,6 +1205,7 @@ const populateStatusFilters = () => {
             // and rendered "undefined … undefined" (its left/right were removed
             // when it became chip-based). Pass the flag through.
             chips: filter.chips,
+            plain: filter.plain,   // 4.50: a yes/no toggle with a count and no slider
             tooltip: filter.tooltip
         });
         statusFiltersGrid.appendChild(container);
@@ -1678,6 +1703,15 @@ let _avX = {};               // live numbers stashed for the metric-explainer mo
 function showMetricExplainer(key) {
     const d = _avX || {};
     const F = fmtUsdFull, f = fmtUsd, N = fmtNum;
+    // 4.50: a tenant collection has no break / phoenix tiers — its explainers describe what ITS tiles show
+    const T = ANALYTICS_TENANT ? {
+        market_cap: ["Market cap — how we compute it", `<p>Σ tier mark × tier count over the minted supply.${d.rkStats ? ` Base (rank 2+): ${f(d.rkStats.base.mk)} × ${N(d.rkStats.base.count)} · Rank 1: ${f(d.rkStats.rank1.mk || d.rkStats.base.mk)} × ${N(d.rkStats.rank1.count)}${d.rk1AtBase ? " (marked at base — no rank-1 sale or ask of its own)" : ""}.` : ` One tier: mark ${f(d.tierMark?.base)}.`} FDV prices every token the same way. A collection is usually quoted as floor × supply; this is the same idea with a conservative mark.</p>`],
+        mark: ["Mark price — how we compute it", `<p>Two honest prices exist and they usually disagree: the <b>sales floor</b> (median of the last ${d.mkT ? d.mkT.k : 10} sales, USD at sale time) and the <b>cheapest live ask</b>. The mark is the LOWER of the two — the conservative side.</p><p class="font-mono text-xs bg-gray-900/70 rounded p-2">sales floor ${d.mkT ? f(d.mkT.sf) : "—"} · ask ${d.mkT && d.mkT.lf != null ? f(d.mkT.lf) : "none"} → mark <b>${d.mkT ? f(d.mkT.mk) : "—"}</b> (${d.mkT ? (d.mkT.won === "ask" ? "the ask" : "the sales floor") : "—"} won)</p><p>If one side is missing the mark is the side that exists.</p>`],
+        volume: ["All-time volume — three readings", `<p><b>USD at sale</b> sums every sale at the oracle price of its day. <b>LUNA-equivalent</b> converts every sale into LUNA at that day's prices (a bLUNA sale ÷ LUNA's price) and sums the LUNA. <b>At today's price</b> is that LUNA total × LUNA's spot now — what the same coins would be worth if nobody had spent them.</p><p class="font-mono text-xs bg-gray-900/70 rounded p-2">${N(d.vol?.sales_count)} sales · ${F(d.vol?.usd_at_sale)} at sale · ${N(d.vol?.luna_equiv_total)} LUNA-eq · ${F(d.vol?.value_today_usd)} today</p>`],
+        floor_now: ["Floor now", `<p>The cheapest live ask across every marketplace the collection is listed on, priced in USD at the ask's own token (bLUNA / LUNA / SOLID …) and shown with that token amount and the venue. It is an ask, not a trade — the sales floor on the Floor by tier card is what actually sells.</p>`],
+        supply: ["Supply — reading the collection like a token", `<p><b>Locked supply</b> = staked (DAODAO + Enterprise) plus tokens sitting in DAO custody (unclaimed unstakes) — nobody can sell these today. <b>Liquid supply</b> = everything a wallet holds outright, listed or not. <b>Listed</b> is the share of the liquid supply on a marketplace right now.</p><p class="font-mono text-xs bg-gray-900/70 rounded p-2">minted ${N(d.sup?.minted)} · locked ${N((d.sup?.staked || 0) + (d.sup?.pending || 0) + (d.sup?.daoBroken || 0))} · liquid ${N((d.sup?.float || 0) + (d.sup?.listedN || 0))} · listed ${N(d.sup?.listedN)}</p>`],
+        trading_character: ["Trading character — definitions", `<p>A <b>round trip</b> is a marketplace buy followed by a sale of the same token by the same wallet (mint → first sale is not counted: the mint cost lives in the ledger). A <b>flip</b> closed within ${(d.vol && 0) || 30} days; a <b>hold</b> took longer. Value = the USD of the selling leg. P&amp;L is shown two ways: USD at the time of each leg, and LUNA-equivalent — because a dollar loss is not realised by a seller who kept the LUNA. <b>Bought, never sold</b> = buyers with no sale on record.</p>`]
+    } : null;
     const C = {
         market_cap: ["Market cap — how we compute it", `
           <p>Collections are usually quoted as <em>floor × supply</em> — one price for every NFT. That overstates a collection like this one, where three very different assets share the supply: <b>Broken</b> (no backing claim), <b>Unbroken base</b>, and <b>Phoenix</b> (the 40-grade apex trait).</p>
@@ -1716,7 +1750,7 @@ function showMetricExplainer(key) {
           <p>Within circulating: <b>staked</b> (DAODAO + Enterprise — locked but user-owned), <b>pending claim</b> (in the unstake window), <b>DAO broken</b> (treasury-held governance NFTs), and <b>free float</b> — the only part that can actually trade, of which a slice is listed right now.</p>
           <p>Float ÷ circulating is the liquidity reality check: a small float means thin books and jumpy floors.</p>`]
     };
-    const item = C[key]; if (!item) return;
+    const item = (T && T[key]) || C[key]; if (!item) return;   // 4.50: tenant explainers first
     let m = document.getElementById("av-explain-modal");
     if (!m) {
         m = document.createElement("div");
@@ -2118,6 +2152,8 @@ function buildAnalyticsHtml(A, S, E) {
     if (S && S.marketplaces) for (const mk of Object.values(S.marketplaces)) { listed += mk.count || 0; for (const t of Object.values(mk.by_token || {})) askUsd += t.total_usd || 0; }
     // 4.41: a collection without backing gets the floor + holders where aDAO shows its backing (the manifest decides) — the floor from the page's own live listings
     const floorNowUsd = (() => { const src = (typeof allNfts !== "undefined" && Array.isArray(allNfts)) ? allNfts : []; const ps = src.filter(n => n.listing && n.listing.price_usd != null).map(n => n.listing.price_usd); return ps.length ? Math.min(...ps) : null; })();
+    // 4.50: the cheapest live ask as an object — its own token amount and venue ride on the Floor now tile
+    const floorAsk = (() => { let best = null; for (const n of ((typeof allNfts !== "undefined" && Array.isArray(allNfts)) ? allNfts : [])) { const l = n.listing; if (l && l.price_usd != null && (!best || l.price_usd < best.price_usd)) best = l; } return best; })();
     const tile = (label, big, sub, xkey) => `<div class="${card} ${xkey ? "cursor-pointer" : ""}" ${xkey ? `data-explain="${xkey}" title="Click: how this is computed"` : ""}><div class="text-xs uppercase tracking-wider text-gray-400">${label}${xkey ? ' <span class="text-gray-600">&#9432;</span>' : ""}</div><div class="text-2xl font-bold text-white mt-1">${big}</div><div class="text-xs text-gray-500 mt-0.5">${sub}</div></div>`;
     // Hero sentence (Rev 4.24): one line that reads the whole tab, written FROM
     // the products — never a static caption. Honest about quiet markets: when
@@ -2143,7 +2179,7 @@ function buildAnalyticsHtml(A, S, E) {
     })();
     const tiles = heroSentence + `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
       ${FEATURES.backing ? tile("Backing / NFT", `${(+bk.per_nft_ampluna || 0).toFixed(2)} <span class='text-base text-cyan-300'>ampLUNA</span>`, `${fmtUsd(bk.per_nft_value_usd)} · ${fmtNum(bk.unbroken_count)} unbroken`, "backing_nft")
-                        : tile("Floor now", fmtUsd(floorNowUsd), floorNowUsd != null ? `cheapest live ask · ${fmtNum(listed)} listed` : "no live listings")}
+                        : tile("Floor now", fmtUsd(floorNowUsd), floorNowUsd != null ? (ANALYTICS_TENANT && floorAsk ? `${floorAsk.price_display || ''}${floorAsk.marketplace ? ' on ' + floorAsk.marketplace : ''} · cheapest live ask · ${fmtNum(listed)} listed` : `cheapest live ask · ${fmtNum(listed)} listed`) : "no live listings", ANALYTICS_TENANT ? "floor_now" : undefined)}
       ${FEATURES.backing ? tile("Total backing", fmtUsdFull(bk.treasury_value_usd), `${fmtNum(bk.ampluna_balance)} ampLUNA in vault`, "total_backing")
                         : tile("Holders", fmtNum(S && S.unique_holders), S && S.dao_members_count != null ? `${fmtNum(S.dao_members_count)} DAO stakers` : "")}
       ${tile("Royalties → DAO", roy.royalty_luna != null ? `${fmtNum(Math.round(roy.royalty_luna))} <span class="text-base text-cyan-300">LUNA</span>` : "—", roy.royalty_luna != null ? `${fmtUsd(roy.royalty_usd_today)} at today’s price · ${fmtNum(roy.sales_with_royalty)} royalty-paying sales` : "awaiting next warm capture")}
@@ -2173,7 +2209,7 @@ function buildAnalyticsHtml(A, S, E) {
           <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-gray-400">${segs.map(x => `<span><span style="color:${x.c}">●</span> ${x.l} ${fmtNum(x.v)}</span>`).join("")}</div>`;
     };
     const srow = (l, v, sub) => `<div class="flex items-baseline justify-between py-1"><span class="text-sm text-gray-400">${l}</span><span class="text-sm font-semibold text-gray-100">${v}${sub ? ` <span class="text-xs text-gray-500 font-normal">${sub}</span>` : ""}</span></div>`;
-    const supplyCard = `<div class="${card} cursor-pointer" data-explain="supply" title="Click: definitions">${h("Supply &#9432;", "the collection, read like a token")}
+    const supplyCardAdao = `<div class="${card} cursor-pointer" data-explain="supply" title="Click: definitions">${h("Supply &#9432;", "the collection, read like a token")}
         ${srow("Max supply", fmtNum(nfts.length || 10000))}
         ${srow("Circulating (minted)", fmtNum(sup.minted), `${(sup.minted / (nfts.length || 10000) * 100).toFixed(1)}%`)}
         ${srow("Staked / DAO-controlled", fmtNum(controlled), `${(controlled / Math.max(sup.minted, 1) * 100).toFixed(1)}% of circulating`)}
@@ -2186,6 +2222,25 @@ function buildAnalyticsHtml(A, S, E) {
             { l: "Listed", v: sup.listedN, c: "#a78bfa" },
             { l: LABELS.unminted, v: sup.unminted, c: "#374151" }
         ])}</div></div>`;
+
+    // 4.50 (tenant): locked supply (staked + custody) · liquid supply · listed as a share of liquid — read like a token (owner 2026-09-19)
+    const liquidN = sup.float + sup.listedN;
+    const pctOf = (a, b) => b ? `${(a / b * 100).toFixed(1)}%` : "—";
+    const supplyCardTenant = `<div class="${card} cursor-pointer" data-explain="supply" title="Click: definitions">${h("Supply &#9432;", "the collection, read like a token")}
+        ${srow("Max supply", fmtNum(nfts.length || EXPECTED_TOTAL_NFTS))}
+        ${srow("Minted", fmtNum(sup.minted), `${pctOf(sup.minted, nfts.length || EXPECTED_TOTAL_NFTS)} of max`)}
+        ${srow("Locked supply", fmtNum(controlled), `${pctOf(controlled, sup.minted)} of minted · ${fmtNum(sup.staked)} staked${sup.pending ? ` · ${fmtNum(sup.pending)} in custody` : ""}${sup.daoBroken ? ` · ${fmtNum(sup.daoBroken)} DAO held` : ""}`)}
+        ${srow("Liquid supply", fmtNum(liquidN), `${pctOf(liquidN, sup.minted)} of minted · wallets can sell these`)}
+        ${srow("Listed", fmtNum(sup.listedN), `${pctOf(sup.listedN, liquidN)} of liquid`)}
+        <div class="mt-3">${segBar([
+            { l: "Staked", v: sup.staked, c: "#22d3ee" },
+            { l: "Unclaimed (custody)", v: sup.pending, c: "#67e8f9" },
+            ...(FEATURES.custody ? [{ l: "DAO broken", v: sup.daoBroken, c: "#f59e0b" }] : []),
+            { l: "Float", v: sup.float, c: "#34d399" },
+            { l: "Listed", v: sup.listedN, c: "#a78bfa" },
+            { l: LABELS.unminted, v: sup.unminted, c: "#374151" }
+        ])}</div></div>`;
+    const supplyCard = ANALYTICS_TENANT ? supplyCardTenant : supplyCardAdao;
 
     // --- Governance concentration (DAODAO VP) ---
     let govCard = "";
@@ -2249,6 +2304,29 @@ function buildAnalyticsHtml(A, S, E) {
         tierMark[tier] = (sf && lf != null) ? Math.min(sf, lf) : (sf || lf || null);
         tierStats[tier] = { sf, lf };
     });
+    // 4.50 (tenant with shared ranks): Base = every ranked token but rank 1 · Rank 1 = the rank-1 set. The rank is the token's own
+    // (static), so a sale is tiered by the token's rank now. The floor-history chart keeps its one "All" series.
+    const rankTierOf = (n) => (getActiveRank(n) === 1 ? "rank1" : "base");
+    let rkStats = null;
+    if (ANALYTICS_TENANT && RANK_TIES) {
+        const rd = { base: { listed: [] }, rank1: { listed: [] } };
+        nfts.forEach(n => { if (n.listing && n.listing.price_usd != null) rd[rankTierOf(n)].listed.push(n.listing.price_usd); });
+        Object.values(rd).forEach(t => t.listed.sort((a, b) => a - b));
+        const allRk = (tier) => { const out = []; for (const x of salesDesc) { const n = byIdT[String(x.token_id)]; if (n && rankTierOf(n) === tier && x.notional_usd != null) out.push(x.notional_usd); } return out; };   // newest first
+        rkStats = {};
+        [["base", 10], ["rank1", 5]].forEach(([tier, k]) => { const all = allRk(tier); const sf = median(all.slice(0, k)); const lf = rd[tier].listed.length ? rd[tier].listed[0] : null;
+            rkStats[tier] = { sf, lf, k, n_sales: all.length, listed: rd[tier].listed.length, mk: (sf && lf != null) ? Math.min(sf, lf) : (sf || lf || null), count: nfts.filter(n => !n.unminted && rankTierOf(n) === tier).length }; });
+    }
+    const tierRowHtml = (label, listedN, lf, sf, mk) => {
+        const spread = (lf != null && sf) ? ((lf - sf) / sf * 100) : null;
+        return `<div class="grid grid-cols-6 gap-2 items-center py-2 border-t border-gray-700/50 text-sm">
+          <span class="text-gray-200 font-medium">${label}</span>
+          <span class="text-center text-gray-400">${listedN}</span>
+          <span class="text-center font-semibold ${lf != null ? "text-cyan-300" : "text-gray-600"}">${lf != null ? fmtUsd(lf) : "none"}</span>
+          <span class="text-center font-semibold ${sf ? "text-amber-300" : "text-gray-600"}">${sf ? fmtUsd(sf) : "—"}</span>
+          <span class="text-center font-semibold ${mk ? "text-gray-100" : "text-gray-600"}">${mk ? fmtUsd(mk) : "—"}</span>
+          <span class="text-center ${spread == null ? "text-gray-600" : spread < -15 ? "text-red-400" : spread > 15 ? "text-green-400" : "text-gray-300"}">${spread == null ? "—" : (spread > 0 ? "+" : "") + spread.toFixed(0) + "%"}</span></div>`;
+    };
     const tierRow = (label, tier) => {
         const { sf, lf } = tierStats[tier]; const t = tierData[tier]; const mk = tierMark[tier];
         const spread = (lf != null && sf) ? ((lf - sf) / sf * 100) : null;
@@ -2264,30 +2342,39 @@ function buildAnalyticsHtml(A, S, E) {
     const tierCounts = { circ: { broken: 0, base: 0, phoenix: 0 }, all: { broken: 0, base: 0, phoenix: 0 } };
     nfts.forEach(n => { const t = tierOf(n); tierCounts.all[t]++; if (!n.unminted) tierCounts.circ[t]++; });
     const mcapOf = (counts) => ["broken", "base", "phoenix"].reduce((s, t) => s + (tierMark[t] || 0) * counts[t], 0);
-    const marketCap = mcapOf(tierCounts.circ), fdv = mcapOf(tierCounts.all);
-    _avX = { marketCap, fdv, tierMark, tierStats, tierCounts, bk, vol, sup };
+    let marketCap = mcapOf(tierCounts.circ), fdv = mcapOf(tierCounts.all);
+    // 4.50: with a Rank 1 tier, the cap is Σ tier mark × tier count — a rank-1 set with no mark of its own is marked at base (said on the card)
+    let rk1AtBase = false;
+    if (rkStats) { const bm = rkStats.base.mk || tierMark.base || 0; const rm = rkStats.rank1.mk || null; rk1AtBase = !rm && rkStats.rank1.count > 0;
+        marketCap = bm * rkStats.base.count + (rm || bm) * rkStats.rank1.count; fdv = bm * (tierCounts.all.base - rkStats.rank1.count) + (rm || bm) * rkStats.rank1.count; }
+    // the tenant mark: the whole collection's (base) mark — which side won, both numbers shown on the tile
+    const mkT = (() => { const s = rkStats ? rkStats.base : tierStats.base; const mk = rkStats ? rkStats.base.mk : tierMark.base; if (!mk) return null;
+        const won = (s.sf && s.lf != null) ? (s.lf <= s.sf ? "ask" : "sales") : (s.sf ? "sales" : "ask");
+        return { mk, sf: s.sf, lf: s.lf, won, k: rkStats ? rkStats.base.k : 10 }; })();
+    _avX = { marketCap, fdv, tierMark, tierStats, tierCounts, bk, vol, sup, rkStats, mkT, rk1AtBase, flipThr: (A.flips && A.flips.threshold_days) || 30 };
 
     hero = `<div class="${card} mb-4" style="background:linear-gradient(135deg,rgba(34,211,238,.08),rgba(17,24,39,.4))">
         <div class="flex flex-wrap items-end gap-x-10 gap-y-3">
           <div data-explain="market_cap" class="cursor-pointer" title="Click: how this is computed"><div class="text-xs uppercase tracking-wider text-gray-400">Market cap <span class="text-gray-600">&#9432;</span></div>
             <div class="text-4xl font-extrabold text-white leading-none mt-1">${marketCap ? fmtUsdFull(marketCap) : "—"}</div>
-            <div class="text-xs text-gray-500 mt-1">circulating (minted) · FDV ${fdv ? fmtUsdFull(fdv) : "—"} all 10,000</div></div>
-          <div data-explain="mark" class="cursor-pointer" title="Click: how this is computed"><div class="text-xs uppercase tracking-wider text-gray-400">Mark price (base) <span class="text-gray-600">&#9432;</span></div>
-            <div class="text-2xl font-bold text-gray-100 mt-1">${tierMark.base ? fmtUsd(tierMark.base) : "—"}</div>
-            <div class="text-[11px] text-gray-500 mt-0.5">lower of sales floor &amp; ask (conservative)</div></div>
+            <div class="text-xs text-gray-500 mt-1">circulating (minted) · FDV ${fdv ? fmtUsdFull(fdv) : "—"} all ${ANALYTICS_TENANT ? fmtNum(nfts.length || EXPECTED_TOTAL_NFTS) : "10,000"}</div></div>
+          <div data-explain="mark" class="cursor-pointer" title="Click: how this is computed"><div class="text-xs uppercase tracking-wider text-gray-400">Mark price${ANALYTICS_TENANT ? (rkStats ? " (base)" : "") : " (base)"} <span class="text-gray-600">&#9432;</span></div>
+            <div class="text-2xl font-bold text-gray-100 mt-1">${ANALYTICS_TENANT ? (mkT ? fmtUsd(mkT.mk) : "—") : (tierMark.base ? fmtUsd(tierMark.base) : "—")}</div>
+            <div class="text-[11px] text-gray-500 mt-0.5">${ANALYTICS_TENANT ? (mkT ? `the lower of two prices: <span class="${mkT.won === "sales" ? "text-amber-300" : ""}">sales floor ${mkT.sf ? fmtUsd(mkT.sf) : "none"}</span> (median of the last ${mkT.k} sales) vs <span class="${mkT.won === "ask" ? "text-cyan-300" : ""}">cheapest ask ${mkT.lf != null ? fmtUsd(mkT.lf) : "none"}</span> → ${mkT.won === "ask" ? "the ask" : "the sales floor"} wins` : "no sales and no live ask yet") : "lower of sales floor &amp; ask (conservative)"}</div></div>
           <div data-explain="volume" class="cursor-pointer" title="Click: how this is computed"><div class="text-xs uppercase tracking-wider text-gray-400">All-time volume <span class="text-gray-600">&#9432;</span></div>
             <div class="text-2xl font-bold text-cyan-300 mt-1">${fmtUsdFull(vol.usd_at_sale)}</div>
-            <div class="text-[11px] text-gray-500 mt-0.5">${fmtNum(vol.sales_count)} sales · USD at sale</div></div>
+            <div class="text-[11px] text-gray-500 mt-0.5">${fmtNum(vol.sales_count)} sales · USD at sale${ANALYTICS_TENANT ? `<br>${fmtNum(vol.luna_equiv_total)} LUNA-equivalent total · ${fmtUsdFull(vol.value_today_usd)} if that LUNA were priced today${vol.spot_luna_usd ? ` ($${Number(vol.spot_luna_usd).toFixed(4)})` : ""}` : ""}</div></div>
           ${hiStat}
         </div></div>`;
     const bkUsd = (S && S.backing && S.backing.per_nft_value_usd) || null;
     const floorCard = `<div class="${card} mb-4">${h("Floor by tier", "listing floor vs what actually sells")}
       <div class="grid grid-cols-6 gap-2 text-[11px] uppercase tracking-wider text-gray-500 pb-1">
         <span>Tier</span><span class="text-center">Listed</span><span class="text-center">Listing floor</span><span class="text-center">Sales floor</span><span class="text-center">Mark</span><span class="text-center">Spread</span></div>
-      ${FEATURES.break_mechanism ? tierRow("Broken", "broken") : ""}
-      ${tierRow(FEATURES.break_mechanism ? "Unbroken (base)" : "All", "base")}
-      ${FEATURES.phoenix ? tierRow("Phoenix", "phoenix") : ""}
-      <div class="text-[11px] text-gray-600 mt-3">Sales floor = median of recent sales in that tier (USD at sale, tiered by break timestamps). Mark = midpoint of sales floor and listing floor (market-maker mid) — market cap above = Σ tier mark × supply. Spread = listing floor vs sales floor — a deep negative spread means the cheapest listing sits far below real trading prices. Backing reference: ${bkUsd ? fmtUsd(bkUsd) : "—"}/NFT. Sales are classified by the NFT's current broken state.</div></div>`;
+      ${rkStats ? tierRowHtml(`Base <span class="text-gray-500 font-normal text-xs">rank 2+ · ${fmtNum(rkStats.base.count)}</span>`, rkStats.base.listed, rkStats.base.lf, rkStats.base.sf, rkStats.base.mk) + tierRowHtml(`Rank 1 <span class="text-gray-500 font-normal text-xs">${fmtNum(rkStats.rank1.count)} tie${rkStats.rank1.count === 1 ? "" : "s"}</span>`, rkStats.rank1.listed, rkStats.rank1.lf, rkStats.rank1.sf, rkStats.rank1.mk) : ""}
+      ${rkStats ? "" : (FEATURES.break_mechanism ? tierRow("Broken", "broken") : "")}
+      ${rkStats ? "" : tierRow(FEATURES.break_mechanism ? "Unbroken (base)" : "All", "base")}
+      ${rkStats ? "" : (FEATURES.phoenix ? tierRow("Phoenix", "phoenix") : "")}
+      ${ANALYTICS_TENANT ? `<div class="text-[11px] text-gray-600 mt-3">Sales floor = median of the last ${rkStats ? rkStats.base.k : 10} sales in that tier (USD at sale${rkStats ? `; Rank 1: the last ${Math.min(rkStats.rank1.k, rkStats.rank1.n_sales)} of its ${rkStats.rank1.n_sales} sale${rkStats.rank1.n_sales === 1 ? "" : "s"} on record` : ""}). Mark = the LOWER of the sales floor and the cheapest live ask (conservative) — market cap above = Σ tier mark × tier count${rk1AtBase ? "; Rank 1 has no sale or ask of its own, so it is marked at base" : ""}. Spread = listing floor vs sales floor — a deep negative spread means the cheapest listing sits far below real trading prices.${rkStats ? " Tiers are the token's own rank (BBL's statistical rank; ties share rank 1)." : ""}</div></div>` : `<div class="text-[11px] text-gray-600 mt-3">Sales floor = median of recent sales in that tier (USD at sale, tiered by break timestamps). Mark = midpoint of sales floor and listing floor (market-maker mid) — market cap above = Σ tier mark × supply. Spread = listing floor vs sales floor — a deep negative spread means the cheapest listing sits far below real trading prices. Backing reference: ${bkUsd ? fmtUsd(bkUsd) : "—"}/NFT. Sales are classified by the NFT's current broken state.</div></div>`}`;
 
     // --- Floor history (sales-derived; listing-floor overlay arrives with listing backfill) ---
     _fpData = buildFpData(salesDesc, tierOfSale);
@@ -2420,8 +2507,50 @@ function buildAnalyticsHtml(A, S, E) {
       ${fmtNum(fl.count)} flips (held ≤${fl.threshold_days ?? 30}d) · ${(+fl.pct_of_sales || 0).toFixed(1)}% of all sales · median hold ${(+ht.median || 0).toFixed(1)}d
       <span class="text-gray-600">— a per-wallet cost-basis view is coming to the Wallet tab</span></div>`;
 
+    // 4.50 (tenant): a Trading character card that earns its space — from sales-enriched alone (no new product). A ROUND TRIP is a
+    // marketplace buy followed by a sale of the same token by the same wallet (mint → first sale is not counted here: the mint
+    // cost lives in the ledger, not in this product). P&L two ways: USD at the time of each leg, and LUNA-equivalent (n/a when a
+    // leg was paid in a stablecoin with no LUNA leg).
+    const tcCard = ANALYTICS_TENANT ? (() => {
+        const sales = (E && Array.isArray(E.sales)) ? E.sales.filter(s => s.timestamp && s.notional_usd != null) : [];
+        if (!sales.length) return `<div class="${card} mb-4 text-sm text-gray-500">Trading character — no sales on record yet.</div>`;
+        const byTok = {}; sales.forEach(s => { (byTok[String(s.token_id)] = byTok[String(s.token_id)] || []).push(s); });
+        const thr = (A.flips && A.flips.threshold_days) || 30;
+        const rts = [];
+        for (const rows of Object.values(byTok)) { rows.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+            for (let i = 0; i + 1 < rows.length; i++) { const b = rows[i], s = rows[i + 1]; if (b.buyer && b.buyer === s.seller) {
+                const days = (Date.parse(s.timestamp) - Date.parse(b.timestamp)) / 86400000;
+                const pnlUsd = s.notional_usd - b.notional_usd;
+                const pnlLuna = (s.luna_equiv != null && b.luna_equiv != null) ? s.luna_equiv - b.luna_equiv : null;
+                rts.push({ token: s.token_id, wallet: s.seller, days, buyUsd: b.notional_usd, sellUsd: s.notional_usd, pnlUsd, pnlLuna, buyAt: b.timestamp, sellAt: s.timestamp }); } } }
+        const flips = rts.filter(r => r.days <= thr), holds = rts.filter(r => r.days > thr);
+        const sum = (a, k) => a.reduce((t, r) => t + (r[k] || 0), 0);
+        const med = median(rts.map(r => r.days));
+        const buyers = new Set(sales.map(s => s.buyer).filter(Boolean)), sellers = new Set(sales.map(s => s.seller).filter(Boolean));
+        const neverSold = [...buyers].filter(a => !sellers.has(a)).length;
+        const best = rts.length ? rts.reduce((m, r) => r.pnlUsd > m.pnlUsd ? r : m) : null, worst = rts.length ? rts.reduce((m, r) => r.pnlUsd < m.pnlUsd ? r : m) : null;
+        const lunaS = (v) => v == null ? "n/a in LUNA" : `${v >= 0 ? "+" : "−"}${fmtNum(Math.abs(v))} LUNA`;
+        const usdS = (v) => `${v >= 0 ? "+" : "−"}${fmtUsdFull(Math.abs(v))}`;
+        const rtLine = (r, cls) => r ? `<div class="text-sm"><span class="${cls} font-semibold">${usdS(r.pnlUsd)}</span> <span class="text-gray-500">·</span> <span class="${cls}">${lunaS(r.pnlLuna)}</span>
+            <div class="text-[11px] text-gray-500">#${r.token} · bought ${fmtUsd(r.buyUsd)} ${r.buyAt.slice(0, 10)} → sold ${fmtUsd(r.sellUsd)} ${r.sellAt.slice(0, 10)} · held ${Math.round(r.days)}d</div></div>` : `<div class="text-sm text-gray-600">—</div>`;
+        const stat = (k, v, sub) => `<div><div class="text-xs uppercase tracking-wider text-gray-400">${k}</div><div class="text-xl font-bold text-white mt-0.5">${v}</div>${sub ? `<div class="text-[11px] text-gray-500">${sub}</div>` : ""}</div>`;
+        const pct = (a, b) => b ? `${(a / b * 100).toFixed(1)}%` : "—";
+        return `<div class="${card} mb-4" data-explain="trading_character" title="Click: definitions">${h("Trading character &#9432;", "round trips in sales-enriched · P&amp;L two ways")}
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            ${stat("Round trips", fmtNum(rts.length), `${pct(rts.length, sales.length)} of ${fmtNum(sales.length)} sales close a buy by the same wallet`)}
+            ${stat("Flips vs holds", `${fmtNum(flips.length)} <span class="text-sm text-gray-400 font-normal">vs</span> ${fmtNum(holds.length)}`, `≤${thr}d: ${fmtUsdFull(sum(flips, "sellUsd"))} sold · &gt;${thr}d: ${fmtUsdFull(sum(holds, "sellUsd"))} sold`)}
+            ${stat("Median hold", med != null ? `${med.toFixed(1)}d` : "—", rts.length ? `of round trips · ${fmtNum(sales.length - rts.length)} sales were first-hand or not resold yet` : "")}
+            ${stat("Bought, never sold", fmtNum(neverSold), `${pct(neverSold, buyers.size)} of ${fmtNum(buyers.size)} buyers`)}
+          </div>
+          <div class="grid md:grid-cols-2 gap-4 border-t border-gray-700/50 pt-3">
+            <div><div class="text-xs uppercase tracking-wider text-gray-400 mb-1">Biggest gain</div>${rtLine(best && best.pnlUsd > 0 ? best : null, "text-green-400")}</div>
+            <div><div class="text-xs uppercase tracking-wider text-gray-400 mb-1">Biggest loss</div>${rtLine(worst && worst.pnlUsd < 0 ? worst : null, "text-red-400")}</div>
+          </div>
+          <div class="text-[11px] text-gray-600 mt-3">A round trip = a marketplace buy, then a sale of that token by the same wallet. USD = at the time of each leg; LUNA = LUNA-equivalent of each leg (a bLUNA sale ÷ LUNA's oracle price that day), n/a when a leg was paid in a stablecoin. Mint → first sale is not a round trip here (the mint cost is in the ledger, on each token's journey).</div></div>`;
+    })() : "";
+
     const footer = `<div class="text-center text-[11px] text-gray-600 pb-6">Chain-of-truth analytics · built ${A.builtAt ? new Date(A.builtAt).toLocaleString() : ""}</div>`;
-    return hero + tiles + supplyGovRow + floorCard + fpCard + monthChart + leaderboards + mostTraded + row3 + flipLine + footer;
+    return hero + tiles + supplyGovRow + floorCard + fpCard + monthChart + leaderboards + mostTraded + row3 + (ANALYTICS_TENANT ? tcCard : flipLine) + footer;
 }
 
 const updateAddressDropdown = (nftList) => {
@@ -2531,6 +2660,7 @@ const applyFiltersAndSort = () => {
         else if (sliderValue === '2') tempNfts = tempNfts.filter(nft => nft.owned_by_alliance_dao === false);
     }
     // *** ADDED LIQUID FILTER LOGIC ***
+    if (document.querySelector('.status-toggle-cb[data-key="rank1"]')?.checked) tempNfts = tempNfts.filter(nft => getActiveRank(nft) === 1);   // 4.50: the rank-1 set (ties share the rank)
     if (document.querySelector('.status-toggle-cb[data-key="liquid_status"]')?.checked) {
         const sliderValue = document.querySelector('.direction-slider[data-slider-key="liquid_status"]').value;
         if (sliderValue === '0') tempNfts = tempNfts.filter(nft => nft.liquid === true);
@@ -2752,7 +2882,7 @@ const applyStateFromUrl = () => {
     if (sortSelect && [...sortSelect.options].some(o => o.value === sortParam)) {
         sortSelect.value = sortParam;
     } else if (sortSelect) {
-        sortSelect.value = 'rank-best'; // Default: Ranking, best first
+        sortSelect.value = DEFAULT_SORT; // Default: Ranking, best first (aDAO) · price low → high on a tenant collection (4.50)
     }
     
     document.querySelectorAll('.multi-select-container').forEach(container => {
@@ -3031,7 +3161,7 @@ const resetAll = () => {
     if(searchInput) searchInput.value = '';
     if(searchAddressInput) searchAddressInput.value = '';
     if(addressDropdown) addressDropdown.value = '';
-    if(sortSelect) sortSelect.value = 'rank-best'; // Default: Ranking, best first
+    if(sortSelect) sortSelect.value = DEFAULT_SORT; // Default: Ranking, best first (aDAO) · price low → high on a tenant collection (4.50)
     if(matchingTraitsToggle) matchingTraitsToggle.checked = false;
     if(matchingTraitsSlider) {
         matchingTraitsSlider.value = 0;
@@ -3145,6 +3275,7 @@ const updateFilterCounts = (currentNfts) => { // Pass in the list to count
     // Update Status Filter Counts
     document.querySelectorAll('.status-count').forEach(countSpan => {
         const key = countSpan.dataset.countKey;
+        if (key === 'rank1') { countSpan.textContent = currentNfts.filter(n => getActiveRank(n) === 1).length; return; }   // 4.50: the true rank-1 count
         const slider = document.querySelector(`.direction-slider[data-slider-key="${key}"]`);
         if (!slider) return;
 
