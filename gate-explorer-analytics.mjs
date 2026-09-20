@@ -153,7 +153,7 @@ check('governance: not the Enterprise-inflated 2,034', !html.includes('2,034 NFT
 // 7) supply: unclaimed custody bucket = pending + unattributed, never in float
 const pend = S.daodao_pending_claim_count ?? 0, unat = S.daodao_custody_unattributed_count ?? 0;
 check('supply: Unclaimed (custody) segment titled with pending+unattributed',
-  html.includes(`Unclaimed (custody) ${(pend + unat).toLocaleString('en-US')}`), `${pend}+${unat}`);   // 4.51 legend
+  html.includes(`Unclaimed (custody)</span><span class="text-sm font-semibold text-gray-100">${(pend + unat).toLocaleString('en-US')}`), `${pend}+${unat}`);   // 4.52 row
 
 // 8) volume chart bars: real monthly usd (field truth) — svgBars ran with values
 w.renderVolChart();

@@ -1,3 +1,10 @@
+// 2026-09-19 (explorer 4.52, the owner's look at 4.51): the URL shows the selected tenant from the first paint (replaceState on
+//   load, not only after a filter change); the poster's rarest-trait share is out of max supply (117 of 5,000); the analytics
+//   tab never builds on bundle-only records (no grades → "Phoenix 0 tokens") — it waits for hydration and rebuilds when the full
+//   records land, or says the full records are unavailable; the ROOT cause — the bundle boot never recomputed grades/trait counts
+//   after hydration (calculateRanks ran once on bundle records: "Rarity —" on every card, Phoenix 0 tokens, no rarest-trait
+//   counts on the poster) — is fixed; aDAO's supply is a plain breakdown again (its supply is the
+//   complicated one — unminted reserve, DAO broken, custody); the pixel grid stays on a simple-supply collection, softened.
 // 2026-09-19 (explorer 4.51): (1) a non-default tenant stays in the URL the page writes (?tenant=liondao survives every filter
 //   change — a shareable link); (2) the download poster is the tenant's: its logo in the header, nothing drawn over the art, one
 //   band at the bottom with the token name · rank · rarest trait and how many share it (aDAO's Planet/Inhabitant corners gone,
@@ -652,13 +659,18 @@ function decodeBundle(b) {
 async function hydrateFromFull() {
     try {
         await loadFullData();                      // sets allNfts + ownerAddresses, all gates enforced
+        calculateRanks();                          // 4.52: grades (rarityClass), trait counts and rank labels on the FULL records — the bundle
+                                                   // boot computed them once on bundle records, so after hydration every card read "Rarity —",
+                                                   // the analytics tier read "Phoenix 0 tokens" and the poster's rarest trait had no counts
         updateAddressDropdown(allNfts);
         applyFiltersAndSort();                     // re-renders the current view on full records
         calculateAndDisplayLeaderboard();
-        if (analyticsLoaded) { analyticsLoaded = false; if (analyticsView && !analyticsView.classList.contains('hidden')) renderAnalytics(); }   // 4.48: the tab built before owners arrived read every wallet as "exited" — rebuild on the full records
+        if (analyticsView && !analyticsView.classList.contains('hidden')) { analyticsLoaded = false; renderAnalytics(); }   // 4.48 / 4.52: the visible tab is (re)built on the full records: the tab built before owners arrived read every wallet as "exited" — rebuild on the full records
         if (_heroSummary) renderCollectionHero(_heroSummary);   // 4.49: the hero's floor reads live listings — the bundle boot had none ("—")
         console.log(`hydrated: full records live (owners, listings, grades)`);
     } catch (e) {
+        _hydrationFailed = true;   // 4.52
+        if (analyticsView && !analyticsView.classList.contains('hidden')) { analyticsLoaded = false; renderAnalytics(); }
         console.error('background hydration failed — page continues on the bundle (owners/leaderboard unavailable):', e);
         showError(leaderboardTable, 'Holder data unavailable right now — the gallery is unaffected. Retry by refreshing.');
     }
@@ -732,6 +744,10 @@ function applyCollectionContext(ctx) {
     ANALYTICS_TENANT = c.slug !== 'adao';   // 4.50
     RANK_TIES = c.assets.rarity_method === 'bbl-statistical-mirror';   // 4.50: ties share a rank → "Rank 1" is a set, not one token
     DEFAULT_SORT = c.slug === 'adao' ? 'rank-best' : 'price-asc';   // 4.50
+    // 4.52: the address bar names the tenant from the first paint — a non-default tenant picked by preference or path had no
+    // ?tenant= to copy until a filter changed (owner 2026-09-19: "still not seeing the url with liondao in it")
+    try { const ctx = TENANT_CTX; const isDefault = !!(ctx && ctx.tenants && ctx.tenants[ctx.tenant.slug] && ctx.tenants[ctx.tenant.slug].default);
+        if (ctx && ctx.tenant && !isDefault && window.history && window.history.replaceState) { const u = new URL(window.location.href); if (u.searchParams.get('tenant') !== ctx.tenant.slug) { u.searchParams.set('tenant', ctx.tenant.slug); window.history.replaceState(null, '', u.toString()); } } } catch (e) {}
     if (sortSelect && DEFAULT_SORT !== 'rank-best') sortSelect.value = DEFAULT_SORT;
     IMAGE_URL = (typeof c.assets.image === 'function') ? c.assets.image : null;   // 4.41
     IMAGE_FALLBACK = (typeof c.assets.image_fallback === 'function') ? c.assets.image_fallback : null;   // 4.44
@@ -1693,6 +1709,7 @@ const DENOM_BLUNA = "cw20:terra17aj4ty4sz4yhgm08na8drc0v03v2jwr3waxcqrwhajj729zh
 const DENOM_SOLID = "cw20:terra10aa3zdkrc7jwuf8ekl3zq7e7m42vmzqehcmu74e4egc7xkm5kr2s0muyst";
 
 let analyticsLoaded = false;
+let _hydrationFailed = false;   // 4.52
 let _avMonths = [];          // monthly data, for chart scale toggle
 let _avScale = "log";        // default log so recent months are visible
 let _fpData = null;          // floor-history slots {monthly:{labels,tiers},weekly:{...}}
@@ -2085,6 +2102,12 @@ function holdingsBlurb(h) {
 async function renderAnalytics() {
     const root = document.getElementById("analytics-view");
     if (!root || analyticsLoaded) return;
+    // 4.52: bundle-only records carry no grades or attributes — a tab built on them reads every Phoenix as base ("Phoenix 0
+    // tokens", owner 2026-09-19). Wait for hydration (hydrateFromFull rebuilds the visible tab), and say so if it failed.
+    if (Array.isArray(allNfts) && allNfts.length && allNfts.some(n => n._bundleOnly)) {
+        root.innerHTML = `<div class="text-sm text-gray-500 p-4">${_hydrationFailed ? "The full records (owners, grades, attributes) are unavailable right now — analytics needs them. Retry by refreshing." : "Loading the full records — analytics builds on owners, grades and attributes, not the quick bundle…"}</div>`;
+        return;
+    }
     root.innerHTML = `<div class="text-center text-gray-400 py-16"><i class="fas fa-circle-notch fa-spin text-cyan-400 text-2xl"></i><p class="mt-3 text-sm">Loading collection analytics…</p></div>`;
 
     let A, S, E = null;
@@ -2244,6 +2267,7 @@ function renderSupplyGrid() {
     const c = document.getElementById("av2-supply-grid"); const d = _avSupply; if (!c || !d || !c.getContext) return;
     let ctx = null; try { ctx = c.getContext("2d"); } catch (e) { ctx = null; } if (!ctx) return; ctx.clearRect(0, 0, c.width, c.height);
     const cs = getComputedStyle(document.documentElement); const accent = (cs.getPropertyValue("--ally-accent") || "").trim() || "#22d3ee";
+    ctx.globalAlpha = 0.78;   // 4.52: softened — the grid reads, it doesn't shout
     let i = 0;
     for (const s of d.segs) { ctx.fillStyle = s.key === "staked" ? accent : s.cc; for (let k = 0; k < s.v && i < d.total; k++, i++) ctx.fillRect((i % d.cols) * 6, Math.floor(i / d.cols) * 6, 5, 5); }
     ctx.fillStyle = "#1f2937"; for (; i < d.total; i++) ctx.fillRect((i % d.cols) * 6, Math.floor(i / d.cols) * 6, 5, 5);
@@ -2378,7 +2402,20 @@ function buildAnalyticsHtml(A, S, E) {
           <div class="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-gray-400">${segs.map(x => `<span><span style="color:${x.c}">●</span> ${x.l} ${fmtNum(x.v)}</span>`).join("")}</div>`;
     };
     const srow = (l, v, sub) => `<div class="flex items-baseline justify-between py-1"><span class="text-sm text-gray-400">${l}</span><span class="text-sm font-semibold text-gray-100">${v}${sub ? ` <span class="text-xs text-gray-500 font-normal">${sub}</span>` : ""}</span></div>`;
-    const supplyCard = av2Supply(sup, nfts.length || EXPECTED_TOTAL_NFTS, { custody: !!FEATURES.custody, unmintedLabel: LABELS.unminted, accent: "#22d3ee" });   // 4.51: one pixel per token
+    // 4.52: a complicated supply (unminted reserve · DAO broken · custody) is a plain breakdown people can read; a simple one is pixels
+    const supplyTotal = nfts.length || EXPECTED_TOTAL_NFTS; const pctS = (a, b) => b ? `${(a / b * 100).toFixed(1)}%` : "—";
+    const supplyCard = FEATURES.custody ? (() => { const locked = sup.staked + sup.pending + sup.daoBroken, liquid = sup.float + sup.listedN;
+        return `<div class="av2-card cursor-pointer" data-explain="supply" title="Click: definitions"><div class="av2-h"><h3>Supply &#9432;</h3><span>the collection, read like a token</span></div>
+        ${srow("Max supply", fmtNum(supplyTotal), "fixed at mint")}
+        ${srow("Minted (circulating)", fmtNum(sup.minted), `${pctS(sup.minted, supplyTotal)} of max · ${fmtNum(sup.unminted)} ${String(LABELS.unminted).toLowerCase()} sit in the DAO's reserve`)}
+        ${srow("Staked", fmtNum(sup.staked), `${pctS(sup.staked, sup.minted)} of minted · DAODAO + Enterprise — locked, still the holder's`)}
+        ${srow("Unclaimed (custody)", fmtNum(sup.pending), "in the unstake window or unattributed — nobody can sell these yet")}
+        ${srow("DAO broken", fmtNum(sup.daoBroken), "held by the treasury")}
+        ${srow("Float", fmtNum(sup.float), `${pctS(sup.float, sup.minted)} of minted · in wallets, not listed`)}
+        ${srow("Listed", fmtNum(sup.listedN), `${pctS(sup.listedN, liquid)} of the liquid supply, on a marketplace now`)}
+        <div class="mt-3">${segBar([{ l: "Staked", v: sup.staked, c: "#22d3ee" }, { l: "Unclaimed (custody)", v: sup.pending, c: "#67e8f9" }, { l: "DAO broken", v: sup.daoBroken, c: "#f59e0b" }, { l: "Float", v: sup.float, c: "#34d399" }, { l: "Listed", v: sup.listedN, c: "#a78bfa" }, { l: LABELS.unminted, v: sup.unminted, c: "#374151" }])}</div>
+        <div class="av2-reads"><div><div class="av2-read-k">Locked supply</div><div class="av2-read-v">${fmtNum(locked)}</div><div class="av2-read-s">${pctS(locked, sup.minted)} of minted · staked + custody + DAO broken</div></div><div><div class="av2-read-k">Liquid supply</div><div class="av2-read-v">${fmtNum(liquid)}</div><div class="av2-read-s">${pctS(liquid, sup.minted)} of minted · wallets can sell these</div></div><div><div class="av2-read-k">Listed</div><div class="av2-read-v">${fmtNum(sup.listedN)}</div><div class="av2-read-s">${pctS(sup.listedN, liquid)} of liquid</div></div></div></div>`; })()
+        : av2Supply(sup, supplyTotal, { custody: false, unmintedLabel: LABELS.unminted, accent: "#22d3ee" });
 
     // --- Governance concentration (DAODAO VP) ---
     let govCard = "";
@@ -4678,7 +4715,7 @@ const drawPostImage = (canvas, ctx, img, logo, nft, button) => {
         drawText('BROKEN', canvas.width / 2, bannerY + 150, 'center');
     } else {
         const strength = findRarestTrait(nft);
-        const total = (typeof allNfts !== 'undefined' && allNfts.length) ? allNfts.filter(n => !n.unminted).length : null;
+        const total = (typeof allNfts !== 'undefined' && allNfts.length) ? allNfts.length : (EXPECTED_TOTAL_NFTS || null);   // 4.52: of max supply (117 of 5,000)
         ctx.font = 'bold 36px Inter, sans-serif';
         const share = (strength.count != null && total) ? `  —  ${strength.count.toLocaleString()} of ${total.toLocaleString()} have it` : '';
         drawText(`Rarest trait: ${strength.value || 'N/A'}${share}`, canvas.width / 2, bannerY + 140, 'center');
