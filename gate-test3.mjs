@@ -1,0 +1,191 @@
+#!/usr/bin/env node
+// gate-test3.mjs — the staged three-question page (test3.html): every gate of tla-stats plus S1–S4. Usage: TLA_CORE_DIR=<tla-core> node gate-test3.mjs
+// (gate-tla-stats.mjs — tla-stats.html Batch A (2026-08-24) on committed products:
+// APR from Eris's product · Votion VP repointed · bribes keyed by gauge+bucket ·
+// dead loader gone · token overrides parsed · tabs. Usage: TLA_CORE_DIR=... node gate-tla-stats.mjs
+import { JSDOM } from 'jsdom'; import fs from 'fs'; import path from 'path';
+const CORE = process.env.TLA_CORE_DIR; if (!CORE) { console.error('TLA_CORE_DIR required'); process.exit(1); }
+const here = path.dirname(new URL(import.meta.url).pathname);
+let PASS = 0, FAIL = 0; const check = (n, ok, x) => { if (ok) { PASS++; console.log('  ✓ ' + n); } else { FAIL++; console.log('  ✗ ' + n + (x != null ? '  ← ' + JSON.stringify(x) : '')); } };
+const read = (rel) => { const p = path.join(CORE, rel); return fs.existsSync(p) ? fs.readFileSync(p) : null; };
+const html = fs.readFileSync(path.join(here, 'test3.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '');
+const logs = []; let subnavItems = null;
+const dom = new JSDOM(html, { url: 'https://thealliancedao.com/tla-stats.html', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
+  w.SiteHeader = { mount() {}, subnav(items) { subnavItems = items; return { querySelectorAll: () => [] }; } }; w.SiteFooter = { mount() {} }; w.AddressPicker = undefined;
+  w.Chart = class { constructor() { this.data = { datasets: [] }; } update() {} destroy() {} }; w.HTMLCanvasElement.prototype.getContext = () => ({ canvas: {}, createLinearGradient: () => ({ addColorStop() {} }), fillRect() {}, clearRect() {}, measureText: () => ({ width: 0 }) });
+  w.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }); w.scrollTo = () => {}; w.IntersectionObserver = class { observe() {} disconnect() {} unobserve() {} };
+  w.console.log = (...a) => logs.push(a.join(' ')); w.console.warn = () => {}; w.console.error = (...a) => logs.push('ERR ' + a.join(' '));
+  w.fetch = async (u) => { const clean = String(u).split('?')[0]; const m = /tla-core\/main\/(.+)$/.exec(clean); const nope = { ok: false, status: 404, json: async () => { throw new Error('404'); }, text: async () => '' };
+    if (m) { const b = read(m[1]); if (b == null) return nope; const t = b.toString('utf8'); return { ok: true, status: 200, json: async () => JSON.parse(t), text: async () => t, arrayBuffer: async () => b }; }
+    if (/\/contract\/terra1tuuwm8yrj54qeg0c8xu00aha9ryatyhtczq8qq2q8tntuw0auzas9037wh\/smart\//.test(clean)) {   // incentive manager: pots for a period, built from the runway product (+ optional live CAPA top-up)
+      const rw = JSON.parse(fs.readFileSync(path.join(CORE, 'tla-voting/bribe-state/runway.json'), 'utf8')); const per = '200'; const buckets = [];
+      for (const row of rw.pools) { const assets = []; for (const [den, v] of Object.entries(row.by_denom || {})) { const amt = v.per_period && v.per_period[per]; if (amt && Number(amt) > 0) assets.push({ info: den.startsWith('cw20:') ? { cw20: den.slice(5) } : { native: den.slice(7) }, amount: amt }); } if (assets.length) buckets.push({ gauge: row.gauge, asset: row.pool.startsWith('cw20:') ? { cw20: row.pool.slice(5) } : { native: row.pool.slice(7) }, assets }); }
+      if (globalThis.__capaTopUp) buckets.push({ gauge: 'project', asset: { cw20: 'terra1cg9t08mqa88us074mpwpuu8lp5w4jwtye3vaazll45w27at52cpsq7c564' }, assets: [{ info: { cw20: 'terra1t4p3u8khpd7f8qzurwyafxt648dya6mp6vur3vaapswt6m24gkuqrfdhar' }, amount: '100000000000' }] });
+      return { ok: true, status: 200, json: async () => ({ data: { buckets } }) };
+    }
+    if (/\/cosmos\/bank\/v1beta1\/balances\//.test(clean)) return { ok: true, status: 200, json: async () => ({ balances: [{ denom: 'uluna', amount: '1000000000' }] }) };   // 1,000 LUNA
+    if (/\/cosmwasm\/wasm\/v1\/contract\/terra1t4p3u8khpd7f8qzurwyafxt648dya6mp6vur3vaapswt6m24gkuqrfdhar\/smart\//.test(clean)) return { ok: true, status: 200, json: async () => ({ data: { balance: '500000000000' } }) };   // 500,000 CAPA
+    if (/\/cosmwasm\/wasm\/v1\/contract\//.test(clean)) return { ok: true, status: 200, json: async () => ({ data: { balance: '0' } }) };
+    return nope; };
+} });
+await new Promise(r => setTimeout(r, 6000));
+const w = dom.window; const d = w.document;
+let store = null; try { store = w.eval('store'); } catch { }
+const eris = JSON.parse(read('dex-data/eris-apr/current.json')); const byGauge = Object.fromEntries(eris.pools.map(p => [p.gauge_pool_id, p]));
+const snap = JSON.parse(read('member-data/tla-snapshot/current.json'));
+const vot = JSON.parse(read('votion/optimization/current.json'));
+console.log('=== tla-stats Batch A ===');
+check('S1 page booted; store.pools present', store && Array.isArray(store.pools) && store.pools.length > 30, store && store.pools && store.pools.length);
+const eure = store.pools.find(p => p.name === 'LUNA-EURe' && /astro/i.test(p.dex)); const er = eure && byGauge[eure.gauge_pool_id];
+check('A1 LUNA-EURe apr_amp = Eris eris_apy_pct and apr_non = eris_apr_pct (product, not multiplier)', eure && er && eure.apr_amp === er.eris_apy_pct && eure.apr_non === er.eris_apr_pct, eure && [eure.apr_amp, er && er.eris_apy_pct, eure.apr_non, er && er.eris_apr_pct]);
+check('A2 no pool carries the old ×1.05/×1.10 relation (amp = non × factor)', !store.pools.some(p => p.apr_non > 0 && p.apr_amp > 0 && (Math.abs(p.apr_amp / p.apr_non - 1.05) < 1e-9 || Math.abs(p.apr_amp / p.apr_non - 1.10) < 1e-9)));
+check('A3 pools with no Eris row read null, not a number', store.pools.filter(p => !byGauge[p.gauge_pool_id]).every(p => p.apr_amp == null && p.apr_non == null));
+const aprBoard = d.getElementById('top-apr-pools'); const top = store.pools.filter(p => p.is_active && p.apr_amp > 0).sort((a, b) => b.apr_amp - a.apr_amp)[0];
+check('A4 Top-by-APR board leads with the highest Eris amplified APY among active pools', aprBoard && top && aprBoard.textContent.includes(top.name) && aprBoard.textContent.includes(top.apr_amp.toFixed(1)), top && [top.name, top.apr_amp]);
+check('A5 APR subtitle names Eris\'s definition', /Eris amplified APY/.test((d.getElementById('apr-tile-sub') || {}).textContent || ''));
+// 2026-09-14 (B.7 fixture refresh): V1 was pinned to LUNA-CAPA, which the optimizer stopped listing — the pool under test
+// is now whichever project-bucket pool the optimizer ranks largest today; the store must mirror its current/planned VP
+// exactly. V1b: a project gauge the optimizer does NOT list must read null (blank beats phantom), never 0 or a carry-over.
+const votProj = vot.aggregate.project.pools; const votTop = Object.entries(votProj).sort((a, b) => b[1].current_vp - a[1].current_vp)[0];
+const vpool = store.pools.find(p => p.gauge_pool_id.replace(/^cw20:/, '') === votTop[0]);
+check('V1 optimizer\'s largest project pool (' + (vpool && vpool.name) + '): store votion_now_vp = current_vp (' + Math.round(votTop[1].current_vp) + '), votion_next_vp = planned_vp (' + Math.round(votTop[1].planned_vp) + ')', vpool && vpool.votion_now_vp === votTop[1].current_vp && vpool.votion_next_vp === votTop[1].planned_vp, vpool && [vpool.votion_now_vp, vpool.votion_next_vp]);
+const unlisted = store.pools.find(p => p.bucket === 'PROJECT' && p.is_active && !votProj[p.gauge_pool_id.replace(/^cw20:/, '')]);
+check('V1b an active project gauge the optimizer does not list reads null Votion VP (' + (unlisted && unlisted.name) + ')', unlisted && unlisted.votion_now_vp == null && unlisted.votion_next_vp == null, unlisted && [unlisted.votion_now_vp, unlisted.votion_next_vp]);
+const votSum = store.pools.reduce((s, p) => s + (p.votion_now_vp || 0), 0);
+check('V2 Votion VP attributed across pools is millions, not 0.00', votSum > 5e6, Math.round(votSum));
+const movers = d.getElementById('vote-movers') || [...d.querySelectorAll('div')].find(x => /Votion plans/.test(x.textContent));
+check('V3 Movers rows show users / Votion plans / projected, ranked by projected, with a Votion-only mover included (LUNA-ampLUNA +1.77M plan)', (() => { const t = (d.getElementById('epoch-movers') || {}).textContent || ''; return /users [+\-—]/.test(t) && /Votion plans [+\-]/.test(t) && /projected = the two together/.test(t) && /LUNA-ampLUNA/.test(t); })(), ((d.getElementById('epoch-movers') || {}).textContent || '').slice(0, 160));
+const usdt = store.pools.filter(p => p.name === 'USDC-USDT' && /astro/i.test(p.dex)); const bc = usdt.find(p => p.bucket === 'BLUECHIP'), sg = usdt.find(p => p.bucket === 'SINGLE'); const bt = (p) => (p && p.bribes && p.bribes.total) || 0;
+check('B1 USDC-USDT: the SINGLE gauge carries the bribe, the BLUECHIP variant carries none', sg && bc && bt(sg) > 100 && bt(bc) === 0, usdt.map(p => [p.bucket, bt(p)]));
+const potTxt = logs.find(l => /Total bribes from pools/.test(l)) || ''; const pot = Number((potTxt.match(/([\d.]+)$/) || [])[1]);
+check('B2 pot no longer double-counts: total < 1,100 (was 1,163.85 with $139.03 twice)', pot > 900 && pot < 1100, pot);
+check('H1 the dead yearly-file loader is gone (no "historical data" log, no historicalUrls)', !logs.some(l => /historical data/i.test(l)) && !/historicalUrls/.test(html));
+const ov = logs.find(l => /known-token name overrides/.test(l)) || ''; const nOv = Number((ov.match(/Loaded (\d+)/) || [])[1]);
+check('T1 token-name overrides parsed from the org catalog (>20, was 0)', nOv > 20, nOv);
+check('N1 subnav: Member Portfolio is disabled with SOON; Docs is back as a link to the rebuilt hub', subnavItems && subnavItems.some(t => t.id === 'portfolio' && t.disabled && t.badge === 'SOON') && subnavItems.some(t => t.id === 'docs' && t.href === 'tla-docs.html'), subnavItems && subnavItems.map(t => t.id));
+check('L1 no uncaught page errors', !logs.some(l => /^ERR/.test(l) && !/fetch|network/i.test(l)), logs.filter(l => /^ERR/.test(l)).slice(0, 3));
+console.log('\n=== Batch B — Overview redesign ===');
+const vm = d.getElementById('bounty-board-rows'); const vmSum = d.getElementById('bounty-summary');
+const _vmPools = (store.data.vote.pools || []).filter(p => (p.bribes?.total || 0) > 0.005 && (p.vp || 0) > 50000).filter(p => { const m = store.pools.find(x => x.name === p.name && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase() && (x.dex || '') === (p.dex || '')); return m && (m.votion_now_vp || 0) > 50000; }).map(p => p.bribes.total / (p.vp / 1e6)).sort((a, b) => a - b);
+const _vmMedian = _vmPools[Math.floor((_vmPools.length - 1) * 0.5)];
+check('M1 Vote Market: the rate is the median $/1M VP over the pools Votion votes (recomputed independently), shown in the header tile', /Votion's rate/.test(vmSum.textContent) && Math.abs(store.voteMarketRate - _vmMedian) < 1e-9 && store.voteMarketRate > 8, [store.voteMarketRate, _vmMedian, _vmPools.length]);
+check('M0 Vote Market default is $0 = Votion\'s next move column (its plan vs current votes), with ± VP per pool', /Votion's next move/.test(d.getElementById('bounty-board-rows').textContent) && /showing Votion's next move/.test(d.getElementById('bounty-board-rows').textContent) && /[+\-][\d,.KM]+ VP[\d,.KM]+ → /.test(d.getElementById('bounty-board-rows').textContent), d.getElementById('bounty-board-rows').textContent.slice(0, 200));
+w.setVoteMarketX(25); check('M2 Vote Market grid: rows carry Votion\'s VP caption and the optimizer projection differs per pool', /Votion [\d,.KM]+/.test(vm.textContent) && (() => { const g = [...vm.textContent.matchAll(/\+([\d,.KM]+) VPshare/g)].map(m => m[1]); return g.length >= 3 && new Set(g).size >= 2; })(), [...vm.textContent.matchAll(/\+([\d,.KM]+) VPshare/g)].map(m => m[1]).slice(0, 5));
+w.setVoteMarketX(100); check('M3 Vote Market: the $100 preset re-renders (column header + share-of-market note)', /\+\$100 → Votion votes/.test(d.getElementById('bounty-board-rows').textContent) && /\$100 is \d+% of everything funded/.test(d.getElementById('bounty-board-rows').textContent));
+w.setVoteMarketSort('perdollar'); check('M4 sort "move per $": first funded row has the largest probe gain; sort "best grade" puts A-graded first; grade chips render', (() => { const first = d.querySelector('#bounty-board-rows .grid.items-center'); const ok1 = !!first; w.setVoteMarketSort('grade'); const t = d.getElementById('bounty-board-rows').innerHTML; return ok1 && /title="LP grade"/.test(t) && /sort.*best grade/.test(d.getElementById('bounty-board-rows').textContent); })());
+w.setVoteMarketSort('pot');
+check('W1 Vote breakdown defaults to Planned and bars are left-aligned (every bar starts at left: 0%)', w.eval('waterfallEpochView') === 'next' && [...d.querySelectorAll('#waterfall-bars .waterfall-row [style*="left: 0%"]')].length > 0 && ![...d.querySelectorAll('#waterfall-bars .waterfall-row .flex.rounded.overflow-hidden')].some(b => /left: [1-9]/.test(b.getAttribute('style') || '')));
+check('W2 planned labels expose the users/Votion decomposition where material', /users [+-]|Votion [+-]/.test(d.getElementById('waterfall-bars').textContent));
+const rh = d.getElementById('runway-headline'); check('R1 Runway headline is a sentence about exit pressure, not a number pair', rh && /(Exit pressure from unlocks is|every tracked lock is auto-max)/.test(rh.textContent), rh && rh.textContent.slice(0, 120));
+check('R2 Pending-withdrawal block is priced in USD', /≈ \$/.test((d.getElementById('unlock-pending') || {}).textContent || ''));
+check('T2 Threshold Watch at-risk rows say the cushion and what +2% would take at the market rate', /above the 1% line/.test(d.getElementById('threshold-at-risk').textContent) && /of bribe at the market rate/.test(d.getElementById('threshold-at-risk').textContent));
+const ph = d.querySelector('[data-erow]');
+check('P1 Pool Health rows carry the one-line sentence, three chips and a planner link', ph && /staked in TLA/.test(ph.textContent) && /reward APR/.test(ph.textContent) && /bribe runway/.test(ph.textContent) && /plan a trade →/.test(ph.textContent), ph && ph.textContent.slice(0, 160));
+check('P2 the embedded simulator is gone; the strip links to the Trade Planner', !d.querySelector('.slip-amt-btn') && /open the Trade Planner/.test(d.getElementById('slippage-sim-card').textContent));
+// idle assets: run the live function against the stubbed LCD
+const hostDiv = d.createElement('div'); hostDiv.id = 'idle-assets'; d.body.appendChild(hostDiv);
+await w.eval('renderIdleAssets')({ wallet: 'terra1hr8zsfpch47qygc96c8e6rzkd2t7mafqx77ulw' }); await new Promise(r => setTimeout(r, 300));
+check('I1 Idle assets: LUNA and CAPA balances priced, with TLA options (pool APY / max-lock VP) and a planner link', /LUNA/.test(hostDiv.textContent) && /CAPA/.test(hostDiv.textContent) && /Eris APY|max-locked/.test(hostDiv.textContent) && /plan a trade from/.test(hostDiv.textContent), hostDiv.textContent.slice(0, 200));
+const rf = d.getElementById('reward-fates');
+check('G1 growth tile: "Where the rewards go" says compounded BY THE ERIS AMPLIFIER (all amp positions), held, swapped, and the not-captured caveat', rf && /compounded by the Eris amplifier/.test(rf.textContent) && /all amp pools, not one/.test(rf.textContent) && /claimed to wallets/.test(rf.textContent) && /Not captured/.test(rf.textContent) && /E199:/.test(rf.textContent), rf && rf.textContent.slice(0, 160));
+check('G2 growth tile: net pressure chips carry signed USD per token', rf && /ampLUNA [−+]\$/.test(rf.textContent));
+console.log('\n=== Votion optimizer reproduced ===');
+const wf = w.eval('votionWaterFill'), sim = w.eval('votionSimulate');
+{ // objective reproduction: our exact optimum ≥ Votion's reported total on every bucket-plan, within 3%
+  let ok = true, worst = 0;
+  for (const [slug, v] of Object.entries(vot.vaults)) for (const o of v.optimizations || []) { const a = wf(o.votingOptions, o.votingPower); const mine = o.votingOptions.reduce((s2, q) => s2 + (q.usdIncentives || 0) * (a[q.id] || 0) / ((q.votingPower || 0) + (a[q.id] || 0) || 1), 0); const theirs = o.optimization.totalExpectedReward || 0; if (theirs > 0.05) { const ratio = mine / theirs; worst = Math.max(worst, Math.abs(ratio - 1)); if (ratio < 0.999 || ratio > 1.08) ok = false; } }
+  check('O1 solving Votion\'s objective exactly reproduces its reported expected reward on every bucket-plan (ours ≥ theirs; their 1–4-iteration solver lands up to ~6% under on some plans)', ok, worst);
+}
+{ const base = sim({}) || {}; const capa = Object.keys(base).find(k => /^project\|terra1e6k3u9/.test(k)) || 'project|none'; const withX = sim({ [capa.split('|')[1]]: 100 }) || {};
+  check('O2 simulator: +$100 on LUNA-FUEL moves Votion votes toward it (sim > base) and leaves other gauges with less', base[capa] && withX[capa].sim > base[capa].base && Object.keys(base).filter(k => k !== capa && k.startsWith('project|')).some(k => withX[k].sim < base[k].base), base[capa] && [Math.round(base[capa].base), Math.round(withX[capa].sim)]); }
+check('O3 Vote Market projection cells are our exact solve of Votion\'s objective (tooltip names its votes before → after, and says it projects how much moves, not which pools) — T6.6 wording', /Our exact solve of Votion's objective re-run with/.test(d.getElementById('bounty-board-rows').innerHTML) && /not of which pools Votion pulls from/.test(d.getElementById('bounty-board-rows').innerHTML));
+check('O4 LUNA-CAPA (captured mode): pot chip "not funded · through p199" and the one-line warning that Votion\'s votes leave unless p200 is funded', (() => { const rowsTxt = [...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent); const capaRow = rowsTxt.find(t => /LUNA-CAPA/.test(t)); return capaRow && /not funded/.test(capaRow) && /through p199/.test(capaRow) && /leaves unless p200 is funded/.test(capaRow); })(), ([...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent).find(t => /LUNA-CAPA/.test(t)) || '').slice(0, 200));
+check('O5 header tile counts pots funded for the voted period (15/18 on today\'s capture); rows carry the not-funded chip', /15\/18 pots/.test(d.getElementById('bounty-summary').textContent) && /not funded/.test(d.getElementById('bounty-board-rows').textContent), d.getElementById('bounty-summary').textContent);
+console.log('\n=== live auction ===');
+await w.refreshLivePots(); await new Promise(r => setTimeout(r, 200));
+const vmL = d.getElementById('bounty-board-rows').textContent, vmS = d.getElementById('bounty-summary').textContent;
+check('L1 header shows the live read, the cast deadline countdown, and the pot total funded for p200', /live \d\d:\d\dZ/.test(vmS) && /casts in/.test(vmS) && /funded for p200/.test(vmS), vmS);
+check('L2 LUNA-FUEL row reads its live pot (36,000 FUEL) and LUNA-CAPA reads not funded p200 — and sits above the fold as a warning', /36(,000|\.0K) FUEL/.test(vmL) && (() => { const r = [...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent).find(t => /LUNA-CAPA/.test(t)); return r && /not funded/.test(r) && /leaves unless p200 is funded/.test(r); })(), [...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent.replace(/\s+/g, ' ').slice(0, 60)).slice(0, 3));
+globalThis.__capaTopUp = true; await w.refreshLivePots(); await new Promise(r => setTimeout(r, 200));
+const capaRow = [...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent).find(t => /LUNA-CAPA/.test(t)) || '';
+check('L3 a live CAPA top-up (100,000 CAPA for p200) flips the row to funded and the optimizer places Votion votes on it (gauge added as an option)', /100(,000|\.0K) CAPA/.test(capaRow) && !/not funded/.test(capaRow) && /\+[1-9][\d,.KM]* VPshare/.test(capaRow), capaRow.replace(/\s+/g, ' ').slice(0, 300));
+globalThis.__capaTopUp = false;
+check('V4 Movers default 3 gainers + 3 losers with an expand button; expanding shows all', (() => { const el = d.getElementById('epoch-movers'); const rowsN = () => el.querySelectorAll(':scope > div.p-2').length; const n0 = rowsN(); if (!(n0 <= 6 && /show all \d+ movers/.test(el.textContent))) return false; w.toggleMovers(); const n1 = rowsN(); const ok = n1 > n0 && /show top 3 \+ 3/.test(el.textContent); w.toggleMovers(); return ok; })());
+console.log('\n=== voter boards ===');
+const vb = d.getElementById('top-board-vp').textContent;
+check('B1 Voting Leaders show % of voting VP per wallet and name the Votion vaults from the vault registry', /% of voting VP/.test(vb) && /Votion arbLUNA Max vault/.test(vb) && /Votion ampLUNA Max vault/.test(vb), vb.replace(/\s+/g, ' ').slice(0, 220));
+check('B2 "Most Engaged Voters" board: this-epoch voters first', /Most Engaged Voters/.test(d.body.textContent) && (() => { const first = d.querySelector('#top-board-adjusted'); return first && /THIS EPOCH/.test(first.textContent.slice(0, 400)); })());
+console.log('\n=== PD Bribe Tracker (LP Grades tab) ===');
+// subnav highlight must follow the tab (the gate's SiteHeader stub has no subnav DOM, so build the three tabs it would render)
+const nav = d.createElement('div'); nav.innerHTML = ['overview', 'grades', 'pools', 'tla'].map(t => `<span class="sh-subtab${t === 'overview' ? ' active' : ''}" data-tab="${t}"></span>`).join(''); d.body.appendChild(nav);
+w.eval('switchToTab')('grades'); await new Promise(r => setTimeout(r, 800));
+console.log('\n=== LP Grades guide ===');
+const gm = d.getElementById('grades-method');
+check('M1g the guide block explains the five lenses, the bands, the earned rule, Votion and the PD tracker in plain language', gm && /one-sentence version/.test(gm.textContent) && /Purpose/.test(gm.textContent) && /A ≥ 75/.test(gm.textContent) && /four consecutive epochs/.test(gm.textContent) && /bribes are never a factor/.test(gm.textContent) && /Vote Market/.test(gm.textContent) && /PD Bribe Tracker/.test(gm.textContent) && /lp-grades-and-voting\.md/.test(gm.innerHTML));
+check('M2g the header chip reads the v2 grading version, not the retired rubric draft', /grading v2/.test((d.getElementById('grades-count-chip') || {}).textContent || '') && !/0\.2\.0-draft/.test((d.getElementById('grades-count-chip') || {}).textContent || ''));
+check('N2 switching tabs moves the header highlight (LP Grades lit, Overview not)', nav.querySelector('[data-tab="grades"]').classList.contains('active') && !nav.querySelector('[data-tab="overview"]').classList.contains('active'));
+const pt = d.getElementById('pd-tracker');
+check('T1 tracker renders the latest fitted batch: prop 253, stated criterion quoted, 72% to top-half, PAXG-WBTC rank cells, qualified-not-bribed chips', pt && /prop 253/.test(pt.textContent) && /trading efficiency \+ volume/.test(pt.textContent) && /72%/.test(pt.textContent) && /PAXG-WBTC/.test(pt.textContent) && /LUNA-USDC/.test(pt.textContent) && /Drift inside the window/.test(pt.textContent), pt && pt.textContent.replace(/\s+/g, ' ').slice(0, 240));
+w.setPdTrackerBatch(250); await new Promise(r => setTimeout(r, 100));
+check('T2 switching to prop 250 shows 56% and the LUNA-WBTC drift line (#3 → #9)', /56%/.test(pt.textContent) && /LUNA-WBTC: #3 at placement/.test(pt.textContent), pt.textContent.replace(/\s+/g, ' ').match(/LUNA-WBTC: #[^·]+/) || '');
+w.togglePdField(); await new Promise(r => setTimeout(r, 100));
+check('T3 the whole field opens: all 19 pools ranked on their criterion, bribed rows marked, and pools ranked above a bribed pool but not bribed called out (LUNA-USDC among them)', /all 19 pools/.test(pt.textContent) && /ranked above a bribed pool and were not bribed/.test(pt.textContent) && (() => { const rowsF = [...pt.querySelectorAll('.grid.items-center')].map(x => x.textContent.replace(/\s+/g, ' ')); return rowsF.some(t => /LUNA-USDC/.test(t) && /ranked above a bribed pool · not bribed/.test(t)) && rowsF.some(t => /PAXG-WBTC/.test(t) && /bribed$/.test(t.trim()) && !/not bribed/.test(t)); })(), pt.textContent.replace(/\s+/g, ' ').match(/The whole field[^·]*·[^R]*/)?.[0]);
+const ga = d.getElementById('grades-advisor');
+check('T4 Vote Advisor: rule stated; four buckets show NOW and what THE LENSES SAY with reasons + emissions; verdicts read "not proposable yet — … still earning"; no proposal message today', ga && /votes are earned/.test(ga.textContent) && /4 consecutive epochs/.test(ga.textContent) && (ga.textContent.match(/NOW/g) || []).length === 4 && /THE LENSES SAY/.test(ga.textContent) && /not proposable yet/.test(ga.textContent) && /still earning/.test(ga.textContent) && /of LUNA emissions redirected/.test(ga.textContent) && !/copy proposal message/.test(ga.textContent) && !ga.querySelector('input[type=checkbox]'), ga && ga.textContent.replace(/\s+/g, ' ').slice(0, 260));
+check('T5 the Credia gauge is named from the catalog in the Advisor (wBTC.creda.a), not a raw cw20 id', /wBTC\.creda\.a/.test(ga.textContent) && !/cw20:terra1jjvy/.test(ga.textContent));
+check('T6 with the streak bar met (simulated), the proposal message appears with bps summing to 10000 and ≤50% per pool', (() => { const A = w.eval('ADVISOR'); const saved = A.streak_required; A.streak_required = 0; w.renderVoteAdvisor(); const m = ga.querySelector('#advisor-msg'); const ok = !!m && (() => { const msgs = JSON.parse(m.textContent); return msgs.length > 0 && msgs.every(x => x.wasm.execute.contract_addr === 'terra1hfksrhchkmsj4qdq33wkksrslnfles6y2l77fmmzeep0xmq24l2smsd3lj' && x.wasm.execute.msg.vote.votes.reduce((s2, v) => s2 + v[1], 0) === 10000 && x.wasm.execute.msg.vote.votes.every(v => v[1] <= 5000)); })(); A.streak_required = saved; w.renderVoteAdvisor(); return ok; })());
+console.log('\n=== LP Grades v2 (five lenses) ===');
+const gt = d.getElementById('grades-table');
+check('G3 legend states the field distribution (A/B/C/D/F counts), the five lens weights and the streak rule', gt && /This epoch's field/.test(gt.textContent) && /Purpose 20%/.test(gt.textContent) && /Streak/.test(gt.textContent) && /earned with four/.test(gt.textContent), gt && gt.textContent.replace(/\s+/g, ' ').slice(0, 200));
+check('G4 rows are grouped by bucket in order stable → project → bluechip → single', (() => { const hs = [...gt.querySelectorAll('.uppercase.tracking-wider.text-gray-400')].map(x => x.textContent.trim()); return JSON.stringify(hs) === JSON.stringify(['stable', 'project', 'bluechip', 'single']); })(), [...gt.querySelectorAll('.uppercase.tracking-wider.text-gray-400')].map(x => x.textContent.trim()));
+check('G5 an A-graded native-stable pool (LUNA-USDC) sits first in the stable bucket with five bars and a streak chip', (() => { const rowsEl = [...gt.querySelectorAll('.grid.items-center')]; const first = rowsEl[0]; return first && /LUNA-USDC/.test(first.textContent) && /^A/.test(first.textContent.trim()) && first.querySelectorAll('.h-1\\.5').length === 5 && / ep/.test(first.textContent); })(), (gt.querySelector('.grid.items-center') || {}).textContent);
+check('G6 letters spread across the field: A and F both rendered in the default view', [...gt.querySelectorAll('.mono.text-base')].some(x => x.textContent.trim() === 'A') && [...gt.querySelectorAll('.mono.text-base')].some(x => x.textContent.trim() === 'F'));
+check('G7 clicking a row opens the five-lens detail with per-part numbers', (() => { const row = gt.querySelector('.grid.items-center'); row.click(); const det = gt.querySelector('[id^="g2-"]:not(.hidden)'); return det && /Durability/.test(det.textContent) && /retention 4ep/.test(det.textContent); })());
+console.log('\n=== Pools tab (LP Stats + TLA Stats merged) ===');
+check('N3 subnav: overview · portfolio (SOON) · Slippage Simulator (→ slippage.html) · grades · pools; "tla" deep links land on pools', subnavItems && !subnavItems.some(t => t.id === 'tla') && subnavItems.some(t => t.id === 'pools' && t.label === 'Pools') && subnavItems.some(t => t.id === 'slippage' && t.href === 'slippage.html') && subnavItems.findIndex(t => t.id === 'slippage') === subnavItems.findIndex(t => t.id === 'portfolio') + 1 && (() => { w.eval('switchToTab')('tla'); return d.getElementById('tab-pools').classList.contains('active'); })(), subnavItems && subnavItems.map(t => t.id));
+check('V5 Movers rows carry "% of voting VP" and distinct cyan (users) / violet (Votion) bars with a legend', (() => { const el = d.getElementById('epoch-movers'); return el && /% of voting VP/.test(el.textContent) && el.querySelectorAll('.bg-cyan-400\\/80').length > 0 && el.querySelectorAll('.bg-violet-400\\/85').length > 0 && /users' on-chain moves/.test(el.textContent); })());
+await new Promise(r => setTimeout(r, 600));
+const pb = d.getElementById('pools-by-bucket');
+check('P3 Pools tab: four bucket sections in order with totals rows (staked, DEX depth, volume, emissions, VP with Votion/aDAO shares, funded pots)', pb && (() => { const hs = [...pb.querySelectorAll('.uppercase.tracking-wider.font-semibold')].map(x => x.textContent.trim()); return JSON.stringify(hs) === JSON.stringify(['STABLE', 'PROJECT', 'BLUECHIP', 'SINGLE']); })() && /in TLA/.test(pb.textContent) && /LUNA emissions \/ week/.test(pb.textContent) && /Votion \d+% · aDAO/.test(pb.textContent) && /funded pots/.test(pb.textContent), pb && [...pb.querySelectorAll('.uppercase.tracking-wider.font-semibold')].map(x => x.textContent.trim()));
+check('P4 rows carry the v2 letter (same as LP Grades), liquidity/work/emissions/votes/pot cells, and the unknown single gauge is named from the register (ROAR-ampROAR LP)', (() => { const r = [...pb.querySelectorAll('[data-erow]')].map(x => x.textContent.replace(/\s+/g, ' ')); return r.length > 25 && r.some(t => /^A ?LUNA-USDC/.test(t.trim())) && r.some(t => /ROAR-ampROAR LP/.test(t)) && !r.some(t => /Unknown|cw20:…/.test(t)) && r.every(t => /depth ·/.test(t) && /util/.test(t) && /Votion/.test(t)); })(), [...pb.querySelectorAll('[data-erow]')].map(x => x.textContent.replace(/\s+/g, ' ').slice(0, 70)).slice(0, 2));
+check('P5 sorting by volume reorders rows; clicking again flips direction', (() => { w.setPoolsSort('vol'); const a = [...pb.querySelectorAll('[data-erow]')].map(x => x.textContent.replace(/\s+/g, ' ')); w.setPoolsSort('vol'); const b = [...pb.querySelectorAll('[data-erow]')].map(x => x.textContent.replace(/\s+/g, ' ')); w.setPoolsSort('staked'); return a.length === b.length && a[0] !== b[0]; })());
+check('P6 the old TLA Stats tab content is no longer reachable from the nav', !subnavItems.some(t => t.id === 'tla'));
+check('P7 each bucket has its liquidity & volume chart card back with the tier selector; with the daily series loaded the STABLE chart draws (canvas kept, no "No daily data")', d.querySelectorAll('#pools-by-bucket select.scale-select').length === 4 && (pb.textContent.match(/Daily liquidity/g) || []).length === 4 && /Top tier/.test(pb.textContent) && (() => { const daily = w.eval('store.dailyChartData'); if (!daily) return true; const card = d.getElementById('chart-STABLE'); return !!card && !/No daily data for this bucket/.test(card.closest('.rounded-lg').textContent); })(), [!!w.eval('store.dailyChartData'), !!d.getElementById('chart-STABLE'), (pb.textContent.match(/No daily data/g) || []).length]);
+check('P8 a tier choice is remembered across re-renders', (() => { w.updateBucketChartScale('PROJECT', 'mid'); w.setPoolsSort('vp'); const sel = d.querySelector('#pools-by-bucket select.scale-select[data-bucket="PROJECT"]'); w.setPoolsSort('staked'); return sel && sel.value === 'mid'; })());
+check('P9 no live reads of retired personal repos remain in tla-stats.html', !/raw\.githubusercontent\.com\/defipatriot|api\.github\.com\/repos\/defipatriot|tla_json_storage repo/.test(html));
+// ---- T6.2: hero-tile popups fill from the epoch-history rollup (one basis, no duplicate epochs, live row on top)
+{ const rowsOf = (k) => { try { w.showHistoryModal(k); return [...d.querySelectorAll('#history-table-body tr')].map(r => r.textContent.replace(/\s+/g, ' ').trim()); } catch (e) { return ['ERR ' + e.message]; } };
+  const epochsIn = (rows) => rows.map(t => (t.match(/E(\d{3})/) || [])[1]).filter(Boolean).map(Number);
+  const rw = rowsOf('epoch-rewards'), ap = rowsOf('apr-non'), tv = rowsOf('tla-tvl'), br = rowsOf('epoch-bribes');
+  check('H1 (T6.2) Epoch Rewards popup shows every epoch since E184 (was one point)', epochsIn(rw).length >= 18 && Math.min(...epochsIn(rw)) === 184, epochsIn(rw));
+  check('H2 (T6.2) Avg APR popup shows E196 onward (eris-apr dailies begin 2026-08-02) and nothing invented before', epochsIn(ap).length >= 6 && Math.min(...epochsIn(ap)) >= 196, epochsIn(ap));
+  check('H3 (T6.2) TVL popup: no duplicate epochs, one basis (rollup E184–E202 + the live row)', new Set(epochsIn(tv)).size === epochsIn(tv).length && epochsIn(tv).length >= 19, epochsIn(tv));
+  check('H4 (T6.3) Bribes popup shows the epochs the oracle can price (E185–187, E200–202 today) + the live row, and none of the unpriced ones', epochsIn(br).length >= 6 && !epochsIn(br).includes(199) && !epochsIn(br).includes(194), epochsIn(br));
+}
+// ---- T6.5: a live pot in a denom the price feed keys differently (USDC.n vs USDC) is priced through the catalog and never 'not funded'
+{ const cat = JSON.parse(fs.readFileSync(path.join(CORE, 'token-catalog/snapshots/current.json'), 'utf8'));
+  const S = w.__tlaStore; S.tokenCatalogRaw = cat.tokens; S.data = S.data || {}; S.data.token_prices = { USDC: { final_price_usd: 0.9997 } };   // the feed's key, not the catalog's
+  const mgr = { data: { buckets: [{ gauge: 'stable', bribes: [{ asset: { cw20: 'terra1xkt' }, assets: [{ info: { native: 'ibc/2C962DAB9F57FE0921435426AE75196009FAA1981BF86991203C8411F8980FDB' }, amount: '10000000' }] }] }] } };
+  const realFetch = w.fetch; w.fetch = async (u) => (/cosmwasm\/wasm\/v1\/contract/.test(String(u)) ? { ok: true, json: async () => mgr } : realFetch(u));
+  const live = await w.fetchLivePots(203); w.fetch = realFetch;
+  const pot = live && live.pots['stable|terra1xkt'];
+  check('L5 (T6.5) a $10 USDC.n pot prices through the catalog when the feed keys the symbol USDC (was $0 → "not funded")', !!pot && pot.usd > 9.9 && pot.usd < 10.1 && pot.unpriced.length === 0, pot);
+}
+// ---- T6.6: the Vote Market says what the +$X column can claim — Votion's own threshold flags per bucket and the model-vs-plan back-test
+{ const bt = w.__tlaStore.votionBacktest; const board = d.getElementById('bounty-rows') || d.getElementById('bounty-board') || d.body;
+  check('V6 (T6.6) back-test computed from the captured Votion plan: per-bucket Σ|Δ| pp and a mean, and every bucket carries its published moves/holds flags with gains', !!bt && bt.mean_pp != null && Object.keys(bt.buckets).length >= 3 && Object.values(bt.flags).every(a => a.length >= 1 && a.every(f => typeof f.worth === 'boolean')), bt && { mean: bt.mean_pp, buckets: bt.buckets, flags: Object.fromEntries(Object.entries(bt.flags).map(([k, a]) => [k, a.map(f => f.vault + ':' + (f.worth ? 'moves' : 'holds'))])) });
+  const txt = d.body.textContent.replace(/\s+/g, ' ');
+  check('V7 (T6.6) the header carries the "model vs Votion\'s plan ±N pp" chip', /model vs Votion's plan ±[\d.]+ pp/.test(txt));
+  if (w.setBountyAdd) { try { w.setBountyAdd(50); } catch (e) {} }
+  const t2 = d.body.textContent.replace(/\s+/g, ' ');
+  check('V8 (T6.6) at +$50 a projected row says "Votion\'s rule today: <vault> moves/holds (±$)" under its VP figure', /Votion's rule today: [a-zA-Z]+ Max (moves|holds)/.test(t2), (t2.match(/Votion's rule today:[^·]{0,80}/) || [])[0]);
+}
+// ---- T7.0 (test3 staging): the three-question order, the drawer, the opener sentence written from the store
+{ const seg = d.getElementById('tab-overview'); const heads = [...seg.querySelectorAll('h2')].map(h => h.textContent.trim());
+  check('S1 (test3) the Overview reads in the three questions, in order', heads.join('|').includes('What is happening this epoch') && heads.indexOf('What is happening this epoch') < heads.indexOf('Where should my VP or my bribe go') && heads.indexOf('Where should my VP or my bribe go') < heads.indexOf('Is TLA healthy'), heads);
+  const dr = d.getElementById('leaderboards-drawer'); check('S2 (test3) leaderboards live in a closed drawer after the three questions (the boards still render inside it)', !!dr && dr.tagName === 'DETAILS' && !dr.open && dr.querySelectorAll('.tops-grid').length >= 3 && (dr.textContent.includes('Top Avg Volume')), dr && dr.querySelectorAll('.tops-grid').length);
+  await new Promise(r => setTimeout(r, 2500)); const op = d.getElementById('opener-line').textContent;
+  check('S3 (test3) the opener sentence is written from the store: round, epoch N+1, voting VP', /Voting round \d{3}.*epoch \d{3}.*VP is voting/.test(op), op.slice(0, 160));
+  check('S4 (test3) every section the live page renders still renders here (same ids, same rows)', ['bounty-board-rows', 'epoch-movers-card', 'top-apr-pools', 'history-modal'].every(id => d.getElementById(id)) && d.getElementById('bounty-board-rows').children.length > 3);
+}
+console.log(`\n=== PAGE GATE: ${PASS} passed, ${FAIL} failed ===`); process.exit(FAIL ? 1 : 0);
