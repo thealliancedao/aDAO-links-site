@@ -1,3 +1,6 @@
+// 2026-09-19 (explorer 4.53, owner's look at 4.52): the tier ladders are horizontal bars with the number on the bar (the
+//   vertical marker sat a screen away from its value); the supply is the same plain breakdown on every collection — the pixel
+//   grid is gone ("too much to look at"); the lion-silhouette idea stays parked.
 // 2026-09-19 (explorer 4.52, the owner's look at 4.51): the URL shows the selected tenant from the first paint (replaceState on
 //   load, not only after a filter change); the poster's rarest-trait share is out of max supply (117 of 5,000); the analytics
 //   tab never builds on bundle-only records (no grades → "Phoenix 0 tokens") — it waits for hydration and rebuilds when the full
@@ -2143,7 +2146,6 @@ async function renderAnalytics() {
     _avMonths = A.monthly || [];
     av2Css();   // 4.51
     root.innerHTML = buildAnalyticsHtml(A, S, E);
-    renderSupplyGrid();   // 4.51: one pixel per token
     renderVolChart();
     renderFpChart();
     const lin = document.getElementById("av-scale-lin"), log = document.getElementById("av-scale-log");
@@ -2191,10 +2193,9 @@ const AV2_CSS = `
 .av2-reads{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-top:.9rem}
 .av2-read-k{font-size:.68rem;color:#9ca3af}.av2-read-v{font-size:1.15rem;font-weight:700;color:#f3f4f6}.av2-read-s{font-size:.68rem;color:#6b7280}
 .av2-ladders{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}
-.av2-ladder{display:grid;grid-template-columns:48px 1fr;gap:.6rem;align-items:stretch}
-.av2-ladder svg{display:block;width:48px;height:150px}
+.av2-bar{flex:1;height:10px;background:rgba(255,255,255,.06);margin:0 .75rem;border-radius:2px;overflow:hidden}.av2-bar i{display:block;height:100%}
 .av2-ladder-t{font-weight:700;color:#f3f4f6;margin-bottom:.35rem}.av2-ladder-t span{font-weight:400;font-size:.72rem;color:#9ca3af;margin-left:.4rem}
-.av2-rung{display:flex;justify-content:space-between;align-items:baseline;font-size:.8rem;color:#d1d5db;padding:.2rem 0}
+.av2-rung{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;color:#d1d5db;padding:.25rem 0}.av2-rung>span{flex:0 0 11.5rem}.av2-rung b{flex:0 0 4.5rem;text-align:right}
 .av2-rung b{font-weight:700}.av2-rung.mk b{color:var(--ally-accent,#22d3ee)}.av2-rung.ask b{color:#67e8f9}.av2-rung.sf b{color:#fbbf24}.av2-rung small{color:#6b7280;font-size:.68rem}
 .av2-hist{display:grid;grid-template-columns:1.2fr 1fr;gap:1.25rem;align-items:start}
 .av2-hist svg{display:block;width:100%;height:150px}
@@ -2274,19 +2275,18 @@ function renderSupplyGrid() {
 }
 // a price ladder per tier: the cheapest ask, the mark (the lower), the sales floor — placed by price so the spread is a distance
 function av2Ladders(tiers, note) {
+    // 4.53: three horizontal bars per tier — cheapest ask, mark (the lower), sales floor — each as long as its price, the number
+    // on the bar; the spread is the difference in length you can see
     const one = (t) => {
-        const vals = [t.lf, t.sf].filter(v => v != null && v > 0); const hi = vals.length ? Math.max(...vals) * 1.15 : 1; const H = 150, pad = 10;
-        const y = (v) => pad + (H - 2 * pad) * (1 - Math.min(v, hi) / hi);
-        const rung = (v, col, dash) => v != null ? `<line x1="6" x2="42" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="${col}" stroke-width="${dash ? 2 : 3}" ${dash ? 'stroke-dasharray="3 3"' : ""}/>` : "";
+        const vals = [t.lf, t.sf, t.mk].filter(v => v != null && v > 0); const hi = vals.length ? Math.max(...vals) : 1;
+        const w = (v) => v != null && v > 0 ? `${Math.max(4, v / hi * 100).toFixed(1)}%` : "0%";
         const spread = (t.lf != null && t.sf) ? ((t.lf - t.sf) / t.sf * 100) : null;
-        return `<div><div class="av2-ladder-t">${t.label}<span>${t.sub || ""}</span></div><div class="av2-ladder">
-          <svg viewBox="0 0 48 ${H}" preserveAspectRatio="none"><line x1="24" x2="24" y1="${pad}" y2="${H - pad}" stroke="#4b5563" stroke-width="1"/>${rung(t.lf, "#67e8f9", true)}${rung(t.sf, "#fbbf24", false)}${t.mk ? `<circle cx="24" cy="${y(t.mk).toFixed(1)}" r="5" fill="var(--ally-accent,#22d3ee)"/>` : ""}</svg>
-          <div>
-            <div class="av2-rung ask"><span>Cheapest ask <small>${t.listed} listed</small></span><b>${t.lf != null ? fmtUsd(t.lf) : "none"}</b></div>
-            <div class="av2-rung mk"><span>Mark <small>the lower</small></span><b>${t.mk ? fmtUsd(t.mk) : "—"}</b></div>
-            <div class="av2-rung sf"><span>Sales floor <small>median of last ${t.k}${t.nSales != null ? ` of ${t.nSales}` : ""}</small></span><b>${t.sf ? fmtUsd(t.sf) : "—"}</b></div>
-            <div class="av2-rung"><span>Ask vs sales</span><b class="${spread == null ? "text-gray-600" : spread < -15 ? "text-red-400" : spread > 15 ? "text-green-400" : "text-gray-300"}">${spread == null ? "—" : (spread > 0 ? "+" : "") + spread.toFixed(0) + "%"}</b></div>
-          </div></div></div>`;
+        const bar = (cls, label, small, v, col, txt) => `<div class="av2-rung ${cls}"><span>${label} <small>${small}</small></span><div class="av2-bar"><i style="width:${w(v)};background:${col}"></i></div><b>${txt}</b></div>`;
+        return `<div><div class="av2-ladder-t">${t.label}<span>${t.sub || ""}</span></div>
+          ${bar("ask", "Cheapest ask", `${t.listed} listed`, t.lf, "#67e8f9", t.lf != null ? fmtUsd(t.lf) : "none")}
+          ${bar("mk", "Mark", "the lower", t.mk, "var(--ally-accent,#22d3ee)", t.mk ? fmtUsd(t.mk) : "—")}
+          ${bar("sf", "Sales floor", `median of last ${t.k}${t.nSales != null ? ` of ${t.nSales}` : ""}`, t.sf, "#fbbf24", t.sf ? fmtUsd(t.sf) : "—")}
+          <div class="av2-rung"><span>Ask vs sales</span><div class="av2-bar"></div><b class="${spread == null ? "text-gray-600" : spread < -15 ? "text-red-400" : spread > 15 ? "text-green-400" : "text-gray-300"}">${spread == null ? "—" : (spread > 0 ? "+" : "") + spread.toFixed(0) + "%"}</b></div></div>`;
     };
     return `<div class="av2-card"><div class="av2-h"><h3>Floor by tier</h3><span>the ask vs what actually sells</span></div><div class="av2-ladders">${tiers.map(one).join("")}</div><div class="text-[11px] text-gray-600 mt-3">${note}</div></div>`;
 }
@@ -2404,18 +2404,18 @@ function buildAnalyticsHtml(A, S, E) {
     const srow = (l, v, sub) => `<div class="flex items-baseline justify-between py-1"><span class="text-sm text-gray-400">${l}</span><span class="text-sm font-semibold text-gray-100">${v}${sub ? ` <span class="text-xs text-gray-500 font-normal">${sub}</span>` : ""}</span></div>`;
     // 4.52: a complicated supply (unminted reserve · DAO broken · custody) is a plain breakdown people can read; a simple one is pixels
     const supplyTotal = nfts.length || EXPECTED_TOTAL_NFTS; const pctS = (a, b) => b ? `${(a / b * 100).toFixed(1)}%` : "—";
-    const supplyCard = FEATURES.custody ? (() => { const locked = sup.staked + sup.pending + sup.daoBroken, liquid = sup.float + sup.listedN;
+    const supplyCard = (() => { const locked = sup.staked + sup.pending + sup.daoBroken, liquid = sup.float + sup.listedN; const heldLabel = FEATURES.custody ? "DAO broken" : "DAO held";   // 4.53: one plain breakdown, every collection
         return `<div class="av2-card cursor-pointer" data-explain="supply" title="Click: definitions"><div class="av2-h"><h3>Supply &#9432;</h3><span>the collection, read like a token</span></div>
         ${srow("Max supply", fmtNum(supplyTotal), "fixed at mint")}
-        ${srow("Minted (circulating)", fmtNum(sup.minted), `${pctS(sup.minted, supplyTotal)} of max · ${fmtNum(sup.unminted)} ${String(LABELS.unminted).toLowerCase()} sit in the DAO's reserve`)}
+        ${srow("Minted (circulating)", fmtNum(sup.minted), `${pctS(sup.minted, supplyTotal)} of max${sup.unminted ? ` · ${fmtNum(sup.unminted)} ${String(LABELS.unminted).toLowerCase()}${FEATURES.custody ? " sit in the DAO's reserve" : ""}` : ""}`)}
         ${srow("Staked", fmtNum(sup.staked), `${pctS(sup.staked, sup.minted)} of minted · DAODAO + Enterprise — locked, still the holder's`)}
         ${srow("Unclaimed (custody)", fmtNum(sup.pending), "in the unstake window or unattributed — nobody can sell these yet")}
-        ${srow("DAO broken", fmtNum(sup.daoBroken), "held by the treasury")}
+        ${sup.daoBroken ? srow(heldLabel, fmtNum(sup.daoBroken), "held by the treasury") : ""}
         ${srow("Float", fmtNum(sup.float), `${pctS(sup.float, sup.minted)} of minted · in wallets, not listed`)}
         ${srow("Listed", fmtNum(sup.listedN), `${pctS(sup.listedN, liquid)} of the liquid supply, on a marketplace now`)}
-        <div class="mt-3">${segBar([{ l: "Staked", v: sup.staked, c: "#22d3ee" }, { l: "Unclaimed (custody)", v: sup.pending, c: "#67e8f9" }, { l: "DAO broken", v: sup.daoBroken, c: "#f59e0b" }, { l: "Float", v: sup.float, c: "#34d399" }, { l: "Listed", v: sup.listedN, c: "#a78bfa" }, { l: LABELS.unminted, v: sup.unminted, c: "#374151" }])}</div>
-        <div class="av2-reads"><div><div class="av2-read-k">Locked supply</div><div class="av2-read-v">${fmtNum(locked)}</div><div class="av2-read-s">${pctS(locked, sup.minted)} of minted · staked + custody + DAO broken</div></div><div><div class="av2-read-k">Liquid supply</div><div class="av2-read-v">${fmtNum(liquid)}</div><div class="av2-read-s">${pctS(liquid, sup.minted)} of minted · wallets can sell these</div></div><div><div class="av2-read-k">Listed</div><div class="av2-read-v">${fmtNum(sup.listedN)}</div><div class="av2-read-s">${pctS(sup.listedN, liquid)} of liquid</div></div></div></div>`; })()
-        : av2Supply(sup, supplyTotal, { custody: false, unmintedLabel: LABELS.unminted, accent: "#22d3ee" });
+        <div class="mt-3">${segBar([{ l: "Staked", v: sup.staked, c: "var(--ally-accent,#22d3ee)" }, { l: "Unclaimed (custody)", v: sup.pending, c: "#67e8f9" }, { l: heldLabel, v: sup.daoBroken, c: "#f59e0b" }, { l: "Float", v: sup.float, c: "#34d399" }, { l: "Listed", v: sup.listedN, c: "#a78bfa" }, { l: LABELS.unminted, v: sup.unminted, c: "#374151" }])}</div>
+        <div class="av2-reads"><div><div class="av2-read-k">Locked supply</div><div class="av2-read-v">${fmtNum(locked)}</div><div class="av2-read-s">${pctS(locked, sup.minted)} of minted · staked + custody${sup.daoBroken ? " + " + heldLabel : ""}</div></div><div><div class="av2-read-k">Liquid supply</div><div class="av2-read-v">${fmtNum(liquid)}</div><div class="av2-read-s">${pctS(liquid, sup.minted)} of minted · wallets can sell these</div></div><div><div class="av2-read-k">Listed</div><div class="av2-read-v">${fmtNum(sup.listedN)}</div><div class="av2-read-s">${pctS(sup.listedN, liquid)} of liquid</div></div></div></div>`; })()
+        ;
 
     // --- Governance concentration (DAODAO VP) ---
     let govCard = "";
