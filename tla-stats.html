@@ -1627,7 +1627,7 @@
             
             <div class="mt-4 text-center text-xs text-gray-500">
                 <i class="fas fa-info-circle mr-1"></i>
-                More history will appear as epochs are tracked
+                More history will appear as epochs are tracked <span class="text-gray-600">· history = the last daily reading of each epoch (epoch-history rollup, one basis); the top row is live</span>
             </div>
         </div>
     </div>
@@ -8443,6 +8443,10 @@
         // Rev T5.3: epoch-band backfill — 16 epochs of band metrics derived from
         // the snapshot matrices (.github/scripts/epoch-band-backfill). The history
         // modal seeds from this before the live prev/current pair.
+        // T6.2: THE tiles' own per-epoch series — member-data/tla-snapshot/epoch-history.json (epoch-history-rollup: the last daily
+        // reading of each epoch on the tiles' own basis; APR from 2026-08-02 on; bribes not yet). Replaces the band copy where it overlaps.
+        store._ehP = fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/epoch-history.json?t=' + Date.now())
+            .then(r => r.ok ? r.json() : null).then(d => { store.epochHistory = (d && d.epochs) || []; store.epochHistoryMeta = d ? { generatedAt: d.generatedAt, version: d.version } : null; }).catch(() => { store.epochHistory = []; });
         store._bandP = fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/epoch-band-history.json?t=' + Date.now())
             .then(r => r.ok ? r.json() : null).then(d => { store.bandHistory = (d && d.epochs) || []; }).catch(() => { store.bandHistory = []; });
         store._distP = fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/distributions/history.json?t=' + Date.now())
@@ -12640,9 +12644,26 @@
             'ww-pools':     r => r.active_pools_ss,
             'tla-tvl':      r => r.tla_tvl_usd,
         };
+        // T6.2: the epoch-history rollup carries every hero tile except bribes, on the tiles' own basis (the band product counted
+        // pools and TVL WITHOUT the three singles — the definition the tile used in August — so the two are not mixed: where the
+        // rollup has an epoch, the band row is not used). Rows at/after the live current epoch are skipped: the live tile is fresher.
+        const ehGetters = {
+            'active-pools': r => r.active_pools, 'astro-pools': r => r.active_pools_astro, 'ww-pools': r => r.active_pools_ss, 'tla-tvl': r => r.tla_tvl_usd,
+            'epoch-rewards': r => r.rewards_weekly_usd, 'apr-non': r => r.apr_non_amp_pct, 'apr-amp': r => r.apr_amp_pct,
+        };
+        const ehEpochs = new Set();
+        if (Array.isArray(store.epochHistory) && store.epochHistory.length && ehGetters[metricKey]) {
+            for (const r of store.epochHistory) {
+                if (r.epoch >= store.epoch) continue;
+                const v = ehGetters[metricKey](r);
+                if (v == null) continue;
+                ehEpochs.add(r.epoch);
+                historyPoints.push({ epoch: r.epoch, value: v, lunaPrice: r.luna_price_usd || null, date: r.date, missed: false, source: 'epoch-history' });
+            }
+        }
         if (store.bandHistory && bandGetters[metricKey]) {
             for (const r of store.bandHistory) {
-                if (r.epoch >= prevEpochNum) continue;
+                if (r.epoch >= prevEpochNum || ehEpochs.has(r.epoch)) continue;
                 const v = bandGetters[metricKey](r);
                 if (v == null) continue;
                 historyPoints.push({ epoch: r.epoch, value: v, lunaPrice: r.luna_price_usd || null, date: r.date, missed: false });
@@ -13622,6 +13643,6 @@
     <!-- Vercel Web Analytics (auto-enabled for Vercel-hosted sites) -->
     <script defer src="/_vercel/insights/script.js"></script>
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.1', revDate: '2026-09-20', page: 'tla-stats' });   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.2', revDate: '2026-09-20', page: 'tla-stats' });   // T6.2: hero-tile popups read member-data/tla-snapshot/epoch-history.json (every epoch since E184 for pools / TVL / rewards / voting VP, APR from E196, on the tiles' own basis; bribes keep their live point until the oracle join); the band product is used only for epochs the rollup lacks — no mixed definitions. In place under the freeze.   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
 </body>
 </html>

@@ -152,4 +152,13 @@ check('P6 the old TLA Stats tab content is no longer reachable from the nav', !s
 check('P7 each bucket has its liquidity & volume chart card back with the tier selector; with the daily series loaded the STABLE chart draws (canvas kept, no "No daily data")', d.querySelectorAll('#pools-by-bucket select.scale-select').length === 4 && (pb.textContent.match(/Daily liquidity/g) || []).length === 4 && /Top tier/.test(pb.textContent) && (() => { const daily = w.eval('store.dailyChartData'); if (!daily) return true; const card = d.getElementById('chart-STABLE'); return !!card && !/No daily data for this bucket/.test(card.closest('.rounded-lg').textContent); })(), [!!w.eval('store.dailyChartData'), !!d.getElementById('chart-STABLE'), (pb.textContent.match(/No daily data/g) || []).length]);
 check('P8 a tier choice is remembered across re-renders', (() => { w.updateBucketChartScale('PROJECT', 'mid'); w.setPoolsSort('vp'); const sel = d.querySelector('#pools-by-bucket select.scale-select[data-bucket="PROJECT"]'); w.setPoolsSort('staked'); return sel && sel.value === 'mid'; })());
 check('P9 no live reads of retired personal repos remain in tla-stats.html', !/raw\.githubusercontent\.com\/defipatriot|api\.github\.com\/repos\/defipatriot|tla_json_storage repo/.test(html));
+// ---- T6.2: hero-tile popups fill from the epoch-history rollup (one basis, no duplicate epochs, live row on top)
+{ const rowsOf = (k) => { try { w.showHistoryModal(k); return [...d.querySelectorAll('#history-table-body tr')].map(r => r.textContent.replace(/\s+/g, ' ').trim()); } catch (e) { return ['ERR ' + e.message]; } };
+  const epochsIn = (rows) => rows.map(t => (t.match(/E(\d{3})/) || [])[1]).filter(Boolean).map(Number);
+  const rw = rowsOf('epoch-rewards'), ap = rowsOf('apr-non'), tv = rowsOf('tla-tvl'), br = rowsOf('epoch-bribes');
+  check('H1 (T6.2) Epoch Rewards popup shows every epoch since E184 (was one point)', epochsIn(rw).length >= 18 && Math.min(...epochsIn(rw)) === 184, epochsIn(rw));
+  check('H2 (T6.2) Avg APR popup shows E196 onward (eris-apr dailies begin 2026-08-02) and nothing invented before', epochsIn(ap).length >= 6 && Math.min(...epochsIn(ap)) >= 196, epochsIn(ap));
+  check('H3 (T6.2) TVL popup: no duplicate epochs, one basis (rollup E184–E202 + the live row)', new Set(epochsIn(tv)).size === epochsIn(tv).length && epochsIn(tv).length >= 19, epochsIn(tv));
+  check('H4 (T6.2) Bribes popup keeps its single live point (no mixed-price history until the oracle join)', epochsIn(br).length <= 2, epochsIn(br));
+}
 console.log(`\n=== PAGE GATE: ${PASS} passed, ${FAIL} failed ===`); process.exit(FAIL ? 1 : 0);
