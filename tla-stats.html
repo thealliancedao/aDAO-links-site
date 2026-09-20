@@ -1627,7 +1627,7 @@
             
             <div class="mt-4 text-center text-xs text-gray-500">
                 <i class="fas fa-info-circle mr-1"></i>
-                More history will appear as epochs are tracked <span class="text-gray-600">· history = the last daily reading of each epoch (epoch-history rollup, one basis); the top row is live</span>
+                More history will appear as epochs are tracked <span class="text-gray-600">· history = the last daily reading of each epoch (epoch-history rollup, one basis; bribes at that day's oracle price — an epoch is missing when the oracle had no price for one of its pot assets); the top row is live</span>
             </div>
         </div>
     </div>
@@ -12650,6 +12650,7 @@
         const ehGetters = {
             'active-pools': r => r.active_pools, 'astro-pools': r => r.active_pools_astro, 'ww-pools': r => r.active_pools_ss, 'tla-tvl': r => r.tla_tvl_usd,
             'epoch-rewards': r => r.rewards_weekly_usd, 'apr-non': r => r.apr_non_amp_pct, 'apr-amp': r => r.apr_amp_pct,
+            'epoch-bribes': r => r.bribes_usd,   // T6.3: that day's pots at that day's oracle price (rollup 1.1.0); null epochs = an asset the oracle had no price for that day (USDC.n before 2026-08-31) — left out, never guessed
         };
         const ehEpochs = new Set();
         if (Array.isArray(store.epochHistory) && store.epochHistory.length && ehGetters[metricKey]) {
@@ -13643,6 +13644,6 @@
     <!-- Vercel Web Analytics (auto-enabled for Vercel-hosted sites) -->
     <script defer src="/_vercel/insights/script.js"></script>
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.2', revDate: '2026-09-20', page: 'tla-stats' });   // T6.2: hero-tile popups read member-data/tla-snapshot/epoch-history.json (every epoch since E184 for pools / TVL / rewards / voting VP, APR from E196, on the tiles' own basis; bribes keep their live point until the oracle join); the band product is used only for epochs the rollup lacks — no mixed definitions. In place under the freeze.   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.3', revDate: '2026-09-20', page: 'tla-stats' });   // T6.3: the Bribes popup reads the rollup too (1.1.0 oracle join); footer says why an epoch can be missing.   // T6.2: hero-tile popups read member-data/tla-snapshot/epoch-history.json (every epoch since E184 for pools / TVL / rewards / voting VP, APR from E196, on the tiles' own basis; bribes keep their live point until the oracle join); the band product is used only for epochs the rollup lacks — no mixed definitions. In place under the freeze.   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
 </body>
 </html>

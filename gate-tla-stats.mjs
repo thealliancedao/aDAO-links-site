@@ -159,6 +159,6 @@ check('P9 no live reads of retired personal repos remain in tla-stats.html', !/r
   check('H1 (T6.2) Epoch Rewards popup shows every epoch since E184 (was one point)', epochsIn(rw).length >= 18 && Math.min(...epochsIn(rw)) === 184, epochsIn(rw));
   check('H2 (T6.2) Avg APR popup shows E196 onward (eris-apr dailies begin 2026-08-02) and nothing invented before', epochsIn(ap).length >= 6 && Math.min(...epochsIn(ap)) >= 196, epochsIn(ap));
   check('H3 (T6.2) TVL popup: no duplicate epochs, one basis (rollup E184–E202 + the live row)', new Set(epochsIn(tv)).size === epochsIn(tv).length && epochsIn(tv).length >= 19, epochsIn(tv));
-  check('H4 (T6.2) Bribes popup keeps its single live point (no mixed-price history until the oracle join)', epochsIn(br).length <= 2, epochsIn(br));
+  check('H4 (T6.3) Bribes popup shows the epochs the oracle can price (E185–187, E200–202 today) + the live row, and none of the unpriced ones', epochsIn(br).length >= 6 && !epochsIn(br).includes(199) && !epochsIn(br).includes(194), epochsIn(br));
 }
 console.log(`\n=== PAGE GATE: ${PASS} passed, ${FAIL} failed ===`); process.exit(FAIL ? 1 : 0);
