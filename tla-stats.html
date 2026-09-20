@@ -6190,20 +6190,25 @@
         const out = {};   // key `${bucket}|${bareId}` → { usd, tokens:[{sym, amount}], unpriced:[] }
         const catDen = store.tokenCatalogRaw || []; const symOf = (den) => { const t = catDen.find(x => x.denom === den); return t ? ((t.effective && t.effective.symbol) || (t.discovered && t.discovered.symbol) || null) : null; };
         const decOf = (den) => { const t = catDen.find(x => x.denom === den); return t ? ((t.effective && t.effective.decimals != null) ? t.effective.decimals : (t.discovered && t.discovered.decimals != null ? t.discovered.decimals : 6)) : 6; };
-        const px = (sym) => { const t = store.data?.token_prices?.[sym]; return t ? (t.final_price_usd || t.price || 0) : 0; };
+        // T6.5 (2026-09-20, the LUNA-EURe pot): the catalog names a denom (USDC.n) that the live price feed keys differently (USDC),
+        // so px(sym) read 0 and a funded $10 pot showed as "not funded". Price by the feed first, then by the catalog's OWN price for
+        // that denom (the catalog is the identity source and carries prices), and only then leave it unpriced — never 0.
+        const catPx = (den) => { const t = catDen.find(x => x.denom === den); const pr = t && t.prices; if (!pr) return 0; for (const src of ['tla', 'astroport', 'coingecko']) { const c = pr[src]; if (c && c.status === 'ok' && Number(c.usd) > 0) return Number(c.usd); } for (const c of Object.values(pr)) if (c && Number(c.usd) > 0) return Number(c.usd); return 0; };
+        const px = (sym, den) => { const t = store.data?.token_prices?.[sym]; const v = t ? (t.final_price_usd || t.price || 0) : 0; return v > 0 ? v : catPx(den); };
         const walk = (b, gaugeName) => {
             const gauge = String(b.gauge || gaugeName || '').toLowerCase();
             const items = Array.isArray(b.bribes) ? b.bribes : (b.asset ? [b] : []);
             for (const it of items) {
                 const id = (it.asset && (it.asset.cw20 || it.asset.native)) || ''; if (!id) continue;
                 const key = gauge + '|' + id; const rec = out[key] || (out[key] = { usd: 0, tokens: [], unpriced: [] });
-                for (const a of it.assets || []) { const den = a.info && (a.info.native || a.info.cw20); const sym = symOf(den); const human = Number(a.amount || 0) / 10 ** decOf(den); const p = sym ? px(sym) : 0; rec.tokens.push({ sym: sym || (den || '?').slice(0, 14), amount: human, usd: p ? human * p : null }); if (p) rec.usd += human * p; else rec.unpriced.push(sym || den); }
+                for (const a of it.assets || []) { const den = a.info && (a.info.native || a.info.cw20); const sym = symOf(den); const human = Number(a.amount || 0) / 10 ** decOf(den); const p = px(sym, den); rec.tokens.push({ sym: sym || (den || '?').slice(0, 14), amount: human, usd: p ? human * p : null }); if (p) rec.usd += human * p; else rec.unpriced.push(sym || den); }
             }
             if (Array.isArray(b.buckets)) for (const bb of b.buckets) walk(bb, b.gauge);
         };
         for (const b of buckets) walk(b, null);
         return { period: Number(period), at: new Date().toISOString(), pots: out };
     }
+    window.fetchLivePots = fetchLivePots;   // T6.5: exposed for gate-tla-stats (L5)
     async function refreshLivePots() {
         const per = store.votionOptPeriod || store.epoch; if (!per) return;
         const live = await fetchLivePots(per);
@@ -6230,7 +6235,7 @@
         // Pools with a live pot but no captured bribe are added; pools whose captured bribe is not funded for
         // the voted period show $0 live (and the not-funded note).
         const universe = live ? (store.data?.vote?.pools || []).filter(p => (p.bribes?.total || 0) > 0.005 || (live.pots[liveKey(p)] && live.pots[liveKey(p)].usd > 0)) : bribed;
-        const rows = universe.map(p => { const vp = p.vp || 0; const lp = live ? live.pots[liveKey(p)] : null; const usd = live ? (lp ? lp.usd : 0) : p.bribes.total; return { p, vp, usd, per1m: (vp > 50000 && usd > 0) ? usd / (vp / 1e6) : null, votionVp: _vot(p), livePot: lp, liveMode: !!live }; });
+        const rows = universe.map(p => { const vp = p.vp || 0; const lp = live ? live.pots[liveKey(p)] : null; const usd = live ? (lp ? lp.usd : 0) : p.bribes.total; return { p, vp, usd, liveTokens: lp ? lp.tokens : null, liveUnpriced: lp ? lp.unpriced : null, per1m: (vp > 50000 && usd > 0) ? usd / (vp / 1e6) : null, votionVp: _vot(p), livePot: lp, liveMode: !!live }; });
         // v2 (owner test-drive 2026-08-24): the market is set by the votes that MOVE for money — Votion's.
         // Rate = median $/1M VP across the pools Votion currently votes (its equalisation set). Pools
         // Votion is not in (bluechips voted by LPs protecting their own emissions) sit below it by
@@ -6255,7 +6260,7 @@
         const X = store.voteMarketX == null ? 0 : store.voteMarketX;   // owner: default $0 — stage up from what Votion does if nothing changes
         const emissionsPerVp = (p) => { const lp = (store.tlaPools || []).find(x => x.name === p.name && (x.dex || '') === (p.dex || '')); const wk = lp && lp.rewards_per_year ? lp.rewards_per_year / 52.18 : null; return wk && p.vp > 0 ? wk / p.vp : null; };
         const dexTag = (dex) => dex?.includes('Astro') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400">Astro</span>' : dex?.includes('Skeleton') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Skeleton</span>' : '';
-        const _isUnfundedWarn = (r) => { if (r.votionVp <= 50000) return false; if (r.liveMode) return r.usd <= 0; const f = bribeFundedFor(r.p.gauge_pool_id, store.votionOptPeriod); return f ? !f.funded : false; };
+        const _isUnfundedWarn = (r) => { if (r.votionVp <= 50000) return false; if (r.liveMode) return r.usd <= 0 && !(r.liveTokens && r.liveTokens.length); const f = bribeFundedFor(r.p.gauge_pool_id, store.votionOptPeriod); return f ? !f.funded : false; };   // T6.5: unpriced ≠ unfunded
         // Precompute every row's projection once (sorting needs it): what Votion's optimizer does with +$X here.
         const liveOverrideAll = live ? Object.fromEntries(Object.entries(live.pots).map(([k, v]) => [k.split('|')[1], v.usd])) : null;
         const grades = {}; for (const gp of (store.lpGrades?.pools || [])) if (gp.gauge_pool_id) grades[gp.gauge_pool_id] = gp.grade || null;
@@ -6263,7 +6268,7 @@
         const myPools = new Set((selM && selM.lp_positions || []).map(lp => `${lp.pool_name}|${String(lp.bucket || '').toUpperCase()}`));
         for (const r of rows) {
             const gid = String(r.p.gauge_pool_id || '').replace(/^(cw20|native):/, ''); r.gid = gid; r.simKey = String(r.p.bucket || '').toLowerCase() + '|' + gid;
-            const _fund = r.liveMode ? { funded: r.usd > 0 } : (bribeFundedFor(r.p.gauge_pool_id, store.votionOptPeriod) || { funded: true });
+            const _fund = r.liveMode ? { funded: r.usd > 0 || !!(r.liveTokens && r.liveTokens.length), unpriced: r.liveUnpriced || [] } : (bribeFundedFor(r.p.gauge_pool_id, store.votionOptPeriod) || { funded: true });   // T6.5
             r.fundedNow = !!_fund.funded; r.fund = _fund; r.basePotUsd = r.fundedNow ? r.usd : 0;
             const extra = gid ? { [String(r.p.bucket || '').toLowerCase()]: [{ id: gid, usdIncentives: r.basePotUsd, votingPower: Math.max(0, r.vp - r.votionVp) }] } : null;
             const override = Object.assign({}, liveOverrideAll || {}, r.fundedNow ? {} : { [gid]: 0 });
@@ -10244,7 +10249,7 @@
         const selM = (typeof getSelectedMember === 'function') ? getSelectedMember() : null;
         const myPos = new Map(); for (const lp of (selM && selM.lp_positions || [])) { const k = `${lp.pool_name}|${String(lp.bucket || '').toUpperCase()}`; const cur = myPos.get(k) || { usd: 0, share: 0 }; cur.usd += lp.estimated_position_usd || 0; cur.share = Math.max(cur.share, lp.pool_share_pct || 0); myPos.set(k, cur); }
         const live = store.livePots && Number(store.livePots.period) === Number(store.votionOptPeriod || store.epoch) ? store.livePots : null;
-        const potOf = (p) => { const k = String(p.bucket || '').toLowerCase() + '|' + String(p.gauge_pool_id || '').replace(/^(cw20|native):/, ''); if (live) { const lp = live.pots[k]; return lp ? { usd: lp.usd, tokens: lp.tokens, funded: lp.usd > 0, live: true } : { usd: 0, tokens: [], funded: false, live: true }; } const f = bribeFundedFor(p.gauge_pool_id, store.votionOptPeriod); return { usd: p.bribes_total || 0, tokens: [], funded: f ? f.funded : null, live: false }; };
+        const potOf = (p) => { const k = String(p.bucket || '').toLowerCase() + '|' + String(p.gauge_pool_id || '').replace(/^(cw20|native):/, ''); if (live) { const lp = live.pots[k]; return lp ? { usd: lp.usd, tokens: lp.tokens, funded: lp.usd > 0 || (lp.tokens && lp.tokens.length > 0), unpriced: lp.unpriced || [], live: true } : { usd: 0, tokens: [], funded: false, live: true }; } /* T6.5: a pot with tokens is funded even if unpriced */ const f = bribeFundedFor(p.gauge_pool_id, store.votionOptPeriod); return { usd: p.bribes_total || 0, tokens: [], funded: f ? f.funded : null, live: false }; };
         const dexTag = (dex) => dex?.includes('Astro') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400">Astro</span>' : dex?.includes('Skeleton') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Skeleton</span>' : '<span class="text-[9px] px-1 py-0.5 rounded bg-purple-500/20 text-purple-300">Single</span>';
         const LETTER_CLS2 = { A: 'bg-emerald-500/20 text-emerald-300', B: 'bg-teal-500/20 text-teal-300', C: 'bg-amber-500/20 text-amber-300', D: 'bg-orange-500/20 text-orange-300', F: 'bg-red-500/20 text-red-300' };
         // rows
@@ -13644,6 +13649,6 @@
     <!-- Vercel Web Analytics (auto-enabled for Vercel-hosted sites) -->
     <script defer src="/_vercel/insights/script.js"></script>
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.4', revDate: '2026-09-20', page: 'tla-stats' });   // T6.4: the Top-by-APR subline names the LUNA price the product is on (live / day price, as-of) and the trading-leg caveat for the four pools that read lower than Eris. Words only.   // T6.3: the Bribes popup reads the rollup too (1.1.0 oracle join); footer says why an epoch can be missing.   // T6.2: hero-tile popups read member-data/tla-snapshot/epoch-history.json (every epoch since E184 for pools / TVL / rewards / voting VP, APR from E196, on the tiles' own basis; bribes keep their live point until the oracle join); the band product is used only for epochs the rollup lacks — no mixed definitions. In place under the freeze.   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.5', revDate: '2026-09-20', page: 'tla-stats' });   // T6.5: live pots price through the catalog's own price when the feed keys a symbol differently (USDC.n vs USDC); a pot with tokens is never 'not funded' — the LUNA-EURe $10 pot for p203 was funded all along.   // T6.4: the Top-by-APR subline names the LUNA price the product is on (live / day price, as-of) and the trading-leg caveat for the four pools that read lower than Eris. Words only.   // T6.3: the Bribes popup reads the rollup too (1.1.0 oracle join); footer says why an epoch can be missing.   // T6.2: hero-tile popups read member-data/tla-snapshot/epoch-history.json (every epoch since E184 for pools / TVL / rewards / voting VP, APR from E196, on the tiles' own basis; bribes keep their live point until the oracle join); the band product is used only for epochs the rollup lacks — no mixed definitions. In place under the freeze.   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
 </body>
 </html>
