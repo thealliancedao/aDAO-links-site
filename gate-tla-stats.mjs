@@ -97,7 +97,7 @@ const wf = w.eval('votionWaterFill'), sim = w.eval('votionSimulate');
 }
 { const base = sim({}) || {}; const capa = Object.keys(base).find(k => /^project\|terra1e6k3u9/.test(k)) || 'project|none'; const withX = sim({ [capa.split('|')[1]]: 100 }) || {};
   check('O2 simulator: +$100 on LUNA-FUEL moves Votion votes toward it (sim > base) and leaves other gauges with less', base[capa] && withX[capa].sim > base[capa].base && Object.keys(base).filter(k => k !== capa && k.startsWith('project|')).some(k => withX[k].sim < base[k].base), base[capa] && [Math.round(base[capa].base), Math.round(withX[capa].sim)]); }
-check('O3 Vote Market projection cells are the optimizer\'s (tooltip names its votes before → after)', /Votion's optimizer re-run with/.test(d.getElementById('bounty-board-rows').innerHTML));
+check('O3 Vote Market projection cells are our exact solve of Votion\'s objective (tooltip names its votes before → after, and says it projects how much moves, not which pools) — T6.6 wording', /Our exact solve of Votion's objective re-run with/.test(d.getElementById('bounty-board-rows').innerHTML) && /not of which pools Votion pulls from/.test(d.getElementById('bounty-board-rows').innerHTML));
 check('O4 LUNA-CAPA (captured mode): pot chip "not funded · through p199" and the one-line warning that Votion\'s votes leave unless p200 is funded', (() => { const rowsTxt = [...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent); const capaRow = rowsTxt.find(t => /LUNA-CAPA/.test(t)); return capaRow && /not funded/.test(capaRow) && /through p199/.test(capaRow) && /leaves unless p200 is funded/.test(capaRow); })(), ([...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent).find(t => /LUNA-CAPA/.test(t)) || '').slice(0, 200));
 check('O5 header tile counts pots funded for the voted period (15/18 on today\'s capture); rows carry the not-funded chip', /15\/18 pots/.test(d.getElementById('bounty-summary').textContent) && /not funded/.test(d.getElementById('bounty-board-rows').textContent), d.getElementById('bounty-summary').textContent);
 console.log('\n=== live auction ===');
@@ -169,5 +169,14 @@ check('P9 no live reads of retired personal repos remain in tla-stats.html', !/r
   const live = await w.fetchLivePots(203); w.fetch = realFetch;
   const pot = live && live.pots['stable|terra1xkt'];
   check('L5 (T6.5) a $10 USDC.n pot prices through the catalog when the feed keys the symbol USDC (was $0 → "not funded")', !!pot && pot.usd > 9.9 && pot.usd < 10.1 && pot.unpriced.length === 0, pot);
+}
+// ---- T6.6: the Vote Market says what the +$X column can claim — Votion's own threshold flags per bucket and the model-vs-plan back-test
+{ const bt = w.__tlaStore.votionBacktest; const board = d.getElementById('bounty-rows') || d.getElementById('bounty-board') || d.body;
+  check('V6 (T6.6) back-test computed from the captured Votion plan: per-bucket Σ|Δ| pp and a mean, and every bucket carries its published moves/holds flags with gains', !!bt && bt.mean_pp != null && Object.keys(bt.buckets).length >= 3 && Object.values(bt.flags).every(a => a.length >= 1 && a.every(f => typeof f.worth === 'boolean')), bt && { mean: bt.mean_pp, buckets: bt.buckets, flags: Object.fromEntries(Object.entries(bt.flags).map(([k, a]) => [k, a.map(f => f.vault + ':' + (f.worth ? 'moves' : 'holds'))])) });
+  const txt = d.body.textContent.replace(/\s+/g, ' ');
+  check('V7 (T6.6) the header carries the "model vs Votion\'s plan ±N pp" chip', /model vs Votion's plan ±[\d.]+ pp/.test(txt));
+  if (w.setBountyAdd) { try { w.setBountyAdd(50); } catch (e) {} }
+  const t2 = d.body.textContent.replace(/\s+/g, ' ');
+  check('V8 (T6.6) at +$50 a projected row says "Votion\'s rule today: <vault> moves/holds (±$)" under its VP figure', /Votion's rule today: [a-zA-Z]+ Max (moves|holds)/.test(t2), (t2.match(/Votion's rule today:[^·]{0,80}/) || [])[0]);
 }
 console.log(`\n=== PAGE GATE: ${PASS} passed, ${FAIL} failed ===`); process.exit(FAIL ? 1 : 0);
