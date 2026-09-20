@@ -861,7 +861,7 @@
             </div>
             <div class="stat-box drillable" onclick="showHistoryModal('tla-tvl')" title="Click for epoch history">
                 <div class="stat-box-content">
-                    <div class="stat-label">TLA TVL <i class="fas fa-info-circle text-gray-500 text-xs ml-1 cursor-help" onclick="event.stopPropagation()" title="Total USD staked into TLA gauges across all active pools — the capital the gauge war is fighting over."></i></div>
+                    <div class="stat-label">TLA TVL <i class="fas fa-info-circle text-gray-500 text-xs ml-1 cursor-help" onclick="event.stopPropagation()" title="Total USD staked into TLA gauges across all active pools (live eris-apr read, today's LUNA price) — the capital the gauge war is fighting over."></i></div>
                     <div id="stat-tla-tvl" class="stat-value mono">-</div>
                     <div id="stat-tla-tvl-sub" class="stat-sub">-</div>
                 </div>
@@ -869,7 +869,7 @@
             </div>
             <div class="stat-box drillable" onclick="showHistoryModal('epoch-rewards')" title="Click for epoch history">
                 <div class="stat-box-content">
-                    <div class="stat-label">Epoch Rewards</div>
+                    <div class="stat-label" title="one week of LUNA emissions to TLA pools at today's price (live eris-apr chain read)">Epoch Rewards</div>
                     <div id="stat-epoch-rewards" class="stat-value-sm mono">-</div>
                     <div id="stat-epoch-rewards-sub" class="stat-sub">-</div>
                 </div>
@@ -885,7 +885,7 @@
             </div>
             <div class="stat-box drillable" onclick="showHistoryModal('apr-non')" title="Click for epoch history">
                 <div class="stat-box-content">
-                    <div class="stat-label">Avg APR (Non-Amp)</div>
+                    <div class="stat-label" title="TVL-weighted across active pools · dotted number on Eris = linear APR (Eris's simple mean reads higher)">Avg APR (Non-Amp)</div>
                     <div id="stat-avg-apr-non" class="stat-value mono">-</div>
                     <div id="stat-avg-apr-non-sub" class="stat-sub">-</div>
                 </div>
@@ -893,7 +893,7 @@
             </div>
             <div class="stat-box drillable" onclick="showHistoryModal('apr-amp')" title="Click for epoch history">
                 <div class="stat-box-content">
-                    <div class="stat-label">Avg APR (Amplified)</div>
+                    <div class="stat-label" title="TVL-weighted across active pools · flame number on Eris = compounded APY">Avg APR (Amplified)</div>
                     <div id="stat-avg-apr-amp" class="stat-value mono">-</div>
                     <div id="stat-avg-apr-amp-sub" class="stat-sub">-</div>
                 </div>
@@ -1037,7 +1037,7 @@
                         <div id="bounty-summary" class="flex items-center gap-3 text-xs mono text-gray-400"></div>
                     </div>
                     <p class="text-xs text-gray-500 mb-1">What a Votion vote costs, what is funded for the period it is voting into, and what your next $ would move. <span class="desc-toggle" onclick="document.getElementById('bounty-full').classList.toggle('open')">how it's estimated</span></p>
-                    <div id="bounty-full" class="desc-full"><span class="ex-lead">The model:</span> the projection runs Votion's own optimizer. Its captured worksheet shows the reward model (expected reward = bribe × your-votes ÷ (gauge votes + your-votes)) and the objective (maximize the sum across gauges with the vault's VP as budget); we solve that objective exactly on the same inputs with your $X added, for both max vaults — Votion's own solver stops 1–2% short of the optimum, so this is where it is aiming. Votion re-votes only when the change is worth it (observed: keeps current under ~4% deviation or ~$1 of gain). Two kinds of votes exist. LPs vote their own pools to keep emissions flowing — those votes are not for sale and sit below the rate. Votion's ~8M VP goes wherever bribe ÷ votes is best, so on the pools Votion is in, the rate equalises; that median is "Votion's rate". Add $X to a pool and its rate jumps above it; Votion moves votes in until the pool pays the rate again — projected votes ≈ (bribe + X) ÷ rate, capped by the Votion votes not already in that pool. Projected LUNA = those votes × the pool's current emissions per vote. Limits: Votion also exits pools it judges poorly regardless (both CAPA gauges next epoch at a fair rate); timing is one epoch; other bribers react. A planning number, back-testable against Votion's published plan every epoch.</div>
+                    <div id="bounty-full" class="desc-full"><span class="ex-lead">The model:</span> the projection runs Votion's own optimizer. Its captured worksheet shows the reward model (expected reward = bribe × your-votes ÷ (gauge votes + your-votes)) and the objective (maximize the sum across gauges with the vault's VP as budget); we solve that objective exactly on the same inputs with your $X added, for both max vaults — Votion's own solver lands 0–8% below that optimum on today's inputs (bucket by bucket), and because the objective is flat many different splits are near-optimal — so this column predicts how much your $ moves, not which pools Votion pulls from. Votion re-votes a bucket only when its own re-solve gains more than $0 (its published isWorthChanging flag, from its API); a small add that does not flip that flag moves nothing. Two kinds of votes exist. LPs vote their own pools to keep emissions flowing — those votes are not for sale and sit below the rate. Votion's ~8M VP goes wherever bribe ÷ votes is best, so on the pools Votion is in, the rate equalises; that median is "Votion's rate". Add $X to a pool and its rate jumps above it; Votion moves votes in until the pool pays the rate again — projected votes ≈ (bribe + X) ÷ rate, capped by the Votion votes not already in that pool. Projected LUNA = those votes × the pool's current emissions per vote. Limits: Votion also exits pools it judges poorly regardless (both CAPA gauges next epoch at a fair rate); timing is one epoch; other bribers react. A planning number, back-testable against Votion's published plan every epoch.</div>
                     <div id="bounty-board-rows" class="space-y-1.5 mt-3">
                         <div class="loading-pulse text-gray-500 text-sm">Loading...</div>
                     </div>
@@ -6219,7 +6219,7 @@
         const pools = store.data?.vote?.pools || [];
         const bribed = pools.filter(p => (p.bribes?.total || 0) > 0.005);
         const chip = document.getElementById('bounty-epoch-chip');
-        if (chip) chip.textContent = `Epoch ${store.epoch || '—'} · live`;
+        if (chip) { chip.textContent = `Voting round ${store.epoch || '—'} · live`; chip.title = `Votes cast in round ${store.epoch || '—'} (ends Sunday 23:59Z) set the emissions of epoch ${store.epoch ? store.epoch + 1 : '—'}. Pots below are the ones funded for this round.`; }   // T6.1: one vocabulary — round N votes → epoch N+1 emissions
         const summary = document.getElementById('bounty-summary');
         if (!bribed.length) { el.innerHTML = '<div class="text-gray-600 text-sm">No active bribes this epoch — nothing is paying for votes.</div>'; if (summary) summary.innerHTML = ''; return; }
         // Votion's per-pool VP lives on the normalized store.pools (Batch A repoint) — match by name + bucket + dex
@@ -6364,7 +6364,7 @@
         const maxAbs = Math.max(...rows.map(x => Math.abs(x.proj)), 1);
         const sgn = (v) => v == null ? '—' : (v > 0 ? '+' : '') + fmtNum(v);
         const totalTla = store.data?.vote?.summary?.total_vp_max_bucket || store.data?.vote?.summary?.total_vp || 0;   // canonical: max bucket VP
-        const pctTla = (v) => totalTla > 0 ? (Math.abs(v) / totalTla * 100).toFixed(2) + '% of all TLA VP' : '';
+        const pctTla = (v) => totalTla > 0 ? (Math.abs(v) / totalTla * 100).toFixed(2) + '% of voting VP' : '';   // T6.1: 'voting VP' = VP on gauges at lock-in (max bucket); 'total VP' (Eris: every lock, 32.08M on 2026-09-20) is a different number — never say 'all TLA VP' for this one
         const row = (x) => {
             const pos = x.proj > 0; const wU = Math.abs(x.users || 0) / maxAbs * 50, wV = Math.abs(x.votion) / maxAbs * 50;
             const impact = x.mine && x.epv != null ? `<div class="text-[9px] text-amber-300/90">your pool · emissions ${x.proj > 0 ? '+' : ''}${fmt$(x.proj * x.epv)}/wk if this holds</div>` : '';
@@ -6390,7 +6390,7 @@
             (gainers.length ? `<div class="text-[10px] text-emerald-400/80 uppercase tracking-wider font-semibold">Gaining support · projected</div>` + gainers.map(row).join('') : '') +
             (losers.length ? `<div class="text-[10px] text-red-400/80 uppercase tracking-wider font-semibold mt-2">Losing support · projected</div>` + losers.map(row).join('') : '') +
             ((hidden > 0 || open) ? `<div class="text-center pt-1"><button type="button" class="text-[10px] px-3 py-1 rounded-full bg-white/5 text-gray-400 hover:text-cyan-300 font-medium" onclick="window.toggleMovers()">${open ? 'show top 3 + 3' : `show all ${allG.length + allL.length} movers (${hidden} hidden)`} <i class="fas fa-chevron-${open ? 'up' : 'down'} text-[8px] ml-1"></i></button></div>` : '') +
-            `<div class="text-[9px] text-gray-600 pt-1"><span class="inline-block w-2 h-2 rounded-sm bg-cyan-400 mr-1 align-middle"></span>users' on-chain moves since lock-in${store.lockedInDate ? ` (${store.lockedInDate})` : ''} · <span class="inline-block w-2 h-2 rounded-sm bg-violet-400 mr-1 align-middle"></span>Votion's published plan (it casts at the end of the period) · projected = the two together${totalTla ? ` · % is of all TLA VP (${fmtNum(totalTla)})` : ''}</div>`;
+            `<div class="text-[9px] text-gray-600 pt-1"><span class="inline-block w-2 h-2 rounded-sm bg-cyan-400 mr-1 align-middle"></span>users' on-chain moves since lock-in${store.lockedInDate ? ` (${store.lockedInDate})` : ''} · <span class="inline-block w-2 h-2 rounded-sm bg-violet-400 mr-1 align-middle"></span>Votion's published plan (it casts at the end of the period) · projected = the two together${totalTla ? ` · % is of voting VP (${fmtNum(totalTla)} on gauges at lock-in; Eris's "Total Voting Power" also counts idle locks and reads higher)` : ''}</div>`;
     }
 
     window.toggleMovers = function () { store.moversExpanded = !store.moversExpanded; renderEpochMovers(); };
@@ -6508,7 +6508,7 @@
         if (!el) return;
         const rw = store.bribeRunway;
         if (!rw || !Array.isArray(rw.pools)) { el.innerHTML = '<div class="text-gray-600 text-sm lg:col-span-2">Bribe runway product unavailable.</div>'; return; }
-        window.__bribeHeadline = `<span class="text-orange-300 font-semibold">${rw.pool_count} pools funded</span> · period ${rw.current_period}`;
+        window.__bribeHeadline = `<span class="text-orange-300 font-semibold">${rw.pool_count} pools funded</span> · <span title="the bribe-state harvest this panel reads; it rolls at the epoch boundary, so it can sit one round behind the Vote Market's live view">state as of period ${rw.current_period}${rw.capturedAt ? ' · ' + String(rw.capturedAt).slice(0, 10) : ''}</span>`;   // T6.1: say which period the product is, not 'the' period
         const nameFor = (gaugeId) => {
             const p = (store.pools || []).find(x => x.gauge_pool_id === gaugeId)
                 || (store.lpGrades?.pools || []).find(x => x.gauge_pool_id === gaugeId);
@@ -6680,7 +6680,7 @@
         boardExpander(vpEl, byVp.map((x, i) => { const vn = store.nameByWallet?.get(x.m.wallet) ? null : votionVaultName(x.m.wallet); return personRow(
             i,
             `${vn ? `<span class="text-emerald-300">${vn}</span>` : displayName(x.m.wallet)} ${walletBadges(x.m.wallet)}`,
-            totalTla > 0 ? `<span class="text-gray-500">${(x.vp / totalTla * 100).toFixed(1)}% of all TLA VP</span>` : null,
+            totalTla > 0 ? `<span class="text-gray-500">${(x.vp / totalTla * 100).toFixed(1)}% of voting VP</span>` : null,
             `<span class="mono text-sm text-cyan-300 font-semibold">${fmtNum(x.vp)} VP</span>`,
             x.m.wallet
         ); }), 'vp');
@@ -9473,7 +9473,7 @@
               <span class="text-[10px] text-gray-600" title="How many epochs the whole panel covers. History reaches back to E${allHeps[0]} and grows weekly.">window</span>
               ${['4', '8', 'all'].map(w => `<button onclick="setLgWin('${w}')" class="text-[10px] px-2 py-0.5 rounded-md border transition-colors ${String(lgWin) === w ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-white/[0.02] text-gray-500 border-white/5 hover:text-gray-300'}">${w === 'all' ? `all (${allHeps.length})` : w}</button>`).join('')}
             </div>
-            <div class="ml-auto text-[11px] text-gray-500">TLA holds <span class="text-cyan-400 font-semibold mono">${fmt$(last.actual)}</span> staked</div>
+            <div class="ml-auto text-[11px] text-gray-500" title="the headline series of this chart (gauge TVL at today's prices, Astro + Skeleton gauges); the TLA TVL tile at the top reads the live eris-apr gauge sum — the two differ by price and capture time, not by definition">TLA holds <span class="text-cyan-400 font-semibold mono">${fmt$(last.actual)}</span> staked <span class="text-gray-600">· this chart's basis</span></div>
           </div>
           <div class="text-xs text-gray-400 mb-3">${story}</div>
           <div class="rounded-lg bg-white/[0.02] p-3 mb-3">${chart}</div>
@@ -13622,6 +13622,6 @@
     <!-- Vercel Web Analytics (auto-enabled for Vercel-hosted sites) -->
     <script defer src="/_vercel/insights/script.js"></script>
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T3.21', revDate: '2026-09-17', page: 'tla-stats' });</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.1', revDate: '2026-09-20', page: 'tla-stats' });   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
 </body>
 </html>
