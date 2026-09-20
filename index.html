@@ -1244,7 +1244,8 @@
     <script src="/lib/address-picker.js"></script>
     <script src="/lib/denoms.js?v=1.0.0"></script>
     <script>if (window.Denoms) Denoms.load();</script>
-    <script src="/lib/alert-center.js?v=1.8.0"></script>
+    <script src="/lib/alert-center.js?v=1.9.0"></script>
+    <script src="/lib/live-activity.js?v=1.0.0"></script>   <!-- 4.36: episodes → tiers, deal filter, words (one renderer) -->
     <script>SiteHeader.mount({ page: 'index', mobileTabs: false }); if (window.AddressPicker) AddressPicker.mount({});
     // Uniform chrome: the refresh strip rides in the shared sub-nav's right slot (no tabs on Home).
     (function () {
@@ -1982,7 +1983,7 @@
                         <i class="fas fa-stream text-purple-400"></i>
                         <span>Live Activity</span>
                         <span id="activity-window" class="flex items-center gap-1"></span>
-                        <span class="text-[9px] text-gray-600 whitespace-nowrap" title="Events come from the nightly org capture rollup — today's actions appear after tonight's rollup (~00:00 UTC).">updates nightly</span>
+                        <span class="text-[9px] text-gray-600 whitespace-nowrap" title="Episodes come from nft-collections/<collection>/ledger/activity.json — the on-chain ledger folded hourly by org-nft-flows (one act = one row). Featured rows glow amber; the deal filter hides listings far over their class floor (Show all reveals them).">updates hourly</span>
                     </h3>
                     <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
                         <div id="activity-tabs" class="flex items-center gap-1"></div>
@@ -1994,7 +1995,7 @@
                     </div>
                 </div>
                 
-                <div id="activity-container" class="bg-gray-800/30 rounded-lg overflow-hidden max-h-[220px] overflow-y-auto">
+                <div id="activity-container" class="bg-gray-800/30 rounded-lg overflow-hidden max-h-[460px] overflow-y-auto">
                     <div id="activity-list" class="divide-y divide-gray-700/50">
                         <div class="text-gray-500 text-sm py-4 px-3 text-center">
                             <i class="fas fa-spinner fa-spin mr-1"></i> Loading activity...
@@ -2173,7 +2174,13 @@
                         <div class="listings-toggle-divider"></div>
                         <button class="listings-toggle-btn" data-mp="boost">Boost</button>
                     </div>
-                    <span class="text-xs text-gray-500 ml-auto"><i class="fas fa-sort-amount-up mr-1"></i>Sorted by USD price (lowest first)</span>
+                </div>
+                <!-- 4.36 (owner): class filter per collection + sort direction — aDAO Base / Phoenix, Pixel Lions Base / 1/1 (Rank 1),
+                     TLA Locks ampLUNA / arbLUNA / bLUNA × Auto-max / Under max / Unlocking; USD low→high or high→low -->
+                <div class="flex items-center gap-2 mb-3 flex-wrap" id="class-row">
+                    <span class="text-xs text-gray-500">Class:</span>
+                    <div class="listings-toggle-group" id="class-toggle"></div>
+                    <button type="button" id="listings-sort-btn" class="text-xs text-gray-400 hover:text-cyan-300 ml-auto" title="flip the sort"><i class="fas fa-sort-amount-up mr-1"></i>USD low → high</button>
                 </div>
                 
                 <!-- Mobile: 2 dropdowns side-by-side (hidden on desktop) -->
@@ -13309,6 +13316,39 @@
                 };
                 let listingConditionFilter = 'unbroken'; // 'unbroken' | 'both' | 'broken'
                 let listingMarketplaceFilter = 'both';   // 'both'(All) | 'bbl' | 'atrium' | 'boost'
+                // 4.36 (owner): class filter + sort direction. Classes are the collection's own tiers: aDAO base / Phoenix (the
+                // registry's tier id set), Pixel Lions base / Rank 1 (the rank oracle's rank-1 set — "1/1" in the community's words),
+                // TLA locks by asset (ampLUNA / arbLUNA / bLUNA) and state (auto-max / under max / unlocking) read from the lock's own
+                // ledger rows (by-token shard, fetched only for the listed locks). Unknown stays unknown: a lock whose rows are not
+                // loaded yet matches "All" only.
+                let listingClassFilter = 'all'; let listingSortDir = 'asc';
+                const LISTING_CLASSES = { alliance_dao: [['all', 'All'], ['base', 'Base'], ['phoenix', 'Phoenix']], pixelions: [['all', 'All'], ['base', 'Base'], ['rank1', '1/1 · Rank 1']],
+                    tla_locks: [['all', 'All'], ['ampLUNA', 'ampLUNA'], ['arbLUNA', 'arbLUNA'], ['bLUNA', 'bLUNA'], ['automax', 'Auto-max'], ['undermax', 'Under max'], ['unlocking', 'Unlocking']] };
+                let __phoenixIds = null, __phoenixLoading = false; const __lockInfo = {}; const __lockShardsLoading = new Set();
+                function listingClassesOf(l) {
+                    const out = new Set(['all']);
+                    if (l.collection === 'alliance_dao') { out.add(__phoenixIds && __phoenixIds.has(String(l.tokenId)) ? 'phoenix' : 'base'); }
+                    else if (l.collection === 'pixelions') { out.add(Number(l.rank) === 1 ? 'rank1' : 'base'); }
+                    else if (l.collection === 'tla_locks') { const li = __lockInfo[String(l.tokenId)]; if (li) { if (li.symbol) out.add(li.symbol); const ep = window.__epochNowCache; if (li.lock_end === 'permanent') out.add('automax'); else if (ep != null && Number(li.lock_end) <= ep) out.add('unlocking'); else if (li.lock_end != null) out.add('undermax'); } }
+                    return out;
+                }
+                function ensureListingClassData(listings) {
+                    const NFTC_RAW = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main';
+                    if (__phoenixIds === null && !__phoenixLoading && listings.some(l => l.collection === 'alliance_dao')) { __phoenixLoading = true; fetch(`${NFTC_RAW}/adao/collection.json?t=${Math.floor(Date.now() / 3e5)}`).then(r => r.ok ? r.json() : null).then(c => { __phoenixIds = new Set(((((c || {}).tiers || {}).phoenix || {}).token_ids || []).map(String)); renderCombinedListings(); }).catch(() => { __phoenixIds = new Set(); }); }
+                    const need = new Set(); for (const l of listings) if (l.collection === 'tla_locks' && !__lockInfo[String(l.tokenId)]) { const n = Number(l.tokenId); const sh = Number.isFinite(n) ? String(Math.floor(n / 100)).padStart(3, '0') : 'x'; if (!__lockShardsLoading.has(sh)) need.add(sh); }
+                    for (const sh of need) { __lockShardsLoading.add(sh); fetch(`${NFTC_RAW}/tla-locks/ledger/by-token/${sh}.json?t=${Math.floor(Date.now() / 3e5)}`).then(r => r.ok ? r.json() : null).then(d => {
+                        for (const [id, recs] of Object.entries((d && d.tokens) || {})) { const live = (recs || []).filter(r => !r.superseded_by && r.lock); const last = live[live.length - 1]; if (!last) continue; const withAsset = live.filter(r => r.lock.asset).pop(); const m = withAsset && String(withAsset.lock.asset).match(/^(?:cw20|native):([^:]+):(\d+)$/); const sym = m ? ((window.Denoms && Denoms.symbol(m[1].startsWith('terra1') ? 'cw20:' + m[1] : m[1])) || (window.Denoms && Denoms.symbol(m[1])) || null) : null; __lockInfo[id] = { symbol: sym, amount: m ? Number(m[2]) / 1e6 : null, lock_end: last.lock.lock_end == null ? null : last.lock.lock_end, vp: last.lock.voting_power != null ? Number(last.lock.voting_power) / 1e6 : null }; }
+                        renderCombinedListings(); }).catch(() => { }); }
+                }
+                function renderClassToggle() {
+                    const el = document.getElementById('class-toggle'); if (!el) return;
+                    const key = (Object.entries(collectionFilters).find(([, v]) => v) || ['alliance_dao'])[0]; const classes = LISTING_CLASSES[key] || [['all', 'All']];
+                    if (!classes.some(c => c[0] === listingClassFilter)) listingClassFilter = 'all';
+                    el.innerHTML = classes.map((c, i) => `${i ? '<div class="listings-toggle-divider"></div>' : ''}<button type="button" class="listings-toggle-btn${listingClassFilter === c[0] ? ' active' : ''}" data-class="${c[0]}">${c[1]}</button>`).join('');
+                    el.querySelectorAll('[data-class]').forEach(b => b.addEventListener('click', () => { listingClassFilter = b.dataset.class; displayedListingsCount = 12; renderCombinedListings(); }));
+                    const sb = document.getElementById('listings-sort-btn'); if (sb && !sb.__wired) { sb.__wired = true; sb.addEventListener('click', () => { listingSortDir = listingSortDir === 'asc' ? 'desc' : 'asc'; renderCombinedListings(); }); }
+                    if (sb) sb.innerHTML = listingSortDir === 'asc' ? '<i class="fas fa-sort-amount-up mr-1"></i>USD low → high' : '<i class="fas fa-sort-amount-down mr-1"></i>USD high → low';
+                }
                 
                 // Setup collection tabs (for overview tiles only)
                 function setupCollectionTabs() {
@@ -13390,6 +13430,7 @@
                         // Volume and total sales only available for aDAO (from our tracked data)
                         if (collectionKey === 'alliance_dao') {
                             document.getElementById('bbl-volume-bluna').textContent = bblData.volume > 0 ? Math.round(bblData.volume).toLocaleString() : '--';
+                            window.__bblApiVolume = { volume: bblData.volume || 0, sales: salesData?.cumulative_totals?.bbl?.total_sales || allTimeSalesData?.cumulative_totals?.bbl?.total_sales || 0 };   // 4.36: BBL's own number, shown beside ours
                             // Rev 4.11: all-time volume is NOT converted at today's bLUNA price (256,905 bLUNA read "$19,756" when
                             // the sales, priced when they happened, total ~$156K). Show the sale-time USD from dao-dashboard when it
                             // is loaded; otherwise show nothing rather than a wrong number.
@@ -13406,6 +13447,7 @@
                         }
                         
                         document.getElementById('bbl-data-source').innerHTML = '<i class="fas fa-bolt text-yellow-400 mr-1"></i>Live from BBL';
+                        if (window.__paintLedgerVolume) window.__paintLedgerVolume();   // 4.36: our ledger's volume + sales, two ways, over the venue's
                     } else if (!collectionConfig.bblSupported) {
                         document.getElementById('bbl-data-source').innerHTML = '<span class="text-gray-500">Not available on BBL</span>';
                     }
@@ -13442,6 +13484,7 @@
                         }
                         
                         document.getElementById('boost-data-source').innerHTML = '<i class="fas fa-bolt text-yellow-400 mr-1"></i>Live from Boost';
+                        if (window.__paintLedgerVolume) window.__paintLedgerVolume();   // 4.36
                     }
                 }
                 
@@ -13843,6 +13886,7 @@
                             if (ind) ind.classList.remove('hidden');
                             const ds = document.getElementById('atrium-data-source');
                             if (ds) ds.innerHTML = '<i class="fas fa-link text-pink-400 mr-1"></i>Chain-of-truth pipeline';
+                            if (window.__paintLedgerVolume) window.__paintLedgerVolume();   // 4.36: one pill grammar
                         } catch (e) { /* card stays at placeholders */ }
 
                         // Per-tier floors: stash context, fill what's ready now; the
@@ -13890,6 +13934,31 @@
 
                         // --- Live Top 10 (all venues, USD at sale) ---
                         const sales = (se.sales || []);
+                        // 4.36 (owner): all-time volume per venue from OUR sales record (sales-enriched: every sale the chain shows,
+                        // priced at the sale-time oracle day), shown TWO ways — at sale time and at today's prices — with the
+                        // venue's own published count beside it where the venue publishes one (BBL). Boost's UI reports no volume
+                        // ("$0.00" was their number, not ours). Every basis labeled; one source pill per tile.
+                        window.__ledgerVolume = (() => {
+                            const per = { bbl: { n: 0, then: 0, sym: {} }, boost: { n: 0, then: 0, sym: {} }, atrium: { n: 0, then: 0, sym: {} } };
+                            for (const x of sales) { const v = String(x.marketplace || (x.auction_id ? 'bbl' : '')).toLowerCase(); const b = per[v]; if (!b) continue; b.n++; b.then += Number(x.notional_usd) || 0; const sym = x.denom_symbol; const amt = x.gross_amount != null ? Number(x.gross_amount) / 1e6 : (x.amount != null ? Number(x.amount) : 0); if (sym) b.sym[sym] = (b.sym[sym] || 0) + amt; }
+                            return per;
+                        })();
+                        window.__paintLedgerVolume = function () {
+                            const sel = (Object.entries(collectionFilters).find(([, v]) => v) || ['alliance_dao'])[0]; if (sel !== 'alliance_dao') return;   // the record here is aDAO's; other collections keep the venue's numbers
+                            const P = window.tokenPrices || {}; const V = window.__ledgerVolume; if (!V) return;
+                            const nowOf = (b) => { let t = 0, all = true; for (const [sym, amt] of Object.entries(b.sym)) { if (P[sym]) t += amt * P[sym]; else all = false; } return { usd: t, complete: all }; };
+                            const fmt = (u) => '$' + Math.round(u).toLocaleString('en-US');
+                            const paint = (id, b, extra) => { const el = document.getElementById(id); if (!el) return; const box = el.parentElement; if (!box) return; const keep = [...box.querySelectorAll('[id]')].map(x => x.id); const now = nowOf(b); const toks = Object.entries(b.sym).map(([k, v]) => `${Math.round(v).toLocaleString()} ${k}`).join(' + ');
+                                box.innerHTML = `${keep.map(k => `<span id="${k}" class="hidden"></span>`).join('')}<div class="text-cyan-400 font-mono font-bold" title="${toks} · USD at the oracle price on each sale's day">${fmt(b.then)} <span class="text-[10px] text-gray-500 font-sans font-normal">at sale time</span></div><div class="text-[11px] text-gray-400" title="the same token amounts at today's prices${now.complete ? '' : ' (a token without a live price is left out)'}">${fmt(now.usd)} <span class="text-gray-600">now${now.complete ? '' : ' *'}</span></div>${extra || ''}`; };
+                            const bbl = window.__bblApiVolume; paint('bbl-volume-bluna', V.bbl, bbl && bbl.volume ? `<div class="text-[10px] text-gray-600" title="what BBL's own UI reports for this collection — 65 of our rows are 2024 sales the chain shows that BBL's count does not carry">BBL's UI: ${Math.round(bbl.volume).toLocaleString()} bLUNA · ${(bbl.sales || 0).toLocaleString()} sales</div>` : '');
+                            paint('boost-volume-usd', V.boost); paint('atrium-volume-usd', V.atrium);
+                            const sc = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = `${n.toLocaleString()} sales`; };
+                            sc('bbl-total-sales', V.bbl.n); sc('boost-total-sales', V.boost.n); sc('atrium-total-sales', V.atrium.n);
+                            // 4.36: one pill grammar on every tile — what is live from the venue, what is from our ledger
+                            const pill = (id, live) => { const el = document.getElementById(id); if (el) el.innerHTML = `<i class="fas fa-bolt text-yellow-400 mr-1"></i>${live} live · <i class="fas fa-book text-cyan-400/80 mx-1"></i>volume &amp; sales from our ledger`; };
+                            pill('bbl-data-source', 'floor & listings from BBL'); pill('boost-data-source', 'floor & listings from Boost'); pill('atrium-data-source', 'floor & listings from the chain');
+                        };
+                        window.__paintLedgerVolume();
                         const top = [...sales].sort((a, b) => (b.notional_usd || 0) - (a.notional_usd || 0)).slice(0, 10);
                         window.v2Top10 = top.map((s, i) => ({
                             rank: i + 1, nft_id: s.token_id, date: (s.timestamp || '').slice(0, 10),
@@ -13931,197 +14000,96 @@
                 // Render activity feed
                 async function renderActivityFeed() {
                     // ============================================================
-                    // LIVE ACTIVITY v2 (Rev I-A1, 2026-08-20) — org streams, not APIs.
-                    // The old feed read the BBL warlock API through a CORS proxy and
-                    // showed only BBL auctions — the venue with the LEAST aDAO
-                    // traffic — so it sat empty while Atrium/Boost sales, listings,
-                    // cancels, transfers and 400+/wk lock events went unseen.
-                    // Now: nft-collections adao/flows + adao/transfers + tla-core tla-voting/events/
-                    // locks from tla-core (nightly rollup). Full taxonomy + Pixel
-                    // Lions stream land with SPEC-activity-feed's build.
+                    // LIVE ACTIVITY 4.36 (2026-09-20, owner: "rethink Live Activity") — EPISODES, not rows.
+                    // Source: nft-collections/<slug>/ledger/activity.json per collection (org-nft-flows 1.6.0, lib/activity.js —
+                    // THE fold: a same-owner delist+relist inside 24 h is one price change, thirty unstakes in an hour are one
+                    // row of thirty with their ids, a lock restructure's verbs are one row per tx and per hour). Facts ride on the
+                    // episode (tier + the day's class floor + vs-floor %, VP, backing of a listed lock, days on market); this page
+                    // classifies with lib/live-activity.js against docs/curated/alert-thresholds.json `live_activity`:
+                    // featured (amber) · normal · quiet (grey), and the DEAL FILTER hides listings more than N% over their class
+                    // floor (N = 25% on this tenant's collections, 10% on the others; "Show all" reveals them). Windows 24h / 7d /
+                    // 30d; every collection on by default; type chips; "since you last looked" dots. The flows/transfers/locks
+                    // streams the 4.21 feed assembled by hand are gone — one product, one rule, no copy.
                     // ============================================================
                     const container = document.getElementById('activity-list');
                     const countEl = document.getElementById('activity-count');
                     const tabsEl = document.getElementById('activity-tabs');
                     if (!container) return;
                     container.innerHTML = `<div class="text-gray-500 text-sm py-4 px-3 text-center"><i class="fas fa-spinner fa-spin mr-1"></i> Loading activity...</div>`;
+                    if (!window.LiveActivity) { container.innerHTML = `<div class="text-gray-500 text-sm py-4 px-3 text-center">lib/live-activity.js did not load</div>`; return; }
+                    if (!document.getElementById('la-css')) { const st = document.createElement('style'); st.id = 'la-css'; st.textContent = LiveActivity.CSS; document.head.appendChild(st); }
 
                     const CORE_RAW = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
-                    const NFTC_RAW = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main';   // 4.18: aDAO products live here
-                    const now = new Date();
-                    const months = [now, new Date(now.getFullYear(), now.getMonth() - 1, 15)]
-                        .map(d => `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`);
-                    const grab = (p) => fetch(`${p.startsWith('adao/') ? NFTC_RAW : CORE_RAW}/${p}?t=${Date.now()}`, { cache: 'no-store' })
-                        .then(r => r.ok ? r.json() : null).catch(() => null);
-                    // 4.21 (2026-09-14, owner): the on-chain LEDGER (nft-collections/adao/ledger) joins the feed — it is the only
-                    // stream with stakes, unstakes, claims and BREAKS as events (broken-at.json is a June backfill, unmaintained).
-                    const [fl0, fl1, tr0, tr1, lk0, lk1, lg0, lg1] = await Promise.all([
-                        grab(`adao/flows/${months[0]}.json`), grab(`adao/flows/${months[1]}.json`),
-                        grab(`adao/transfers/${months[0]}.json`), grab(`adao/transfers/${months[1]}.json`),
-                        grab(`tla-voting/events/locks/${months[0]}.json`), grab(`tla-voting/events/locks/${months[1]}.json`),
-                        grab(`adao/ledger/${months[0]}.json`), grab(`adao/ledger/${months[1]}.json`),
-                    ]);
+                    const NFTC_RAW = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main';
+                    const j = (u) => fetch(`${u}?t=${Math.floor(Date.now() / 3e5)}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null);
+                    const [cfg, tenantsDoc] = await Promise.all([j(`${CORE_RAW}/docs/curated/alert-thresholds.json`), j(`${CORE_RAW}/docs/curated/tenants.json`)]);
+                    // feeds = every collection of every tenant in the registry (a new ally's collection lights up from its
+                    // tenants.json line) + the TLA locks escrow. Words per feed stay generic ("NFT"), the tenant's short name is the tag.
+                    const FEEDS = []; const T = (tenantsDoc && tenantsDoc.tenants) || { adao: { short: 'aDAO', collections: ['adao'], default: true } };
+                    const defaultTenant = (Object.entries(T).find(([, x]) => x.default) || ['adao'])[0];
+                    for (const [tslug, t] of Object.entries(T)) for (const cslug of (t.collections || [])) FEEDS.push({ slug: cslug, tenant: tslug, short: t.short || tslug, label: (t.collections || []).length > 1 ? `${t.short} · ${cslug}` : (t.short || tslug), kind: 'nft', noun: 'NFT', nouns: 'NFTs', legacyCol: cslug === 'adao' ? 'adao' : null, holdings: cslug === 'adao', url: `${NFTC_RAW}/${cslug}/ledger/activity.json`, explorer: `nft-explorer-index.html${tslug === defaultTenant ? '' : '?tenant=' + tslug}` });
+                    FEEDS.push({ slug: 'tla-locks', tenant: null, short: 'TLA', label: 'TLA Locks', kind: 'escrow', noun: 'lock', nouns: 'locks', legacyCol: null, holdings: false, url: `${NFTC_RAW}/tla-locks/ledger/activity.json`, explorer: null });
+                    let own = defaultTenant; try { if (window.CollectionContext && CollectionContext.load) { const c = await CollectionContext.load(); if (c && c.tenant && c.tenant.slug) own = c.tenant.slug; } } catch (e) { }
+                    const loaded = await LiveActivity.load(j, FEEDS);
+                    const all = []; const missing = [];
+                    for (const { feed, doc } of loaded) { if (!doc || !Array.isArray(doc.episodes)) { missing.push(feed.label); continue; } feed.doc = { built_at: doc.built_at, engine: doc.engine, floor_now: doc.floor_now, window_days: doc.window_days }; for (const ep of doc.episodes) all.push({ ep, feed }); }
+                    all.sort((a, b) => Date.parse(b.ep.ts) - Date.parse(a.ep.ts));
+                    window.__activityEpisodes = all; window.__activityFeeds = FEEDS; window.__activityConfig = cfg;
+                    // the Alert Center's NFT rules read the legacy per-token rows (kept even though the NFTs tile is off the home window)
+                    window.__activityItems = [].concat(...loaded.filter(x => x.doc && x.feed.legacyCol).map(x => LiveActivity.legacyItems(x.doc.episodes, x.feed))).sort((a, b) => b.ts - a.ts);
+                    if (window.__acRefresh) window.__acRefresh('items');
+                    const since = LiveActivity.marker.get(); setTimeout(() => LiveActivity.marker.set(Date.now()), 20000);   // this visit keeps its dots; the next one starts here
 
-                    // Known contracts (docs/curated/known_contracts.json is the canonical
-                    // home; this inline map mirrors the feed-relevant subset)
-                    const MARKETS = {
-                        'terra1ej4cv98e9g2zjefr5auf2nwtq4xl3dm7x0qml58yna2ml2hk595s7gccs9': 'BBL',
-                        'terra15du229lqcxkn939pmjgklqunftf604q4wz87kt5awj6reghec5jqs0w0kj': 'Atrium',
-                        'terra1kj7pasyahtugajx9qud02r5jqaf60mtm7g5v9utr94rmdfftx0vqspf4at': 'Boost',
-                    };
-                    const STAKING = {
-                        'terra1c57ur376szdv8rtes6sa9nst4k536dynunksu8tx5zu4z5u3am6qmvqx47': 'aDAO (DAODAO)',
-                        'terra1e54tcdyulrtslvf79htx4zntqntd4r550cg22sj24r6gfm0anrvq0y8tdv': 'Enterprise',
-                    };
-                    const cutoff = Date.now() - 30 * 24 * 3600 * 1000;   // 4.21: build 30 days; the 7d / 30d toggle filters at render
-                    const items = [];
-
-                    // 4.27: no hand map — a record's own denom_symbol (stamped upstream) first, else THE shared resolver (lib/denoms.js,
-                    // token-catalog effective layer). Unknown stays unknown ("…") rather than becoming the wrong token.
-                    const symOf = (d, rec) => (rec && rec.denom_symbol) || (window.Denoms && Denoms.symbol(d)) || (d ? String(d).replace(/^(cw20|native):/, '').slice(0, 10) + '…' : '');
-                    for (const fl of [fl0, fl1]) {
-                        for (const [day, dd] of Object.entries(fl?.days || {})) {
-                            for (const e of (dd.events || [])) {
-                                const ts = Date.parse(e.time); if (!(ts >= cutoff)) continue;
-                                // 4.26: the symbol from the denom (uluna → LUNA, the SOLID / bLUNA cw20s) — Boost rows read "Listed at 50,000" with no token
-                                const fSym = symOf(e.denom, e) || '';
-                                const fAmt = e.price_luna != null ? Number(e.price_luna) : e.price_raw != null ? parseFloat(e.price_raw) / 1e6 : null;
-                                const price = fAmt != null ? `${fAmt.toLocaleString()} ${e.price_luna != null ? 'LUNA' : fSym}`.trim() : '';
-                                items.push({ ts, col: 'adao', kind: e.type, token: e.token_id, tx: e.tx_hash || null, amt: fAmt, sym: e.price_luna != null ? 'LUNA' : (fSym || null), seller: e.seller || e.from || null, buyer: e.buyer || e.to || null,
-                                    label: e.type === 'sale' ? `Sold${price ? ' for ' + price : ''}`
-                                        : e.type === 'listing' ? `Listed${price ? ' at ' + price : ''}`
-                                        : `Delisted`,
-                                    sub: (e.marketplace ? e.marketplace : '') });
-                            }
-                        }
-                    }
-                    // 4.19 (2026-09-14): the transfers stream carries marketplace records too (action: sale / bid / list /
-                    // cancel), and this loop labelled every record "Transferred" — a 200 bLUNA buy-now of #745 and two
-                    // bids showed as transfers (owner, 2026-09-14). Now: switch on the action; a sale/bid names its price;
-                    // a sale the nightly flows stream already reported is not shown twice.
-                    const priceOf = (e) => { const raw = e.gross_amount ?? e.bid_amount ?? e.price ?? e.amount; return raw != null && e.denom ? `${(parseFloat(raw) / 1e6).toLocaleString()} ${symOf(e.denom, e)}` : ''; };
-                    const flowSales = new Set(items.filter(i => i.col === 'adao' && i.kind === 'sale').map(i => `${i.tx}|${i.token}`));
-                    for (const tr of [tr0, tr1]) {
-                        for (const e of (tr || [])) {
-                            const ts = Date.parse(e.timestamp); if (!(ts >= cutoff)) continue;
-                            if (e.superseded_by) continue;   // 4.26: a row later found to be another collection's event (labeled, never deleted) is not a human row
-                            const to = e.to || '', from = e.from || ''; const act = e.action || 'transfer_nft';
-                            const amtOf = (v) => v != null ? parseFloat(v) / 1e6 : null;
-                            if (act === 'sale') { if (flowSales.has(`${e.txhash}|${e.token_id}`)) continue; const p = priceOf(e); items.push({ ts, col: 'adao', kind: 'sale', token: e.token_id, tx: e.txhash || null, amt: amtOf(e.gross_amount), sym: e.denom ? symOf(e.denom, e) : null, seller: e.seller || null, buyer: e.buyer || null, label: `Sold${p ? ' for ' + p : ''}`, sub: e.contract_label ? e.contract_label.split(' ')[0] : 'BBL' }); continue; }
-                            if (act === 'bid') { const p = priceOf(e); const amt = e.bid_amount != null ? (parseFloat(e.bid_amount) / 1e6).toLocaleString() : null;   // bids in this leg carry the amount but not the denom — say the amount, never guess the currency
-                                items.push({ ts, col: 'adao', kind: 'bid', token: e.token_id, tx: e.txhash || null, amt: amtOf(e.bid_amount), sym: e.denom ? symOf(e.denom, e) : null, bidder: e.bidder || null, label: p ? `Bid ${p}` : amt ? `Bid ${amt}` : 'Bid', sub: (e.contract_label ? e.contract_label.split(' ')[0] : 'BBL') + (!p && amt ? ' · currency not in record' : '') }); continue; }
-                            if (act === 'list') { const p = priceOf(e); const rawAmt = e.gross_amount ?? e.price ?? e.amount; items.push({ ts, col: 'adao', kind: 'listing', token: e.token_id, tx: e.txhash || null, amt: rawAmt != null ? parseFloat(rawAmt) / 1e6 : null, sym: e.denom ? symOf(e.denom, e) : null, seller: e.seller || e.from || null, label: `Listed${p ? ' at ' + p : ''}`, sub: e.contract_label ? e.contract_label.split(' ')[0] : 'BBL' }); continue; }
-                            if (act === 'cancel') { items.push({ ts, col: 'adao', kind: 'delisting', token: e.token_id, tx: e.txhash || null, seller: e.seller || e.to || null, label: 'Delisted', sub: e.contract_label ? e.contract_label.split(' ')[0] : 'BBL' }); continue; }
-                            if (act !== 'transfer_nft') continue;   // other venue verbs (settle_hook etc.) are not human rows
-                            if (MARKETS[to] || MARKETS[from]) continue;   // escrow legs — the sale/list/cancel rows tell that story
-                            let label = 'Transferred', sub = `to ${to.slice(0, 12)}…`;
-                            if (STAKING[to]) { label = 'Staked'; sub = STAKING[to]; }
-                            else if (STAKING[from]) { label = 'Unstaked'; sub = STAKING[from]; }
-                            items.push({ ts, col: 'adao', kind: label.toLowerCase(), token: e.token_id, tx: e.txhash || null, label, sub, from, to });   // 4.24: from/to for the P2P rules
-                        }
-                    }
-                    // 4.21: ledger rows — stake / unstake / break / claim (the ledger's sales/lists are already covered above; its
-                    // stake/unstake supersede the transfers-derived Staked/Unstaked for the same tx so nothing shows twice)
-                    const LEDGER_LABELS = { stake: ['Staked', 'staked', 'aDAO (DAODAO)'], unstake: ['Unstaked', 'unstaked', 'aDAO (DAODAO)'], unstake_enterprise: ['Unstaked', 'unstaked', 'Enterprise'],
-                        break: ['Broke', 'break', 'backing withdrawn'], claim: ['Claimed', 'claimed', 'unstake window over'] };
-                    const ledgerTx = new Set();
-                    for (const lg of [lg0, lg1]) for (const r of (Array.isArray(lg) ? lg : [])) {
-                        const L = LEDGER_LABELS[r.kind]; if (!L) continue; const ts = Date.parse(r.ts); if (!(ts >= cutoff)) continue;
-                        ledgerTx.add(`${r.txhash}|${r.token_id}`);
-                        // 4.22: a DAODAO unstake carries its token ids in the msg body, not the events — the ledger says "resolve at claim";
-                        // show that instead of "#?"
-                        const noId = r.token_id == null && /resolve at claim/.test(r.note || '');
-                        items.push({ ts, col: 'adao', kind: L[1], token: noId ? null : r.token_id, tx: r.txhash || null, label: L[0], sub: noId ? `${L[2]} · ids resolve at claim` : L[2], noId, from: r.from || null, to: r.to || null, usd: r.usd != null ? Number(r.usd) : null });
-                    }
-                    for (let i = items.length - 1; i >= 0; i--) { const x = items[i]; if (x.col === 'adao' && (x.kind === 'staked' || x.kind === 'unstaked') && x.sub !== 'aDAO (DAODAO)' && x.sub !== 'Enterprise' && ledgerTx.has(`${x.tx}|${x.token}`)) items.splice(i, 1); }
-                    const LOCK_LABELS = { lock_create: 'New lock', lock_permanent: 'Set auto-max', merge: 'Merged locks',
-                        split: 'Split lock', lock_extend_amount: 'Added to lock', lock_extend_time: 'Extended lock',
-                        unlock_permanent: 'Auto-max off', withdraw: 'Withdrew lock', lock_transfer: 'Lock transferred',
-                        migrate: 'Migrated lock' };
-                    for (const lk of [lk0, lk1]) {
-                        for (const e of (lk || [])) {
-                            const ts = Date.parse(e.timestamp); if (!(ts >= cutoff)) continue;
-                            const t = e.type || '';
-                            const label = LOCK_LABELS[t] || (t.startsWith('event:') ? null : t);
-                            if (!label) continue;   // internal sub-events stay out of the human feed
-                            const amt = e.amount != null && e.asset ? `${(parseFloat(e.amount) / 1e6).toLocaleString()} ${String(e.asset).includes('ampluna') || String(e.asset).includes('ecgazyd') ? 'ampLUNA' : String(e.asset).includes('uluna') ? 'LUNA' : ''}`.trim() : '';
-                            items.push({ ts, col: 'locks', kind: t, token: e.token_id, tx: e.tx_hash || null,
-                                label, sub: [amt, e.wallet ? e.wallet.slice(0, 12) + '…' : ''].filter(Boolean).join(' · ') });
-                        }
-                    }
-
-                    // 4.22: one row per event — flows and transfers both report a delist/list (flows without a tx); keep the one
-                    // with a tx hash, drop the twin for the same kind + token on the same UTC day
-                    { const seen = new Map(); const keep = [];
-                      for (const x of [...items].sort((a, b) => (b.tx ? 1 : 0) - (a.tx ? 1 : 0))) { const k = x.col === 'adao' && x.token ? `${x.kind}|${x.token}|${new Date(x.ts).toISOString().slice(0, 10)}` : null; if (k) { if (seen.has(k)) continue; seen.set(k, 1); } keep.push(x); }
-                      items.length = 0; items.push(...keep); }
-                    items.sort((a, b) => b.ts - a.ts);
-                    window.__activityItems = items;
-                    if (window.__acRefresh) window.__acRefresh('items');   // 4.24: the Alert Center reads the same rows
-                    const view = window.__activityView || 'adao';   // Rev 4.05 (owner): aDAO first; All / TLA Locks one tap away
-                    const TABS = [
-                        { id: 'all', label: 'All' },
-                        { id: 'adao', label: 'aDAO' },
-                        { id: 'locks', label: 'TLA Locks' },
-                        { id: 'pixel', label: 'Pixel Lions', disabled: true, tip: 'Stream lands with the activity-feed build (SPEC-activity-feed) — collection confirmed, capture pending.' },
-                    ];
-                    if (tabsEl) tabsEl.innerHTML = TABS.map(t => t.disabled
-                        ? `<span class="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-gray-600 cursor-help" title="${t.tip}">${t.label}</span>`
-                        : `<button type="button" onclick="window.__activityView='${t.id}'; renderActivityRows();" class="text-[10px] px-2 py-0.5 rounded-full ${view === t.id ? 'bg-purple-500/25 text-purple-300' : 'bg-white/5 text-gray-500 hover:text-gray-300'}">${t.label}</button>`).join('');
-
-                    // Rev 4.05: render 10 at a time. Every aDAO row carries an NFT image, so the old
-                    // 60-row render was 60 image fetches at first paint; now 10, then 10 per click.
-                    const ACT_PAGE = 10;
+                    const TABS = [{ id: 'all', label: 'All' }, ...FEEDS.map(f => ({ id: f.slug, label: f.label }))];
+                    const ACT_PAGE = 12;
                     window.__activityShown = window.__activityShown || ACT_PAGE;
                     window.loadMoreActivity = function () { window.__activityShown = (window.__activityShown || ACT_PAGE) + ACT_PAGE; renderActivityRows(true); };
-                    window.__rerenderActivity = function () { try { renderActivityRows(true); } catch (e) {} };   // 4.29: context (names, holdings, prices) landed after the first paint
-                    // 4.21: window (7d / 30d) + type toggles. Types are multi-select; all on by default; the set persists across tabs.
-                    const KINDS = [['sale', 'Sales'], ['listing', 'Listings'], ['delisting', 'Delistings'], ['bid', 'Bids'], ['staked', 'Stakes'], ['unstaked', 'Unstakes'], ['break', 'Breaks'], ['transferred', 'Transfers'], ['claimed', 'Claims']];
+                    window.__rerenderActivity = function () { try { renderActivityRows(true); } catch (e) {} };   // names / prices landed after the first paint
+                    const GROUPS = LiveActivity.KIND_GROUPS;
+                    window.__activityView = window.__activityView || 'all';   // 4.36 (owner): every collection on by default
                     window.__activityDays = window.__activityDays || 7;
-                    window.__activityKinds = window.__activityKinds || new Set(KINDS.map(k => k[0]));
+                    window.__activityKinds = window.__activityKinds || new Set(GROUPS.map(g => g[0]).filter(k => k !== 'housekeeping'));   // 4.36 (owner): lock housekeeping (merge / split / migrate / auto-max) is off by default — "this really doesn't mean much"
+                    window.__activityShowAll = window.__activityShowAll || false;
                     window.setActivityDays = function (d) { window.__activityDays = d; renderActivityRows(); };
+                    window.setActivityView = function (v) { window.__activityView = v; renderActivityRows(); };
                     window.toggleActivityKind = function (k) { const s = window.__activityKinds; if (s.has(k)) s.delete(k); else s.add(k); renderActivityRows(); };
-                    window.setActivityKinds = function (all) { window.__activityKinds = new Set(all ? KINDS.map(k => k[0]) : []); renderActivityRows(); };
+                    window.setActivityKinds = function (all) { window.__activityKinds = new Set(all ? GROUPS.map(g => g[0]) : []); renderActivityRows(); };
+                    window.toggleActivityShowAll = function () { window.__activityShowAll = !window.__activityShowAll; renderActivityRows(); };
                     const kindsEl = document.getElementById('activity-kinds'), winEl = document.getElementById('activity-window');
+                    const chip = (on, label, onclick, title) => `<button type="button" onclick="${onclick}" title="${title || ''}" class="text-[10px] px-2 py-0.5 rounded-full ${on ? 'bg-purple-500/25 text-purple-300' : 'bg-white/5 text-gray-500 hover:text-gray-300'}">${label}</button>`;
+                    const ctxOf = () => { const o = window.__acCardOpts ? window.__acCardOpts() : {}; return { ownTenant: own, config: cfg, showAll: window.__activityShowAll, since, now: Date.now(),
+                        nameOf: o.nameOf || null, holdingsOf: o.holdingsOf ? (a) => { try { return o.holdingsOf(a); } catch (e) { return null; } } : null, usdNow: o.usdNow || null,
+                        imageOf: (feed, id) => feed.slug === 'adao' ? (typeof getNftImageUrl === 'function' ? getNftImageUrl(id) : null) : (feed.slug === 'pixel-lions' ? `https://nft.openfields.app/api/image/terra17z7fpaa8kah698xn5tarrcucvualdy4wsztkfc404g3garucpu6qmxp50g/${id}` : null),   // PL: Atrium's un-tokened proxy (interim, per the 2026-09-19 ruling); never BBL's tokened gateway
+                        tokenUrl: (feed, id) => feed.explorer ? `${feed.explorer}${feed.explorer.includes('?') ? '&' : '?'}search=${encodeURIComponent(String(id))}` : `https://chainsco.pe/terra2/address/${id}`,
+                        walletUrl: (feed, a) => feed.slug === 'adao' ? `member-portfolio.html?address=${encodeURIComponent(a)}` : `address-catalog.html?address=${encodeURIComponent(a)}` }; };
                     window.renderActivityRows = function (keepPage) {
-                        if (!keepPage) window.__activityShown = ACT_PAGE;   // switching tabs starts from the top again
-                        const v = window.__activityView || 'adao'; const days = window.__activityDays; const ks = window.__activityKinds;
-                        const winCut = Date.now() - days * 24 * 3600 * 1000;
-                        const inWin = (window.__activityItems || []).filter(x => x.ts >= winCut);
-                        const all = inWin.filter(x => (v === 'all' || x.col === v) && (x.col !== 'adao' || ks.has(x.kind)));
-                        if (winEl) winEl.innerHTML = [7, 30].map(d => `<button type="button" onclick="window.setActivityDays(${d})" class="text-[10px] px-2 py-0.5 rounded-full ${days === d ? 'bg-purple-500/25 text-purple-300' : 'bg-white/5 text-gray-500 hover:text-gray-300'}">${d} days</button>`).join('');
-                        if (kindsEl) { const present = new Set(inWin.filter(x => x.col === 'adao').map(x => x.kind)); const allOn = KINDS.every(k => ks.has(k[0]));
-                            kindsEl.innerHTML = `<button type="button" onclick="window.setActivityKinds(${allOn ? 'false' : 'true'})" class="text-[10px] px-2 py-0.5 rounded-full ${allOn ? 'bg-white/10 text-gray-300' : 'bg-white/5 text-gray-500'}">${allOn ? 'None' : 'All types'}</button>` +
-                                KINDS.map(([k, label]) => { const n = inWin.filter(x => x.col === 'adao' && x.kind === k).length; const on = ks.has(k);
-                                    return `<button type="button" onclick="window.toggleActivityKind('${k}')" class="text-[10px] px-2 py-0.5 rounded-full ${on ? 'bg-purple-500/25 text-purple-300' : 'bg-white/5 text-gray-500 hover:text-gray-300'} ${present.has(k) ? '' : 'opacity-50'}" title="${n} in ${days}d">${label}${n ? ` <span class="opacity-70">${n}</span>` : ''}</button>`; }).join(''); }
-                        const its = all.slice(0, window.__activityShown);
-                        if (tabsEl) [...tabsEl.querySelectorAll('button')].forEach(b => {
-                            const active = b.textContent.trim() === (TABS.find(t2 => t2.id === v)?.label);
-                            b.className = `text-[10px] px-2 py-0.5 rounded-full ${active ? 'bg-purple-500/25 text-purple-300' : 'bg-white/5 text-gray-500 hover:text-gray-300'}`;
-                        });
-                        if (countEl) countEl.textContent = `${its.length} of ${all.length} shown · ${inWin.length} in ${days}d`;
-                        if (!its.length) { container.innerHTML = `<div class="text-gray-500 text-sm py-4 px-3 text-center"><i class="fas fa-info-circle mr-1"></i> No activity in the last ${days} days for this view.</div>`; return; }
-                        if (!container.__actWired) { container.__actWired = true; container.addEventListener('click', (ev) => {
-                            if (ev.target.closest('a')) return; const rowEl = ev.target.closest('[data-act-i]'); if (!rowEl) return;
-                            const i = rowEl.dataset.actI, det = container.querySelector(`[data-act-d="${i}"]`), x = (window.__actRows || [])[i]; if (!det || !x) return;
+                        if (!keepPage) window.__activityShown = ACT_PAGE;
+                        const v = window.__activityView || 'all'; const days = window.__activityDays; const ks = window.__activityKinds; const showAll = window.__activityShowAll;
+                        const winCut = Date.now() - days * 24 * 3600 * 1000; const ctx = ctxOf();
+                        const inWin = all.filter(x => Date.parse(x.ep.ts) >= winCut);
+                        const inView = inWin.filter(x => v === 'all' || x.feed.slug === v);
+                        const classified = inView.map(x => Object.assign({ c: LiveActivity.classify(x.ep, x.feed, ctx), g: LiveActivity.groupOf(x.ep.kind) }, x));
+                        const visible = classified.filter(x => (!x.g || ks.has(x.g)) && (showAll || !x.c.hidden));
+                        const hiddenN = classified.filter(x => (!x.g || ks.has(x.g)) && x.c.hidden).length;
+                        if (winEl) winEl.innerHTML = [[1, '24h'], [7, '7d'], [30, '30d']].map(([d, l]) => chip(days === d, l, `window.setActivityDays(${d})`)).join('');
+                        if (tabsEl) tabsEl.innerHTML = TABS.map(t => chip(v === t.id, t.label, `window.setActivityView('${t.id}')`, t.id === 'all' ? 'every collection' : '')).join('');
+                        const dfOwn = (cfg && cfg.live_activity && cfg.live_activity.deal_filter && cfg.live_activity.deal_filter.own_tenant_over_floor_pct) || 25, dfOther = (cfg && cfg.live_activity && cfg.live_activity.deal_filter && cfg.live_activity.deal_filter.other_over_floor_pct) || 10;
+                        if (kindsEl) { const allOn = GROUPS.every(g => ks.has(g[0]));
+                            kindsEl.innerHTML = chip(allOn, allOn ? 'None' : 'All', `window.setActivityKinds(${allOn ? 'false' : 'true'})`) +
+                                GROUPS.map(([k, label]) => { const n = classified.filter(x => x.g === k && (showAll || !x.c.hidden)).length; return chip(ks.has(k), n ? `${label} ${n}` : label, `window.toggleActivityKind('${k}')`); }).join('') +
+                                `<span class="mx-1 text-gray-700">|</span>` + chip(showAll, showAll ? `Deal filter off · showing ${hiddenN} over-floor` : `Deal filter on${hiddenN ? ` · ${hiddenN} hidden` : ''}`, 'window.toggleActivityShowAll()', `Listings more than ${dfOwn}% over their class floor on this tenant's collections (${dfOther}% on the others) are hidden until you turn the filter off — tuned in docs/curated/alert-thresholds.json`); }
+                        const its = visible.slice(0, window.__activityShown);
+                        if (countEl) countEl.textContent = `${its.length} of ${visible.length} shown · ${inWin.length} episodes in ${days === 1 ? '24h' : days + 'd'}${missing.length ? ` · not loaded: ${missing.join(', ')}` : ''}`;
+                        if (!its.length) { container.innerHTML = `<div class="text-gray-500 text-sm py-4 px-3 text-center"><i class="fas fa-info-circle mr-1"></i> ${missing.length === FEEDS.length ? 'The activity products are not on main yet — they land with the next org-nft-flows run.' : `Nothing to show in the last ${days === 1 ? '24 hours' : days + ' days'} for this view${hiddenN ? ` (${hiddenN} over-floor listing${hiddenN === 1 ? '' : 's'} hidden by the deal filter)` : ''}.`}</div>`; return; }
+                        if (!container.__laWired) { container.__laWired = true; container.addEventListener('click', (ev) => {
+                            if (ev.target.closest('a, button')) return; const rowEl = ev.target.closest('[data-la-i]'); if (!rowEl) return;
+                            const i = rowEl.dataset.laI, det = container.querySelector(`[data-la-d="${i}"]`), x = (window.__actRows || [])[i]; if (!det || !x) return;
                             if (!det.classList.contains('hidden')) { det.classList.add('hidden'); return; }
-                            const o = window.__acCardOpts ? window.__acCardOpts() : {};
-                            det.innerHTML = (window.AlertCenter && AlertCenter.itemCard) ? AlertCenter.itemCard(x, o) : '';
-                            det.classList.remove('hidden');
+                            det.innerHTML = LiveActivity.detailsHtml(x.ep, x.feed, ctxOf()); det.classList.remove('hidden');
                         }); }
-                        const ago = (ts) => { const h = (Date.now() - ts) / 3.6e6; return h < 1 ? `${Math.max(1, Math.round(h * 60))}m ago` : h < 24 ? `${Math.round(h)}h ago` : `${Math.round(h / 24)}d ago`; };
-                        // 4.28 (owner): every aDAO row opens into the same card the Alert Center shows (parties + holdings, USD then/now,
-                        // token status) — one renderer (AlertCenter.itemCard), no second copy. The item is kept by index on the row.
                         window.__actRows = its;
-                        container.innerHTML = its.map((x, i) => `
-                            <div class="activity-row" ${x.col === 'adao' && x.token ? `data-act-i="${i}" title="click for details" style="cursor:pointer"` : ''}>
-                                ${x.col === 'adao' && x.token ? `<img src="${typeof getNftImageUrl === 'function' ? getNftImageUrl(x.token) : ''}" alt="#${x.token}" class="activity-img w-10 h-10 rounded-lg object-cover flex-shrink-0" onerror="this.style.display='none'">` : `<div class="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-300 flex items-center justify-center flex-shrink-0"><i class="fas fa-${x.col === 'locks' ? 'lock' : 'image'}"></i></div>`}
-                                <div class="min-w-0 flex-1">
-                                    <div class="text-sm text-white truncate">${x.label} <span class="text-gray-500">${x.col === 'locks' ? 'lock' : ''} ${x.token ? '#' + x.token : (x.noId ? '' : '#?')}</span>${x.sub ? ` <span class="text-[11px] text-gray-500">· ${x.sub}</span>` : ''}</div>
-                                    <div class="text-[11px] text-gray-600">${ago(x.ts)}${x.tx ? ` · <a href="https://chainsco.pe/terra2/tx/${x.tx}" target="_blank" rel="noopener" class="text-cyan-500/80 hover:text-cyan-300">tx ↗</a>` : ''}${x.col === 'adao' && x.token ? ' · <span class="text-gray-500 md:hidden">details ▾</span>' : ''}</div>
-                                </div>
-                                ${x.col === 'adao' && x.token && window.AlertCenter && AlertCenter.itemInline ? AlertCenter.itemInline(x, window.__acCardOpts ? window.__acCardOpts() : {}) : ''}
-                            </div><div class="activity-details hidden md:hidden" data-act-d="${i}"></div>`).join('') + (all.length > its.length ? `<div class="text-center py-2"><button type="button" onclick="window.loadMoreActivity()" class="text-[11px] px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 hover:text-cyan-300">Load ${Math.min(ACT_PAGE, all.length - its.length)} more <span class="text-gray-500">(${all.length - its.length} left)</span></button></div>` : '');
+                        container.classList.toggle('la-showall', !!showAll);
+                        container.innerHTML = its.map((x, i) => LiveActivity.rowHtml(x.ep, x.feed, ctx, i)).join('') + (visible.length > its.length ? `<div class="text-center py-2"><button type="button" onclick="window.loadMoreActivity()" class="text-[11px] text-cyan-400 hover:text-cyan-300">Show ${Math.min(ACT_PAGE, visible.length - its.length)} more (${visible.length - its.length} left)</button></div>` : '');
                     };
                     renderActivityRows();
                 }
@@ -14459,8 +14427,10 @@
                         allListings = allListings.filter(l => l.marketplace === listingMarketplaceFilter);
                     }
 
-                    // Sort by USD price (lowest first)
-                    allListings.sort((a, b) => (a.priceUsd || 0) - (b.priceUsd || 0));
+                    // 4.36: class filter (per collection) + sort direction
+                    ensureListingClassData(allListings); renderClassToggle();
+                    if (listingClassFilter !== 'all') allListings = allListings.filter(l => listingClassesOf(l).has(listingClassFilter));
+                    allListings.sort((a, b) => listingSortDir === 'asc' ? (a.priceUsd || 0) - (b.priceUsd || 0) : (b.priceUsd || 0) - (a.priceUsd || 0));
 
                     // Update total count
                     if (totalCountEl) {
@@ -16040,7 +16010,7 @@
     // ═══ ECOSYSTEM PULSE MODULE (Rev 3.61) ══════════════════════════════════
     (() => {
         'use strict';
-        const REV = '4.35', REV_DATE = '2026-09-18';   // 4.35: the last hand denom map (DEN) deleted — listing-history segments carry denom_symbol from market-history 1.3.0+, everything else resolves through lib/denoms.js · 4.34: USD-at-the-time on cards/rows from the org price oracle (tla-core/price-history, the two reachable months) instead of the per-collection usd-daily files · 4.33: TLA tile + ⚙ Thresholds off on the home window (owner: more confusing than helpful; the member-data product and the config keep running for a later home); registry cards open fully expanded; curated entries stay until switched inactive · 4.32: alert vs activity (lib 1.7.0) — a tile is amber only for rows that need a look (live votes, veto locks, wind-downs, floor drops, chain-only listings, threshold crossings, mass moves, your wallet); sales, listings, executed props and the weekly epoch flip are counted in grey and never colour a tile · 4.31: TLA tile owns gauge changes + epoch flips ("Gauges · Epochs"), Ecosystem = Projects · PD · Assets; gauge rows in plain words with the VP that moved · 4.30: TLA tile (VP moves · Liquidity/Volume · APR) + Ecosystem·TLA (gauge set changes, epoch flips) from member-data/tla-alerts, rules tuned in docs/curated/alert-thresholds.json; ⚙ Thresholds tab in the alert window: every rule with its numbers and how often it fired at 0.5×/1×/2×, editable, downloads a new config with the GitHub upload directions · 4.29: Live Activity rows show the facts inline on desktop (USD then/now, status pills, parties + holdings in the row's empty width) via AlertCenter.itemInline — the expand stays for phones · 4.28: Alert Center default window 7d (toggle 30d), "seen" marks rows new instead of hiding the week; Live Activity aDAO rows expand into the same card (parties + holdings, USD then/now, status) via AlertCenter.itemCard — one renderer · 4.27: denom → symbol from ONE place — a record's own denom_symbol (stamped upstream by nft-flows 1.2.0 / tla-flows 3.4.3) else lib/denoms.js (token-catalog effective layer); the feed's two hand maps are gone (the listing-history DEN map stays as a last resort only) · 4.26: NFT cards carry both parties (name if registered, else the address) with their holdings (total · listed · liquid · staked · broken), the token's own status, USD at the time (luna/bluna-usd-daily) vs now with the spread; Boost rows name the token (native:uluna → LUNA); the seven Pixel Lions phantom "bids" are labeled superseded in the data and skipped; Staking counter reads "Staking / Breaks" · 4.25: Alert Center full-page window (lib 1.2.0) — Props paint from the dao-governance corpus first (fast; full description, decoded messages, Quick audit) with the live read layered on; Executed = vote closed in the window (execution time is not captured); Marketplace counts every venue event, notable first; registry cards carry the full announcement / post text + every link · 4.24: ALERT CENTER (SPEC-alert-center Phase 1) — the default window: Ecosystem (Assets · Projects/forum from docs/curated/alerts.json; TLA · PD "not captured yet") · Props (live · veto lock · executed) · NFTs aDAO (marketplace · staking · P2P from the Live Activity rows, chain-only listings, floor-history drops, mass-unstake / mass-transfer rules); green = measured 0, amber+pulse = something, red = about the selected address; "since you last looked" marker; Ecosystem Pulse retired (hidden, JS pruned in Phase 2); the launch proposal popup retired (the Props tile carries it) · 4.23: chain-only BBL listings (the #745 lesson) — nfts.json listings labeled source:chain_only join the BBL card (floor, count, tier rows, cross-venue floor, listing cards), badged "on-chain only · not on BBL's UI"; the pipeline paint shows the cron's chain_only_count · 4.22: feed dedupe (flows + transfers twins → one row, the one with a tx), unstake-without-ids says 'ids resolve at claim' instead of #? · 4.21: Live Activity — 7d/30d window, type toggles (sales · listings · delistings · bids · stakes · unstakes · breaks · transfers · claims), ledger joins the feed (stakes/unstakes/breaks/claims from adao/ledger) · 4.20: mobile browser = desktop tiles fitted (2-col cards, strips keep their formulas, marketplaces three-up) — the 4.16/4.17 app-style rows retired (owner's phone screenshots 2026-09-14) · 4.19: staked-tile % subline on load (was modal-only); Live Activity: a transfer_nft on a tx with a sale renders as Sold (BBL buy-now #745 showed as Transferred) · 4.18: aDAO NFT products read from nft-collections/adao/ (snapshots · flows · transfers · state-history) — the aDAO migration (the old tla-core copy is frozen); 4.17 (phone): marketplaces one line each (unbroken floor · listed) + tap to expand, activity count wraps, link tiles (Treasury/Deposits) join the row layout, chart button off the number; 4.16 (phone): DAO/NFT tiles become full-width rows (title left, value right, round dots, no 'click to see' text), sideways scroll locked (lib 1.7.1); 4.15: link tree actually folds on phones (Tailwind .grid + rule order beat 4.14's CSS); 4.14 (mobile/app): Ecosystem Pulse hidden on phones, link tiles fold into a tree, rewards card compact, marketplace opens on the device's default collection, open proposals reported to the app badge (seen on alert open); 4.13: five more popups on the multi-series renderer — Treasury (by token + LUNA), TLA Deposits (LPs · zLUNA · APR), Deposit rewards (unclaimed vs lifetime claimed), Vote rewards (by token), TLA Locks (USD vs LUNA-equivalent); 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
+        const REV = '4.36', REV_DATE = '2026-09-20';   // 4.36 (owner, "rethink Live Activity"): LIVE ACTIVITY = EPISODES from nft-collections/<slug>/ledger/activity.json (org-nft-flows 1.6.0 fold: price changes, bulk acts with ids, lock restructures folded) rendered by lib/live-activity.js — three tiers (featured amber · normal · quiet), the class-aware DEAL FILTER (listings > 25% over their tier floor on this tenant / 10% on the others hidden, Show all reveals; under-floor featured), 24h / 7d / 30d, every collection on by default (tenants.json + TLA locks), lock housekeeping chip off by default, "since you last looked" dots, details card; thresholds in docs/curated/alert-thresholds.json `live_activity` · All Current Listings: class filter per collection (aDAO Base / Phoenix · Pixel Lions Base / 1/1 · TLA locks by asset × auto-max / under max / unlocking) + USD low↔high · marketplace tiles: all-time volume + sales from OUR ledger (sales-enriched) two ways — at sale time / now — BBL's own count beside it, one source pill grammar · Alert Center 1.9.0: NFTs tile off the home window (ecosystem-specific only) · the hand-assembled flows/transfers/locks feed is gone (those Boost "listed 5d ago" rows were API-blip re-announcements of Dec-2025/Apr-2026 listings) · 4.35: the last hand denom map (DEN) deleted — listing-history segments carry denom_symbol from market-history 1.3.0+, everything else resolves through lib/denoms.js · 4.34: USD-at-the-time on cards/rows from the org price oracle (tla-core/price-history, the two reachable months) instead of the per-collection usd-daily files · 4.33: TLA tile + ⚙ Thresholds off on the home window (owner: more confusing than helpful; the member-data product and the config keep running for a later home); registry cards open fully expanded; curated entries stay until switched inactive · 4.32: alert vs activity (lib 1.7.0) — a tile is amber only for rows that need a look (live votes, veto locks, wind-downs, floor drops, chain-only listings, threshold crossings, mass moves, your wallet); sales, listings, executed props and the weekly epoch flip are counted in grey and never colour a tile · 4.31: TLA tile owns gauge changes + epoch flips ("Gauges · Epochs"), Ecosystem = Projects · PD · Assets; gauge rows in plain words with the VP that moved · 4.30: TLA tile (VP moves · Liquidity/Volume · APR) + Ecosystem·TLA (gauge set changes, epoch flips) from member-data/tla-alerts, rules tuned in docs/curated/alert-thresholds.json; ⚙ Thresholds tab in the alert window: every rule with its numbers and how often it fired at 0.5×/1×/2×, editable, downloads a new config with the GitHub upload directions · 4.29: Live Activity rows show the facts inline on desktop (USD then/now, status pills, parties + holdings in the row's empty width) via AlertCenter.itemInline — the expand stays for phones · 4.28: Alert Center default window 7d (toggle 30d), "seen" marks rows new instead of hiding the week; Live Activity aDAO rows expand into the same card (parties + holdings, USD then/now, status) via AlertCenter.itemCard — one renderer · 4.27: denom → symbol from ONE place — a record's own denom_symbol (stamped upstream by nft-flows 1.2.0 / tla-flows 3.4.3) else lib/denoms.js (token-catalog effective layer); the feed's two hand maps are gone (the listing-history DEN map stays as a last resort only) · 4.26: NFT cards carry both parties (name if registered, else the address) with their holdings (total · listed · liquid · staked · broken), the token's own status, USD at the time (luna/bluna-usd-daily) vs now with the spread; Boost rows name the token (native:uluna → LUNA); the seven Pixel Lions phantom "bids" are labeled superseded in the data and skipped; Staking counter reads "Staking / Breaks" · 4.25: Alert Center full-page window (lib 1.2.0) — Props paint from the dao-governance corpus first (fast; full description, decoded messages, Quick audit) with the live read layered on; Executed = vote closed in the window (execution time is not captured); Marketplace counts every venue event, notable first; registry cards carry the full announcement / post text + every link · 4.24: ALERT CENTER (SPEC-alert-center Phase 1) — the default window: Ecosystem (Assets · Projects/forum from docs/curated/alerts.json; TLA · PD "not captured yet") · Props (live · veto lock · executed) · NFTs aDAO (marketplace · staking · P2P from the Live Activity rows, chain-only listings, floor-history drops, mass-unstake / mass-transfer rules); green = measured 0, amber+pulse = something, red = about the selected address; "since you last looked" marker; Ecosystem Pulse retired (hidden, JS pruned in Phase 2); the launch proposal popup retired (the Props tile carries it) · 4.23: chain-only BBL listings (the #745 lesson) — nfts.json listings labeled source:chain_only join the BBL card (floor, count, tier rows, cross-venue floor, listing cards), badged "on-chain only · not on BBL's UI"; the pipeline paint shows the cron's chain_only_count · 4.22: feed dedupe (flows + transfers twins → one row, the one with a tx), unstake-without-ids says 'ids resolve at claim' instead of #? · 4.21: Live Activity — 7d/30d window, type toggles (sales · listings · delistings · bids · stakes · unstakes · breaks · transfers · claims), ledger joins the feed (stakes/unstakes/breaks/claims from adao/ledger) · 4.20: mobile browser = desktop tiles fitted (2-col cards, strips keep their formulas, marketplaces three-up) — the 4.16/4.17 app-style rows retired (owner's phone screenshots 2026-09-14) · 4.19: staked-tile % subline on load (was modal-only); Live Activity: a transfer_nft on a tx with a sale renders as Sold (BBL buy-now #745 showed as Transferred) · 4.18: aDAO NFT products read from nft-collections/adao/ (snapshots · flows · transfers · state-history) — the aDAO migration (the old tla-core copy is frozen); 4.17 (phone): marketplaces one line each (unbroken floor · listed) + tap to expand, activity count wraps, link tiles (Treasury/Deposits) join the row layout, chart button off the number; 4.16 (phone): DAO/NFT tiles become full-width rows (title left, value right, round dots, no 'click to see' text), sideways scroll locked (lib 1.7.1); 4.15: link tree actually folds on phones (Tailwind .grid + rule order beat 4.14's CSS); 4.14 (mobile/app): Ecosystem Pulse hidden on phones, link tiles fold into a tree, rewards card compact, marketplace opens on the device's default collection, open proposals reported to the app badge (seen on alert open); 4.13: five more popups on the multi-series renderer — Treasury (by token + LUNA), TLA Deposits (LPs · zLUNA · APR), Deposit rewards (unclaimed vs lifetime claimed), Vote rewards (by token), TLA Locks (USD vs LUNA-equivalent); 4.12: chart popups redesigned — backing (LUNA + USD + floor), DAODAO staked (% of RELEASED supply, unstake window), DAO Total Value (stacked composition + LUNA), NFT market (floor · listed · sales/day); one multi-series renderer; 4.11: DAO Total Value + NFT analytics strip charts open again (opener exposed on window — inline onclick could not reach the closure), NFT supply modal → Locked vs Liquid of 10,000 + released slice (owner doctrine; fixes Enterprise cell/tile that showed a wallet count), signal-only proposals green + collapsed audit, BBL floor USD via bLUNA ratio × LUNA (doctrine) + all-time volume no longer converted at today's price; 4.10: DAO Total Value + NFT strips; 4.09: Pulse 5×5, Votion APR rows removed; 4.08: listings 12 per page; 4.07: Votion rows show per-period reward only (annualised figures removed); 4.06: listings grid 10 at a time; 4.05: rewards popup from products (last claims, token names), activity feed aDAO-first + 10 at a time, decoded proposal messages; 4.04: Contract tile → Verify
         // Rev 3.90 (owner 2026-08-22): a refresh landed mid-page (browser scroll restoration
         // after the async tiles re-flow). Land at the top unless the URL names a section.
         try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; if (!location.hash) window.scrollTo(0, 0); } catch (_) {}
@@ -16071,6 +16041,7 @@
             const index = Math.floor((t - EPOCH_GENESIS_MS) / EPOCH_MS);
             return { index, label: index + 1, startsAt: EPOCH_GENESIS_MS + index * EPOCH_MS, endsAt: EPOCH_GENESIS_MS + (index + 1) * EPOCH_MS };
         };
+        try { window.__epochNowCache = epochNow().label; } catch (e) { }   // 4.36: the listings class filter reads the current epoch (a lock whose lock_end ≤ this epoch is 'unlocking')
         // Gauge set of the latest captured period: Set of 'cw20:addr' / 'native:denom'.
         const gaugeSetOf = (hist) => {
             if (!hist || !Array.isArray(hist.entries) || !hist.entries.length) return null;

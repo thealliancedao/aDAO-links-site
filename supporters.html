@@ -41,6 +41,15 @@
             <div class="card p-4 text-center"><div class="mono text-2xl text-cyan-300" id="s-usd">—</div><div class="text-[11px] text-gray-500">total, USD at today's prices</div></div>
         </div>
         <div class="card p-4" id="list"><div class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>reading the chain…</div></div>
+        <!-- 1.1 (2026-09-20, owner): a second way to support — an ally treasury, each with its own memo and its own record -->
+        <div id="allies" class="mt-10">
+            <div class="text-center mb-5">
+                <div class="text-[11px] uppercase tracking-[.2em] text-amber-400 mb-2">Or support an ally</div>
+                <h2 class="text-2xl font-extrabold">Ally treasuries</h2>
+                <p class="text-gray-400 mt-2 max-w-2xl mx-auto text-sm">A gift straight to a DAO's treasury with its memo is tracked the same way — walked from the chain by the site's cron, kept write-once — and every giver is named here. Targets come from the site's curated registry.</p>
+            </div>
+            <div id="ally-cards" class="grid md:grid-cols-3 gap-3"><div class="text-sm text-gray-500 col-span-full"><i class="fas fa-spinner fa-spin mr-1"></i>reading the registry…</div></div>
+        </div>
         <p class="text-[11px] text-gray-600 mt-4 text-center">Read from the Terra LCD at load: the newest 100 transfers into the wallet, filtered to the memo. Names come from the site's public address catalog when the sender is registered; otherwise the address is shown as-is. If your gift is missing, it either predates the last 100 transfers or didn't carry the memo — say hi on Telegram and it'll get added by hand, marked as such.</p>
     </main>
 
@@ -58,6 +67,27 @@
         denomSym['uluna'] = 'LUNA'; denomDec['uluna'] = 6;
         const px = (sym) => { const p = prices && prices.token_prices && prices.token_prices[sym]; return p ? (p.final_price_usd || p.price || 0) : 0; };
         const nameOf = {}; for (const e of (trusted && (trusted.addresses || trusted.entries) || [])) if (e.address && (e.name || e.label)) nameOf[e.address] = e.name || e.label;
+        // 1.1: ally treasuries — every registry target of kind 'ally', its product read the same way (member-data supporters duty)
+        (async () => {
+            const box = $('ally-cards'); const reg = await getJ(`${CORE}/docs/curated/supporters.json?t=${T}`);
+            const targets = (reg && reg.targets || []).filter(t => t && t.kind === 'ally' && t.address && t.memo);
+            if (!targets.length) { box.innerHTML = '<div class="text-sm text-gray-500 col-span-full text-center">No ally targets in the registry yet.</div>'; return; }
+            const cards = await Promise.all(targets.map(async (t) => {
+                const prod = t.product ? await getJ(`${CORE}/${t.product}?t=${T}`) : null;
+                const rows = []; for (const g of ((prod && prod.gifts) || [])) { const bare = String(g.denom).replace(/^cw20:/, ''); const amount = Number(g.amount_raw) / 10 ** (denomDec[bare] ?? denomDec[g.denom] ?? 6); const sym = denomSym[bare] || denomSym[g.denom] || String(g.denom).slice(0, 10) + '…'; rows.push({ from: g.from, amount, sym, ts: g.ts, tx: g.tx_hash, usd: amount * px(sym) }); }
+                const tot = rows.reduce((s, r) => s + r.usd, 0), who = new Set(rows.map(r => r.from)).size;
+                return `<div class="card p-4" id="ally-${esc(t.key)}">
+                    <div class="font-bold text-gray-100">${esc(t.label)}</div>
+                    <div class="text-[11px] text-gray-500 mt-0.5">${esc(t.blurb || '')}</div>
+                    <div class="mt-3 flex items-center gap-2 flex-wrap text-[12px]"><code class="mono text-[11px] text-cyan-300 bg-white/[0.05] px-2 py-1 rounded truncate max-w-[220px]" title="${esc(t.address)}">${esc(t.address.slice(0, 14))}…${esc(t.address.slice(-6))}</code><button type="button" class="ally-copy text-gray-400 hover:text-cyan-300" data-addr="${esc(t.address)}"><i class="fas fa-copy mr-1"></i>copy</button></div>
+                    <div class="text-[12px] text-gray-400 mt-1">memo <code class="mono text-amber-300">${esc(t.memo)}</code></div>
+                    <div class="grid grid-cols-3 gap-2 mt-3 text-center"><div><div class="mono text-lg text-amber-300">${who.toLocaleString()}</div><div class="text-[10px] text-gray-500">givers</div></div><div><div class="mono text-lg text-emerald-300">${rows.length.toLocaleString()}</div><div class="text-[10px] text-gray-500">gifts</div></div><div><div class="mono text-lg text-cyan-300">$${tot.toLocaleString('en-US', { maximumFractionDigits: 0 })}</div><div class="text-[10px] text-gray-500">today's prices</div></div></div>
+                    <div class="mt-3 text-sm">${rows.length ? rows.slice(0, 8).map(r => `<div class="flex items-center justify-between gap-2 py-1.5 border-t border-white/[0.04] first:border-0"><div class="min-w-0"><div class="truncate text-[13px]">${esc(nameOf[r.from] || (r.from.slice(0, 10) + '…' + r.from.slice(-4)))}</div><div class="text-[10px] text-gray-500">${esc(String(r.ts).slice(0, 10))} · <a class="hover:text-cyan-300" href="https://chainsco.pe/terra2/tx/${esc(r.tx)}" target="_blank" rel="noopener">tx ↗</a></div></div><div class="text-right shrink-0 mono text-[12px] text-amber-300">${r.amount.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${esc(r.sym)}</div></div>`).join('') + (rows.length > 8 ? `<div class="text-[11px] text-gray-500 mt-1">+${rows.length - 8} more</div>` : '') : `<div class="text-[12px] text-gray-500 py-2">${prod ? 'No gifts with the memo yet — the first name here will be remembered.' : 'The record has not published yet (the cron writes it hourly).'}</div>`}</div>
+                </div>`;
+            }));
+            box.innerHTML = cards.join('');
+            box.querySelectorAll('.ally-copy').forEach(b => b.addEventListener('click', () => { const a = b.dataset.addr; (navigator.clipboard ? navigator.clipboard.writeText(a) : Promise.reject()).then(() => { b.innerHTML = '<i class="fas fa-check mr-1"></i>copied'; setTimeout(() => { b.innerHTML = '<i class="fas fa-copy mr-1"></i>copy'; }, 1500); }, () => prompt('copy the address', a)); }));
+        })();
         // the permanent record first (member-data supporters duty, write-once); live LCD only when it is missing
         const product = await getJ(`${CORE}/member-data/supporters/current.json?t=${T}`);
         const gifts = [];
@@ -93,6 +123,6 @@
     <div id="site-footer"></div>
     <script src="/lib/cron-registry.js"></script>
     <script src="/lib/site-footer.js"></script>
-    <script>SiteFooter.mount({ rev: '1.0', revDate: '2026-08-25', page: 'supporters' });</script>
+    <script>SiteFooter.mount({ rev: '1.1', revDate: '2026-09-20', page: 'supporters' });</script>
 </body>
 </html>
