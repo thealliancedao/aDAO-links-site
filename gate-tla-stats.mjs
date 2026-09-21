@@ -161,14 +161,22 @@ check('P9 no live reads of retired personal repos remain in tla-stats.html', !/r
   check('H3 (T6.2) TVL popup: no duplicate epochs, one basis (rollup E184–E202 + the live row)', new Set(epochsIn(tv)).size === epochsIn(tv).length && epochsIn(tv).length >= 19, epochsIn(tv));
   check('H4 (T6.3) Bribes popup shows the epochs the oracle can price (E185–187, E200–202 today) + the live row, and none of the unpriced ones', epochsIn(br).length >= 6 && !epochsIn(br).includes(199) && !epochsIn(br).includes(194), epochsIn(br));
 }
-// ---- T6.5: a live pot in a denom the price feed keys differently (USDC.n vs USDC) is priced through the catalog and never 'not funded'
+// ---- T6.7: a live pot prices straight off the feed by the CATALOG symbol (network-and-prices 3.1.0 keys USDC.n); no page bridge
 { const cat = JSON.parse(fs.readFileSync(path.join(CORE, 'token-catalog/snapshots/current.json'), 'utf8'));
-  const S = w.__tlaStore; S.tokenCatalogRaw = cat.tokens; S.data = S.data || {}; S.data.token_prices = { USDC: { final_price_usd: 0.9997 } };   // the feed's key, not the catalog's
+  const S = w.__tlaStore; S.tokenCatalogRaw = cat.tokens; S.data = S.data || {};
   const mgr = { data: { buckets: [{ gauge: 'stable', bribes: [{ asset: { cw20: 'terra1xkt' }, assets: [{ info: { native: 'ibc/2C962DAB9F57FE0921435426AE75196009FAA1981BF86991203C8411F8980FDB' }, amount: '10000000' }] }] }] } };
   const realFetch = w.fetch; w.fetch = async (u) => (/cosmwasm\/wasm\/v1\/contract/.test(String(u)) ? { ok: true, json: async () => mgr } : realFetch(u));
-  const live = await w.fetchLivePots(203); w.fetch = realFetch;
+  S.data.token_prices = { 'USDC.n': { final_price_usd: 0.9997 } };   // the feed's key = the catalog's symbol (3.1.0)
+  const live = await w.fetchLivePots(203);
   const pot = live && live.pots['stable|terra1xkt'];
-  check('L5 (T6.5) a $10 USDC.n pot prices through the catalog when the feed keys the symbol USDC (was $0 → "not funded")', !!pot && pot.usd > 9.9 && pot.usd < 10.1 && pot.unpriced.length === 0, pot);
+  check('L5 (T6.7) a $10 USDC.n pot prices off the feed keyed by the catalog symbol — no catalog-price bridge on the page', !!pot && pot.usd > 9.9 && pot.usd < 10.1 && pot.unpriced.length === 0, pot);
+  S.data.token_prices = { USDC: { final_price_usd: 0.9997 } };   // a feed keyed the OLD way: the pot must read UNPRICED (never $0 "not funded", never a page-side guess)
+  const live2 = await w.fetchLivePots(203); w.fetch = realFetch;
+  const pot2 = live2 && live2.pots['stable|terra1xkt'];
+  check('L6 (T6.7) a symbol the feed does not carry leaves the pot UNPRICED with the symbol named (the drift is the cron gate\'s to catch, not the page\'s to guess)', !!pot2 && pot2.unpriced.includes('USDC.n') && !(pot2.usd > 0), pot2);
+  const feed = JSON.parse(fs.readFileSync(path.join(CORE, 'network-and-prices/current.json'), 'utf8'));
+  if (feed.token_prices && feed.token_prices['USDC.n']) check('L7 (T6.7) the REAL feed keys the stables by the catalog symbol (USDC.n / USDt / EURe) and no longer by USDC / USDT / EURE — one symbol across products', ['USDC.n', 'USDt', 'EURe'].every(k => feed.token_prices[k] && feed.token_prices[k].final_price_usd > 0) && !['USDC', 'USDT', 'EURE'].some(k => feed.token_prices[k]), Object.keys(feed.token_prices).filter(k => /USD|EUR/.test(k)));
+  else console.log(`  (L7 waits for the first network-and-prices 3.1.0 run — the fixture feed captured ${feed.capturedAt} still keys USDC; re-run this gate on a fresh pull after the cron commit)`);
 }
 // ---- T6.6: the Vote Market says what the +$X column can claim — Votion's own threshold flags per bucket and the model-vs-plan back-test
 { const bt = w.__tlaStore.votionBacktest; const board = d.getElementById('bounty-rows') || d.getElementById('bounty-board') || d.body;

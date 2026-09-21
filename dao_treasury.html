@@ -447,7 +447,9 @@
             'Capa': '#6366f1',
             'ROAR': '#f59e0b',
             'USDC': '#2775ca',
+            'USDC.n': '#2775ca',   // 3.3: the catalog symbol
             'USDT': '#50af95',
+            'USDt': '#50af95',
             'wBTC.atom': '#f7931a',
             'ATOM': '#6f7390',
             'arbLUNA': '#ef4444',
@@ -505,7 +507,8 @@
                 'CAPA': 'CAPA',
                 'ROAR': 'ROAR',
                 'USDC': 'USDC',
-                'USDT': 'USDT',
+                'USDC.N': 'USDC',   // 3.3 (2026-09-21): dao-dashboard 1.8 names Noble USDC by the catalog symbol USDC.n — one asset across the rename
+                'USDT': 'USDT',     // (USDt upper-cases to USDT already)
                 'LUNA': 'LUNA'
             };
             return aliases[upper] || upper;
@@ -2683,6 +2686,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '3.2', revDate: '2026-09-13', page: 'dao_treasury' });</script>
+<script>SiteFooter.mount({ rev: '3.3', revDate: '2026-09-21', page: 'dao_treasury' });   // 3.3: USDC.n (the catalog symbol dao-dashboard 1.8 writes) matches USDC in What-changed + colours</script>
 </body>
 </html>
