@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" data-tenant="liondao">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- liondao/index.html 1.0 (2026-09-21) — THE LION DAO HOME. A thin shell: the site header (tenant Lion DAO), lib/home-tiles.js
+         driven by liondao/home.json (the words and the layout), the site footer. No data logic lives in this file.
+         Lives in its own folder so every ally's pages are one folder (the aDAO home, index.html at the root, is untouched);
+         <base href="/"> keeps the shared libs' relative links (header tabs, footer) resolving from the site root. -->
+    <base href="/">
+    <title>Lion DAO | The pride on Terra</title>
+    <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
+    <link rel="apple-touch-icon" href="/assets/token-logos/ROAR_LOGO.png">
+    <meta name="description" content="Lion DAO on Terra: the ROAR token, the pixeLions, the Burning Lions and the Lion DAO validator — live positions, supply, rewards and marketplaces, on thealliancedao.com.">
+    <meta property="og:title" content="Lion DAO | The pride on Terra">
+    <meta property="og:description" content="ROAR, pixeLions, Burning Lions and the Lion DAO validator — live, on thealliancedao.com. LFR.">
+    <meta property="og:image" content="/assets/token-logos/ROAR_LOGO.png">
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#0b0b0b">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        /* The theme knobs. These defaults reproduce tenants.json liondao.theme so the first paint is Lion DAO's even before
+           the registry answers; the script below overwrites them from the registry (the registry holds the literals). */
+        :root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #4a4000; --t-font: 'Press Start 2P', Inter, sans-serif; }
+        html, body { background: var(--t-bg) !important; color: var(--t-text); }
+        body { font-family: Inter, system-ui, sans-serif; margin: 0; min-height: 100vh; }
+        .page { max-width: 1400px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+        @media (min-width: 1600px) { .page { max-width: 1550px; } }
+        .bg-mesh { display: none !important; }
+        :focus-visible { outline: 2px solid var(--t-accent); outline-offset: 2px; }
+        @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div id="site-header"></div>
+    <script src="/lib/collection-context.js"></script>
+    <script src="/lib/site-header.js"></script>
+    <script>SiteHeader.mount({ page: 'index', home: 'liondao', mobileTabs: false });</script>
+
+    <main class="page">
+        <div id="home"><div style="font-family:var(--t-font);font-size:.7rem;color:var(--t-accent);padding:2rem 0">Loading the pride…</div></div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/denoms.js?v=1.0.0"></script>
+    <script src="/lib/live-activity.js?v=1.1.0"></script>
+    <script src="/lib/home-tiles.js?v=1.0.2"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>
+        (async function () {
+            const REV = '1.0', REV_DATE = '2026-09-21';
+            SiteFooter.mount({ rev: REV, revDate: REV_DATE, page: 'liondao-home' });
+            let ctx = null;
+            try { ctx = await CollectionContext.load(); } catch (e) { ctx = null; }   // the /liondao/ path names the tenant (collection-context readFromLocation)
+            if (ctx && ctx.tenant && ctx.tenant.theme) {   // the registry's theme becomes the page's knobs
+                const th = ctx.tenant.theme, r = document.documentElement.style;
+                if (th.accent) r.setProperty('--t-accent', th.accent); if (th.accent2) r.setProperty('--t-accent2', th.accent2); if (th.bg) r.setProperty('--t-bg', th.bg);
+                if (th.surface) r.setProperty('--t-surface', th.surface); if (th.surface2) r.setProperty('--t-surface2', th.surface2); if (th.text) r.setProperty('--t-text', th.text); if (th.border) r.setProperty('--t-border', th.border);
+                if (th.font) r.setProperty('--t-font', th.font);
+            }
+            const cfg = await fetch('/liondao/home.json?v=' + REV, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null);
+            if (!cfg) { document.getElementById('home').innerHTML = '<div style="padding:2rem 0;color:#a3a3a3">home.json did not load — the page has nothing to show.</div>'; return; }
+            HomeTiles.mount({ el: '#home', config: cfg, ctx: ctx || { tenant: { slug: 'liondao' }, tenants: {}, collections: [], primary: null } });
+            const revEl = document.getElementById('page-rev'); if (revEl) revEl.textContent = 'Rev ' + REV + ' · ' + REV_DATE;
+        })();
+    </script>
+</body>
+</html>

@@ -1,1 +1,162 @@
-
+{
+  "schemaVersion": 1,
+  "tenant": "liondao",
+  "note": "WHAT the Lion DAO home shows (lib/home-tiles.js renders it). Wording is Lion DAO's — 'the pride', 'LFR' — change it here. Every number names a data path in HomeTiles.derive(); a path with no source renders Unknown with its reason. Addresses live in tenants.json, never here.",
+  "lcd": ["https://terra-lcd.publicnode.com", "https://terra.publicnode.com"],
+  "coingecko_id": "lion-dao",
+  "symbols": { "token": "ROAR", "lst": "ampROAR" },
+  "staking_apr": { "target_tokens_per_year": 5000000000, "note": "the community's stated target (5B ROAR/yr to staked pixeLions) — UNVERIFIED until the distributor contract is read; the page shows the would-be arithmetic and marks the APR Unknown" },
+  "sections": [
+    {
+      "type": "hero",
+      "title": "The pride",
+      "badge": "LFR",
+      "line": "Lion DAO on Terra: the ROAR token, the pixeLions, the Burning Lions and a validator — read live from the chain and the Alliance DAO data layer.",
+      "status": "ROAR {roar.price_usd|price} · {roar.chg_24h_pct|pct} 24h · validator #{validator.rank|int} of {validator.of|int} · {pl.staked_daodao|int} pixeLions staked"
+    },
+    {
+      "type": "nav",
+      "tiles": [
+        { "id": "eco", "label": "Lion DAO ecosystem", "icon": "fa-paw", "tall": true, "kind": "sheet", "sheet": "eco", "desc": "Validator rank, ROAR supply and market, staked ROAR, burns, Burning Lions, ROAR20 — live where a source exists." },
+        { "id": "supply", "label": "ROAR supply map", "icon": "fa-layer-group", "kind": "placeholder", "reason": "in build — the ampCAPA-style map of every place ROAR sits" },
+        { "id": "lore", "label": "Lore", "icon": "fa-book-open", "kind": "placeholder", "reason": "Lion DAO writes it — pixeLions and Burning Lions" },
+        { "id": "rarity", "label": "Rarity", "icon": "fa-gem", "kind": "placeholder", "reason": "Lion DAO supplies how rank works and what the traits mean" },
+        { "id": "mint", "label": "Mint history", "icon": "fa-coins", "kind": "sheet", "sheet": "mint", "desc": "Who minted, for how much, in LUNA and USD at the time." },
+        { "id": "links", "label": "Ecosystem links", "icon": "fa-link", "kind": "menu", "items": [
+          { "label": "liondao.money", "href": "https://liondao.money/" },
+          { "label": "Lion DAO on DAODAO", "href": "https://daodao.zone/dao/terra1tkersa2mqwy2h8exj799qx2xrhdu0dkymk9psp6v0k4kz4tkxucssgluec" },
+          { "label": "pixeLions DAO on DAODAO", "href": "https://daodao.zone/dao/terra1c690mdrwdetnr09zfk3tf9xz9jhrgd9wpjyf3tuccj74ql09eqmq6sh7en" },
+          { "label": "ROAR on CoinGecko", "href": "https://www.coingecko.com/en/coins/lion-dao" },
+          { "label": "pixeLions on BackBone Labs", "href": "https://www.backbonelabs.io/" }
+        ], "note": "the full list is Lion DAO's to keep — more links land when they hand them over" },
+        { "id": "alliance", "label": "Alliance with aDAO", "icon": "fa-handshake", "kind": "sheet", "sheet": "alliance", "desc": "What each side put in, and what it is worth now." },
+        { "id": "daolinks", "label": "DAO links", "icon": "fa-landmark", "kind": "menu", "items": [
+          { "label": "Lion DAO treasury (DAODAO)", "href": "https://daodao.zone/dao/terra1tkersa2mqwy2h8exj799qx2xrhdu0dkymk9psp6v0k4kz4tkxucssgluec" },
+          { "label": "pixeLions DAO (DAODAO)", "href": "https://daodao.zone/dao/terra1c690mdrwdetnr09zfk3tf9xz9jhrgd9wpjyf3tuccj74ql09eqmq6sh7en" },
+          { "label": "LionDAO ops — TLA positions", "href": "/member-portfolio.html?address=terra1ksk66lcvzwaanc47nvn3athj4yzcpay8z8ru04" },
+          { "label": "pixeLions msig — TLA positions", "href": "/member-portfolio.html?address=terra1xgg9cf94ws2mawr6lyrdvmyxt48xkwgp8gvtsrcg2yktqvk8w2rqxflq06" },
+          { "label": "The roster (four wallets)", "href": "#wallets" },
+          { "label": "phoenix.money portfolio", "href": "https://phoenix.money/" }
+        ] },
+        { "id": "contracts", "label": "Contracts", "icon": "fa-file-contract", "kind": "menu", "items": [
+          { "label": "ROAR (cw20)", "href": "https://chainsco.pe/terra2/address/terra1lxx40s29qvkrcj8fsa3yzyehy7w50umdvvnls2r830rys6lu2zns63eelv" },
+          { "label": "ampROAR hub (Eris)", "href": "https://chainsco.pe/terra2/address/terra1vklefn7n6cchn0u962w3gaszr4vf52wjvd4y95t2sydwpmpdtszsqvk9wy" },
+          { "label": "ROAR staking (DAODAO)", "href": "https://chainsco.pe/terra2/address/terra1xuqh84yz35h70p3ppt76dz5kgwwtwmsv34pg0gw6ld4ntptgjcrqe2e70t" },
+          { "label": "ROAR rewards distributor", "href": "https://chainsco.pe/terra2/address/terra1zug2ur6d5ls7vgzwkh0m2002jrallfehpsadpltjqr3vhgvp6lnq90rj3w" },
+          { "label": "pixeLions NFT", "href": "https://chainsco.pe/terra2/address/terra17z7fpaa8kah698xn5tarrcucvualdy4wsztkfc404g3garucpu6qmxp50g" },
+          { "label": "pixeLions staking (DAODAO)", "href": "https://chainsco.pe/terra2/address/terra127dehd2d6t7ynnezkxkre2w83ze0t7lmghpu6vn4y5mfmwfj5x9qqdh4sz" },
+          { "label": "Lion DAO validator", "href": "https://chainsco.pe/terra2/validator/terravaloper1pet430t7ykswxuyhh56d4gk6rt7qgu9as6a5r0" },
+          { "label": "LUNA-ROAR pair (Astroport)", "href": "https://chainsco.pe/terra2/address/terra189v2ewgfx5wdhje6geefdtxefeemujplk8qw2wx3x5hdswn95l8qf4n2r0" },
+          { "label": "ampROAR-ROAR pool (SkeletonSwap)", "href": "https://chainsco.pe/terra2/address/terra1d8ap3zyd6tfnruuuwvs0t927lr4zwptruhulfwnxjpqzudvyn8usfgl8ze" },
+          { "label": "Burning Lions NFT", "href": "#contracts" }
+        ], "note": "Burning Lions contract: Unknown until the collection is onboarded" }
+      ],
+      "sheets": [
+        { "id": "eco", "title": "Lion DAO ecosystem", "body": [
+          "Validator: {validator.moniker} ranks #{validator.rank|int} of {validator.of|int} active validators with {validator.tokens_luna|big} LUNA delegated by {validator.delegators|int} delegators, commission {validator.commission_rate_pct|num}%. Alliance DAO delegates {validator.adao_delegation_luna|int} LUNA of that.",
+          "ROAR: total supply {roar.total_supply|big}, max supply {roar.max_supply|big}, staked in Lion DAO {roar.staked_daodao|big} ({roar.staked_pct|num}% of supply), in the Lion DAO treasury {roar.treasury_balance|big} ({roar.treasury_pct|num}%), burned {roar.burned|big}.",
+          "Market (CoinGecko): rank #{roar.cg_rank|int}, market cap {roar.market_cap_cg|usd}, FDV {roar.fdv_cg|usd}, 24h volume {roar.volume_24h_cg|usd}, circulating {roar.circulating_cg|big}. Our own FDV at the TLA pool price: {roar.fdv_ours|usd}.",
+          "Nakamoto coefficient of ROAR staking: {roar.nakamoto|int} — needs the staker list, a cron duty.",
+          "Burn festival (Lion DAO's reported figures, {burn.reported_as_of|date}): {burn.reported_total|big} ROAR burned — {burn.reported_community|big} by {burn.reported_participants|int} community wallets, {burn.reported_dao|big} by the DAO; the top wallet burned {burn.reported_top_wallet|big}. Gone from supply on chain: {burn.supply_delta|big} ROAR (1T minted per Lion DAO's post minus the contract's live total supply) — {burn.reported_vs_delta|big} less than reported. Burner-by-burner: the pyROAR ledger is found; the leaderboard capture is next. Burning Lions: 12 one-of-ones, burners per lion Unknown until the collection is onboarded.",
+          "ROAR20 on Solana (DexScreener): {roar20.price_usd|price} · {roar20.chg_24h_pct|pct} 24h · market cap {roar20.market_cap_usd|usd} · 24h volume {roar20.volume_24h_usd|usd} · liquidity {roar20.liquidity_usd|usd}. Supply and holders need a Solana read (a cron duty)."
+        ] },
+        { "id": "mint", "title": "Mint history — pixeLions", "render": "mint" },
+        { "id": "alliance", "title": "The alliance with Alliance DAO", "body": [
+          "What Alliance DAO put in: 4,500 LUNA (prop A21 OTC), aDAO NFTs (the prior NFT partnership), 10,000 LUNA delegated to the Lion DAO validator, and 3 billion ROAR deployed — 1B staked in Lion DAO, 1B in the ampROAR-ROAR pool, 1B paired with LUNA in LUNA-ROAR (both halves compounding or staked in TLA).",
+          "What Lion DAO put in: 3 billion ROAR across the two deals, and 20 pixeLions staked by aDAO in the pixeLions DAO.",
+          "At work today: the 10,000 LUNA delegation has {validator.adao_unclaimed_luna|num} LUNA unclaimed ({validator.adao_unclaimed_usd|usd}); the commission Lion DAO earned on it, and the then-vs-now value of the NFTs and the ROAR each way, arrive with the alliance ledger (in build)."
+        ] },
+        { "id": "wallets", "title": "The roster — the four wallets", "render": "wallets" },
+        { "id": "contracts", "title": "Burning Lions contract", "body": ["Unknown — the Burning Lions collection is not onboarded yet. When it is, its contract, supply and burners light up here and in the Burning Lions row."] }
+      ]
+    },
+    {
+      "type": "supply",
+      "title": "Supply",
+      "sub": "ROAR by where it sits · pixeLions by who holds them",
+      "bars": [
+        { "label": "ROAR", "total_key": "roar.total_supply", "total_reason": "token_info not read", "parts": [
+          { "label": "Staked in Lion DAO", "key": "roar.staked_daodao", "reason": "staking contract not read" },
+          { "label": "Lion DAO treasury", "key": "roar.treasury_balance", "reason": "balance not read" },
+          { "label": "Burned", "key": "roar.burned", "reason": "burn source not found yet" }
+        ], "note": "The rest — ampROAR, TLA LPs, DEX LPs outside TLA, wallets — is the supply map (in build). The black remainder is what is not attributed yet." },
+        { "label": "pixeLions", "total_key": "pl.supply", "total_fmt": "int", "parts": [
+          { "label": "Staked in the DAO", "key": "pl.staked_daodao", "fmt": "int" },
+          { "label": "Staked in Enterprise", "key": "pl.staked_enterprise", "fmt": "int" },
+          { "label": "Listed", "key": "pl.listed_total", "fmt": "int" },
+          { "label": "Held liquid", "key": "pl.liquid", "fmt": "int" },
+          { "label": "DAO held", "key": "pl.dao_held", "fmt": "int" }
+        ], "note": "Listed counts overlap with held; the bar shows each count against the 5,000 supply." }
+      ]
+    },
+    {
+      "type": "rewards",
+      "title": "Unclaimed rewards",
+      "sub": "across the four wallets · {unclaimed.total_known_usd|usd} known",
+      "groups": [
+        { "label": "TLA", "key": "unclaimed.tla_usd", "reason": "no wallet in the participants product", "lines": ["Deposit rewards, rebase and vote bribes across the wallets with TLA locks."], "source": "member-data/participants, hourly" },
+        { "label": "Validator", "key": "unclaimed.validator_usd", "reason": "LCD not reachable", "lines": ["{unclaimed.validator_luna|num} LUNA: the validator's commission plus the wallets' own delegation rewards."], "source": "live from the chain" },
+        { "label": "pixeLions rewards", "key": "unclaimed.nft_usd", "reason": "distributor contract not found yet", "lines": ["The DAODAO distributor that pays staked pixeLions hourly — once its address is known, what is claimable shows here."], "source": "Unknown" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Lion DAO",
+      "sub": "treasury, TLA and the validator — what can be read today",
+      "metrics": [
+        { "label": "Treasury ROAR", "key": "roar.treasury_balance", "fmt": "big", "sub_key": "roar.treasury_usd", "sub_fmt": "usd", "sub_suffix": " at the TLA pool price", "source": "live · ROAR contract" },
+        { "label": "TLA positions", "key": "tla.total_usd", "fmt": "usd", "sub_key": "tla.vp", "sub_fmt": "big", "sub_suffix": " VP across the roster", "reason": "no roster wallet in participants", "source": "member-data/participants" },
+        { "label": "Validator", "key": "validator.rank", "prefix": "#", "fmt": "int", "sub": "{validator.tokens_luna|big} LUNA · {validator.delegators|int} delegators · {validator.commission_rate_pct|num}% commission", "reason": "validator set not read", "source": "live · staking module" },
+        { "label": "ROAR price", "key": "roar.price_usd", "fmt": "price", "sub": "{roar.chg_24h_pct|pct} 24h · {roar.chg_7d_pct|pct} 7d · 1 ampROAR = {roar.lst_ratio|num} ROAR", "source": "network-and-prices · TLA pool" }
+      ],
+      "total": { "label": "Lion DAO total value", "parts_key": "total.parts" }
+    },
+    {
+      "type": "row",
+      "title": "pixeLions",
+      "sub": "5,000 lions · captured {pl.captured_at|ago}",
+      "metrics": [
+        { "label": "Staked in the DAO", "key": "pl.staked_daodao", "fmt": "int", "sub": "{pl.staked_pct|num}% of supply staked (DAO + Enterprise)", "source": "nft-collections · hourly" },
+        { "label": "The pride", "key": "pl.holders", "fmt": "int", "sub": "holders · {pl.members|int} DAO members", "source": "nft-collections" },
+        { "label": "Floor", "key": "pl.floor_usd", "fmt": "usd", "sub": "lowest listing · last sale floor {pl.sales_floor_usd|usd}", "reason": "no floor row today", "source": "floor-history, daily" },
+        { "label": "Staking APR", "key": "pl.apr.value_pct", "fmt": "pct", "sub": "if 5B ROAR/yr: {pl.apr.per_nft_per_year|big} ROAR per lion ≈ {pl.apr.per_nft_usd_per_year|usd}/yr → {pl.apr.would_be_pct_at_floor|num}% at floor. Unverified until the distributor contract is read.", "reason": "distributor contract not found yet", "source": "arithmetic only" }
+      ],
+      "total": { "label": "pixeLions market", "parts": [
+        { "label": "Floor × minted", "key": "pl.market_cap_usd", "reason": "floor missing" },
+        { "label": "All-time volume at sale", "key": "pl.volume_usd_at_sale" }
+      ] }
+    },
+    {
+      "type": "row",
+      "title": "Burning Lions",
+      "sub": "12 one-of-ones from the year-long ROAR burn festival — collection not onboarded yet; floor and burners per lion land with it",
+      "metrics": [
+        { "label": "Supply", "key": "bl.supply", "fmt": "int", "reason": "collection not onboarded; the owner says 12", "source": "Unknown" },
+        { "label": "ROAR burned in the festival", "key": "burn.reported_total", "fmt": "big", "sub": "reported by Lion DAO, {burn.reported_as_of|date} · {burn.reported_participants|int} wallets · gone from supply on chain: {burn.supply_delta|big}", "source": "Lion DAO's published figures — not ours yet" },
+        { "label": "Top burner", "key": "bl.top_burner", "sub": "reported: one wallet burned {burn.reported_top_wallet|big} ROAR; who — from the pyROAR ledger, not read yet", "reason": "pyROAR ledger found — leaderboard capture next" },
+        { "label": "ROAR20 (Solana)", "key": "roar20.price_usd", "fmt": "price", "sub": "{roar20.chg_24h_pct|pct} 24h · mcap {roar20.market_cap_usd|usd} · {roar20.dex}", "reason": "DexScreener not reachable", "source": "DexScreener · pump.fun token" }
+      ]
+    },
+    {
+      "type": "market",
+      "title": "Marketplaces",
+      "sub": "pixeLions on every venue · Burning Lions join when onboarded",
+      "activity_title": "Live activity",
+      "listings_title": "Listings",
+      "sales_title": "Top all-time sales",
+      "explorer_href": "/nft-explorer-index.html?tenant=liondao",
+      "venues": [
+        { "label": "BackBone Labs floor", "key": "pl.floor_bbl" },
+        { "label": "Atrium floor", "key": "pl.floor_atrium" },
+        { "label": "Boost floor", "key": "pl.floor_boost" }
+      ],
+      "volume": { "label": "All-time volume", "key": "pl.volume_usd_at_sale", "fmt": "usd", "sub": "USD at sale · {pl.volume_usd_today|usd} at today's LUNA · {pl.sales_count|int} sales since {pl.first_sale|date}", "source": "our own ledger" },
+      "listing_classes": [
+        { "id": "all", "label": "All" },
+        { "id": "base", "label": "Base", "rule": "base" },
+        { "id": "rank1", "label": "1 of 1", "rule": "rank1" },
+        { "id": "burning", "label": "Burning Lions", "disabled": true, "reason": "not onboarded yet" }
+      ]
+    }
+  ]
+}
