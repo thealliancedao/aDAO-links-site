@@ -582,7 +582,8 @@
   ],
   "version": "2.6",
   "solana_rpc": [
+    "https://solana-rpc.publicnode.com",
     "https://api.mainnet-beta.solana.com"
   ],
-  "solana_rpc_note": "1.2.0: ROAR20 supply + the 20 largest token accounts are read live from these hosts in order (the registry holds the literals; the engine names no host). A dead host blanks only the ROAR20 bar."
+  "solana_rpc_note": "1.2.0: ROAR20 supply + the 20 largest token accounts are read live from these hosts in order (the registry holds the literals; the engine names no host). publicnode first: api.mainnet-beta refuses browser calls. A dead host blanks only the ROAR20 live line."
 }
