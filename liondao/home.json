@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "tenant": "liondao",
-  "note": "WHAT the Lion DAO home shows (lib/home-tiles.js renders it) — v3.0 (2026-09-22: menus built from the registry; v2.9: ROAR bar on 1T minted with burned + DEX pools; PL rewards tile from the product; BL 7 of 12; v2.7: top burner = top wallet, ROAR20 minted-not-fixed; v2.6: staking rewards as a rate per lion per hour, no floor; v2.5: distributor found → APR from the product, Burning Lions supply live, top burner from the ledger, addresses copy-and-go; v2.4: pyROAR + ROAR20 bars from the holder products, burn.html + roar20.html; v2.3: Coming chips, mane hero, rarity back to a slot, registry supply fallbacks; v2.2: the market section in aDAO's exact shape; pyROAR + ROAR20 supply bars): aDAO's sections in aDAO's places, every tile opens a FULL PAGE in liondao/ (no sheets), the DAO rows read the positions product. Wording is Lion DAO's — 'the pride', 'LFR' — change it here. Every number names a data path in HomeTiles.derive(); a path with no source renders Unknown with its reason. Addresses live in tenants.json, never here.",
+  "note": "WHAT the Lion DAO home shows (lib/home-tiles.js renders it) — v3.1 (2026-09-22: address picker + Your wallet, popup menus, ampROAR hub, yield at floor / last sale; v3.0: menus built from the registry; v2.9: ROAR bar on 1T minted with burned + DEX pools; PL rewards tile from the product; BL 7 of 12; v2.7: top burner = top wallet, ROAR20 minted-not-fixed; v2.6: staking rewards as a rate per lion per hour, no floor; v2.5: distributor found → APR from the product, Burning Lions supply live, top burner from the ledger, addresses copy-and-go; v2.4: pyROAR + ROAR20 bars from the holder products, burn.html + roar20.html; v2.3: Coming chips, mane hero, rarity back to a slot, registry supply fallbacks; v2.2: the market section in aDAO's exact shape; pyROAR + ROAR20 supply bars): aDAO's sections in aDAO's places, every tile opens a FULL PAGE in liondao/ (no sheets), the DAO rows read the positions product. Wording is Lion DAO's — 'the pride', 'LFR' — change it here. Every number names a data path in HomeTiles.derive(); a path with no source renders Unknown with its reason. Addresses live in tenants.json, never here.",
   "lcd": [
     "https://terra-lcd.publicnode.com",
     "https://terra.publicnode.com"
@@ -24,6 +24,10 @@
       "status": "ROAR {roar.price_usd|price} · {roar.chg_24h_pct|pct} 24h · validator #{validator.rank|int} of {validator.of|int} · known value {total.known_usd|usd} · {pl.staked_daodao|int} pixeLions staked"
     },
     {
+      "type": "wallet",
+      "note": "1.4.0: painted only when an address is picked in the header — that wallet against this tenant (live reads)"
+    },
+    {
       "type": "nav",
       "tiles": [
         {
@@ -41,9 +45,8 @@
           "icon": "fa-layer-group",
           "kind": "link",
           "reason": "in build — the ampCAPA-style map of every place ROAR sits",
-          "href": "/liondao/coming.html?tile=supply",
-          "desc": "Where every ROAR sits — whales, ampROAR, TLA and DEX LPs, treasuries, burned. In build.",
-          "soon": true
+          "href": "/liondao/supply.html",
+          "desc": "Where every ROAR of the 1T sits — burned, staked (and how much via ampROAR), treasury, each DEX pair, the rest — measured live."
         },
         {
           "id": "lore",
@@ -104,6 +107,10 @@
             {
               "label": "Treasury — every holding by wallet",
               "href": "/liondao/dao_treasury.html"
+            },
+            {
+              "label": "ROAR supply map",
+              "href": "/liondao/supply.html"
             },
             {
               "label": "TLA positions — LP, locks, votes",
@@ -180,7 +187,13 @@
             }
           ],
           "note": "Of the 1T minted: burned = minted − live supply ({roar.total_supply|big} today); staked and treasury live from the contracts; DEX pools = the ROAR held by the registered pairs ({roar.pools_note}). The black remainder, {roar.unattributed|big}, is ROAR in wallets and in contracts not listed here (the ampROAR hub, the OTC escrow, the pyROAR-ROAR pair) — the supply map product will name it.",
-          "total_source_key": "roar.minted_source"
+          "total_source_key": "roar.minted_source",
+          "links": [
+            {
+              "label": "the supply map",
+              "href": "/liondao/supply.html"
+            }
+          ]
         },
         {
           "label": "pixeLions",
@@ -405,9 +418,9 @@
           "label": "Staking rewards",
           "key": "pl_rewards.roar_per_lion_per_hour",
           "fmt": "num",
-          "sub": "{pl_rewards.roar_per_lion_per_day|big} ROAR a day · {pl_rewards.roar_per_lion_per_year|big} a year ≈ {pl_rewards.roar_usd_per_lion_per_year|usd} at today's price. The contract pays {pl_rewards.rate_source}; every new staker thins the share. Plus {pl_rewards.others_per_hour}.",
+          "sub": "{pl_rewards.roar_per_lion_per_day|big} ROAR a day · {pl_rewards.roar_per_lion_per_year|big} a year ≈ {pl_rewards.roar_usd_per_lion_per_year|usd}. On what a staked lion is worth: {pl_rewards.apr_at_floor_pct|pctPlain} a year at the {pl_rewards.floor_now|usd} floor · {pl_rewards.apr_at_last_sale_pct|pctPlain} at the {pl_rewards.last_sale|usd} last-sale floor. Plus {pl_rewards.others_per_hour}.",
           "reason": "the positions product has not read the distributor yet",
-          "source": "the DAODAO rewards distributor, read hourly by ally-positions — a rate the contract pays, not a yield",
+          "source": "the DAODAO rewards distributor, read hourly — the rate is the contract's; the yield is that rate against the floor, both bases named",
           "href": "/liondao/dao_unclaimed.html",
           "suffix": " ROAR/hr",
           "sub_unknown": "the positions product has not read the distributor yet — the rate lands on its next hourly run"
@@ -515,7 +528,7 @@
       "layout_note": "1.2.0: aDAO's marketplace layout in aDAO's places — three venue cards (BBL · Boost · Atrium) with floor / all-time volume / total sales / currently listed / class floors, Live Activity full width with the kind chips, All Current Listings as a 3-column grid with venue + class filters, Top 10 All-Time Sales behind a button. The venue order and rows are aDAO's; the classes (Base · 1 of 1 · Burning Lions) are this collection's."
     }
   ],
-  "version": "3.0",
+  "version": "3.1",
   "solana_rpc": [
     "https://solana-rpc.publicnode.com",
     "https://api.mainnet-beta.solana.com"
