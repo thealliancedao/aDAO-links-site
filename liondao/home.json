@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "tenant": "liondao",
-  "note": "WHAT the Lion DAO home shows (lib/home-tiles.js renders it) — v2.1 (2026-09-22): aDAO's sections in aDAO's places, every tile opens a FULL PAGE in liondao/ (no sheets), the DAO rows read the positions product. Wording is Lion DAO's — 'the pride', 'LFR' — change it here. Every number names a data path in HomeTiles.derive(); a path with no source renders Unknown with its reason. Addresses live in tenants.json, never here.",
+  "note": "WHAT the Lion DAO home shows (lib/home-tiles.js renders it) — v2.2 (2026-09-22: the market section in aDAO's exact shape; pyROAR + ROAR20 supply bars): aDAO's sections in aDAO's places, every tile opens a FULL PAGE in liondao/ (no sheets), the DAO rows read the positions product. Wording is Lion DAO's — 'the pride', 'LFR' — change it here. Every number names a data path in HomeTiles.derive(); a path with no source renders Unknown with its reason. Addresses live in tenants.json, never here.",
   "lcd": [
     "https://terra-lcd.publicnode.com",
     "https://terra.publicnode.com"
@@ -214,7 +214,7 @@
     {
       "type": "supply",
       "title": "Supply",
-      "sub": "ROAR by where it sits · pixeLions by who holds them",
+      "sub": "ROAR by where it sits · pixeLions by who holds them · pyROAR by who holds the burn receipts · ROAR20 by account size",
       "bars": [
         {
           "label": "ROAR",
@@ -271,6 +271,42 @@
             }
           ],
           "note": "Listed counts overlap with held; the bar shows each count against the 5,000 supply."
+        },
+        {
+          "label": "pyROAR",
+          "total_key": "pyroar.total_supply",
+          "total_reason": "pyROAR token_info not read",
+          "parts": [
+            {
+              "label": "Lion DAO roster",
+              "key": "pyroar.held_roster",
+              "reason": "roster balances not read"
+            },
+            {
+              "label": "Festival receiver (Enterprise core)",
+              "key": "pyroar.held_receiver",
+              "reason": "receiver balance not read"
+            }
+          ],
+          "note": "The frozen burn ledger: one pyROAR per ROAR burned in the festival, live from the cw20. The black remainder sits in the burners' own wallets — the burn ledger (in build) names them. Lion DAO's published figures: {pyroar.reported_participants|int} wallets, {pyroar.reported_community|big} community + {pyroar.reported_dao|big} DAO burned, top wallet {pyroar.reported_top_wallet|big} — theirs, beside ours."
+        },
+        {
+          "label": "ROAR20",
+          "total_key": "roar20.supply",
+          "total_reason": "Solana RPC not read",
+          "parts": [
+            {
+              "label": "Largest token account",
+              "key": "roar20.top1_amount",
+              "reason": "largest accounts not read"
+            },
+            {
+              "label": "Accounts 2–20",
+              "key": "roar20.top2_20",
+              "reason": "largest accounts not read"
+            }
+          ],
+          "note": "Solana token accounts by size (getTokenLargestAccounts), not wallets: the largest is {roar20.top1_short} — usually a pool's vault, unverified here. The black remainder is every smaller account. Holder count needs an indexer (the ROAR20 cron duty). Price, cap and liquidity are DexScreener's, on the Burning Lions row."
         }
       ]
     },
@@ -454,33 +490,12 @@
     },
     {
       "type": "market",
-      "title": "Marketplaces",
+      "title": "NFT Marketplace Activity",
       "sub": "pixeLions on every venue · Burning Lions join when onboarded",
-      "activity_title": "Live activity",
-      "listings_title": "Listings",
-      "sales_title": "Top all-time sales",
+      "activity_title": "Live Activity",
+      "listings_title": "All Current Listings",
+      "sales_title": "Top 10 All-Time Sales",
       "explorer_href": "/nft-explorer-index.html?tenant=liondao",
-      "venues": [
-        {
-          "label": "BackBone Labs floor",
-          "key": "pl.floor_bbl"
-        },
-        {
-          "label": "Atrium floor",
-          "key": "pl.floor_atrium"
-        },
-        {
-          "label": "Boost floor",
-          "key": "pl.floor_boost"
-        }
-      ],
-      "volume": {
-        "label": "All-time volume",
-        "key": "pl.volume_usd_at_sale",
-        "fmt": "usd",
-        "sub": "USD at sale · {pl.volume_usd_today|usd} at today's LUNA · {pl.sales_count|int} sales since {pl.first_sale|date}",
-        "source": "our own ledger"
-      },
       "listing_classes": [
         {
           "id": "all",
@@ -502,8 +517,25 @@
           "disabled": true,
           "reason": "not onboarded yet"
         }
-      ]
+      ],
+      "collection_tabs": [
+        {
+          "label": "pixeLions",
+          "active": true,
+          "icon": "fa-paw"
+        },
+        {
+          "label": "Burning Lions",
+          "disabled": true,
+          "reason": "not onboarded yet — the tab lights up with its folder"
+        }
+      ],
+      "layout_note": "1.2.0: aDAO's marketplace layout in aDAO's places — three venue cards (BBL · Boost · Atrium) with floor / all-time volume / total sales / currently listed / class floors, Live Activity full width with the kind chips, All Current Listings as a 3-column grid with venue + class filters, Top 10 All-Time Sales behind a button. The venue order and rows are aDAO's; the classes (Base · 1 of 1 · Burning Lions) are this collection's."
     }
   ],
-  "version": "2.1"
+  "version": "2.2",
+  "solana_rpc": [
+    "https://api.mainnet-beta.solana.com"
+  ],
+  "solana_rpc_note": "1.2.0: ROAR20 supply + the 20 largest token accounts are read live from these hosts in order (the registry holds the literals; the engine names no host). A dead host blanks only the ROAR20 bar."
 }
