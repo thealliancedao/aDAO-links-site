@@ -47,7 +47,7 @@ ok('validator operator + account + home registered', LD.validator && LD.validato
 ok('staking block names ROAR, the staking module, the ROAR distributor and the pixeLions distributor (found 2026-09-22 by the claim tx 8896AD9B…, note says so)', LD.staking && LD.staking.roar_cw20 && LD.staking.roar_staking && LD.staking.roar_rewards_distributor && LD.staking.pl_rewards_distributor === 'terra1krewrx5uye0ux786w9jd2qx4wqz5pz2y5mqxw2k58p4xjhnw5lfqm450m7' && /8896AD9B/.test(LD.staking.pl_rewards_distributor_note) && LD.staking.pl_voting_module.startsWith('terra127dehd2'));
 
 console.log('— shell + header');
-ok('page mounted the engine (home-tiles ' + (w.HomeTiles && w.HomeTiles.VERSION) + ')', !!d.querySelector('.ht') && w.HomeTiles.VERSION === '1.2.3');
+ok('page mounted the engine (home-tiles ' + (w.HomeTiles && w.HomeTiles.VERSION) + ')', !!d.querySelector('.ht') && w.HomeTiles.VERSION === '1.2.4');
 ok('<html data-tenant="liondao">', d.documentElement.getAttribute('data-tenant') === 'liondao');
 const logo = d.querySelector('.sh-logo'); ok('header logo links to the Lion DAO home (1.12.0 homeOf)', logo && logo.getAttribute('href') === '/liondao/', logo && logo.getAttribute('href'));
 const selEl = d.querySelector('.sh-tenant'); ok('tenant dropdown lists both allies with Lion DAO selected', selEl && selEl.classList.contains('sh-on') && [...selEl.options].map(o => o.value).join() === 'adao,liondao' && selEl.value === 'liondao', selEl && [...selEl.options].map(o => o.value));
@@ -104,7 +104,7 @@ ok(`staked in the DAO = ${S.daodao_staked_count} with the staked-% subline`, T(p
 ok(`the pride = ${S.unique_holders} holders · ${S.dao_members_count} DAO members`, T(plTiles[1].querySelector('.ht-v')) === S.unique_holders.toLocaleString() && T(plTiles[1]).includes(S.dao_members_count + ' DAO members'), T(plTiles[1]));
 ok(`floor = floor-history base listing floor ${usd(fl.listing_floor_usd)}`, T(plTiles[2].querySelector('.ht-v')) === usd(fl.listing_floor_usd), T(plTiles[2]));
 const aprT = T(plTiles[3]); const perNft = 5e9 / S.daodao_staked_count;
-ok('staking APR (no positions product in this gate): the tile reads Coming and says the distributor is registered but the product has not read it yet — never the old 5B arithmetic', plTiles[3].querySelector('.ht-v .ht-unk') && aprT.includes('the distributor is registered; the positions product has not read it yet') && !aprT.includes('5B'), aprT);
+ok('Staking rewards (no positions product in this gate): the tile reads Coming with the reason; the source says a rate, not a yield; never the old 5B arithmetic, no floor', plTiles[3].querySelector('.ht-v .ht-unk') && aprT.startsWith('Staking rewards') && /a rate the contract pays, not a yield/.test(aprT) && !aprT.includes('5B') && !/floor/i.test(aprT), aprT);
 
 console.log('— Burning Lions row');
 ok('Burning Lions: supply 12 from the REGISTRY, labeled (the cw721 read is dead in this gate); top burner Coming (holder product not read); the contract is on file', T(rows[2].querySelectorAll('.ht-tile')[0]).includes('Supply12') && /registry \(owner/.test(T(rows[2].querySelectorAll('.ht-tile')[0])) && rows[2].querySelectorAll('.ht-tile')[2].querySelector('.ht-v .ht-unk') && LD.burning_lions.contract === 'terra1cfk54jzu6wsr7c7eqhvs3znkkuxc7pvr7awdvheg7szvnlmduvus95a0q0' && LD.burning_lions.supply === 12, T(rows[2]).slice(0, 200));
