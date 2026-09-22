@@ -47,7 +47,7 @@ ok('validator operator + account + home registered', LD.validator && LD.validato
 ok('staking block names ROAR, the staking module, the ROAR distributor and the pixeLions distributor (found 2026-09-22 by the claim tx 8896AD9B…, note says so)', LD.staking && LD.staking.roar_cw20 && LD.staking.roar_staking && LD.staking.roar_rewards_distributor && LD.staking.pl_rewards_distributor === 'terra1krewrx5uye0ux786w9jd2qx4wqz5pz2y5mqxw2k58p4xjhnw5lfqm450m7' && /8896AD9B/.test(LD.staking.pl_rewards_distributor_note) && LD.staking.pl_voting_module.startsWith('terra127dehd2'));
 
 console.log('— shell + header');
-ok('page mounted the engine (home-tiles ' + (w.HomeTiles && w.HomeTiles.VERSION) + ')', !!d.querySelector('.ht') && w.HomeTiles.VERSION === '1.2.5');
+ok('page mounted the engine (home-tiles ' + (w.HomeTiles && w.HomeTiles.VERSION) + ')', !!d.querySelector('.ht') && w.HomeTiles.VERSION === '1.3.0');
 ok('<html data-tenant="liondao">', d.documentElement.getAttribute('data-tenant') === 'liondao');
 const logo = d.querySelector('.sh-logo'); ok('header logo links to the Lion DAO home (1.12.0 homeOf)', logo && logo.getAttribute('href') === '/liondao/', logo && logo.getAttribute('href'));
 const selEl = d.querySelector('.sh-tenant'); ok('tenant dropdown lists both allies with Lion DAO selected', selEl && selEl.classList.contains('sh-on') && [...selEl.options].map(o => o.value).join() === 'adao,liondao' && selEl.value === 'liondao', selEl && [...selEl.options].map(o => o.value));
