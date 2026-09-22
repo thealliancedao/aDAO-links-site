@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "tenant": "liondao",
-  "note": "WHAT the Lion DAO home shows (lib/home-tiles.js renders it) — v2.5 (2026-09-22: distributor found → APR from the product, Burning Lions supply live, top burner from the ledger, addresses copy-and-go; v2.4: pyROAR + ROAR20 bars from the holder products, burn.html + roar20.html; v2.3: Coming chips, mane hero, rarity back to a slot, registry supply fallbacks; v2.2: the market section in aDAO's exact shape; pyROAR + ROAR20 supply bars): aDAO's sections in aDAO's places, every tile opens a FULL PAGE in liondao/ (no sheets), the DAO rows read the positions product. Wording is Lion DAO's — 'the pride', 'LFR' — change it here. Every number names a data path in HomeTiles.derive(); a path with no source renders Unknown with its reason. Addresses live in tenants.json, never here.",
+  "note": "WHAT the Lion DAO home shows (lib/home-tiles.js renders it) — v2.6 (2026-09-22: staking rewards as a rate per lion per hour, no floor; v2.5: distributor found → APR from the product, Burning Lions supply live, top burner from the ledger, addresses copy-and-go; v2.4: pyROAR + ROAR20 bars from the holder products, burn.html + roar20.html; v2.3: Coming chips, mane hero, rarity back to a slot, registry supply fallbacks; v2.2: the market section in aDAO's exact shape; pyROAR + ROAR20 supply bars): aDAO's sections in aDAO's places, every tile opens a FULL PAGE in liondao/ (no sheets), the DAO rows read the positions product. Wording is Lion DAO's — 'the pride', 'LFR' — change it here. Every number names a data path in HomeTiles.derive(); a path with no source renders Unknown with its reason. Addresses live in tenants.json, never here.",
   "lcd": [
     "https://terra-lcd.publicnode.com",
     "https://terra.publicnode.com"
@@ -468,13 +468,15 @@
           "href": "/nft-explorer-index.html?tenant=liondao&view=analytics"
         },
         {
-          "label": "Staking APR",
-          "key": "pl.apr.value_pct",
-          "fmt": "pctPlain",
-          "sub": "{pl.apr.per_token_usd_per_year|usd} per staked lion per year at today's prices; {pl_rewards.staked_count|int} staked. {pl.apr.source}",
+          "label": "Staking rewards",
+          "key": "pl_rewards.roar_per_lion_per_hour",
+          "fmt": "num",
+          "sub": "{pl_rewards.roar_per_lion_per_day|big} ROAR a day · {pl_rewards.roar_per_lion_per_year|big} a year ≈ {pl_rewards.roar_usd_per_lion_per_year|usd} at today's price. The contract pays {pl_rewards.rate_source}; every new staker thins the share. Plus {pl_rewards.others_per_hour}.",
           "reason": "the positions product has not read the distributor yet",
-          "source": "the DAODAO rewards distributor, read by ally-positions",
-          "href": "/liondao/dao_unclaimed.html"
+          "source": "the DAODAO rewards distributor, read hourly by ally-positions — a rate the contract pays, not a yield",
+          "href": "/liondao/dao_unclaimed.html",
+          "suffix": " ROAR/hr",
+          "sub_unknown": "the positions product has not read the distributor yet — the rate lands on its next hourly run"
         }
       ],
       "total": {
@@ -578,7 +580,7 @@
       "layout_note": "1.2.0: aDAO's marketplace layout in aDAO's places — three venue cards (BBL · Boost · Atrium) with floor / all-time volume / total sales / currently listed / class floors, Live Activity full width with the kind chips, All Current Listings as a 3-column grid with venue + class filters, Top 10 All-Time Sales behind a button. The venue order and rows are aDAO's; the classes (Base · 1 of 1 · Burning Lions) are this collection's."
     }
   ],
-  "version": "2.5",
+  "version": "2.6",
   "solana_rpc": [
     "https://api.mainnet-beta.solana.com"
   ],
