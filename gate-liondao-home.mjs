@@ -38,7 +38,7 @@ ok('validator operator + account + home registered', LD.validator && LD.validato
 ok('staking block names ROAR, the staking module, the ROAR distributor and an UNKNOWN pixeLions distributor', LD.staking && LD.staking.roar_cw20 && LD.staking.roar_staking && LD.staking.roar_rewards_distributor && LD.staking.pl_rewards_distributor === null);
 
 console.log('— shell + header');
-ok('page mounted the engine (home-tiles ' + (w.HomeTiles && w.HomeTiles.VERSION) + ')', !!d.querySelector('.ht') && w.HomeTiles.VERSION === '1.0.2');
+ok('page mounted the engine (home-tiles ' + (w.HomeTiles && w.HomeTiles.VERSION) + ')', !!d.querySelector('.ht') && w.HomeTiles.VERSION === '1.1.0');
 ok('<html data-tenant="liondao">', d.documentElement.getAttribute('data-tenant') === 'liondao');
 const logo = d.querySelector('.sh-logo'); ok('header logo links to the Lion DAO home (1.12.0 homeOf)', logo && logo.getAttribute('href') === '/liondao/', logo && logo.getAttribute('href'));
 const selEl = d.querySelector('.sh-tenant'); ok('tenant dropdown lists both allies with Lion DAO selected', selEl && selEl.classList.contains('sh-on') && [...selEl.options].map(o => o.value).join() === 'adao,liondao' && selEl.value === 'liondao', selEl && [...selEl.options].map(o => o.value));
@@ -54,11 +54,9 @@ ok('hero status: validator rank is Unknown in this run (LCD not reachable in the
 
 console.log('— nav tiles');
 const nav = d.querySelectorAll('.ht-nav .ht-tile'); ok('9 nav tiles in the config order (ecosystem tall first, contracts last)', nav.length === 9 && T(nav[0]).startsWith('Lion DAO ecosystem') && nav[0].classList.contains('ht-tall') && T(nav[8]).startsWith('Contracts'), [...nav].map(x => T(x).slice(0, 22)));
-ok('placeholders (supply map, lore, rarity) show an Unknown chip with the reason', [1, 2, 3].every(i => nav[i].querySelector('.ht-unk')) && T(nav[2]).includes('Lion DAO writes it'));
-ok('menus: DAO links and Contracts carry real links (member-portfolio for the two TLA wallets, chainscope for contracts)', nav[7].querySelectorAll('.ht-menu a').length >= 5 && [...nav[7].querySelectorAll('.ht-menu a')].some(a => a.href.includes('member-portfolio.html?address=terra1ksk66')) && [...nav[8].querySelectorAll('.ht-menu a')].some(a => a.href.includes('chainsco.pe')));
-w.HomeTiles.openSheet('eco'); const eco = d.getElementById('ht-sheet-eco'); ok('ecosystem sheet opens; every chain-only figure is Unknown here, the price-fed ones fill', eco && eco.classList.contains('ht-on') && eco.querySelectorAll('.ht-unk').length >= 8 && T(eco).includes('Burning Lions: 12 one-of-ones'));
-w.HomeTiles.openSheet('wallets'); const ws = d.getElementById('ht-sheet-wallets'); ok('roster sheet lists the four wallets with their TLA facts from participants', ws && ws.querySelectorAll('.ht-row').length === 4 && T(ws).includes('LionDAO ops (Ryan)') && T(ws).includes('in TLA: 6 locks'), T(ws).slice(0, 200));
-w.HomeTiles.closeSheets();
+ok('v2.1: supply map and lore open coming.html?tile=<id> (slots with a name) and read muted; rarity, mint and alliance are real pages, not muted', [1, 2].every(i => /coming\.html\?tile=/.test(nav[i].getAttribute('onclick')) && nav[i].classList.contains('ht-soon')) && [3, 4, 6].every(i => !/coming\.html/.test(nav[i].getAttribute('onclick')) && !nav[i].classList.contains('ht-soon')), [1, 2, 3, 4, 6].map(i => nav[i].getAttribute('onclick')));
+ok('v2: the ecosystem tile opens liondao/ecosystem.html; no sheet exists on the page', /ecosystem\.html/.test(nav[0].getAttribute('onclick')) && !d.querySelector('.ht-sheet'));
+ok('v2: the DAO links menu carries the treasury, TLA, unclaimed and validator pages', ['dao_treasury', 'dao_tla_deposits', 'dao_unclaimed', 'validator'].every(p => d.querySelector('.ht-menu a[href="/liondao/' + p + '.html"]')));
 
 console.log('— supply bars (pixeLions from summary.json)');
 const S = J(path.join(NFTC, 'pixel-lions/snapshots/summary.json'));
@@ -119,14 +117,13 @@ const SE = J(path.join(NFTC, 'pixel-lions/snapshots/sales-enriched.json')); cons
 const srows = [...d.querySelectorAll('#ht-sales .ht-row')]; ok(`top all-time sale = #${top.token_id} ${usd(top.notional_usd)} (USD at sale) with "now" beside it`, srows.length === 8 && T(srows[0]).includes('#' + top.token_id) && T(srows[0].querySelector('.ht-rv')).startsWith(usd(top.notional_usd)) && T(srows[0]).includes('now '), srows[0] && T(srows[0]));
 ok('sales-enriched was loaded lazily, after first paint', fetched.findIndex(u => u.includes('sales-enriched')) > fetched.findIndex(u => u.includes('explorer-bundle')));
 const la = d.getElementById('ht-act'); const larows = la.querySelectorAll('.la-row');
-ok('live activity renders through lib/live-activity.js (12 rows, own tenant = liondao, deal filter on)', larows.length === 12 && !w.HomeTiles._state.actShowAll && T(d.getElementById('ht-act-ctl')).includes('Deal filter on'), [larows.length, T(d.getElementById('ht-act-count'))]);
+ok('live activity renders through lib/live-activity.js (rows = what the ledger holds in the window, own tenant = liondao, deal filter on)', larows.length > 0 && larows.length <= 12 && !w.HomeTiles._state.actShowAll && T(d.getElementById('ht-act-ctl')).includes('Deal filter on'), [larows.length, T(d.getElementById('ht-act-count'))]);
 ok('activity chips: 24h · 7d · 30d and every collection + TLA Locks', ['24h', '7d', '30d', 'aDAO', 'Lion DAO', 'TLA Locks'].every(t => T(d.getElementById('ht-act-ctl')).includes(t)), T(d.getElementById('ht-act-ctl')));
 
-console.log('— mint sheet (primary-sales, lazy)');
-w.HomeTiles.openSheet('mint'); await new Promise(r => setTimeout(r, 1500));
-const MS = J(path.join(NFTC, 'pixel-lions/ledger/primary-sales.json')); const ms = d.getElementById('ht-sheet-mint');
-ok(`mint: ${MS.paid} paid · ${usd(MS.total_usd)} USD at the time · top minters listed`, T(ms).includes(MS.paid.toLocaleString()) && T(ms).includes(usd(MS.total_usd)) && ms.querySelectorAll('.ht-row').length === 12 && T(ms).includes('12 LUNA'), T(ms).slice(0, 300));
-ok('"what minters did next" is Unknown (by-wallet join not built)', [...ms.querySelectorAll('.ht-tile')].some(t => T(t).startsWith('What minters did next') && t.querySelector('.ht-unk')));
+console.log('— mint / alliance / rarity tiles → pages (v2.1: no sheets; the home never fetches the mint ledger)');
+ok('the Mint history tile opens /liondao/mint.html and the Alliance tile /liondao/alliance.html; neither is muted', [...nav].some(t => T(t).startsWith('Mint history') && /\/liondao\/mint\.html/.test(t.getAttribute('onclick')) && !t.classList.contains('ht-soon')) && [...nav].some(t => T(t).startsWith('Alliance with aDAO') && /\/liondao\/alliance\.html/.test(t.getAttribute('onclick')) && !t.classList.contains('ht-soon')), [...nav].map(t => T(t).slice(0, 20) + '→' + (t.getAttribute('onclick') || '').slice(14, 50)));
+ok('the Rarity tile opens the explorer for this tenant (rank + traits per lion live there); Lore and the supply map stay muted slots', [...nav].some(t => T(t).startsWith('Rarity') && /nft-explorer-index\.html\?tenant=liondao/.test(t.getAttribute('onclick')) && !t.classList.contains('ht-soon')) && [...nav].filter(t => t.classList.contains('ht-soon')).length === 2);
+ok('the home does not fetch primary-sales.json (the mint page does) and has no sheet element', !fetched.some(u => u.includes('primary-sales.json')) && !d.querySelector('.ht-sheet'));
 
 console.log('— derive() on LCD / CoinGecko SHAPE fixtures (the live reads\' arithmetic)');
 const ctx = w.HomeTiles._M.ctx; const cfg = w.HomeTiles._M.cfg; const S0 = w.HomeTiles._M.S;
