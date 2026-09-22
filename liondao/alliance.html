@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en" data-tenant="liondao">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- liondao/alliance.html 1.0 (2026-09-22) — THE ALLIANCE WITH ALLIANCE DAO, AT WORK. The full page behind the home's
+         Alliance tile. The legs are the words the home carried since v1 (the owner's own copy: props A20/A21, the ROAR deploy,
+         the NFT partnership, the 10k delegation). What each leg is doing TODAY comes from products that exist: the 10,000 LUNA
+         delegation and its unclaimed rewards (member-data/dao-dashboard), aDAO's ROAR in the LUNA-ROAR and ampROAR-ROAR
+         pools (member-data/participants, the aDAO treasury's own rows), aDAO's staked pixeLions (nft-collections summary),
+         and the 1B ROAR staked in Lion DAO read live from the staking module. Then-vs-now per leg, the hashes and the aDAO
+         NFTs Lion DAO holds arrive with the alliance ledger (tla-core curated alliances.json + its valuer) — Unknown until then. -->
+    <base href="/">
+    <title>The alliance with Alliance DAO | Lion DAO | thealliancedao.com</title>
+    <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
+    <meta name="description" content="What Alliance DAO and Lion DAO put into their alliance, and what each leg is doing today — the 10,000 LUNA delegation, aDAO's ROAR in TLA pools, the staked pixeLions — read from the products.">
+    <meta name="theme-color" content="#0b0b0b">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #4a4000; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }
+        .al-sides { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1rem; align-items: stretch; } .al-x { display: flex; align-items: center; justify-content: center; font-family: var(--t-font); color: var(--t-accent); font-size: 1.4rem; }
+        .al-side .ld-k { font-family: var(--t-font); font-size: .6rem; color: var(--t-accent); margin-bottom: .6rem; } .al-side p { font-size: .88rem; line-height: 1.6; margin: 0; }
+        .al-leg { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: .75rem; align-items: center; padding: .6rem 0; border-bottom: 1px solid var(--t-border); font-size: .84rem; } .al-leg:last-child { border-bottom: 0; } .al-leg .ld-num { color: #fff; }
+        @media (max-width: 760px) { .al-sides { grid-template-columns: 1fr; } .al-x { transform: rotate(90deg); } .al-leg { grid-template-columns: 1fr; gap: .2rem; } }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/collection-context.js"></script>
+    <script src="/lib/site-header.js"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.0"></script>
+
+    <main class="ld" id="page">
+        <div id="crumb"></div>
+        <div id="hero"></div>
+        <div id="sides"></div>
+        <div id="work"></div>
+        <div id="ledger"></div>
+        <div id="about"></div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>
+    (async function () {
+        const REV = '1.0', REV_DATE = '2026-09-22';
+        const { fmt, ui, esc, isNum, sum } = LD;
+        await LD.mount({ page: 'liondao-alliance', rev: REV, revDate: REV_DATE });
+        const T = LD._M.tenant || {}; const val = T.validator || {}; const st = T.staking || {};
+        const $ = (id) => document.getElementById(id);
+        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'Alliance with aDAO' }]);
+        const SLUG = (T.collections && T.collections[0]) || 'pixel-lions';
+
+        // aDAO's treasury address: the dao-dashboard names it as the delegator of the 10k; the products key on it
+        const cfg = await LD.jsonFetch('/liondao/home.json'); const lcd = cfg && cfg.lcd || [];
+        const [dash, parts, SUM, nap, cur] = await Promise.all([LD.jsonFetch(LD.CORE + 'member-data/dao-dashboard/current.json'), LD.jsonFetch(LD.CORE + 'member-data/participants/current.json', { timeoutMs: 30000 }), LD.collection(SLUG, 'snapshots/summary.json'), LD.nap(), LD.positions.current()]);
+        const lunaUsd = nap && nap.token_prices && nap.token_prices.LUNA ? nap.token_prices.LUNA.final_price_usd : null;
+        const roarUsd = nap && nap.token_prices && nap.token_prices.ROAR ? nap.token_prices.ROAR.final_price_usd : null;
+        const AL = LD.get(dash, 'dashboard.alliances.lion_dao') || null;
+        const dashRow = ((AL && AL.chain_staking && AL.chain_staking.validators) || []).find(r => r.address === val.operator) || null;
+        const ADAO = dashRow ? dashRow.delegator_wallet : null;
+        // the staked-ROAR leg, live: DAODAO cw20-stake `staked_balance` for the aDAO treasury (a successful empty read is 0; null is a failed read)
+        let stakedRoar = null, stakedReason = 'no aDAO treasury address (dao-dashboard did not name the delegator)';
+        if (ADAO && st.roar_staking && lcd.length) { const r = await LD.lcd.smart(lcd, st.roar_staking, { staked_balance: { address: ADAO } }).catch(() => null); if (r && r.balance !== undefined) stakedRoar = Number(r.balance) / 1e6; else stakedReason = 'staking module read failed on every LCD host'; } else if (!lcd.length) stakedReason = 'no LCD hosts configured';
+        // aDAO's ROAR at work in TLA: the aDAO treasury's own rows in participants
+        const me = parts && Array.isArray(parts.members) && ADAO ? parts.members.find(m => m.wallet === ADAO) : null;
+        const roarPools = me ? (me.lp_positions || []).filter(l => /ROAR/.test(l.pool_name || '')) : null;
+        const poolUsd = (name) => roarPools ? sum(roarPools.filter(l => l.pool_name === name).map(l => l.estimated_position_usd)) : null;
+        const staker = SUM && Array.isArray(SUM.daodao_stakers) && ADAO ? SUM.daodao_stakers.find(s => s.address === ADAO) : null;
+        const unclaimed = dashRow ? dashRow.unclaimed_rewards_luna : null;
+        // Lion DAO's side today from the positions product (what it holds that came from aDAO stays Unknown until the ledger names it)
+        const R = cur && cur.rollup && cur.rollup.dao || {};
+
+        // ---- hero
+        $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · the alliance with Alliance DAO' + (AL && AL.established ? ' · since ' + esc(AL.established) : '') + '</div>' +
+            '<div class="ld-hero-v ld-num">' + (dashRow ? esc(fmt.luna(dashRow.staked_luna)) : ui.unk('dao-dashboard did not load')) + '</div>' +
+            '<div class="ld-hero-l">' + (dashRow ? `Alliance DAO's treasury delegates <b>${esc(fmt.luna(dashRow.staked_luna))}</b> to the Lion DAO validator — the one leg every product agrees on — with <b>${esc(fmt.luna(unclaimed) || '—')}</b>${isNum(unclaimed) && isNum(lunaUsd) ? ' (' + esc(fmt.usd(unclaimed * lunaUsd)) + ')' : ''} of rewards unclaimed on it. ` : '') + 'Two DAOs put ROAR, LUNA and NFTs to work on each other\'s side; below is what each leg is doing today where a product can read it, and Unknown where none can yet.</div>' +
+            '<div class="ld-hero-s">delegation from member-data/dao-dashboard · pools from member-data/participants · pixeLions from the collection snapshot · staked ROAR live from the staking module · LUNA at ' + esc(fmt.price(lunaUsd) || '—') + ' · ROAR at ' + esc(fmt.price(roarUsd) || '—') + '</div></div></section>';
+
+        // ---- the two sides (the home's own words since v1)
+        $('sides').innerHTML = ui.section('The legs', 'what each side put in — the words the home has carried since the alliance tile was written',
+            '<div class="al-sides"><div class="ld-tile al-side"><div class="ld-k">What Alliance DAO put in</div><p>4,500 LUNA (prop A21 OTC), aDAO NFTs (the prior NFT partnership), 10,000 LUNA delegated to the Lion DAO validator, and 3 billion ROAR deployed — 1B staked in Lion DAO, 1B in the ampROAR-ROAR pool, 1B paired with LUNA in LUNA-ROAR (both halves compounding or staked in TLA).</p></div>' +
+            '<div class="al-x">⇄</div>' +
+            '<div class="ld-tile al-side"><div class="ld-k">What Lion DAO put in</div><p>3 billion ROAR across the two deals, and 20 pixeLions staked by aDAO in the pixeLions DAO.</p></div></div>');
+
+        // ---- at work today
+        const leg = (label, now, source, note) => '<div class="al-leg"><div><b>' + esc(label) + '</b>' + (note ? '<div class="ld-sub">' + note + '</div>' : '') + '</div><div class="ld-num">' + now + '</div><div class="ld-src" style="margin:0">' + source + '</div></div>';
+        $('work').innerHTML = ui.section('At work today', 'each leg as the products see it now · then-vs-now per leg is the alliance ledger\'s job',
+            '<div class="ld-tile"><div class="al-leg" style="color:var(--ld-muted);font-size:.72rem;border-bottom:2px solid var(--ld-border)"><div>Leg</div><div>Now</div><div>Source</div></div>' +
+            leg('10,000 LUNA delegated to the Lion DAO validator', dashRow ? esc(fmt.luna(dashRow.staked_luna)) + ' · <span class="ld-good">' + esc(fmt.luna(unclaimed) || '—') + ' unclaimed</span>' + (isNum(unclaimed) && isNum(lunaUsd) ? ' <span class="ld-sub">' + esc(fmt.usd(unclaimed * lunaUsd)) + '</span>' : '') : ui.unk('dao-dashboard did not load'), 'member-data/dao-dashboard · the delegator is ' + (ADAO ? '<a href="https://chainsco.pe/terra2/address/' + esc(ADAO) + '" target="_blank" rel="noopener">' + esc(fmt.short(ADAO)) + '</a>' : '—'), 'marked on the <a href="/liondao/validator.html">validator page</a>\'s delegator list; the commission Lion DAO earned on it is Unknown until the validator tracker keeps a rewards series') +
+            leg('1B ROAR staked in Lion DAO by aDAO', isNum(stakedRoar) ? esc(fmt.big(stakedRoar)) + ' ROAR staked' + (isNum(roarUsd) ? ' <span class="ld-sub">' + esc(fmt.usd(stakedRoar * roarUsd)) + '</span>' : '') : ui.unk(stakedReason), 'live · staking module <a href="https://chainsco.pe/terra2/address/' + esc(st.roar_staking || '') + '" target="_blank" rel="noopener">' + esc(fmt.short(st.roar_staking || '')) + '</a> · staked_balance', 'the ROAR the deploy prop staked ({stake:{}}); a successful empty read shows 0') +
+            leg('1B ROAR in the ampROAR-ROAR pool', roarPools ? (isNum(poolUsd('ampROAR-ROAR')) ? esc(fmt.usd(poolUsd('ampROAR-ROAR'))) + ' <span class="ld-sub">' + roarPools.filter(l => l.pool_name === 'ampROAR-ROAR').map(l => l.position_type === 'amplified' ? 'amp ' + fmt.usd(l.estimated_position_usd) : 'non-amp ' + fmt.usd(l.estimated_position_usd)).join(' · ') + '</span>' : 'no position now') : ui.unk(ADAO ? 'participants did not load or the aDAO treasury is not in it' : 'no aDAO treasury address'), 'member-data/participants · the aDAO treasury\'s TLA rows', 'USD at the engine\'s pool pricing; the ROAR count inside is the pool\'s share, not the 1B deployed') +
+            leg('1B ROAR + LUNA in the LUNA-ROAR pool', roarPools ? (isNum(poolUsd('LUNA-ROAR')) ? esc(fmt.usd(poolUsd('LUNA-ROAR'))) + ' <span class="ld-sub">' + roarPools.filter(l => l.pool_name === 'LUNA-ROAR').map(l => l.position_type === 'amplified' ? 'amp ' + fmt.usd(l.estimated_position_usd) : 'non-amp ' + fmt.usd(l.estimated_position_usd)).join(' · ') + '</span>' : 'no position now') : ui.unk(ADAO ? 'participants did not load or the aDAO treasury is not in it' : 'no aDAO treasury address'), 'member-data/participants · the aDAO treasury\'s TLA rows', 'impermanent loss against the 1B/LUNA put in is the ledger\'s then-vs-now, not this row') +
+            leg('20 pixeLions staked by aDAO in the pixeLions DAO', staker ? esc(fmt.int(staker.count)) + ' staked · ' + esc(fmt.pctPlain(staker.voting_power_pct, 2)) + ' of the pixeLions DAO\'s VP' : (SUM ? '<span class="ld-sub">not among the DAODAO stakers now</span>' : ui.unk('collection snapshot did not load')), 'nft-collections/' + esc(SLUG) + ' summary · daodao_stakers', 'their pending pixeLions rewards are the distributor\'s to say — <a href="/liondao/dao_unclaimed.html">unclaimed page</a>') +
+            leg('aDAO NFTs sent to Lion DAO (the prior NFT partnership)', ui.unk('which tokens, and which Lion DAO wallet holds them, comes from the by-wallet shards — not joined yet'), 'the alliance ledger (in build)', 'the positions product lists Lion DAO\'s pixeLions today (' + esc(fmt.int(sum(LD.walletsOf(cur).map(w => w.nfts && w.nfts['pixel-lions'] ? w.nfts['pixel-lions'].held_total : null))) || '—') + ' held across the roster) but does not yet name aDAO\'s collections') +
+            leg('4,500 LUNA (prop A21 OTC)', '<span class="ld-sub">a completed exchange — nothing to read today</span>', 'prop A21', 'its LUNA then vs now, and the ROAR it bought, is a ledger row with a hash') +
+            '</div>');
+
+        // ---- the ledger to come
+        $('ledger').innerHTML = ui.section('Then vs now', 'what the alliance ledger adds when it lands',
+            ui.note('<b>tla-core/docs/curated/alliances.json</b> names every leg with its proposal, tx hash, date and amounts; a valuer prices each leg <b>then and now, two ways</b> (USD and LUNA; backing and floor for the NFTs) and this page reads it — one row per leg above grows a then / now / Δ. Until then the rows say only what a product measures today, and the words stay the words. Nothing here is estimated.'));
+
+        $('about').innerHTML = ui.section('How this page is built', '', ui.note('Sources: <b>member-data/dao-dashboard</b> (aDAO\'s delegation to the Lion DAO validator and its unclaimed rewards), <b>member-data/participants</b> (the aDAO treasury as a TLA participant: its LUNA-ROAR and ampROAR-ROAR positions, amp and non-amp, at the engine\'s pricing), <b>nft-collections/' + esc(SLUG) + '/snapshots/summary.json</b> (DAODAO stakers of pixeLions), the ROAR staking module read live, and <b>dao-originations/lion-dao/positions</b> for Lion DAO\'s side. The two "put in" paragraphs are the home\'s own copy since v1. Each row names its source; a leg no product measures is Unknown with the reason.'));
+    })().catch(e => { document.getElementById('hero').innerHTML = LD.ui.note('The page hit an error: ' + LD.esc(e && e.message || e)); throw e; });
+    </script>
+</body>
+</html>

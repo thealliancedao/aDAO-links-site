@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en" data-tenant="liondao">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- liondao/validator.html 1.0 (2026-09-22) — THE LION DAO VALIDATOR. Where it stands in the active set, what its stake is
+         made of (the Alliance module vs LUNA delegators — a distinction the block explorers blur), who delegates, what is
+         unbonding, and the commission it has earned and not yet claimed. Every number is a live read of the staking and
+         distribution modules through the LCD hosts liondao/home.json names; names come from tla-core's trusted-addresses
+         register and the Lion DAO roster; aDAO's delegation is marked from the dao-dashboard product. The validator
+         tracker cron (rank series, daily archive) replaces the live reads when it lands — this page will read it. -->
+    <base href="/">
+    <title>Lion DAO validator | thealliancedao.com</title>
+    <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
+    <meta name="description" content="The Lion DAO validator on Terra: rank, stake composition, delegators, unbonding and commission — live.">
+    <meta name="theme-color" content="#0b0b0b">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #4a4000; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }
+    .ladder { display: flex; flex-direction: column; gap: .35rem; } .ladder-row { display: grid; grid-template-columns: 3.2rem 1fr 7rem; gap: .6rem; align-items: center; font-size: .8rem; } .ladder-row .ld-bar { margin: 0; height: 16px; } .ladder-row.me { color: #fff; font-weight: 600; } .ladder-row.me .ld-bar { border-color: var(--t-accent); }</style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/collection-context.js"></script>
+    <script src="/lib/site-header.js"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.0"></script>
+
+    <main class="ld" id="page">
+        <div id="crumb"></div>
+        <div id="hero"></div>
+        <div id="stake"></div>
+        <div id="delegators"></div>
+        <div id="about"></div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>
+    (async function () {
+        const REV = '1.0', REV_DATE = '2026-09-22';
+        const { fmt, ui, chart, esc, isNum, sum } = LD;
+        await LD.mount({ page: 'liondao-validator', rev: REV, revDate: REV_DATE });
+        const T = LD._M.tenant || {}; const val = T.validator || {};
+        const $ = (id) => document.getElementById(id);
+        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'Validator' }]);
+        if (!val.operator) { $('hero').innerHTML = ui.note('No validator is registered for this tenant (tenants.json validator.operator).'); return; }
+
+        const cfg = await LD.jsonFetch('/liondao/home.json'); const lcd = cfg && cfg.lcd || [];
+        const [vals, dels, unb, comm, nap, dash, trusted, cur] = await Promise.all([
+            LD.lcd.paged(lcd, '/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED', 'validators', 4),
+            LD.lcd.paged(lcd, '/cosmos/staking/v1beta1/validators/' + val.operator + '/delegations', 'delegation_responses', 8),
+            LD.lcd.paged(lcd, '/cosmos/staking/v1beta1/validators/' + val.operator + '/unbonding_delegations', 'unbonding_responses', 2),
+            LD.lcd.get(lcd, '/cosmos/distribution/v1beta1/validators/' + val.operator + '/commission'),
+            LD.nap(), LD.jsonFetch(LD.CORE + 'member-data/dao-dashboard/current.json'), LD.jsonFetch(LD.CORE + 'docs/curated/trusted-addresses.json'), LD.positions.current(),
+        ]);
+        const lunaUsd = nap && nap.token_prices && nap.token_prices.LUNA ? nap.token_prices.LUNA.final_price_usd : null;
+        const usd = (l) => isNum(l) && isNum(lunaUsd) ? l * lunaUsd : null;
+
+        // the Alliance module account: bech32("terra", sha256("alliance")[0:20]) — derived, not a literal
+        async function moduleAccount(name) { const data = new TextEncoder().encode(name); const h = new Uint8Array(await crypto.subtle.digest('SHA-256', data)).slice(0, 20); const CH = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l'; const bits = []; let acc = 0, n = 0; for (const b of h) { acc = (acc << 8) | b; n += 8; while (n >= 5) { n -= 5; bits.push((acc >> n) & 31); } } if (n) bits.push((acc << (5 - n)) & 31); const hrp = 'terra'; const exp = []; for (const c of hrp) exp.push(c.charCodeAt(0) >> 5); exp.push(0); for (const c of hrp) exp.push(c.charCodeAt(0) & 31); const G = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3]; let chk = 1; const pm = (v) => { const t = chk >> 25; chk = ((chk & 0x1ffffff) << 5) ^ v; for (let i = 0; i < 5; i++) if ((t >> i) & 1) chk ^= G[i]; }; for (const v of exp.concat(bits, [0, 0, 0, 0, 0, 0])) pm(v); chk ^= 1; const cs = []; for (let i = 0; i < 6; i++) cs.push((chk >> (5 * (5 - i))) & 31); return hrp + '1' + bits.concat(cs).map(v => CH[v]).join(''); }
+        const ALLIANCE = await moduleAccount('alliance').catch(() => null); window.__ldAlliance = ALLIANCE;   // the gate reads the derivation back
+
+        // ---- the set
+        const set = Array.isArray(vals) ? vals.slice().sort((a, b) => Number(b.tokens) - Number(a.tokens)) : null;
+        const idx = set ? set.findIndex(v => v.operator_address === val.operator) : -1; const me = idx >= 0 ? set[idx] : null;
+        const totalBonded = set ? set.reduce((t, v) => t + Number(v.tokens), 0) / 1e6 : null;
+        const myLuna = me ? Number(me.tokens) / 1e6 : null;
+        const rate = me && me.commission && me.commission.commission_rates ? Number(me.commission.commission_rates.rate) * 100 : null;
+        const maxRate = me && me.commission && me.commission.commission_rates ? Number(me.commission.commission_rates.max_rate) * 100 : null;
+        const commRows = comm && comm.commission && Array.isArray(comm.commission.commission) ? comm.commission.commission : null;
+        const commLuna = commRows ? sum(commRows.filter(c => c.denom === 'uluna').map(c => Number(c.amount) / 1e6)) : null;
+        const D = Array.isArray(dels) ? dels.map(r => ({ address: r.delegation.delegator_address, luna: Number(r.balance.amount) / 1e6 })).sort((a, b) => b.luna - a.luna) : null;
+        let modRow = D && ALLIANCE ? D.find(r => r.address === ALLIANCE) : null; let modNote = null;
+        // no match → the page never guesses: the split stays Unknown, and a module-sized delegator (over half the stake) is pointed at, unlabeled
+        const modSized = !modRow && D && D.length && myLunaOf(D) ? D[0] : null;
+        function myLunaOf(D) { return D[0] && D[0].luna > 0 && me ? D[0].luna / (Number(me.tokens) / 1e6) > 0.5 : false; }
+        const lunaDelegated = D ? (modRow ? sum(D.filter(r => r.address !== modRow.address).map(r => r.luna)) : (modSized ? null : sum(D.map(r => r.luna)))) : null;
+        if (modSized) modNote = 'the largest delegator (' + fmt.short(modSized.address) + ', ' + fmt.pctPlain(modSized.luna / myLuna * 100, 1) + ' of the stake) did not match the derived Alliance module account ' + (ALLIANCE || '(derivation failed)') + ' — the split is Unknown until it does';
+        const dashRow = ((LD.get(dash, 'dashboard.alliances.lion_dao.chain_staking.validators') || []).find(r => r.address === val.operator)) || null;
+        const roster = T.wallets || {}; const names = trusted && trusted.addresses || {};
+        const nameOf = (a) => roster[a] ? { label: roster[a].label, kind: 'roster' } : (dashRow && dashRow.delegator_wallet === a ? { label: 'Alliance DAO treasury', kind: 'adao' } : (names[a] ? { label: names[a].label, kind: 'trusted' } : (modRow && a === modRow.address ? { label: 'Alliance module (TLA)', kind: 'module' } : null)));
+
+        // ---- hero
+        const sentence = me ? `<b>${esc(me.description && me.description.moniker || val.moniker || 'The Lion DAO')}</b> is <b>#${idx + 1}</b> of ${set.length} in the active set with ${fmt.luna(myLuna)} bonded — ${fmt.pctPlain(myLuna / totalBonded * 100, 3)} of the chain's stake` + (modRow ? `. ${fmt.pctPlain(modRow.luna / myLuna * 100, 1)} of that is the Alliance module's stake (the alliance assets Terra delegates on TLA's behalf); LUNA holders themselves delegate <b>${fmt.luna(lunaDelegated)}</b> from ${D.length - 1} addresses` : (D ? `, delegated from ${D.length} addresses` + (modSized ? ' — one of them module-sized, unmatched (see the composition)' : '') : '')) + `. Commission is ${fmt.pctPlain(rate)} (max ${fmt.pctPlain(maxRate)}), with <b>${fmt.luna(commLuna) || '—'}</b> accrued and unclaimed.` : 'The validator set did not load from the LCD.';
+        $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · validator · ' + esc(val.operator.slice(0, 24)) + '…</div>' +
+            '<div class="ld-hero-v ld-num">' + (me ? '#' + (idx + 1) : ui.unk('validator set not read')) + (me && me.jailed ? ' ' + ui.chip('jailed') : '') + '</div><div class="ld-hero-l">' + sentence + '</div>' +
+            '<div class="ld-hero-s">live from the staking and distribution modules · LUNA at ' + esc(fmt.price(lunaUsd) || '—') + '</div></div>' +
+            '<div class="ld-grid ld-g4" style="margin-top:1.1rem">' +
+            ui.stat({ label: 'Bonded', value: fmt.luna(myLuna), reason: 'set not read', sub: (fmt.usd(usd(myLuna)) || '—') + ' · ' + (set ? fmt.pctPlain(myLuna / totalBonded * 100, 3) + ' of ' + fmt.big(totalBonded) + ' LUNA bonded chain-wide' : '') }) +
+            ui.stat({ label: 'Delegators', value: D ? fmt.int(D.length) : null, reason: 'delegations not read', sub: modRow ? 'incl. the Alliance module · ' + fmt.int(D.length - 1) + ' LUNA holders' : '' }) +
+            ui.stat({ label: 'Commission', value: isNum(rate) ? fmt.pctPlain(rate) : null, reason: 'set not read', sub: 'max ' + (fmt.pctPlain(maxRate) || '—') + ' · daily change cap ' + (me && me.commission ? fmt.pctPlain(Number(me.commission.commission_rates.max_change_rate) * 100) : '—') }) +
+            ui.stat({ label: 'Unclaimed commission', value: fmt.luna(commLuna), reason: 'commission not read', sub: (fmt.usd(usd(commLuna)) || '—') + (commRows && commRows.filter(c => c.denom !== 'uluna' && Number(c.amount) > 0).length ? ' · plus dust in ' + commRows.filter(c => c.denom !== 'uluna' && Number(c.amount) > 0).length + ' other denoms' : ''), source: 'accrues to ' + fmt.short(val.account || ''), href: '/liondao/dao_unclaimed.html' }) +
+            '</div></section>';
+
+        // ---- the ladder (neighbours in the set) + stake composition
+        if (set && me) {
+            const lo = Math.max(0, idx - 4), hi = Math.min(set.length, idx + 5); const win = set.slice(lo, hi); const maxT = Number(win[0].tokens) / 1e6;
+            const ladder = win.map((v, i) => { const l = Number(v.tokens) / 1e6; const mine = v.operator_address === val.operator; return '<div class="ladder-row' + (mine ? ' me' : '') + '"><div>#' + (lo + i + 1) + '</div><div class="ld-bar" style="background:#000"><span style="width:' + (l / maxT * 100) + '%;background:' + (mine ? 'var(--t-accent)' : '#4a4000') + '"></span></div><div class="ld-num" style="text-align:right">' + esc(fmt.big(l)) + '<span class="ld-sub">' + esc((v.description && v.description.moniker || '').slice(0, 22)) + '</span></div></div>'; }).join('');
+            const gapUp = idx > 0 ? (Number(set[idx - 1].tokens) - Number(me.tokens)) / 1e6 : null; const gapDown = idx < set.length - 1 ? (Number(me.tokens) - Number(set[idx + 1].tokens)) / 1e6 : null;
+            const comp = ui.bar([{ label: 'Alliance module', v: modRow ? modRow.luna : null, color: '#f59e0b', reason: modNote || 'module row not found' }, { label: 'LUNA delegators', v: lunaDelegated, color: '#ffe600', reason: modNote || 'delegations not read' }], { label: 'stake composition', fmt: fmt.luna }) + (modNote ? '<div class="ld-src ld-bad">' + esc(modNote) + '</div>' : '');
+            const unbRows = Array.isArray(unb) ? unb.flatMap(u => (u.entries || []).map(e => ({ address: u.delegator_address, luna: Number(e.balance) / 1e6, at: e.completion_time }))).sort((a, b) => Date.parse(a.at) - Date.parse(b.at)) : null;
+            $('stake').innerHTML = ui.section('Where it stands', 'the active set around it, and what its stake is made of',
+                '<div class="ld-grid ld-g2" style="align-items:start"><div class="ld-tile"><div class="ld-k">Rank ladder · bonded LUNA</div><div class="ladder">' + ladder + '</div><div class="ld-src">' + (isNum(gapUp) ? fmt.big(gapUp) + ' LUNA to the next rank up' : 'at the top') + (isNum(gapDown) ? ' · ' + fmt.big(gapDown) + ' LUNA ahead of the next rank down' : '') + '</div></div>' +
+                '<div><div class="ld-tile"><div class="ld-k">Stake composition</div>' + comp + '<div class="ld-src">The Alliance module delegates the alliance assets staked in TLA across validators; that stake counts for rank but is not a LUNA holder\'s choice. The LUNA delegators are.</div></div>' +
+                '<div class="ld-tile" style="margin-top:.9rem"><div class="ld-k">Unbonding · ' + (unbRows ? unbRows.length + ' entries · ' + esc(fmt.luna(sum(unbRows.map(u => u.luna)))) : ui.unk('not read')) + '</div>' + (unbRows ? ui.table([{ label: 'Delegator' }, { label: 'LUNA', r: true }, { label: 'Completes', r: true }], unbRows.slice(0, 12).map(u => { const nm = nameOf(u.address); return '<tr><td>' + (nm ? ui.chip(nm.label, 'o') + ' ' : '') + '<a href="https://chainsco.pe/terra2/address/' + esc(u.address) + '" target="_blank" rel="noopener" style="color:var(--ld-muted)">' + esc(fmt.short(u.address)) + '</a></td>' + ui.td(esc(fmt.num(u.luna, 2)), true) + ui.td(esc(fmt.date(u.at)), true) + '</tr>'; }), { empty: 'nothing unbonding' }) : '') + '</div></div></div>');
+        } else $('stake').innerHTML = ui.section('Where it stands', '', ui.note('The bonded validator set did not load from the LCD hosts, so rank and composition cannot be shown. Reload, or check the LCD status in the footer.'));
+
+        // ---- delegators leaderboard
+        function paintDelegators(shownN) {
+            if (!D) { $('delegators').innerHTML = ui.section('Delegators', '', ui.note('The delegations did not load from the LCD hosts.')); return; }
+            const rows = D.slice(0, shownN).map((r, i) => { const nm = nameOf(r.address); const isMod = modRow && r.address === modRow.address; return '<tr' + (isMod ? ' class="ld-dim"' : '') + '><td>' + (i + 1) + '</td><td>' + (nm ? ui.chip(nm.label, nm.kind === 'adao' ? '' : 'o') + ' ' : '') + '<a href="https://chainsco.pe/terra2/address/' + esc(r.address) + '" target="_blank" rel="noopener" style="color:var(--ld-muted)">' + esc(fmt.short(r.address)) + '</a>' + (nm && nm.kind === 'adao' ? '<span class="ld-sub">the alliance: aDAO\'s 10,000 LUNA delegation' + (dashRow && isNum(dashRow.unclaimed_rewards_luna) ? ' · ' + fmt.luna(dashRow.unclaimed_rewards_luna) + ' unclaimed by aDAO' : '') + '</span>' : '') + '</td>' + ui.td(esc(fmt.num(r.luna, 2)), true) + ui.td(esc(fmt.usd(usd(r.luna))), true) + ui.td(myLuna ? esc(fmt.pctPlain(r.luna / myLuna * 100, 2)) : '', true) + '</tr>'; });
+            const holders = D.filter(r => !modRow || r.address !== modRow.address); const top10 = sum(holders.slice(0, 10).map(r => r.luna));
+            $('delegators').innerHTML = ui.section('Delegators', fmt.int(D.length) + ' addresses · top 10 LUNA holders carry ' + (isNum(top10) && isNum(lunaDelegated) && lunaDelegated > 0 ? fmt.pctPlain(top10 / lunaDelegated * 100) : '—') + ' of the LUNA delegated',
+                '<div class="ld-tile">' + ui.table([{ label: '#' }, { label: 'Delegator' }, { label: 'LUNA', r: true }, { label: 'USD', r: true }, { label: 'Of stake', r: true }], rows) + (D.length > shownN ? '<button type="button" class="ld-btn ld-o" style="margin-top:.7rem" id="more">Show 25 more (' + (D.length - shownN) + ' left)</button>' : '') + '<div class="ld-src">Names: the Lion DAO roster, the Alliance DAO treasury (dao-dashboard), and tla-core\'s trusted-addresses register. Every other delegator is an address.</div></div>');
+            const m = $('more'); if (m) m.onclick = () => paintDelegators(shownN + 25);
+        }
+        paintDelegators(25);
+
+        $('about').innerHTML = ui.section('How this page is built', '', ui.note('Live reads through the LCD hosts liondao/home.json names: the bonded set (rank, commission), this validator\'s delegations (paged), unbonding entries and accrued commission. The Alliance module account is derived from the module name (bech32 of sha256("alliance")), never typed. This page is the live view until the validator tracker cron writes its daily rank series — then the same page reads the product and gains the history.'));
+    })().catch(e => { document.getElementById('hero').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });
+    </script>
+</body>
+</html>

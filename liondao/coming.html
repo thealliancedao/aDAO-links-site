@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en" data-tenant="liondao">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- liondao/coming.html 1.1 (2026-09-22) — A SLOT WITH A NAME. A home tile whose product is not built yet opens THIS page
+         (never a popup): it says what will be here, what powers it, and what exists today — read from liondao/home.json
+         (?tile=<id>), so the words stay Lion DAO's and the list of what is pending is the home's own. -->
+    <base href="/">
+    <title>Lion DAO | in build</title>
+    <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
+    <meta name="theme-color" content="#0b0b0b">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #4a4000; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }</style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/collection-context.js"></script>
+    <script src="/lib/site-header.js"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.0"></script>
+    <main class="ld"><div id="crumb"></div><div id="body"></div></main>
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>
+    (async function () {
+        const REV = '1.1', REV_DATE = '2026-09-22'; const { ui, esc } = LD;
+        await LD.mount({ page: 'liondao-coming', rev: REV, revDate: REV_DATE });
+        const T = LD._M.tenant || {}; const id = new URLSearchParams(location.search).get('tile') || '';
+        const BUILT = { mint: '/liondao/mint.html', alliance: '/liondao/alliance.html', rarity: '/nft-explorer-index.html?tenant=liondao' };   // slots that grew a page: an old link lands on the page, not here
+        if (BUILT[id]) { location.replace(BUILT[id]); return; }
+        const cfg = await LD.jsonFetch('/liondao/home.json'); const nav = cfg && (cfg.sections || []).find(s => s.type === 'nav'); const tile = nav && (nav.tiles || []).find(t => t.id === id);
+        document.getElementById('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: tile ? tile.label : 'In build' }]);
+        const POWER = {   // what each slot is built on — the products, in the order they land (HANDOVER-liondao-home-v2 §C)
+            supply: { by: 'the ROAR supply map (token-catalog duty on the ampCAPA pattern): liquid, ampROAR, TLA LPs amplified and not, DEX LPs outside TLA, DAO treasuries, burned, unattributed — sum-guarded, with the whale rows and what could move', now: 'the treasury and roster balances are on the treasury page; staked ROAR and the burn figures on the ecosystem page' },
+            lore: { by: 'Lion DAO — the pride writes its own lore (pixeLions, Burning Lions); the site renders what they hand over', now: 'nothing yet; the words are theirs' },
+            rarity: { by: 'Lion DAO — how rank works and what the traits mean', now: 'rank and traits per lion are in the explorer (Rank N · top X%, BBL\'s ranking)' },
+            mint: { by: 'the mint-history product (nft-collections/pixel-lions primary sales + by-wallet): who minted, the price then in LUNA and USD, DAO proceeds, what happened next', now: 'every lion\'s full journey — mint, stakes, sales, listings — is in the explorer' },
+            alliance: { by: 'the alliance ledger (curated legs from the aDAO proposals + the ROAR deploy, valued then and now two ways)', now: 'aDAO\'s 10,000 LUNA delegation is marked on the validator page; the 20 pixeLions aDAO stakes show in the explorer' },
+        };
+        const p = POWER[id] || { by: 'a product not yet named', now: '' };
+        document.getElementById('body').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · in build</div><div class="ld-hero-v">' + esc(tile ? tile.label : 'This slot') + '</div><div class="ld-hero-l">' + esc(tile && (tile.desc || tile.reason) || 'This tile has a page reserved for it.') + '</div></div>' +
+            '<div class="ld-grid ld-g2" style="margin-top:1.1rem;align-items:start"><div class="ld-tile"><div class="ld-k">What will power it</div><div class="ld-s">' + esc(p.by) + '</div></div><div class="ld-tile"><div class="ld-k">What exists today</div><div class="ld-s">' + esc(p.now || 'nothing yet') + '</div><div class="ld-src" style="margin-top:.6rem"><a href="/liondao/" style="color:var(--ld-accent)">← back to the pride</a> · <a href="/liondao/dao_treasury.html" style="color:var(--ld-accent)">treasury</a> · <a href="/liondao/ecosystem.html" style="color:var(--ld-accent)">ecosystem</a></div></div></div></section>';
+    })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" data-tenant="liondao">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- liondao/dao_tla_deposits.html 1.0 (2026-09-22) — LION DAO IN THE TERRA LIQUIDITY ALLIANCE. The mirror of aDAO's
+         dao_tla_deposits.html for the roster: every staked LP, every compounder position, every lock with its voting power,
+         where the votes point, what is pending. One product — dao-originations/lion-dao/positions (the same capture engine
+         every member portfolio runs) — rendered through liondao/lib/ld.js; nothing computed here that the cron did not measure. -->
+    <base href="/">
+    <title>Lion DAO in TLA | thealliancedao.com</title>
+    <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
+    <meta name="description" content="Lion DAO's Terra Liquidity Alliance positions across its roster wallets — staked LP, compounder positions, locks, voting power, votes and pending rewards — read hourly.">
+    <meta name="theme-color" content="#0b0b0b">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #4a4000; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }</style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/collection-context.js"></script>
+    <script src="/lib/site-header.js"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.0"></script>
+
+    <main class="ld" id="page">
+        <div id="crumb"></div>
+        <div id="hero"></div>
+        <div id="vp"></div>
+        <div id="pools"></div>
+        <div id="wallets"></div>
+        <div id="trend"></div>
+        <div id="about"></div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>
+    (async function () {
+        const REV = '1.0', REV_DATE = '2026-09-22';
+        const { fmt, ui, chart, esc, isNum, sum } = LD;
+        await LD.mount({ page: 'liondao-tla', rev: REV, revDate: REV_DATE });
+        const T = LD._M.tenant || {};
+        const $ = (id) => document.getElementById(id);
+        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'Treasury', href: '/liondao/dao_treasury.html' }, { label: 'TLA positions' }]);
+
+        const [cur, series] = await Promise.all([LD.positions.current(), LD.positions.series()]);
+        if (!cur) { $('hero').innerHTML = ui.note('The positions product did not load (dao-originations/lion-dao/positions/current.json).'); return; }
+        const R = cur.rollup && cur.rollup.dao || {};
+        const W = LD.sortWallets(LD.walletsOf(cur)).filter(w => w.role !== 'validator');
+        const P = (w) => w.portfolio || {}; const S = (w) => P(w).summary || {};
+        const lps = W.flatMap(w => (P(w).lp_positions || []).map(l => Object.assign({ _w: w }, l)));
+        const locks = W.flatMap(w => (P(w).locks || []).map(l => Object.assign({ _w: w }, l)));
+        const vpTotal = sum(W.map(w => S(w).voting_power_human));
+        const lockedLuna = sum(W.map(w => S(w).total_locked_luna_equivalent));
+        const active = lps.filter(l => l.status === 'active' && (l.estimated_position_usd || 0) >= 1);
+        const inactive = lps.filter(l => l.status !== 'active' && (l.estimated_position_usd || 0) >= 1);
+        const dust = lps.filter(l => (l.estimated_position_usd || 0) < 1);
+
+        // ---- hero
+        const sentence = [
+            isNum(R.tla_usd) ? `The pride has <b>${fmt.usd(R.tla_usd)}</b> working in the Terra Liquidity Alliance` : 'No TLA total in the roll-up',
+            isNum(R.tla_staked_usd) && R.tla_staked_usd > 0 ? `${fmt.usd(R.tla_staked_usd)} staked directly` : null,
+            isNum(R.tla_compounder_usd) && R.tla_compounder_usd > 0 ? `${fmt.usd(R.tla_compounder_usd)} in the compounder across ${active.filter(l => l.source === 'asset_compounder').length} pools` : null,
+            isNum(R.tla_locked_usd) && R.tla_locked_usd > 0 ? `${fmt.usd(R.tla_locked_usd)} locked in ${locks.length} locks worth <b>${fmt.big(vpTotal)} VP</b>` : null,
+        ].filter(Boolean).join(', ') + (inactive.length ? `. ${inactive.length} position${inactive.length > 1 ? 's' : ''} sit${inactive.length > 1 ? '' : 's'} in a pool that is not currently in the gauge set — still held, no longer earning.` : '.');
+        $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · Terra Liquidity Alliance</div>' +
+            '<div class="ld-hero-v ld-num">' + (isNum(R.tla_usd) ? esc(fmt.usdFull(R.tla_usd)) : ui.unk('engine did not run')) + '</div><div class="ld-hero-l">' + sentence + '</div>' +
+            '<div class="ld-hero-s">captured ' + ui.when(cur.capturedAt) + ' · ' + esc(LD.basis.tla) + '</div></div>' +
+            '<div class="ld-grid ld-g4" style="margin-top:1.1rem">' +
+            ui.stat({ label: 'Staked LP', value: fmt.usd(R.tla_staked_usd), reason: 'engine did not run', sub: active.filter(l => l.source !== 'asset_compounder').map(l => esc(l.pool_name)).join(' · ') || 'none', source: 'non-amplified: the TLA staking contracts' }) +
+            ui.stat({ label: 'Compounder', value: fmt.usd(R.tla_compounder_usd), reason: 'engine did not run', sub: active.filter(l => l.source === 'asset_compounder').length + ' amplified positions · receipts held in the wallets, valued here', source: 'Eris asset compounder, user shares × its rate' }) +
+            ui.stat({ label: 'Locks', value: fmt.usd(R.tla_locked_usd), reason: 'engine did not run', sub: locks.length + ' locks · ' + (fmt.luna(lockedLuna) || '—') + ' equivalent', source: 'vAMP escrow, LUNA-equivalent at the hub rate' }) +
+            ui.stat({ label: 'Voting power', value: fmt.big(vpTotal), reason: 'no lock read', sub: 'boost ' + (fmt.big(sum(W.map(w => S(w).vp_boost_human))) || '—') + ' + fixed ' + (fmt.big(sum(W.map(w => S(w).fixed_amount_human))) || '—'), source: 'VP = boost + fixed' }) +
+            '</div></section>';
+
+        // ---- VP by wallet + potential gain (the re-lock nudge the engine computes)
+        const vpRows = W.filter(w => isNum(S(w).voting_power_human) && S(w).voting_power_human > 0).map(w => { const s = S(w); const gain = s.total_potential_vp_gain_human; return '<div class="ld-stack-row">' + ui.wallet(w) + '<div>' + ui.bar([{ label: 'boost', v: s.vp_boost_human, color: '#ffe600' }, { label: 'fixed', v: s.fixed_amount_human, color: '#f59e0b' }], { legend: false, fmt: fmt.big }) + '</div><div class="ld-num" style="text-align:right;font-weight:600">' + esc(fmt.big(s.voting_power_human)) + ' VP' + (isNum(gain) && gain > 1 ? '<span class="ld-sub ld-good" style="display:block">+' + esc(fmt.big(gain)) + ' if locks re-set to the LST rate</span>' : '') + '</div></div>'; }).join('');
+        // where the votes point (per wallet, per bucket) — weight_bps → %
+        const voteRows = W.flatMap(w => { const v = P(w).voting && P(w).voting.votes_per_bucket || {}; return Object.keys(v).map(b => ({ w, bucket: b, period: v[b].period, votes: v[b].votes || [] })); }).filter(x => x.votes.length);
+        const votesHtml = voteRows.length ? ui.table([{ label: 'Wallet' }, { label: 'Bucket' }, { label: 'Votes' }, { label: 'Set in period', r: true }], voteRows.map(x => '<tr><td>' + ui.wallet(x.w, { role: false }) + '</td><td>' + esc(x.bucket) + '</td><td>' + x.votes.map(vt => esc(vt.pool_name) + ' <b>' + (vt.weight_bps / 100).toFixed(0) + '%</b>').join(', ') + '</td>' + ui.td(esc(String(x.period)), true) + '</tr>')) : ui.note('no votes read');
+        $('vp').innerHTML = ui.section('Voting power', 'who holds it, and where the votes point', '<div class="ld-grid ld-g2" style="align-items:start"><div class="ld-tile"><div class="ld-k">VP by wallet · boost + fixed</div><div class="ld-stack">' + (vpRows || ui.note('no wallet holds a lock')) + '</div><div class="ld-src">Boost is the lock\'s LST-rate multiplied share; fixed is the underlying at lock. A lock set before the LST rate moved can be re-set for the gain shown.</div></div><div class="ld-tile"><div class="ld-k">Votes</div>' + votesHtml + '</div></div>');
+
+        // ---- pools: every LP position, one bar chart + the table
+        const byPool = {}; active.forEach(l => { const k = l.pool_name + (l.source === 'asset_compounder' ? ' (amp)' : ''); byPool[k] = (byPool[k] || 0) + (l.estimated_position_usd || 0); });
+        const poolKeys = Object.keys(byPool).sort((a, b) => byPool[b] - byPool[a]);
+        const lpRow = (l) => { const u = (l.underlying_token_amounts || []).map(x => esc(fmt.big(x.amount_human)) + ' ' + esc(x.symbol)).join(' + '); return '<tr' + (l.status !== 'active' ? ' class="ld-dim"' : '') + '><td>' + esc(l.pool_name) + '<span class="ld-sub">' + esc(l.dex || '') + ' · ' + esc(l.bucket || '') + (l.status !== 'active' ? ' · ' + esc(l.status) : '') + '</span></td><td>' + ui.wallet(l._w, { role: false }) + '</td><td>' + ui.chip(l.source === 'asset_compounder' ? 'compounder' : 'staked', l.source === 'asset_compounder' ? 'o' : '') + '</td>' + ui.td(u || '<span class="ld-dim">—</span>', true) + ui.td(isNum(l.pool_apr_pct) ? esc(fmt.pctPlain(l.pool_apr_pct)) : '', true) + ui.td(isNum(l.user_pct_of_pool) ? esc(fmt.pctPlain(l.user_pct_of_pool, 2)) : '', true) + ui.td(isNum(l.estimated_position_usd) ? esc(fmt.usd(l.estimated_position_usd)) : ui.unk('not valued'), true) + '</tr>'; };
+        $('pools').innerHTML = ui.section('Pools', active.length + ' active positions · ' + inactive.length + ' inactive · ' + dust.length + ' dust', '<div class="ld-grid ld-g23" style="align-items:start"><div class="ld-tile"><div class="ld-k">Position value by pool</div><div class="ld-chart" style="height:' + Math.max(180, poolKeys.length * 30 + 40) + 'px"><canvas id="pool-chart"></canvas></div></div><div class="ld-tile">' + ui.table([{ label: 'Pool' }, { label: 'Wallet' }, { label: 'How' }, { label: 'Underlying', r: true }, { label: 'Pool APR', r: true }, { label: 'Share', r: true }, { label: 'Value', r: true }], active.concat(inactive).sort((a, b) => (b.estimated_position_usd || 0) - (a.estimated_position_usd || 0)).map(lpRow), { empty: 'no position over $1' }) + (dust.length ? ui.details(dust.length + ' dust positions under $1', ui.table([{ label: 'Pool' }, { label: 'Wallet' }, { label: 'How' }, { label: 'Underlying', r: true }, { label: 'APR', r: true }, { label: 'Share', r: true }, { label: 'Value', r: true }], dust.map(lpRow))) : '') + '</div></div>');
+        chart.bars('pool-chart', poolKeys, [{ label: 'Value', data: poolKeys.map(k => byPool[k]) }], { horizontal: true });
+
+        // ---- locks + pending, per wallet
+        const lockRow = (l) => { const pr = l.projection || {}; return '<tr><td>#' + esc(l.token_id) + '<span class="ld-sub">' + esc(l.asset_symbol && l.asset_symbol.length > 20 ? fmt.short(l.asset_symbol) : l.asset_symbol) + '</span></td><td>' + ui.wallet(l._w, { role: false }) + '</td>' + ui.td(esc(fmt.big(l.amount_human)), true) + ui.td(esc(fmt.big(l.vp_total_human)), true) + ui.td(l.end === 'permanent' || l.is_auto_max_locked ? ui.chip('auto-max', 'o') : (isNum(l.weeks_to_unlock) ? esc(l.weeks_to_unlock + ' wk') : esc(String(l.end || ''))), true) + ui.td(isNum(pr.potential_vp_gain_pct) && pr.potential_vp_gain_pct > 0.5 ? '<span class="ld-good">+' + esc(fmt.pctPlain(pr.potential_vp_gain_pct)) + '</span>' : '<span class="ld-dim">—</span>', true) + '</tr>'; };
+        const pend = W.flatMap(w => (P(w).pending_rewards || []).map(r => ({ w, kind: 'reward', pool: r.pool_name, sym: r.reward_symbol, amt: r.amount_human, usd: r.usd_value })).concat((P(w).pending_bribes || []).map(r => ({ w, kind: 'bribe', pool: r.pool_name, sym: r.asset_symbol, amt: r.amount_human, usd: r.usd_value }))).concat(P(w).pending_rebase && isNum(P(w).pending_rebase.usd_value) ? [{ w, kind: 'rebase', pool: 'locks', sym: P(w).pending_rebase.asset_symbol, amt: P(w).pending_rebase.amount_human, usd: P(w).pending_rebase.usd_value }] : []));
+        const pendUsd = sum(pend.map(p => p.usd));
+        $('wallets').innerHTML = ui.section('Locks and what is pending', locks.length + ' locks · ' + (fmt.usd(pendUsd) || '$0') + ' claimable',
+            '<div class="ld-grid ld-g32" style="align-items:start"><div class="ld-tile"><div class="ld-k">Locks · amount · voting power · unlock</div>' + ui.table([{ label: 'Lock' }, { label: 'Wallet' }, { label: 'Amount', r: true }, { label: 'VP', r: true }, { label: 'Unlock', r: true }, { label: 'Re-set gain', r: true }], locks.sort((a, b) => (b.vp_total_human || 0) - (a.vp_total_human || 0)).map(lockRow), { empty: 'no locks' }) + '</div>' +
+            '<div class="ld-tile"><div class="ld-k">Pending · rewards, bribes, rebase</div>' + ui.table([{ label: 'What' }, { label: 'Wallet' }, { label: 'Amount', r: true }, { label: 'Value', r: true }], pend.filter(p => (p.usd || 0) >= 0.01).sort((a, b) => (b.usd || 0) - (a.usd || 0)).map(p => '<tr><td>' + ui.chip(p.kind, p.kind === 'bribe' ? '' : 'o') + ' ' + esc(p.pool) + '</td><td>' + ui.wallet(p.w, { role: false }) + '</td>' + ui.td(esc(fmt.big(p.amt)) + ' ' + esc(p.sym || ''), true) + ui.td(esc(fmt.usd(p.usd, 2)), true) + '</tr>'), { empty: 'nothing over a cent pending' }) + '<div class="ld-src">The full claim picture, with the validator, is on <a href="/liondao/dao_unclaimed.html" style="color:var(--ld-accent)">Unclaimed rewards</a>.</div></div></div>');
+
+        // ---- trend from the daily series
+        const box = $('trend');
+        if (series && series.days && Object.keys(series.days).length) {
+            const ds = Object.keys(series.days).sort(); const D = series.days;
+            box.innerHTML = ui.section('Trend', ds.length + ' archived day' + (ds.length === 1 ? '' : 's'), '<div class="ld-tile"><div class="ld-chart"><canvas id="tla-trend"></canvas></div><div class="ld-src">Staked, compounder and locks in USD per archived day; the VP line reads the right axis.</div></div>');
+            chart.line('tla-trend', [
+                { label: 'Staked', color: '#f59e0b', fill: false, data: ds.map(d => ({ x: d, y: (D[d].by_section || {}).tla_staked_usd })) },
+                { label: 'Compounder', color: '#e3b341', fill: false, data: ds.map(d => ({ x: d, y: (D[d].by_section || {}).tla_compounder_usd })) },
+                { label: 'Locks', color: '#7ee787', fill: false, data: ds.map(d => ({ x: d, y: (D[d].by_section || {}).tla_locked_usd })) },
+                { label: 'VP', color: '#79c0ff', fill: false, axis: 'y1', data: ds.map(d => ({ x: d, y: D[d].vp })) },
+            ], { zero: true, fmt1: fmt.big });
+        } else box.innerHTML = ui.section('Trend', '', ui.note('The daily series is not written yet — it lands with ally-positions 1.1.1 and the chart draws itself as days arrive.'));
+
+        $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/lion-dao/positions</b>, hourly. Positions come from the same capture engine every member portfolio uses: staked LP from the TLA staking contracts, amplified positions from the Eris asset compounder (user shares × its own rate, then the pool\'s underlying at pool prices), locks from the vAMP escrow with VP = boost + fixed. The receipts those compounder positions leave in a wallet are labeled on the <a href="/liondao/dao_treasury.html" style="color:var(--ld-accent)">treasury page</a> and never counted twice.'));
+    })().catch(e => { document.getElementById('hero').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });
+    </script>
+</body>
+</html>

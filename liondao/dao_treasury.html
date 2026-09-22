@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-tenant="liondao">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- liondao/dao_treasury.html 1.0 (2026-09-22) — THE LION DAO TREASURY. The mirror of aDAO's dao_treasury.html for the pride:
+         one number, the sentence written from data, what changed, where the value sits, the trend, every holding by wallet
+         with its price basis, and the reconciliation against the council's own reference view. It renders ONE product —
+         dao-originations/lion-dao/positions (ally-positions, hourly; daily archive + series) — and computes nothing the cron
+         did not measure. Everything shared with the other Lion DAO pages lives in liondao/lib/ld.js. -->
+    <base href="/">
+    <title>Lion DAO treasury | thealliancedao.com</title>
+    <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
+    <meta name="description" content="Lion DAO's treasury and positions across the roster wallets — balances, TLA, Credia, the validator — read hourly from the chain, with trends and a reconciliation against phoenix.money.">
+    <meta name="theme-color" content="#0b0b0b">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #4a4000; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }</style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/collection-context.js"></script>
+    <script src="/lib/site-header.js"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.0"></script>
+
+    <main class="ld" id="page">
+        <div id="crumb"></div>
+        <div id="hero"></div>
+        <div id="where"></div>
+        <div id="changed"></div>
+        <div id="trend"></div>
+        <div id="holdings"></div>
+        <div id="recon"></div>
+        <div id="about"></div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>
+    (async function () {
+        const REV = '1.0', REV_DATE = '2026-09-22';
+        const { fmt, ui, chart, esc, isNum, sum } = LD;
+        await LD.mount({ page: 'liondao-treasury', rev: REV, revDate: REV_DATE });
+        const T = LD._M.tenant || {};
+        const $ = (id) => document.getElementById(id);
+        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'Treasury' }]);
+
+        // ---- the product
+        const [cur, series, cfg] = await Promise.all([LD.positions.current(), LD.positions.series(), LD.jsonFetch('/liondao/home.json')]);
+        if (!cur) { $('hero').innerHTML = ui.note('The positions product did not load (dao-originations/lion-dao/positions/current.json). Nothing on this page is computed here, so there is nothing to show until it answers.'); return; }
+        const R = cur.rollup && cur.rollup.dao || {}; const W = LD.sortWallets(LD.walletsOf(cur)); const rc = cur.reconciliation || null;
+        const roarSym = cfg && cfg.symbols && cfg.symbols.token || null;   // the config names the token (home.json symbols.token); this page holds no symbol of its own
+        const roarUsd = sum(W.map(w => sum((w.balances || []).filter(b => b.symbol === roarSym).map(b => b.usd_value))));
+        const roarAmt = sum(W.map(w => sum((w.balances || []).filter(b => b.symbol === roarSym).map(b => b.amount_human))));
+        const unpricedRows = W.flatMap(w => (w.balances || []).filter(b => b.usd_value == null && !b.held_as));
+        const receiptRows = W.flatMap(w => (w.balances || []).filter(b => b.held_as));
+
+        // ---- hero: one number, the sentence from data
+        const known = R.known_usd, liab = R.liabilities_usd;
+        const sentence = [
+            isNum(known) ? `Across ${W.length} wallets the pride holds <b>${fmt.usd(known)}</b> of value we can price` : 'The roll-up has no known total yet',
+            isNum(R.balances_usd) ? `${fmt.usd(R.balances_usd)} of it liquid tokens` : null,
+            isNum(R.tla_usd) ? `${fmt.usd(R.tla_usd)} working in TLA` : null,
+            isNum(R.credia_collateral_usd) && R.credia_collateral_usd > 0 ? `${fmt.usd(R.credia_collateral_usd)} posted on Credia` : null,
+            isNum(roarAmt) ? `${fmt.big(roarAmt)} ${esc(roarSym)} in the treasury and ops wallets` : null,
+        ].filter(Boolean).join(', ') + (isNum(liab) && liab > 0 ? `; <b>${fmt.usd(liab)}</b> is borrowed against it.` : '.') + (unpricedRows.length ? ` ${unpricedRows.length} row${unpricedRows.length > 1 ? 's' : ''} we hold but cannot price yet are listed below, not guessed.` : '');
+        $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div>' +
+            '<div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · treasury · known value</div>' +
+            '<div class="ld-hero-v ld-num">' + (isNum(known) ? esc(fmt.usdFull(known)) : ui.unk('roll-up missing')) + '</div>' +
+            '<div class="ld-hero-l">' + sentence + '</div>' +
+            '<div class="ld-hero-s">captured ' + ui.when(cur.capturedAt) + ' · engine ' + esc(cur.engine) + ' · ' + esc(LD.basis.tokens) + '</div></div>' +
+            '<div class="ld-grid ld-g4" style="margin-top:1.1rem">' +
+            ui.stat({ label: 'Liquid tokens', value: fmt.usd(R.balances_usd), reason: 'no priced balance', sub: unpricedRows.length + ' unpriced row' + (unpricedRows.length === 1 ? '' : 's') + ' · ' + receiptRows.length + ' receipt' + (receiptRows.length === 1 ? '' : 's') + ' valued in their section', source: 'bank + cw20 balances, hourly' }) +
+            ui.stat({ label: 'TLA positions', value: fmt.usd(R.tla_usd), reason: 'engine did not run', sub: 'staked ' + (fmt.usd(R.tla_staked_usd) || '—') + ' · compounder ' + (fmt.usd(R.tla_compounder_usd) || '—') + ' · locks ' + (fmt.usd(R.tla_locked_usd) || '—'), source: LD.basis.tla, href: '/liondao/dao_tla_deposits.html' }) +
+            ui.stat({ label: 'Credia', value: isNum(R.credia_collateral_usd) ? fmt.usd(R.credia_collateral_usd) : null, reason: 'reader not run', sub: isNum(R.credia_debt_usd) ? 'collateral · borrowed ' + fmt.usd(R.credia_debt_usd) + (isNum(R.credia_net_usd) ? ' · net ' + fmt.usd(R.credia_net_usd) : '') : 'collateral · debt ' + ui.unk('portfolio query not parsed yet'), source: 'receipt × index, our prices' }) +
+            ui.stat({ label: 'Unclaimed', value: fmt.usd(sum([R.tla_pending_usd, R.validator_commission_unclaimed_usd])), reason: 'nothing pending read', sub: 'TLA rewards + bribes ' + (fmt.usd(R.tla_pending_usd) || '—') + ' · validator commission ' + (fmt.usd(R.validator_commission_unclaimed_usd) || '—'), source: 'not in the total above', href: '/liondao/dao_unclaimed.html' }) +
+            '</div></section>';
+
+        // ---- where the value sits: wallet × section, one stacked bar per wallet (the memorable thing on this page)
+        const SEC = [
+            { k: 'balances_usd', label: 'Tokens', color: '#ffe600' }, { k: 'tla_staked_usd', label: 'TLA staked', color: '#f59e0b' }, { k: 'tla_compounder_usd', label: 'TLA compounder', color: '#e3b341' },
+            { k: 'tla_locked_usd', label: 'TLA locks', color: '#7ee787' }, { k: 'credia_collateral_usd', label: 'Credia collateral', color: '#79c0ff' }, { k: 'delegations_usd', label: 'LUNA delegated', color: '#d2a8ff' }, { k: 'votion_usd', label: 'Votion', color: '#a3a3a3' },
+        ];
+        const stackRows = W.map(w => { const t = w.totals || {}; const parts = SEC.map(s => ({ label: s.label, v: t[s.k], color: s.color })); const kn = t.known_usd; return '<div class="ld-stack-row">' + ui.wallet(w) + '<div>' + ui.bar(parts.filter(p => isNum(p.v) && p.v > 0), { label: w.label, legend: false }) + '</div><div class="r ld-num" style="text-align:right;font-weight:600">' + (isNum(kn) ? esc(fmt.usd(kn)) : ui.unk('roll-up missing')) + (isNum(t.liabilities_usd) && t.liabilities_usd > 0 ? '<span class="ld-sub ld-bad" style="display:block;font-size:.72rem">−' + esc(fmt.usd(t.liabilities_usd)) + ' owed</span>' : '') + '</div></div>'; }).join('');
+        const legend = '<div class="ld-leg" style="margin-top:.6rem">' + SEC.map(s => '<span><i style="background:' + s.color + '"></i>' + esc(s.label) + ' <b style="color:#fff">' + (isNum(R[s.k]) ? esc(fmt.usd(R[s.k])) : ui.unk('not read')) + '</b></span>').join('') + '</div>';
+        $('where').innerHTML = ui.section('Where the value sits', 'each wallet, split by what the value is doing', '<div class="ld-tile"><div class="ld-stack">' + stackRows + '</div>' + legend + '<div class="ld-src">A wallet\'s bar is its own scale; the number at the right is what we can price in it. ' + esc(LD.basis.receipts) + '.</div></div>');
+
+        // ---- what changed: between two archived days (the product's daily archive; today = current.json)
+        const days = series && series.days ? Object.keys(series.days).sort() : [];
+        const sel = (id, opts, val) => '<select class="ld-sel" id="' + id + '">' + opts.map(d => '<option value="' + d + '"' + (d === val ? ' selected' : '') + '>' + d + '</option>').join('') + '</select>';
+        const todayKey = cur.capturedAt.slice(0, 10);
+        const choices = days.filter(d => d !== todayKey).concat([todayKey + ' (now)']);
+        function paintChanged() {
+            const box = $('changed');
+            if (choices.length < 2) { box.innerHTML = ui.section('What changed', 'day to day, from the archive', ui.note('The daily archive holds ' + (days.length || 'no') + ' day' + (days.length === 1 ? '' : 's') + ' so far — the first was ' + esc(days[0] || 'not written yet') + '. Day-to-day changes appear here from the second archived day; the positions cron writes one every day at its first run after 00:00 UTC.')); return; }
+            const from = (window.__ldFrom || choices[Math.max(0, choices.length - 2)]); const to = (window.__ldTo || choices[choices.length - 1]);
+            box.innerHTML = ui.section('What changed', '<span>from ' + sel('wc-from', choices, from) + ' to ' + sel('wc-to', choices, to) + '</span>', '<div class="ld-tile" id="wc-body">' + ui.note('reading the two days…') + '</div>');
+            $('wc-from').onchange = (e) => { window.__ldFrom = e.target.value; paintChanged(); }; $('wc-to').onchange = (e) => { window.__ldTo = e.target.value; paintChanged(); };
+            const load = (d) => d.endsWith('(now)') ? Promise.resolve(cur) : LD.positions.day(d);
+            Promise.all([load(from), load(to)]).then(([A, B]) => {
+                const wc = LD.whatChanged(A, B); const body = $('wc-body'); if (!wc) { body.innerHTML = ui.note('one of the two days did not load'); return; }
+                const line = (icon, label, v, why) => '<div style="display:grid;grid-template-columns:2rem 1fr auto;gap:.6rem;align-items:center;padding:.55rem 0;border-bottom:1px solid var(--ld-border)"><div style="font-size:1.2rem">' + icon + '</div><div><div style="font-size:.85rem">' + label + '</div><div class="ld-src" style="margin-top:.1rem">' + why + '</div></div><div class="ld-num" style="font-family:var(--ld-font);font-size:.75rem">' + ui.delta(v) + '</div></div>';
+                const rows = wc.rows.filter(r => Math.abs(r.market + r.organic) >= 1).slice(0, 14).map(r => '<tr><td>' + esc(r.symbol) + '<span class="ld-sub">' + esc(r.wallet) + '</span></td>' + ui.td(esc(fmt.big(r.qa)) + ' → ' + esc(fmt.big(r.qb)), true) + ui.td(esc(fmt.price(r.pa) || '—') + ' → ' + esc(fmt.price(r.pb) || '—'), true) + ui.td(ui.delta(r.market), true) + ui.td(ui.delta(r.organic), true) + '</tr>');
+                body.innerHTML = '<div class="ld-grid ld-g2" style="align-items:start"><div>' +
+                    line('📈', 'Market movement', wc.market, 'token prices moved on what was held') + line('🌱', 'Amounts moved', wc.organic, 'balances grew or shrank, at today\'s price (rewards claimed, swaps, transfers)') +
+                    line('🔒', 'TLA positions', wc.tla_delta, 'staked, compounded and locked, as one total') + line('🏦', 'Credia collateral', wc.credia_delta, 'as one total') +
+                    line('=', 'Net result', wc.net, 'known value ' + (fmt.usd(wc.known_from) || '—') + ' → ' + (fmt.usd(wc.known_to) || '—')) +
+                    '<div class="ld-src" style="margin-top:.6rem">' + esc(wc.note) + '</div></div>' +
+                    '<div>' + ui.table([{ label: 'Token · wallet' }, { label: 'Amount', r: true }, { label: 'Price', r: true }, { label: 'Price effect', r: true }, { label: 'Amount effect', r: true }], rows, { empty: 'no priced balance moved by a dollar' }) + '</div></div>';
+            });
+        }
+        paintChanged();
+
+        // ---- trend: the cron's daily series (one point per archived day) — never a page-side recompute
+        function paintTrend() {
+            const box = $('trend');
+            if (!series || !series.days || !Object.keys(series.days).length) { box.innerHTML = ui.section('Trend', 'daily, from the positions series', ui.note('The daily series (positions/daily/index.json) is not written yet — it lands with ally-positions 1.1.1 at the first run after midnight UTC, then every day. The chart draws itself as days arrive.')); return; }
+            const ds = Object.keys(series.days).sort(); const D = series.days;
+            const cnt = ds.length;
+            const mode = window.__ldTrend || 'total';
+            const tabs = [['total', 'Known value'], ['sections', 'By section'], ['wallets', 'By wallet']].map(t => '<button type="button" class="ld-tab' + (mode === t[0] ? ' on' : '') + '" data-m="' + t[0] + '">' + t[1] + '</button>').join('');
+            box.innerHTML = ui.section('Trend', cnt + ' archived day' + (cnt === 1 ? '' : 's') + ' · ' + esc(ds[0]) + ' → ' + esc(ds[cnt - 1]), '<div class="ld-tile"><div class="ld-tabs">' + tabs + '</div><div class="ld-chart"><canvas id="trend-chart"></canvas></div><div class="ld-src">' + (cnt < 2 ? 'One day is a point; the line appears with the second. ' : '') + 'Known value = every priced part; unpriced rows never enter it, so a token gaining a price shows as a step up that day (the series carries the price basis per day).</div></div>');
+            box.querySelectorAll('.ld-tab').forEach(b => b.onclick = () => { window.__ldTrend = b.getAttribute('data-m'); paintTrend(); });
+            let seriesOut;
+            if (mode === 'total') seriesOut = [{ label: 'Known value', data: ds.map(d => ({ x: d, y: D[d].known_usd })) }, { label: 'Liabilities', data: ds.map(d => ({ x: d, y: D[d].liabilities_usd })), fill: false, color: '#ff7b72' }];
+            else if (mode === 'sections') seriesOut = SEC.map(s => ({ label: s.label, color: s.color, fill: false, data: ds.map(d => ({ x: d, y: (D[d].by_section || {})[s.k] })) })).filter(s => s.data.some(p => isNum(p.y)));
+            else seriesOut = W.map((w, i) => ({ label: w.label, fill: false, data: ds.map(d => ({ x: d, y: (D[d].by_wallet || {})[w.address] })) }));
+            chart.line('trend-chart', seriesOut, { zero: true });
+        }
+        paintTrend();
+
+        // ---- holdings by wallet: every row, priced or not, receipts labeled (the "17 of 27" that phoenix hides is shown here in full)
+        function walletTable(w) {
+            const rows = (w.balances || []).slice().sort((a, b) => (b.usd_value || 0) - (a.usd_value || 0) || (a.held_as ? 1 : 0) - (b.held_as ? 1 : 0));
+            const tr = rows.map(r => { const name = r.symbol || '<span class="ld-dim" title="' + esc(r.denom) + '">' + esc(fmt.short(r.denom)) + '</span>'; const why = r.held_as ? ui.chip(r.held_as === 'compounder_receipt' ? 'compounder receipt' : 'Credia receipt', 'o') + ' <span class="ld-sub" style="display:inline">valued in ' + esc(r.valued_in) + '</span>' : (r.usd_value == null ? ui.unk(r.unpriced_reason === 'symbol_not_in_price_feed' ? 'no price feed for ' + (r.symbol || 'this denom') : r.unpriced_reason === 'not_in_token_catalog' ? 'denom not in the token catalog' : (r.unpriced_reason || 'unpriced')) : (r.price_match === 'denom' && r.price_key !== r.symbol ? '<span class="ld-sub" style="display:inline">feed key ' + esc(r.price_key) + '</span>' : (r.symbol_source && /tenants/.test(r.symbol_source) ? '<span class="ld-sub" style="display:inline">named by the Lion DAO registry</span>' : ''))); return '<tr' + (r.usd_value == null && !r.held_as ? ' class="ld-dim"' : '') + '><td>' + name + (r.kind === 'cw20' ? ' <span class="ld-sub" style="display:inline">cw20</span>' : '') + '</td>' + ui.td(esc(fmt.big(r.amount_human)), true) + ui.td(r.price_usd != null ? esc(fmt.price(r.price_usd)) + '<span class="ld-sub">' + esc(r.price_source || '') + '</span>' : '', true) + ui.td(r.usd_value != null ? esc(fmt.usd(r.usd_value)) : '', true) + '<td>' + why + '</td></tr>'; });
+            const t = w.totals || {};
+            const extra = [];
+            if (w.delegations && isNum(w.delegations.luna) && w.delegations.luna > 0) extra.push('delegates ' + fmt.luna(w.delegations.luna) + (w.delegations.rows.some(r => r.own_validator) ? ' (to the Lion DAO validator)' : '') + ', ' + fmt.luna(w.delegations.rewards_luna) + ' unclaimed');
+            if (w.nfts && w.nfts['pixel-lions']) extra.push('holds ' + w.nfts['pixel-lions'].held_total + ' pixeLions' + (w.nfts['pixel-lions'].staked_daodao ? ', ' + w.nfts['pixel-lions'].staked_daodao + ' staked' : ''));
+            if (w.credia && isNum(w.credia.collateral_usd) && w.credia.collateral_usd > 0) extra.push('Credia collateral ' + fmt.usd(w.credia.collateral_usd) + (isNum(w.credia.debt_usd) ? ', borrowed ' + fmt.usd(w.credia.debt_usd) : ''));
+            return ui.details('<span style="display:inline-flex;gap:.6rem;align-items:center;flex-wrap:wrap">' + ui.wallet(w) + '<span class="ld-num" style="color:#fff;font-weight:600">' + (isNum(t.known_usd) ? esc(fmt.usd(t.known_usd)) : '') + '</span><span style="color:var(--ld-dim);font-size:.75rem">' + rows.length + ' rows · tokens ' + (fmt.usd(t.balances_usd) || '—') + ' · TLA ' + (fmt.usd(t.tla_usd) || '—') + '</span></span>',
+                (extra.length ? '<div class="ld-s" style="margin:.2rem 0 .6rem">' + esc(extra.join(' · ')) + '</div>' : '') + ui.table([{ label: 'Token' }, { label: 'Amount', r: true }, { label: 'Price', r: true }, { label: 'Value', r: true }, { label: 'Why / how' }], tr, { empty: 'no balances read' }), w.role === 'treasury');
+        }
+        $('holdings').innerHTML = ui.section('Every holding, by wallet', W.length + ' wallets from the Lion DAO registry · nothing hidden: unpriced rows and receipts are listed with why', W.map(walletTable).join(''));
+
+        // ---- reconciliation: ours vs the council's reference, by section (a wallet total can hide two errors cancelling)
+        if (rc) {
+            const BS = rc.by_section || {}; const secLabel = { balances: 'Tokens (their balances + cw20 + DEX LP)', tla: 'TLA staked', compounder: 'TLA compounder', locks: 'TLA locks', credia: 'Credia collateral', votion: 'Votion' };
+            const secRows = Object.keys(secLabel).map(k => { const s = BS[k] || {}; return '<tr><td>' + esc(secLabel[k]) + '</td>' + ui.td(s.ours_usd != null ? esc(fmt.usd(s.ours_usd)) : ui.unk('not read'), true) + ui.td(s.theirs_usd != null ? esc(fmt.usd(s.theirs_usd)) : '<span class="ld-dim">—</span>', true) + ui.td(s.delta_usd != null ? ui.delta(s.delta_usd) : '', true) + '</tr>'; });
+            const walRows = (rc.rows || []).map(r => { const z = r.theirs_amount_but_zero_value || []; return '<tr><td>' + esc(r.label) + (z.length ? '<span class="ld-sub">their $0 rows: ' + esc(z.map(x => x.display).join(', ')) + '</span>' : '') + '</td>' + ui.td(esc(fmt.usd(r.ours_known_usd)), true) + ui.td(r.theirs_usd != null ? esc(fmt.usd(r.theirs_usd)) : '<span class="ld-dim">not in their view</span>', true) + ui.td(r.delta_usd != null ? ui.delta(r.delta_usd) : '', true) + '</tr>'; });
+            const tot = isNum(rc.ours_total_known_usd) && isNum(rc.theirs_total_usd) ? rc.ours_total_known_usd - rc.theirs_total_usd : null;
+            $('recon').innerHTML = ui.section('Ours vs the council\'s view', 'phoenix.money, captured ' + esc(rc.reference_as_of || 'undated') + ' · ' + esc(LD.basis.theirs),
+                '<div class="ld-grid ld-g3" style="margin-bottom:.9rem">' + ui.stat({ label: 'Ours (known)', value: fmt.usd(rc.ours_total_known_usd) }) + ui.stat({ label: 'Theirs', value: fmt.usd(rc.theirs_total_usd), source: 'phoenix.money · ' + (rc.reference_as_of || '') }) + ui.stat({ label: 'Difference', value: tot == null ? null : fmt.signedUsd(tot), sub: tot != null && isNum(rc.theirs_total_usd) ? fmt.pct(tot / rc.theirs_total_usd * 100, 2) + ' · read the sections, not the total' : '' }) + '</div>' +
+                '<div class="ld-grid ld-g2" style="align-items:start"><div class="ld-tile"><div class="ld-k">By section</div>' + ui.table([{ label: 'Section' }, { label: 'Ours', r: true }, { label: 'Theirs', r: true }, { label: 'Δ', r: true }], secRows) + '</div>' +
+                '<div class="ld-tile"><div class="ld-k">By wallet</div>' + ui.table([{ label: 'Wallet' }, { label: 'Ours', r: true }, { label: 'Theirs', r: true }, { label: 'Δ', r: true }], walRows) + '</div></div>' +
+                '<div class="ld-src" style="margin-top:.6rem">' + esc(rc.note || '') + '</div>');
+        } else $('recon').innerHTML = ui.section('Ours vs the council\'s view', '', ui.note('No reference fixture is registered for this tenant (tenants.json gate0_reference), so there is nothing to reconcile against.'));
+
+        // ---- about
+        $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/lion-dao/positions</b> — written hourly by the ally-positions cron (one engine per ally; the roster, validator and contracts come from tla-core/docs/curated/tenants.json). Tokens: ' + esc(LD.basis.tokens) + '. TLA: ' + esc(LD.basis.tla) + '. Credia: receipt balance × the market index, priced by our feed, with Credia\'s own oracle price kept beside it. Receipts: ' + esc(LD.basis.receipts) + '. A number this page cannot source renders as <span class="ld-unk">Unknown</span> with the reason on hover — never a zero, never a guess. Trends read the cron\'s daily series; day-to-day changes read two archived days.'));
+    })().catch(e => { document.getElementById('hero').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });
+    </script>
+</body>
+</html>
