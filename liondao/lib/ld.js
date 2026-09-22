@@ -26,7 +26,7 @@
   else root.LD = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
-  var VERSION = '1.0.0';
+  var VERSION = '1.0.1';
   var G = typeof globalThis !== 'undefined' ? globalThis : this;
   var CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/';
   var DAOO = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/';
@@ -121,8 +121,8 @@
     '.ld-chip{display:inline-block;font-size:.7rem;font-weight:600;color:#111;background:var(--ld-accent);padding:.15rem .45rem;line-height:1.4;white-space:nowrap}.ld-chip.ld-o{background:transparent;color:var(--ld-accent);border:1px solid var(--ld-accent)}.ld-chip.ld-g{background:transparent;color:var(--ld-muted);border:1px solid var(--ld-border)}',
     '.ld-grid{display:grid;gap:.9rem}.ld-g2{grid-template-columns:repeat(2,minmax(0,1fr))}.ld-g3{grid-template-columns:repeat(3,minmax(0,1fr))}.ld-g4{grid-template-columns:repeat(4,minmax(0,1fr))}.ld-g5{grid-template-columns:repeat(5,minmax(0,1fr))}.ld-g23{grid-template-columns:2fr 3fr}.ld-g32{grid-template-columns:3fr 2fr}',
     '@media(max-width:1100px){.ld-g5{grid-template-columns:repeat(3,minmax(0,1fr))}.ld-g4{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:760px){.ld-g5,.ld-g4,.ld-g3,.ld-g2,.ld-g23,.ld-g32{grid-template-columns:1fr}}',
-    '.ld-hero{background:var(--ld-surface);border:2px solid var(--ld-accent);box-shadow:8px 8px 0 var(--ld-accent);padding:1.25rem 1.4rem;position:relative;overflow:hidden}.ld-hero-k{font-family:var(--ld-font);font-size:.62rem;color:var(--ld-accent);line-height:1.8}.ld-hero-v{font-family:var(--ld-font);font-size:1.9rem;color:#fff;line-height:1.4;margin:.25rem 0 .4rem}.ld-hero-l{font-size:.92rem;color:var(--ld-text);max-width:64ch;line-height:1.55}.ld-hero-s{font-size:.8rem;color:var(--ld-muted);margin-top:.6rem;line-height:1.6}@media(max-width:640px){.ld-hero-v{font-size:1.2rem}.ld-hero{box-shadow:5px 5px 0 var(--ld-accent)}}',
-    '.ld-mane{position:absolute;right:-40px;top:-40px;width:180px;height:180px;background:repeating-conic-gradient(var(--ld-accent) 0 6deg,transparent 6deg 12deg);opacity:.08;border-radius:50%;pointer-events:none}',
+    '.ld-hero{background:radial-gradient(90% 160% at 100% 50%,rgba(255,230,0,.12),transparent 60%),var(--ld-surface);border:1px solid var(--ld-border);border-left:4px solid var(--ld-accent);box-shadow:0 24px 70px -40px rgba(255,230,0,.4);padding:1.25rem 1.4rem;position:relative;overflow:hidden}.ld-hero-k{font-family:var(--ld-font);font-size:.62rem;color:var(--ld-accent);line-height:1.8}.ld-hero-v{font-family:var(--ld-font);font-size:1.9rem;color:#fff;line-height:1.4;margin:.25rem 0 .4rem}.ld-hero-l{font-size:.92rem;color:var(--ld-text);max-width:64ch;line-height:1.55}.ld-hero-s{font-size:.8rem;color:var(--ld-muted);margin-top:.6rem;line-height:1.6}@media(max-width:640px){.ld-hero-v{font-size:1.2rem}.ld-hero{padding:1rem 1.1rem}}',
+    '.ld-mane{position:absolute;right:-4rem;top:50%;width:18rem;height:18rem;transform:translateY(-50%);background:repeating-conic-gradient(var(--ld-accent) 0 2.5deg,transparent 2.5deg 8deg);-webkit-mask:radial-gradient(circle,transparent 30%,#000 33%,#000 58%,transparent 66%);mask:radial-gradient(circle,transparent 30%,#000 33%,#000 58%,transparent 66%);opacity:.22;border-radius:50%;pointer-events:none}',
     // bars
     '.ld-bar{height:22px;background:#000;border:1px solid var(--ld-border);display:flex;overflow:hidden;margin:.5rem 0 .4rem}.ld-bar span{display:block;height:100%;min-width:0}.ld-leg{display:flex;flex-wrap:wrap;gap:.3rem 1rem;font-size:.75rem;color:var(--ld-muted)}.ld-leg i{display:inline-block;width:10px;height:10px;margin-right:.35rem;vertical-align:-1px}',
     '.ld-stack{display:flex;flex-direction:column;gap:.5rem}.ld-stack-row{display:grid;grid-template-columns:11rem 1fr 7rem;gap:.75rem;align-items:center;font-size:.82rem}.ld-stack-row .ld-bar{margin:0}@media(max-width:640px){.ld-stack-row{grid-template-columns:1fr;gap:.25rem}}',
@@ -142,7 +142,7 @@
   function ensureCss() { if (G.document && !G.document.getElementById('ld-css')) { var st = G.document.createElement('style'); st.id = 'ld-css'; st.textContent = CSS; G.document.head.appendChild(st); } }
 
   var ui = {
-    unk: function (reason) { return '<span class="ld-unk" title="' + esc(reason || 'no source yet') + '">Unknown</span>'; },
+    unk: function (reason) { return '<span class="ld-unk" title="' + esc(reason || 'no source yet') + '">Coming</span>'; },   // 1.0.1 (owner): the chip says Coming; the reason stays on hover
     v: function (v, f, reason) { if (v == null) return ui.unk(reason); var s = f ? f(v) : String(v); return s == null ? ui.unk(reason) : esc(s); },
     chip: function (label, kind) { return '<span class="ld-chip' + (kind ? ' ld-' + kind : '') + '">' + esc(label) + '</span>'; },
     // a stat tile: label, value (formatted or Unknown), sub line, source line, optional href → a full page
