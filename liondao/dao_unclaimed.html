@@ -23,7 +23,7 @@
     <div id="site-header"></div>
     <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
-    <script src="/liondao/lib/ld.js?v=1.0.0"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.1"></script>
 
     <main class="ld" id="page">
         <div id="crumb"></div>
@@ -63,7 +63,7 @@
 
         $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · unclaimed · known</div>' +
             '<div class="ld-hero-v ld-num">' + (isNum(totalKnown) ? esc(fmt.usdFull(totalKnown)) : ui.unk('nothing pending read')) + '</div>' +
-            '<div class="ld-hero-l">' + (isNum(tlaUsd) ? `<b>${fmt.usd(tlaUsd, 2)}</b> sits unclaimed in TLA across ${new Set(pend.filter(p => (p.usd || 0) > 0.01).map(p => p.w.address)).size} wallets` : 'No TLA pending read') + (isNum(valLuna) ? `, and the validator side holds <b>${fmt.luna(valLuna)}</b> (${fmt.usd(valUsd)}) — ${fmt.luna(V.commission_unclaimed_luna) || '—'} of commission plus ${fmt.luna(delegRewLuna) || '0 LUNA'} of the wallets' own staking rewards` : '') + '. ' + (plKnown ? 'pixeLions rewards read from the distributor.' : 'What staked pixeLions can claim is <b>Unknown</b>: the distributor contract is not registered yet.') + '</div>' +
+            '<div class="ld-hero-l">' + (isNum(tlaUsd) ? `<b>${fmt.usd(tlaUsd, 2)}</b> sits unclaimed in TLA across ${new Set(pend.filter(p => (p.usd || 0) > 0.01).map(p => p.w.address)).size} wallets` : 'No TLA pending read') + (isNum(valLuna) ? `, and the validator side holds <b>${fmt.luna(valLuna)}</b> (${fmt.usd(valUsd)}) — ${fmt.luna(V.commission_unclaimed_luna) || '—'} of commission plus ${fmt.luna(delegRewLuna) || '0 LUNA'} of the wallets' own staking rewards` : '') + '. ' + (plKnown ? 'pixeLions rewards read from the distributor.' : 'What staked pixeLions can claim is <b>Coming</b>: the distributor contract is not registered yet.') + '</div>' +
             '<div class="ld-hero-s">captured ' + ui.when(cur.capturedAt) + ' · not part of the treasury total until claimed · LUNA at ' + esc(fmt.price(lunaUsd) || '—') + '</div></div></section>';
 
         // ---- the same three panels the home shows, in full
@@ -89,7 +89,7 @@
             chart.line('uc-trend', [{ label: 'TLA pending', data: ds.map(d => ({ x: d, y: (D[d].by_section || {}).tla_pending_usd })) }, { label: 'Commission (LUNA)', color: '#79c0ff', fill: false, axis: 'y1', data: ds.map(d => ({ x: d, y: D[d].validator_commission_luna })) }], { zero: true, fmt1: (v) => fmt.num(v, 0) + ' LUNA' });
         } else box.innerHTML = ui.section('Trend', '', ui.note('The daily series is not written yet — it lands with ally-positions 1.1.1 and the chart draws itself as days arrive.'));
 
-        $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/lion-dao/positions</b>, hourly. TLA pending = the capture engine\'s pending rewards (deposit rewards per gauge, in zLUNA), pending bribes (per bucket, at the claim period) and the locks\' rebase. Validator = the distribution module\'s accrued commission on the validator account plus each roster wallet\'s own delegation rewards. pixeLions rewards stay <span class="ld-unk">Unknown</span> until the distributor contract is registered — the page never estimates a claim.'));
+        $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/lion-dao/positions</b>, hourly. TLA pending = the capture engine\'s pending rewards (deposit rewards per gauge, in zLUNA), pending bribes (per bucket, at the claim period) and the locks\' rebase. Validator = the distribution module\'s accrued commission on the validator account plus each roster wallet\'s own delegation rewards. pixeLions rewards read <span class="ld-unk">Coming</span> until the distributor contract is registered — the page never estimates a claim.'));
     })().catch(e => { document.getElementById('hero').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });
     </script>
 </body>

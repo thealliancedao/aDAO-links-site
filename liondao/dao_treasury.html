@@ -24,7 +24,7 @@
     <div id="site-header"></div>
     <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
-    <script src="/liondao/lib/ld.js?v=1.0.0"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.1"></script>
 
     <main class="ld" id="page">
         <div id="crumb"></div>
@@ -161,7 +161,7 @@
         } else $('recon').innerHTML = ui.section('Ours vs the council\'s view', '', ui.note('No reference fixture is registered for this tenant (tenants.json gate0_reference), so there is nothing to reconcile against.'));
 
         // ---- about
-        $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/lion-dao/positions</b> — written hourly by the ally-positions cron (one engine per ally; the roster, validator and contracts come from tla-core/docs/curated/tenants.json). Tokens: ' + esc(LD.basis.tokens) + '. TLA: ' + esc(LD.basis.tla) + '. Credia: receipt balance × the market index, priced by our feed, with Credia\'s own oracle price kept beside it. Receipts: ' + esc(LD.basis.receipts) + '. A number this page cannot source renders as <span class="ld-unk">Unknown</span> with the reason on hover — never a zero, never a guess. Trends read the cron\'s daily series; day-to-day changes read two archived days.'));
+        $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/lion-dao/positions</b> — written hourly by the ally-positions cron (one engine per ally; the roster, validator and contracts come from tla-core/docs/curated/tenants.json). Tokens: ' + esc(LD.basis.tokens) + '. TLA: ' + esc(LD.basis.tla) + '. Credia: receipt balance × the market index, priced by our feed, with Credia\'s own oracle price kept beside it. Receipts: ' + esc(LD.basis.receipts) + '. A number this page cannot source renders as <span class="ld-unk">Coming</span> with the reason on hover — never a zero, never a guess. Trends read the cron\'s daily series; day-to-day changes read two archived days.'));
     })().catch(e => { document.getElementById('hero').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });
     </script>
 </body>

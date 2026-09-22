@@ -26,7 +26,7 @@
     <div id="site-header"></div>
     <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
-    <script src="/liondao/lib/ld.js?v=1.0.0"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.1"></script>
 
     <main class="ld" id="page">
         <div id="crumb"></div>
@@ -79,7 +79,7 @@
         const modSized = !modRow && D && D.length && myLunaOf(D) ? D[0] : null;
         function myLunaOf(D) { return D[0] && D[0].luna > 0 && me ? D[0].luna / (Number(me.tokens) / 1e6) > 0.5 : false; }
         const lunaDelegated = D ? (modRow ? sum(D.filter(r => r.address !== modRow.address).map(r => r.luna)) : (modSized ? null : sum(D.map(r => r.luna)))) : null;
-        if (modSized) modNote = 'the largest delegator (' + fmt.short(modSized.address) + ', ' + fmt.pctPlain(modSized.luna / myLuna * 100, 1) + ' of the stake) did not match the derived Alliance module account ' + (ALLIANCE || '(derivation failed)') + ' — the split is Unknown until it does';
+        if (modSized) modNote = 'the largest delegator (' + fmt.short(modSized.address) + ', ' + fmt.pctPlain(modSized.luna / myLuna * 100, 1) + ' of the stake) did not match the derived Alliance module account ' + (ALLIANCE || '(derivation failed)') + ' — the split reads Coming until it does';
         const dashRow = ((LD.get(dash, 'dashboard.alliances.lion_dao.chain_staking.validators') || []).find(r => r.address === val.operator)) || null;
         const roster = T.wallets || {}; const names = trusted && trusted.addresses || {};
         const nameOf = (a) => roster[a] ? { label: roster[a].label, kind: 'roster' } : (dashRow && dashRow.delegator_wallet === a ? { label: 'Alliance DAO treasury', kind: 'adao' } : (names[a] ? { label: names[a].label, kind: 'trusted' } : (modRow && a === modRow.address ? { label: 'Alliance module (TLA)', kind: 'module' } : null)));

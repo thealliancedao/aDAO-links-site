@@ -20,7 +20,7 @@
     <div id="site-header"></div>
     <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
-    <script src="/liondao/lib/ld.js?v=1.0.0"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.1"></script>
     <main class="ld"><div id="crumb"></div><div id="body"></div></main>
     <div id="site-footer"></div>
     <script src="/lib/cron-registry.js"></script>
@@ -30,7 +30,7 @@
         const REV = '1.1', REV_DATE = '2026-09-22'; const { ui, esc } = LD;
         await LD.mount({ page: 'liondao-coming', rev: REV, revDate: REV_DATE });
         const T = LD._M.tenant || {}; const id = new URLSearchParams(location.search).get('tile') || '';
-        const BUILT = { mint: '/liondao/mint.html', alliance: '/liondao/alliance.html', rarity: '/nft-explorer-index.html?tenant=liondao' };   // slots that grew a page: an old link lands on the page, not here
+        const BUILT = { mint: '/liondao/mint.html', alliance: '/liondao/alliance.html' };   /* rarity is a slot again (owner 2026-09-22): the explorer shows rank per lion but is not the pride's rarity page */   // slots that grew a page: an old link lands on the page, not here
         if (BUILT[id]) { location.replace(BUILT[id]); return; }
         const cfg = await LD.jsonFetch('/liondao/home.json'); const nav = cfg && (cfg.sections || []).find(s => s.type === 'nav'); const tile = nav && (nav.tiles || []).find(t => t.id === id);
         document.getElementById('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: tile ? tile.label : 'In build' }]);
