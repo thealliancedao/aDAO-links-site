@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- liondao/index.html 2.3 (2026-09-22, v2.3: Coming chips · mane hero · rarity slot · registry supply fallbacks; v2.2: market in aDAO's shape + pyROAR/ROAR20 bars; v2.1: mint + alliance + rarity tiles open real pages; aDAO's sections in aDAO's places, every tile opens a full page in liondao/, the DAO rows on the positions product — home.json 2.0 + home-tiles 1.1.0) — THE LION DAO HOME. A thin shell: the site header (tenant Lion DAO), lib/home-tiles.js
+    <!-- liondao/index.html 2.5 (2026-09-22, v2.5: distributor → APR, BL supply live, addresses copy-and-go; v2.4: holder products feed the pyROAR/ROAR20 bars; v2.3: Coming chips · mane hero · rarity slot · registry supply fallbacks; v2.2: market in aDAO's shape + pyROAR/ROAR20 bars; v2.1: mint + alliance + rarity tiles open real pages; aDAO's sections in aDAO's places, every tile opens a full page in liondao/, the DAO rows on the positions product — home.json 2.0 + home-tiles 1.1.0) — THE LION DAO HOME. A thin shell: the site header (tenant Lion DAO), lib/home-tiles.js
          driven by liondao/home.json (the words and the layout), the site footer. No data logic lives in this file.
          Lives in its own folder so every ally's pages are one folder (the aDAO home, index.html at the root, is untouched);
          <base href="/"> keeps the shared libs' relative links (header tabs, footer) resolving from the site root. -->
@@ -48,11 +48,11 @@
     <script src="/lib/cron-registry.js"></script>
     <script src="/lib/denoms.js?v=1.0.0"></script>
     <script src="/lib/live-activity.js?v=1.1.0"></script>
-    <script src="/lib/home-tiles.js?v=1.2.1"></script>
+    <script src="/lib/home-tiles.js?v=1.2.3"></script>
     <script src="/lib/site-footer.js"></script>
     <script>
         (async function () {
-            const REV = '2.3', REV_DATE = '2026-09-22';
+            const REV = '2.5', REV_DATE = '2026-09-22';
             SiteFooter.mount({ rev: REV, revDate: REV_DATE, page: 'liondao-home' });
             let ctx = null;
             try { ctx = await CollectionContext.load(); } catch (e) { ctx = null; }   // the /liondao/ path names the tenant (collection-context readFromLocation)

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- liondao/ecosystem.html 1.0 (2026-09-22) — THE LION DAO ECOSYSTEM. The page behind the home's big tile: the validator,
+    <!-- liondao/ecosystem.html 1.1 (2026-09-22; 1.1: Burning Lions supply live, holder products, Every address) — THE LION DAO ECOSYSTEM. The page behind the home's big tile: the validator,
          ROAR (contract supply, the TLA pool price, CoinGecko's market view — theirs, labeled), ROAR staked in the DAO, the
          treasury, the burn festival (Lion DAO's reported figures beside what the contract says is gone), the Burning Lions,
          ROAR20 on Solana (DexScreener, labeled). It runs the same source loader and derive() as the home (lib/home-tiles.js
@@ -24,8 +24,8 @@
     <div id="site-header"></div>
     <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
-    <script src="/liondao/lib/ld.js?v=1.0.1"></script>
-    <script src="/lib/home-tiles.js?v=1.2.1"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.2"></script>
+    <script src="/lib/home-tiles.js?v=1.2.3"></script>
 
     <main class="ld" id="page">
         <div id="crumb"></div>
@@ -33,6 +33,7 @@
         <div id="roar"></div>
         <div id="burn"></div>
         <div id="roar20"></div>
+        <div id="addresses"></div>
         <div id="about"></div>
     </main>
 
@@ -41,7 +42,7 @@
     <script src="/lib/site-footer.js"></script>
     <script>
     (async function () {
-        const REV = '1.0', REV_DATE = '2026-09-22';
+        const REV = '1.1', REV_DATE = '2026-09-22';
         const { fmt, ui, esc, isNum, sum } = LD;
         await LD.mount({ page: 'liondao-ecosystem', rev: REV, revDate: REV_DATE });
         const ctx = LD._M.ctx || { tenant: { slug: 'liondao' }, tenants: {}, collections: [], primary: null }; const T = LD._M.tenant || {};
@@ -80,14 +81,26 @@
             $('burn').innerHTML = ui.section('The burn festival and the Burning Lions', (T.burn && T.burn.festival_window) ? esc(T.burn.festival_window) : '', '<div class="ld-grid ld-g4">' +
                 ui.stat({ label: 'Reported burned', value: fmt.big(B.reported_total), reason: 'no reported figure in the registry', sub: (fmt.big(B.reported_community) || '—') + ' by ' + (fmt.int(B.reported_participants) || '—') + ' community wallets + ' + (fmt.big(B.reported_dao) || '—') + ' by the DAO · top wallet ' + (fmt.big(B.reported_top_wallet) || '—'), source: 'Lion DAO\'s published figures, ' + (B.reported_as_of || '') }) +
                 ui.stat({ label: 'Gone from supply', value: fmt.big(B.supply_delta), reason: 'token_info not read', sub: 'initial ' + (fmt.big(B.initial_supply) || '—') + ' − live ' + (fmt.big(R.total_supply) || '—') + (isNum(B.reported_vs_delta) ? ' · reported exceeds it by ' + fmt.big(B.reported_vs_delta) : ''), source: 'the ROAR contract, live' }) +
-                ui.stat({ label: 'pyROAR ledger', value: B.pyroar_cw20 ? 'found' : null, reason: 'not found', sub: B.pyroar_cw20 ? 'the "Burnt ROAR" token minted 1:1 to burners — its balances are the frozen leaderboard; the burn-ledger product reads them next' : '', source: B.pyroar_cw20 ? fmt.short(B.pyroar_cw20) : '' }) +
-                ui.stat({ label: 'Burning Lions', value: null, reason: 'collection not onboarded — the owner says 12', sub: 'twelve one-of-ones, one per drawing; the collection, its floor and the burner behind each lion land with onboarding', source: 'Unknown' }) + '</div>');
+                ui.stat({ label: 'pyROAR ledger', value: D.pyroar && D.pyroar.product ? fmt.int(D.pyroar.holder_count) + ' holders' : (B.pyroar_cw20 ? 'found' : null), reason: 'not found', sub: D.pyroar && D.pyroar.product ? 'largest ' + esc(D.pyroar.top1_label || '—') + ' at ' + (fmt.pctPlain(D.pyroar.top1_pct, 1) || '—') + ' · top ten ' + (fmt.pctPlain(D.pyroar.top10_pct, 1) || '—') : 'the "Burnt ROAR" token minted 1:1 to burners — its balances are the frozen leaderboard; the holder product walks them daily', source: B.pyroar_cw20 ? 'cw20 ' + fmt.short(B.pyroar_cw20) + ' — copy it under Every address' : '', href: '/liondao/burn.html' }) +
+                ui.stat({ label: 'Burning Lions', value: fmt.int(D.bl && D.bl.supply), reason: 'cw721 num_tokens not read and no registry figure', sub: (D.bl && D.bl.name ? esc(D.bl.name) + ' · ' : '') + 'one per drawing from the festival; floor and the burner behind each lion land when the folder is onboarded', source_html: (D.bl && D.bl.supply_source ? esc(D.bl.supply_source) + ' · ' : '') + (D.bl && D.bl.contract ? ui.addr(D.bl.contract) : '') }) + '</div>');
             // ROAR20
-            $('roar20').innerHTML = ui.section('ROAR20 on Solana', R20.mint ? esc(fmt.short(R20.mint)) + ' · pump.fun token · 1B fixed' : '', '<div class="ld-grid ld-g4">' +
+            $('roar20').innerHTML = ui.section('ROAR20 on Solana', R20.mint ? ui.addr(R20.mint, { chain: 'solana' }) + ' · pump.fun token · 1B fixed' : '', '<div class="ld-grid ld-g4">' +
                 ui.stat({ label: 'Price', value: fmt.price(R20.price_usd), reason: 'DexScreener not reachable', sub: (fmt.pct(R20.chg_24h_pct) || '—') + ' 24h · ' + esc(R20.dex || ''), source: 'DexScreener — theirs' }) +
                 ui.stat({ label: 'Market cap', value: fmt.usd(R20.market_cap_usd), reason: 'DexScreener not reachable', source: 'DexScreener — theirs' }) +
                 ui.stat({ label: 'Liquidity', value: fmt.usd(R20.liquidity_usd), reason: 'DexScreener not reachable', source: 'DexScreener — theirs' }) +
-                ui.stat({ label: 'Holders', value: null, reason: 'the ROAR20 product (RPC + Helius) is not built yet', sub: 'top holders, the creator wallet, graduation — all land with the product', source: 'Unknown' }) + '</div>');
+                ui.stat({ label: 'Owners', value: fmt.int(D.roar20 && D.roar20.holders), reason: (D.roar20 && D.roar20.holders_reason) || 'holder product not read', sub: D.roar20 && D.roar20.product ? (fmt.int(D.roar20.program_count) || '—') + ' program-owned accounts hold ' + (fmt.pctPlain(D.roar20.program_pct, 1) || '—') + ' · top 10 wallets ' + (fmt.pctPlain(D.roar20.top10_wallets_pct, 1) || '—') : 'every token account, folded to owners, daily', source: 'roar20/holders (Helius)', href: '/liondao/roar20.html' }) + '</div>');
+            // 1.1 (owner): EVERY address the registry knows for this tenant, in one place, each copy · search · explorer
+            var A = []; var W = T.wallets || {}; Object.keys(W).forEach(function (w) { A.push({ group: 'Roster', label: W[w].label, role: W[w].counts_as || W[w].role || '', addr: w }); });
+            if (T.validator) { if (T.validator.operator) A.push({ group: 'Validator', label: 'operator', addr: T.validator.operator }); if (T.validator.account) A.push({ group: 'Validator', label: 'account (commission accrues here)', addr: T.validator.account }); }
+            var ST = T.staking || {}; Object.keys(ST).forEach(function (k) { if (/^terra1/.test(String(ST[k]))) A.push({ group: 'Contracts', label: k.replace(/_/g, ' '), addr: ST[k] }); });
+            if (T.burn) { if (T.burn.pyroar_cw20) A.push({ group: 'Contracts', label: 'pyROAR (Burnt ROAR) cw20', addr: T.burn.pyroar_cw20 }); if (T.burn.festival_receiver) A.push({ group: 'Contracts', label: 'festival receiver (Enterprise core)', addr: T.burn.festival_receiver }); }
+            if (T.burning_lions && T.burning_lions.contract) A.push({ group: 'Collections', label: 'Burning Lions cw721', addr: T.burning_lions.contract });
+            (LD._M.ctx && LD._M.ctx.collections || []).forEach(function (c) { if (c.contract) A.push({ group: 'Collections', label: (c.label || c.slug) + ' cw721', addr: c.contract }); if (c.manifest && c.manifest.governance) { var g = c.manifest.governance; if (g.dao_address) A.push({ group: 'Collections', label: (g.dao_name || 'DAO') + ' treasury (DAODAO core)', addr: g.dao_address }); } });
+            (T.daos || []).forEach(function (dd) { if (/^terra1/.test(String(dd))) A.push({ group: 'DAO', label: 'core', addr: dd }); });
+            if (T.roar20 && T.roar20.mint) A.push({ group: 'Solana', label: 'ROAR20 mint', addr: T.roar20.mint, chain: 'solana' });
+            var seen = {}; A = A.filter(function (x) { if (seen[x.addr]) return false; seen[x.addr] = true; return true; });
+            var groups = []; A.forEach(function (x) { if (groups.indexOf(x.group) === -1) groups.push(x.group); });
+            $('addresses').innerHTML = ui.section('Every address', A.length + ' from the registry · copy, search the site, or open the explorer', '<div class="ld-tile">' + groups.map(function (g) { return '<div class="ld-k" style="margin-top:.5rem">' + esc(g) + '</div>' + ui.table([{ label: 'What' }, { label: 'Address' }], A.filter(function (x) { return x.group === g; }).map(function (x) { return '<tr><td>' + esc(x.label) + (x.role ? ' <span class="ld-sub">' + esc(x.role) + '</span>' : '') + '</td><td>' + ui.addr(x.addr, { full: true, chain: x.chain }) + '</td></tr>'; })); }).join('') + '<div class="ld-src">Source: tenants.json (the registry holds the literals) and the collection manifests. A wrong or missing address here is a registry edit, never a page edit.</div></div>');
         }
         $('about').innerHTML = ui.section('How this page is built', '', ui.note('The same loader and derive() as the home (lib/home-tiles.js): the validator from the bonded set, ROAR from its contract and the TLA pool price, staked ROAR from the DAODAO staking module, the treasury and known value from the positions product, CoinGecko and DexScreener as third parties — labeled as theirs on every row that uses them. Lion DAO\'s reported burn figures sit beside the contract\'s supply delta, never inside it. Sections switch to their products (burn ledger, validator tracker, ROAR20, supply map) as those land.'));
     })().catch(e => { document.getElementById('hero').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });

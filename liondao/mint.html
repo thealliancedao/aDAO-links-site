@@ -28,7 +28,7 @@
     <div id="site-header"></div>
     <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
-    <script src="/liondao/lib/ld.js?v=1.0.1"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.2"></script>
 
     <main class="ld" id="page">
         <div id="crumb"></div>
@@ -84,7 +84,7 @@
         $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · pixeLions mint · primary sales ledger</div>' +
             '<div class="ld-hero-v ld-num">' + esc(fmt.int(n)) + ' <span style="font-size:.5em;color:var(--ld-muted)">minted</span></div>' +
             '<div class="ld-hero-l">' + (n ? `The whole collection went in <b>${hours < 48 ? fmt.num(hours, 1) + ' hours' : fmt.num(hours / 24, 1) + ' days'}</b> — first mint ${esc(fmt.date(first.ts))} ${esc(first.ts.slice(11, 16))} UTC, last ${esc(fmt.date(last.ts))} ${esc(last.ts.slice(11, 16))} UTC, half the supply gone ${half ? 'by ' + esc(hl(half.t)) + ' UTC' : '—'}. <b>${esc(fmt.int(minters.length))} wallets</b> paid <b>${esc(fmt.luna(totalLuna))}</b>` + (isNum(totalUsd) ? `, worth <b>${esc(fmt.usd(totalUsd))}</b> at the time` : '') + (lunaStart && lunaEnd ? ` — LUNA went from ${esc(fmt.price(lunaStart.lunaUsd))} to ${esc(fmt.price(lunaEnd.lunaUsd))} while it ran` : '') + (free ? `; ${fmt.int(free)} tokens were free or admin mints` : '') + '.' : 'No mint rows in the ledger.') + '</div>' +
-            '<div class="ld-hero-s">launchpad ' + esc(fmt.short(MS.launchpad || '')) + ' · ledger built ' + ui.when(MS.generatedAt) + ' · USD = each mint at that day\'s LUNA price' + (unpricedUsd ? ' · ' + unpricedUsd + ' rows unpriced' : '') + '</div></div>' +
+            '<div class="ld-hero-s">launchpad ' + ui.addr(MS.launchpad || '') + ' · ledger built ' + ui.when(MS.generatedAt) + ' · USD = each mint at that day\'s LUNA price' + (unpricedUsd ? ' · ' + unpricedUsd + ' rows unpriced' : '') + '</div></div>' +
             '<div class="ld-grid ld-g4" style="margin-top:1.1rem">' +
             ui.stat({ label: 'Paid in total', value: fmt.luna(totalLuna), sub: (isNum(totalUsd) ? fmt.usd(totalUsd) + ' at the time' : '') + (isNum(lunaNow) ? ' · ' + (fmt.usd(totalLuna * lunaNow) || '—') + ' at today\'s LUNA' : ''), source: 'the same LUNA, two prices — then and now' }) +
             ui.stat({ label: 'Price tiers', value: tierRows.map(t => fmt.num(t) + ' LUNA').join(' · '), sub: tierRows.map(t => fmt.int(tiers[t]) + ' at ' + fmt.num(t)).join(' · '), source: 'from the ledger, not the launchpad\'s docs' }) +
@@ -120,7 +120,7 @@
             '<div class="mt-bucket" style="margin-bottom:.9rem">' + buckets.map(b => '<div class="ld-tile"><div class="ld-k">' + esc(b.label) + '</div><div class="ld-v ld-num">' + esc(fmt.int(b.wallets)) + '</div><div class="ld-s">wallets · ' + esc(fmt.int(b.tokens)) + ' tokens (' + esc(fmt.pctPlain(b.tokens / n * 100, 0)) + ')</div></div>').join('') + '</div>' +
             '<div class="ld-tile"><div class="ld-k">Top minters · ' + esc(fmt.int(top.length)) + ' of ' + esc(fmt.int(minters.length)) + '</div>' +
             ui.table([{ label: '#' }, { label: 'Wallet' }, { label: 'Minted', r: true }, { label: 'Paid', r: true }, { label: 'USD then', r: true }, { label: 'Holds now', r: true }, { label: 'First mint', r: true }],
-                top.map((m, i) => { const nm = nameOf(m.address); return '<tr><td class="ld-num" style="color:var(--ld-dim)">' + (i + 1) + '</td><td>' + (nm ? ui.chip(nm.label, nm.kind) + ' ' : '') + '<a href="/address-catalog.html?address=' + esc(m.address) + '" style="color:var(--ld-text)">' + esc(fmt.short(m.address)) + '</a> <a href="https://chainsco.pe/terra2/address/' + esc(m.address) + '" target="_blank" rel="noopener" style="color:var(--ld-dim)" title="Chainscope"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:.7em"></i></a></td>' + ui.td(esc(fmt.int(m.count)), true) + ui.td(esc(fmt.luna(m.luna)), true) + ui.td(esc(fmt.usd(m.usd)), true) + ui.td(owners ? esc(fmt.int(owners[m.address] || 0)) : ui.unk('owner snapshot not read'), true) + ui.td('<span class="ld-sub">' + esc(new Date(m.firstT).toISOString().slice(0, 16).replace('T', ' ')) + '</span>', true) + '</tr>'; })) +
+                top.map((m, i) => { const nm = nameOf(m.address); return '<tr><td class="ld-num" style="color:var(--ld-dim)">' + (i + 1) + '</td><td>' + (nm ? ui.chip(nm.label, nm.kind) + ' ' : '') + ui.addr(m.address) + '</td>' + ui.td(esc(fmt.int(m.count)), true) + ui.td(esc(fmt.luna(m.luna)), true) + ui.td(esc(fmt.usd(m.usd)), true) + ui.td(owners ? esc(fmt.int(owners[m.address] || 0)) : ui.unk('owner snapshot not read'), true) + ui.td('<span class="ld-sub">' + esc(new Date(m.firstT).toISOString().slice(0, 16).replace('T', ' ')) + '</span>', true) + '</tr>'; })) +
             '<div class="ld-src">"Holds now" = pixeLions this wallet owns today by the collection\'s owner snapshot (staked and listed included, custody resolved) — any pixeLion, not necessarily the ones it minted. Names from the Lion DAO roster and the trust register.</div></div>');
 
         // ---- what minters did next

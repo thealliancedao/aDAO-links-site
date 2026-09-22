@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" data-tenant="liondao">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- liondao/roar20.html 1.0 (2026-09-22) — WHO HOLDS ROAR20. The Solana token: every token account walked daily by
+         ally-positions/holders.js through Helius DAS, folded to owners, summed against getTokenSupply (dao-originations/<dao>/
+         roar20/holders.json). Program-owned vs wallet by the chain (the owning program id is the fact; no pool is named by
+         pattern). Price / cap / liquidity are DexScreener's and live on the home; this page is holders. -->
+    <base href="/">
+    <title>ROAR20 holders | Lion DAO | thealliancedao.com</title>
+    <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
+    <meta name="description" content="Who holds ROAR20 on Solana and how much: every owner ranked, program-owned accounts marked by the chain, with the supply gate.">
+    <meta name="theme-color" content="#0b0b0b">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #4a4000; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }
+        .hl-ctl { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: .3rem 0 .8rem } .hl-ctl input { background: #000; border: 1px solid var(--t-border); color: #fff; padding: .35rem .6rem; font-size: .8rem; min-width: 16rem } .hl-ctl input:focus { outline: none; border-color: var(--t-accent) }
+        .hl-rank { color: #737373; width: 2.6rem } .hl-bar { height: 6px; background: #1a1a1a; position: relative; margin-top: .25rem } .hl-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--t-accent) }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/collection-context.js"></script>
+    <script src="/lib/site-header.js"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.2"></script>
+
+    <main class="ld" id="page">
+        <div id="crumb"></div>
+        <div id="hero"></div>
+        <div id="split"></div>
+        <div id="board"></div>
+        <div id="about"></div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>
+    (async function () {
+        const REV = '1.0', REV_DATE = '2026-09-22';
+        const { fmt, ui, esc, isNum, sum } = LD;
+        await LD.mount({ page: 'liondao-roar20', rev: REV, revDate: REV_DATE });
+        const T = LD._M.tenant || {}; const DAO = LD._M.dao;
+        const $ = (id) => document.getElementById(id);
+        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'ROAR20 holders' }]);
+        const P = DAO ? await LD.jsonFetch(LD.DAOO + DAO + '/roar20/holders.json', { timeoutMs: 30000 }) : null;
+        if (!P || !Array.isArray(P.holders)) { $('hero').innerHTML = ui.note('The ROAR20 holder product has not been written yet — <b>ally-positions/holders.js</b> (daily, HELIUS_API_KEY) walks every token account and publishes <b>' + esc(DAO || '<dao>') + '/roar20/holders.json</b>. Until its first run this page has nothing to show; nothing here is estimated.'); return; }
+        const H = P.holders.slice().sort((a, b) => b.amount - a.amount); const tok = P.token || {}; const K = P.kinds || {}; const C = P.concentration || {}; const G = P.supply_gate || {};
+        const kindLabel = { program: 'Program-owned', wallet: 'Wallet', unclassified: 'Wallet (unverified)' };
+        const kindChip = (h) => h.kind === 'program' ? ui.chip('program ' + fmt.short(h.owner_program || ''), '') : (h.label ? ui.chip(h.label, 'o') : '');
+        const sol = (a) => 'https://solscan.io/account/' + encodeURIComponent(a);
+
+        $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · ROAR20 · Solana</div>' +
+            '<div class="ld-hero-v ld-num">' + esc(fmt.big(tok.supply)) + ' <span style="font-size:.5em;color:var(--ld-muted)">ROAR20</span></div>' +
+            '<div class="ld-hero-l">Supply is fixed at create (mint authority revoked). <b>' + esc(fmt.int(P.holder_count)) + '</b> owners hold it across <b>' + esc(fmt.int(P.token_account_count)) + '</b> token accounts. <b>' + esc(fmt.int(K.program ? K.program.holders : 0)) + '</b> of the largest owners are program-owned accounts — a pool\'s vault, a contract — holding <b>' + esc(fmt.pctPlain(C.program_owned_pct, 1)) + '</b>; the ten largest wallets hold <b>' + esc(fmt.pctPlain(C.top10_wallets_pct, 1)) + '</b>. The single largest account holds <b>' + esc(fmt.pctPlain(C.top1_pct, 2)) + '</b>.</div>' +
+            '<div class="ld-hero-s">every token account walked ' + ui.when(P.capturedAt) + ' · supply gate: getTokenSupply − Σ accounts = <b class="' + (G.delta === 0 ? 'ld-good' : 'ld-bad') + '">' + esc(G.delta == null ? '—' : fmt.big(G.delta)) + '</b>' + (G.exact ? ' (exact)' : '') + ' · mint ' + ui.addr(tok.mint || '', { chain: 'solana' }) + '</div></div>' +
+            '<div class="ld-grid ld-g4" style="margin-top:1.1rem">' +
+            ui.stat({ label: 'Owners', value: fmt.int(P.holder_count), sub: fmt.int(P.token_account_count) + ' token accounts (zero balances skipped)', source: 'Helius DAS getTokenAccounts, folded to owners' }) +
+            ui.stat({ label: 'Program-owned', value: fmt.big(K.program ? K.program.amount : null), reason: 'none among the classified top', sub: fmt.pctPlain(C.program_owned_pct, 1) + ' of supply · ' + fmt.int(K.program ? K.program.holders : 0) + ' accounts · ' + fmt.int(K.program && K.program.programs ? K.program.programs.length : 0) + ' program(s)', source: 'the owner of the owner account, by the chain' }) +
+            ui.stat({ label: 'In wallets', value: fmt.big(sum([K.wallet && K.wallet.amount, K.unclassified && K.unclassified.amount])), sub: fmt.int(sum([K.wallet && K.wallet.holders, K.unclassified && K.unclassified.holders])) + ' wallets', source: 'System-Program-owned or absent = wallet' }) +
+            ui.stat({ label: 'Top 10 wallets hold', value: fmt.pctPlain(C.top10_wallets_pct, 1), sub: 'the largest wallet ' + (P.top10_wallets && P.top10_wallets[0] ? fmt.short(P.top10_wallets[0].owner) + ' · ' + fmt.pctPlain(P.top10_wallets[0].share_pct, 2) : '—'), source: 'vaults excluded' }) +
+            '</div></section>';
+
+        const parts = ['program', 'wallet', 'unclassified'].filter(k => K[k] && K[k].amount > 0).map((k, i) => ({ label: kindLabel[k] + ' (' + fmt.int(K[k].holders) + ')', v: K[k].amount, color: LD.chart.palette[i] }));
+        $('split').innerHTML = ui.section('Where it sits', 'by kind of owner · every kind sums to the supply', '<div class="ld-tile">' + ui.bar(parts, { fmt: fmt.big }) + '<div class="ld-src">A program-owned account is one whose owner is a program, not the System Program: a liquidity pool\'s vault, a contract. Its program id is on file; which pool it is would be a name this page did not read. "Wallet (unverified)" = ranked past the top the cron asks the chain about.</div></div>');
+
+        // ---- the board
+        let shown = 50, q = '';
+        const paint = () => {
+            const rows = H.filter(h => !q || h.owner.includes(q) || (h.label || '').toLowerCase().includes(q.toLowerCase()) || (h.owner_program || '').includes(q));
+            const top = rows.slice(0, shown); const max = H[0] ? H[0].amount : 1;
+            $('board').innerHTML = ui.section('The leaderboard', esc(fmt.int(rows.length)) + ' of ' + esc(fmt.int(H.length)) + ' owners · ranked by ROAR20 held',
+                '<div class="hl-ctl"><input id="hl-q" placeholder="find an address or a name" value="' + esc(q) + '"><span class="ld-sub">Price and USD live on the home (DexScreener\'s); here, tokens and shares.</span></div>' +
+                '<div class="ld-tile">' + ui.table([{ label: '#' }, { label: 'Owner' }, { label: 'Kind' }, { label: 'ROAR20', r: true }, { label: 'Share', r: true }, { label: 'Accts', r: true }],
+                    top.map(h => '<tr><td class="ld-num hl-rank">' + esc(h.rank) + '</td><td>' + kindChip(h) + ' ' + ui.addr(h.owner, { chain: 'solana' }) + '<div class="hl-bar"><i style="width:' + Math.max(.5, h.amount / max * 100) + '%"></i></div></td><td class="ld-sub" title="' + esc(h.kind_source || '') + '">' + esc(kindLabel[h.kind] || h.kind || '—') + '</td>' + ui.td(esc(fmt.big(h.amount)), true) + ui.td(esc(fmt.pctPlain(h.share_pct, 3)), true) + ui.td(esc(fmt.int(h.accounts)), true) + '</tr>')) +
+                (rows.length > top.length ? '<div class="ld-center"><button class="ld-more" type="button" id="hl-more">Show ' + Math.min(50, rows.length - top.length) + ' more (' + (rows.length - top.length) + ' left)</button></div>' : '') + '</div>');
+            const inp = $('hl-q'); inp.addEventListener('input', (e) => { q = e.target.value.trim(); shown = 50; paint(); const i2 = $('hl-q'); i2.focus(); i2.setSelectionRange(i2.value.length, i2.value.length); });
+            const more = $('hl-more'); if (more) more.addEventListener('click', () => { shown += 50; paint(); });
+        };
+        paint();
+        $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/' + esc(DAO) + '/roar20/holders.json</b>, written daily by <b>platform-crons/ally-positions/holders.js</b> with the Helius key on the service: DAS <code>getTokenAccounts</code> by mint (1,000 per page, zero balances skipped) folded to owners, <code>getTokenSupply</code> against the sum — the Δ is written into the product, and a failed page writes nothing (the previous snapshot stands). Owner kind: <code>getMultipleAccounts</code> on the owner for the top ranks — System-Program-owned or absent = a wallet; any other owner = program-owned, program id kept. Nothing here comes from a post or a spreadsheet.'));
+    })().catch(e => { document.getElementById('hero').innerHTML = LD.ui.note('The page hit an error: ' + LD.esc(e && e.message || e)); throw e; });
+    </script>
+</body>
+</html>

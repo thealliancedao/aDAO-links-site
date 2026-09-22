@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- liondao/dao_unclaimed.html 1.0 (2026-09-22) — WHAT THE PRIDE CAN CLAIM. The full page behind the home's three Unclaimed
+    <!-- liondao/dao_unclaimed.html 1.1 (2026-09-22; 1.1: the pixeLions distributor panel + rates from pl_rewards) — WHAT THE PRIDE CAN CLAIM. The full page behind the home's three Unclaimed
          Rewards panels (TLA · validator · pixeLions rewards): every pending reward, bribe and rebase by wallet and pool, the
          validator's accrued commission and the wallets' own delegation rewards, the pixeLions distributor (Unknown until its
          contract is registered), and how the claimable pile has moved day to day. Source: dao-originations/lion-dao/positions. -->
@@ -23,7 +23,7 @@
     <div id="site-header"></div>
     <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
-    <script src="/liondao/lib/ld.js?v=1.0.1"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.2"></script>
 
     <main class="ld" id="page">
         <div id="crumb"></div>
@@ -31,6 +31,7 @@
         <div id="panels"></div>
         <div id="detail"></div>
         <div id="trend"></div>
+        <div id="rates"></div>
         <div id="about"></div>
     </main>
 
@@ -39,7 +40,7 @@
     <script src="/lib/site-footer.js"></script>
     <script>
     (async function () {
-        const REV = '1.0', REV_DATE = '2026-09-22';
+        const REV = '1.1', REV_DATE = '2026-09-22';
         const { fmt, ui, chart, esc, isNum, sum } = LD;
         await LD.mount({ page: 'liondao-unclaimed', rev: REV, revDate: REV_DATE });
         const T = LD._M.tenant || {};
@@ -59,7 +60,11 @@
         const V = cur.validator || {}; const delegRewLuna = sum(W.map(w => w.delegations ? w.delegations.rewards_luna : null)); const delegRewUsd = sum(W.map(w => w.delegations ? w.delegations.rewards_usd : null));
         const valLuna = sum([V.commission_unclaimed_luna, delegRewLuna]); const valUsd = sum([V.commission_unclaimed_usd, delegRewUsd]);
         const st = T.staking || {}; const plKnown = !!st.pl_rewards_distributor;
-        const totalKnown = sum([tlaUsd, valUsd]);
+        // 1.1: the distributor, read by ally-positions 1.2.0 (found 2026-09-22 by a claim tx): pending per roster wallet + the rates
+        const PR = cur.pl_rewards && Array.isArray(cur.pl_rewards.distributions) ? cur.pl_rewards : null;
+        const plPend = PR ? Object.entries(PR.pending_by_wallet || {}).flatMap(([a, rows]) => (rows || []).map(r => Object.assign({ wallet: a }, r))) : [];
+        const plUsd = PR ? sum(plPend.map(r => r.usd)) : null; const plUnpriced = plPend.filter(r => r.amount > 0 && r.usd == null);
+        const totalKnown = sum([tlaUsd, valUsd, plUsd]);
 
         $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · unclaimed · known</div>' +
             '<div class="ld-hero-v ld-num">' + (isNum(totalKnown) ? esc(fmt.usdFull(totalKnown)) : ui.unk('nothing pending read')) + '</div>' +
@@ -69,8 +74,8 @@
         // ---- the same three panels the home shows, in full
         $('panels').innerHTML = '<section class="ld-sec"><div class="ld-grid ld-g3">' +
             ui.stat({ label: 'TLA', value: fmt.usd(tlaUsd, 2), reason: 'no wallet in the engine', sub: 'deposit rewards ' + (fmt.usd(tlaKinds.reward, 2) || '$0') + ' · vote bribes ' + (fmt.usd(tlaKinds.bribe, 2) || '$0') + ' · rebase ' + (fmt.usd(tlaKinds.rebase, 2) || '$0'), source: 'capture engine, hourly · ' + pend.length + ' rows' }) +
-            ui.stat({ label: 'Validator', value: fmt.usd(valUsd), reason: 'commission read failed', sub: (fmt.luna(V.commission_unclaimed_luna) || '—') + ' commission accrued on ' + esc(fmt.short(T.validator && T.validator.account || '')) + ' · ' + (fmt.luna(delegRewLuna) || '0 LUNA') + ' delegation rewards', source: 'distribution module, live', href: '/liondao/validator.html' }) +
-            ui.stat({ label: 'pixeLions rewards', value: null, reason: plKnown ? 'not read yet' : 'distributor contract not registered — ask the council', sub: 'The DAODAO distributor that pays staked pixeLions hourly for a year after each funding. Its address in tenants.json (staking.pl_rewards_distributor) turns this on.', source: 'Unknown' }) +
+            ui.stat({ label: 'Validator', value: fmt.usd(valUsd), reason: 'commission read failed', sub: (fmt.luna(V.commission_unclaimed_luna) || '—') + ' commission accrued on ' + ui.addr(T.validator && T.validator.account || '') + ' · ' + (fmt.luna(delegRewLuna) || '0 LUNA') + ' delegation rewards', source: 'distribution module, live', href: '/liondao/validator.html' }) +
+            ui.stat({ label: 'pixeLions rewards', value: PR ? (plUsd != null ? fmt.usd(plUsd, 2) : (plPend.length ? '0 priced' : fmt.usd(0, 2))) : null, reason: plKnown ? 'the positions product has not read the distributor yet' : 'distributor contract not registered — ask the council', sub: PR ? plPend.filter(r => r.amount > 0).map(r => fmt.big(r.amount) + ' ' + (r.symbol || fmt.short(r.denom || '')) + (r.usd == null ? ' (unpriced)' : '')).join(' · ') || 'nothing pending on the roster' : 'The DAODAO distributor that pays staked pixeLions. Its address in tenants.json (staking.pl_rewards_distributor) turns this on.', source_html: PR ? 'pending_rewards on ' + ui.addr(PR.distributor) : 'Coming' }) +
             '</div></section>';
 
         // ---- detail: every pending row, grouped by wallet
@@ -89,6 +94,10 @@
             chart.line('uc-trend', [{ label: 'TLA pending', data: ds.map(d => ({ x: d, y: (D[d].by_section || {}).tla_pending_usd })) }, { label: 'Commission (LUNA)', color: '#79c0ff', fill: false, axis: 'y1', data: ds.map(d => ({ x: d, y: D[d].validator_commission_luna })) }], { zero: true, fmt1: (v) => fmt.num(v, 0) + ' LUNA' });
         } else box.innerHTML = ui.section('Trend', '', ui.note('The daily series is not written yet — it lands with ally-positions 1.1.1 and the chart draws itself as days arrive.'));
 
+        if (PR) { const rows = PR.distributions.map(d => '<tr><td class="ld-num">' + esc(d.id) + '</td><td>' + esc(d.symbol || fmt.short(d.denom || '')) + '</td>' + ui.td(d.emission_per_year != null ? esc(fmt.big(d.emission_per_year)) + ' / yr' : ui.unk(d.rate_note || 'rate did not parse'), true) + ui.td(d.per_token_per_year != null ? esc(fmt.big(d.per_token_per_year)) : '—', true) + ui.td(d.per_token_usd_per_year != null ? esc(fmt.usd(d.per_token_usd_per_year, 2)) : ui.unk('not in the price feed'), true) + ui.td(esc(fmt.big(d.funded_amount) || '—'), true) + '<td class="ld-sub">' + esc(d.rate_note || '') + '</td></tr>');
+          const apr = PR.apr || {};
+          $('rates').innerHTML = ui.section('What staking pays', 'the distributor\'s emission rates, per staked lion, priced — the APR is arithmetic on these', '<div class="ld-grid ld-g23" style="align-items:start"><div class="ld-tile">' + ui.table([{ label: '#' }, { label: 'Token' }, { label: 'Emission', r: true }, { label: 'Per lion / yr', r: true }, { label: 'USD / lion / yr', r: true }, { label: 'Funded', r: true }, { label: 'Rate as read' }], rows) + '<div class="ld-src">' + esc(fmt.int(PR.staked_count)) + ' pixeLions staked (' + esc(PR.staked_source || '') + ') · rates from the distributor contract, raw kept in the product · read ' + ui.when(cur.capturedAt) + '</div></div>' +
+            ui.stat({ label: 'APR at floor', value: fmt.pctPlain(apr.apr_pct_at_floor, 1), reason: 'no distribution priced', sub: (fmt.usd(apr.usd_per_token_per_year, 2) || '—') + ' per lion per year ÷ ' + (fmt.usd(apr.floor_usd, 2) || '—') + ' floor' + (apr.unpriced && apr.unpriced.length ? ' · unpriced: ' + apr.unpriced.map(x => fmt.short(String(x))).join(', ') : ''), source: apr.floor_source || '' }) + '</div>'); }
         $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/lion-dao/positions</b>, hourly. TLA pending = the capture engine\'s pending rewards (deposit rewards per gauge, in zLUNA), pending bribes (per bucket, at the claim period) and the locks\' rebase. Validator = the distribution module\'s accrued commission on the validator account plus each roster wallet\'s own delegation rewards. pixeLions rewards read <span class="ld-unk">Coming</span> until the distributor contract is registered — the page never estimates a claim.'));
     })().catch(e => { document.getElementById('hero').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });
     </script>

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "tenant": "liondao",
-  "note": "WHAT the Lion DAO home shows (lib/home-tiles.js renders it) — v2.3 (2026-09-22: Coming chips, mane hero, rarity back to a slot, registry supply fallbacks; v2.2: the market section in aDAO's exact shape; pyROAR + ROAR20 supply bars): aDAO's sections in aDAO's places, every tile opens a FULL PAGE in liondao/ (no sheets), the DAO rows read the positions product. Wording is Lion DAO's — 'the pride', 'LFR' — change it here. Every number names a data path in HomeTiles.derive(); a path with no source renders Unknown with its reason. Addresses live in tenants.json, never here.",
+  "note": "WHAT the Lion DAO home shows (lib/home-tiles.js renders it) — v2.5 (2026-09-22: distributor found → APR from the product, Burning Lions supply live, top burner from the ledger, addresses copy-and-go; v2.4: pyROAR + ROAR20 bars from the holder products, burn.html + roar20.html; v2.3: Coming chips, mane hero, rarity back to a slot, registry supply fallbacks; v2.2: the market section in aDAO's exact shape; pyROAR + ROAR20 supply bars): aDAO's sections in aDAO's places, every tile opens a FULL PAGE in liondao/ (no sheets), the DAO rows read the positions product. Wording is Lion DAO's — 'the pride', 'LFR' — change it here. Every number names a data path in HomeTiles.derive(); a path with no source renders Unknown with its reason. Addresses live in tenants.json, never here.",
   "lcd": [
     "https://terra-lcd.publicnode.com",
     "https://terra.publicnode.com"
@@ -148,6 +148,14 @@
               "href": "/liondao/alliance.html"
             },
             {
+              "label": "Burn leaderboard (pyROAR)",
+              "href": "/liondao/burn.html"
+            },
+            {
+              "label": "ROAR20 holders",
+              "href": "/liondao/roar20.html"
+            },
+            {
               "label": "LionDAO ops — TLA positions",
               "href": "/member-portfolio.html?address=terra1ksk66lcvzwaanc47nvn3athj4yzcpay8z8ru04"
             },
@@ -208,7 +216,7 @@
               "href": "#contracts"
             }
           ],
-          "note": "Burning Lions contract: Unknown until the collection is onboarded"
+          "note": "Burning Lions contract: tenants.json burning_lions.contract (found 2026-09-22); the folder onboarding is org-nft-inventory's"
         }
       ]
     },
@@ -280,17 +288,38 @@
           "parts": [
             {
               "label": "Lion DAO roster",
-              "key": "pyroar.held_roster",
-              "reason": "roster balances not read"
+              "key": "pyroar.p_roster",
+              "reason": "holder product not read and roster balances not read"
             },
             {
               "label": "Festival receiver (Enterprise core)",
-              "key": "pyroar.held_receiver",
-              "reason": "receiver balance not read"
+              "key": "pyroar.p_receiver",
+              "reason": "holder product not read and receiver balance not read"
+            },
+            {
+              "label": "Other contracts",
+              "key": "pyroar.p_contracts",
+              "reason": "holder product not read — contracts are named there by the chain"
+            },
+            {
+              "label": "Top 10 wallets",
+              "key": "pyroar.p_top10_wallets",
+              "reason": "holder product not read"
+            },
+            {
+              "label": "Every other wallet",
+              "key": "pyroar.p_other_wallets",
+              "reason": "holder product not read"
             }
           ],
-          "note": "The frozen burn ledger: one pyROAR per ROAR burned in the festival, live from the cw20 (or the registry's measured figure, dated, when the read fails). The black remainder sits in the burners' own wallets — the burn ledger (in build) names them. Lion DAO's published figures: {pyroar.reported_participants|int} wallets, {pyroar.reported_community|big} community + {pyroar.reported_dao|big} DAO burned, top wallet {pyroar.reported_top_wallet|big} — theirs, beside ours.",
-          "total_source_key": "pyroar.total_source"
+          "note": "One pyROAR was minted per ROAR burned in the festival; the cw20 is frozen, so its ledger is the burn leaderboard. {pyroar.holder_count|int} accounts hold it; the largest is {pyroar.top1_label} at {pyroar.top1_pct|pctPlain}, the top ten hold {pyroar.top10_pct|pctPlain}. Every account walked and summed against total_supply each day (burn/holders); kinds from the roster and the chain.",
+          "total_source_key": "pyroar.total_source",
+          "links": [
+            {
+              "label": "full leaderboard",
+              "href": "/liondao/burn.html"
+            }
+          ]
         },
         {
           "label": "ROAR20",
@@ -298,18 +327,29 @@
           "total_reason": "Solana RPC not read and no registry figure",
           "parts": [
             {
-              "label": "Largest token account",
-              "key": "roar20.top1_amount",
-              "reason": "largest accounts not read"
+              "label": "Program-owned (pools, contracts)",
+              "key": "roar20.p_program",
+              "reason": "holder product not read — the live read shows only the 20 largest accounts"
             },
             {
-              "label": "Accounts 2–20",
-              "key": "roar20.top2_20",
-              "reason": "largest accounts not read"
+              "label": "Top 10 wallets",
+              "key": "roar20.p_top10_wallets",
+              "reason": "holder product not read"
+            },
+            {
+              "label": "Every other wallet",
+              "key": "roar20.p_other_wallets",
+              "reason": "holder product not read"
             }
           ],
-          "note": "Supply is fixed at mint (authority revoked) — the registry carries it when the RPC does not answer. Solana token accounts by size (getTokenLargestAccounts), not wallets: the largest is {roar20.top1_short} — usually a pool's vault, unverified here. The black remainder is every smaller account. Holder count needs an indexer (the ROAR20 cron duty). Price, cap and liquidity are DexScreener's, on the Burning Lions row.",
-          "total_source_key": "roar20.supply_source"
+          "note": "Supply is fixed at create (mint authority revoked). {roar20.holders|int} owners hold it across their token accounts; {roar20.program_count|int} of them are program-owned accounts (a pool's vault, a contract — the program id is on file, no name is guessed) holding {roar20.program_pct|pctPlain}; the ten largest wallets hold {roar20.top10_wallets_pct|pctPlain}. Every token account walked (Helius) and summed against getTokenSupply each day (roar20/holders). Price, cap and liquidity are DexScreener's, on the Burning Lions row. Live now: the single largest token account holds {roar20.top1_pct|pctPlain} of supply (Solana RPC, the 20 largest accounts).",
+          "total_source_key": "roar20.supply_source",
+          "links": [
+            {
+              "label": "full holder list",
+              "href": "/liondao/roar20.html"
+            }
+          ]
         }
       ]
     },
@@ -430,11 +470,11 @@
         {
           "label": "Staking APR",
           "key": "pl.apr.value_pct",
-          "fmt": "pct",
-          "sub": "if 5B ROAR/yr: {pl.apr.per_nft_per_year|big} ROAR per lion ≈ {pl.apr.per_nft_usd_per_year|usd}/yr → {pl.apr.would_be_pct_at_floor|num}% at floor. Unverified until the distributor contract is read.",
-          "reason": "distributor contract not found yet",
-          "source": "arithmetic only",
-          "href": "/nft-explorer-index.html?tenant=liondao"
+          "fmt": "pctPlain",
+          "sub": "{pl.apr.per_token_usd_per_year|usd} per staked lion per year at today's prices; {pl_rewards.staked_count|int} staked. {pl.apr.source}",
+          "reason": "the positions product has not read the distributor yet",
+          "source": "the DAODAO rewards distributor, read by ally-positions",
+          "href": "/liondao/dao_unclaimed.html"
         }
       ],
       "total": {
@@ -461,9 +501,10 @@
           "label": "Supply",
           "key": "bl.supply",
           "fmt": "int",
-          "reason": "collection not onboarded; the owner says 12",
-          "source": "Coming",
-          "href": "/liondao/ecosystem.html"
+          "reason": "cw721 num_tokens not read and no registry figure",
+          "source": "{bl.supply_source}",
+          "href": "/liondao/ecosystem.html",
+          "sub": "{bl.name} · one per drawing from the burn festival"
         },
         {
           "label": "ROAR burned in the festival",
@@ -475,10 +516,11 @@
         },
         {
           "label": "Top burner",
-          "key": "bl.top_burner",
-          "sub": "reported: one wallet burned {burn.reported_top_wallet|big} ROAR; who — from the pyROAR ledger, not read yet",
-          "reason": "pyROAR ledger found — leaderboard capture next",
-          "href": "/liondao/ecosystem.html"
+          "key": "pyroar.top1_label",
+          "sub": "holds {pyroar.top1_pct|pctPlain} of pyROAR — the burn ledger, walked whole",
+          "reason": "holder product not read",
+          "href": "/liondao/burn.html",
+          "source": "burn/holders"
         },
         {
           "label": "ROAR20 (Solana)",
@@ -536,7 +578,7 @@
       "layout_note": "1.2.0: aDAO's marketplace layout in aDAO's places — three venue cards (BBL · Boost · Atrium) with floor / all-time volume / total sales / currently listed / class floors, Live Activity full width with the kind chips, All Current Listings as a 3-column grid with venue + class filters, Top 10 All-Time Sales behind a button. The venue order and rows are aDAO's; the classes (Base · 1 of 1 · Burning Lions) are this collection's."
     }
   ],
-  "version": "2.3",
+  "version": "2.5",
   "solana_rpc": [
     "https://api.mainnet-beta.solana.com"
   ],

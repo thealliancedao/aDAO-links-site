@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" data-tenant="liondao">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- liondao/burn.html 1.0 (2026-09-22) — THE BURN LEADERBOARD. Who holds pyROAR and how much: the frozen burn-ledger cw20
+         (one pyROAR per ROAR burned in the festival), every account walked daily by ally-positions/holders.js and summed against
+         the contract's total_supply (dao-originations/<dao>/burn/holders.json). Kinds come from the roster and the chain; names
+         from the roster, the festival receiver and the trust register. Chain facts only — no published figure enters this page. -->
+    <base href="/">
+    <title>Burn leaderboard — pyROAR holders | Lion DAO | thealliancedao.com</title>
+    <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
+    <meta name="description" content="Who holds pyROAR — the frozen ROAR burn ledger — and how much: every account, ranked, with the supply gate, from the chain.">
+    <meta name="theme-color" content="#0b0b0b">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #4a4000; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }
+        .hl-ctl { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: .3rem 0 .8rem } .hl-ctl input { background: #000; border: 1px solid var(--t-border); color: #fff; padding: .35rem .6rem; font-size: .8rem; min-width: 16rem } .hl-ctl input:focus { outline: none; border-color: var(--t-accent) }
+        .hl-rank { color: #737373; width: 2.6rem } .hl-bar { height: 6px; background: #1a1a1a; position: relative; margin-top: .25rem } .hl-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--t-accent) }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/collection-context.js"></script>
+    <script src="/lib/site-header.js"></script>
+    <script src="/liondao/lib/ld.js?v=1.0.2"></script>
+
+    <main class="ld" id="page">
+        <div id="crumb"></div>
+        <div id="hero"></div>
+        <div id="split"></div>
+        <div id="board"></div>
+        <div id="about"></div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>
+    (async function () {
+        const REV = '1.0', REV_DATE = '2026-09-22';
+        const { fmt, ui, esc, isNum, sum } = LD;
+        await LD.mount({ page: 'liondao-burn', rev: REV, revDate: REV_DATE });
+        const T = LD._M.tenant || {}; const DAO = LD._M.dao;
+        const $ = (id) => document.getElementById(id);
+        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'Burn leaderboard' }]);
+        const P = DAO ? await LD.jsonFetch(LD.DAOO + DAO + '/burn/holders.json', { timeoutMs: 30000 }) : null;
+        if (!P || !Array.isArray(P.holders)) { $('hero').innerHTML = ui.note('The burn leaderboard product has not been written yet — <b>ally-positions/holders.js</b> (daily) walks every pyROAR account and publishes <b>' + esc(DAO || '<dao>') + '/burn/holders.json</b>. Until its first run this page has nothing to show; nothing here is estimated.'); return; }
+        const H = P.holders.slice().sort((a, b) => b.amount - a.amount); const tok = P.token || {}; const K = P.kinds || {}; const C = P.concentration || {}; const G = P.supply_gate || {};
+        const kindLabel = { roster: 'Lion DAO roster', receiver: 'Festival receiver', contract: 'Contract', trust: 'Named wallet', wallet: 'Wallet', unclassified: 'Wallet (unverified)' };
+        const kindChip = (h) => h.kind === 'roster' ? ui.chip(h.label || 'roster', 'o') : h.kind === 'receiver' ? ui.chip('receiver', 'o') : h.kind === 'contract' ? ui.chip(h.label || 'contract', '') : (h.label ? ui.chip(h.label, '') : '');
+
+        $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · pyROAR · the frozen burn ledger</div>' +
+            '<div class="ld-hero-v ld-num">' + esc(fmt.big(tok.total_supply)) + ' <span style="font-size:.5em;color:var(--ld-muted)">pyROAR</span></div>' +
+            '<div class="ld-hero-l">One pyROAR was minted for every ROAR burned in the festival, and the cw20 has been frozen since — so who holds it is who burned. <b>' + esc(fmt.int(P.holder_count)) + '</b> accounts hold a balance' + (P.zero_balance_accounts ? ' (' + esc(fmt.int(P.zero_balance_accounts)) + ' more sit at zero)' : '') + '. The largest, <b>' + esc(H[0] ? (H[0].label || fmt.short(H[0].address)) : '—') + '</b>, holds <b>' + esc(fmt.pctPlain(C.top1_pct, 2)) + '</b>; the top ten hold <b>' + esc(fmt.pctPlain(C.top10_pct, 1)) + '</b>, the top fifty <b>' + esc(fmt.pctPlain(C.top50_pct, 1)) + '</b>.</div>' +
+            '<div class="ld-hero-s">every account walked ' + ui.when(P.capturedAt) + ' · supply gate: total_supply − Σ balances = <b class="' + (G.delta === 0 ? 'ld-good' : 'ld-bad') + '">' + esc(G.delta == null ? '—' : fmt.big(G.delta)) + '</b>' + (G.exact ? ' (exact)' : '') + ' · cw20 ' + ui.addr(tok.cw20 || '') + '</div></div>' +
+            '<div class="ld-grid ld-g4" style="margin-top:1.1rem">' +
+            ui.stat({ label: 'Holders', value: fmt.int(P.holder_count), sub: fmt.int(P.account_count) + ' accounts in the ledger', source: 'cw20 all_accounts, walked whole' }) +
+            ui.stat({ label: 'Lion DAO roster holds', value: fmt.big(K.roster ? K.roster.amount : null), reason: 'no roster rows', sub: fmt.pctPlain(K.roster && tok.total_supply ? K.roster.amount / tok.total_supply * 100 : null, 3) + ' of supply · ' + fmt.int(K.roster ? K.roster.holders : 0) + ' wallets', source: 'tenants.json roster' }) +
+            ui.stat({ label: 'Festival receiver holds', value: fmt.big(K.receiver ? K.receiver.amount : null), reason: 'receiver not among holders', sub: fmt.pctPlain(K.receiver && tok.total_supply ? K.receiver.amount / tok.total_supply * 100 : null, 2) + ' of supply', source: 'the Enterprise core the festival burned into' }) +
+            ui.stat({ label: 'In wallets', value: fmt.big(sum([K.wallet && K.wallet.amount, K.unclassified && K.unclassified.amount, K.trust && K.trust.amount])), sub: fmt.int(sum([K.wallet && K.wallet.holders, K.unclassified && K.unclassified.holders, K.trust && K.trust.holders])) + ' wallets · contracts hold ' + fmt.big(K.contract ? K.contract.amount : 0) + ' across ' + fmt.int(K.contract ? K.contract.holders : 0), source: 'wallet vs contract by the chain (top ' + (P.source && /top (\d+)/.test(P.source.kinds) ? P.source.kinds.match(/top (\d+)/)[1] : '60') + ')' }) +
+            '</div></section>';
+
+        // ---- the split
+        const parts = ['roster', 'receiver', 'contract', 'trust', 'wallet', 'unclassified'].filter(k => K[k] && K[k].amount > 0).map((k, i) => ({ label: kindLabel[k] + ' (' + fmt.int(K[k].holders) + ')', v: K[k].amount, color: LD.chart.palette[i] }));
+        $('split').innerHTML = ui.section('Where it sits', 'by kind of holder · every kind sums to the supply', '<div class="ld-tile">' + ui.bar(parts, { fmt: fmt.big, total: tok.total_supply }) + '<div class="ld-src">"Wallet (unverified)" = ranked past the top the cron asks the chain about; by all odds a wallet, not confirmed. The roster and the receiver are named by the registry; every other contract by the chain.</div></div>');
+
+        // ---- the board
+        let shown = 50, q = '';
+        const paint = () => {
+            const rows = H.filter(h => !q || h.address.includes(q) || (h.label || '').toLowerCase().includes(q.toLowerCase()));
+            const top = rows.slice(0, shown); const max = H[0] ? H[0].amount : 1;
+            $('board').innerHTML = ui.section('The leaderboard', esc(fmt.int(rows.length)) + ' of ' + esc(fmt.int(H.length)) + ' accounts · ranked by pyROAR held = ROAR burned',
+                '<div class="hl-ctl"><input id="hl-q" placeholder="find an address or a name" value="' + esc(q) + '"><span class="ld-sub">USD is not shown: pyROAR has no market — it is a receipt.</span></div>' +
+                '<div class="ld-tile">' + ui.table([{ label: '#' }, { label: 'Holder' }, { label: 'Kind' }, { label: 'pyROAR', r: true }, { label: 'Share', r: true }],
+                    top.map(h => '<tr><td class="ld-num hl-rank">' + esc(h.rank) + '</td><td>' + kindChip(h) + ' ' + ui.addr(h.address) + '<div class="hl-bar"><i style="width:' + Math.max(.5, h.amount / max * 100) + '%"></i></div></td><td class="ld-sub" title="' + esc(h.kind_source || '') + '">' + esc(kindLabel[h.kind] || h.kind || '—') + '</td>' + ui.td(esc(fmt.big(h.amount)), true) + ui.td(esc(fmt.pctPlain(h.share_pct, 3)), true) + '</tr>')) +
+                (rows.length > top.length ? '<div class="ld-center"><button class="ld-more" type="button" id="hl-more">Show ' + Math.min(50, rows.length - top.length) + ' more (' + (rows.length - top.length) + ' left)</button></div>' : '') + '</div>');
+            const inp = $('hl-q'); inp.addEventListener('input', (e) => { q = e.target.value.trim(); shown = 50; paint(); const i2 = $('hl-q'); i2.focus(); i2.setSelectionRange(i2.value.length, i2.value.length); });
+            const more = $('hl-more'); if (more) more.addEventListener('click', () => { shown += 50; paint(); });
+        };
+        paint();
+        $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/' + esc(DAO) + '/burn/holders.json</b>, written daily by <b>platform-crons/ally-positions/holders.js</b>: cw20 <code>all_accounts</code> walked whole (30 per page), <code>balance</code> per account, <code>token_info.total_supply</code> against the sum — the Δ is written into the product, and a run with one failed read writes nothing (the previous snapshot stands). Names: the tenant roster, the festival receiver, the trust register. Contract-or-wallet: the chain (<code>/cosmwasm/wasm/v1/contract/{addr}</code>) for the top ranks. Nothing here comes from a post or a spreadsheet.'));
+    })().catch(e => { document.getElementById('hero').innerHTML = LD.ui.note('The page hit an error: ' + LD.esc(e && e.message || e)); throw e; });
+    </script>
+</body>
+</html>
