@@ -175,6 +175,6 @@ console.log('— liondao/index.html v2 (home)');
   ok('Lion DAO row: Treasury ROAR 298.56B → dao_treasury; TLA positions ' + fmtUsd(R.tla_usd) + ' → dao_tla_deposits; Validator → validator.html; ROAR price → ecosystem', lion && has(T(lion), '298.56B') && has(T(lion), fmtUsd(R.tla_usd)) && ['dao_treasury', 'dao_tla_deposits', 'validator', 'ecosystem'].every(p => Array.from(lion.querySelectorAll('.ht-tile[onclick]')).some(t => t.getAttribute('onclick').includes(p))), lion && T(lion).slice(0, 300));
   ok('total strip = the positions roll-up known value ' + fmtUsd(R.known_usd) + ' with its parts (Tokens · TLA · locks · Credia · delegated · Votion), clickable', lion && has(T(lion.querySelector('.ht-total')), fmtUsd(R.known_usd)) && has(T(lion.querySelector('.ht-total')), 'Tokens') && has(T(lion.querySelector('.ht-total')), 'TLA') && lion.querySelector('.ht-total[role="link"]'), lion && T(lion.querySelector('.ht-total')));
   ok('the positions product was fetched exactly once for the home', fetched.filter(u => u.includes('lion-dao/positions/current.json')).length === 1);
-  ok('page rev 2.1 in the footer', has(T(d.getElementById('page-rev')), 'Rev 2.1')); }
+  ok('page rev 2.2 in the footer', has(T(d.getElementById('page-rev')), 'Rev 2.2')); }
 
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
