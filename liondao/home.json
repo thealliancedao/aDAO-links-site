@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "tenant": "liondao",
-  "note": "WHAT the Lion DAO home shows (lib/home-tiles.js renders it) — v2.7 (2026-09-22: top burner = top wallet, ROAR20 minted-not-fixed; v2.6: staking rewards as a rate per lion per hour, no floor; v2.5: distributor found → APR from the product, Burning Lions supply live, top burner from the ledger, addresses copy-and-go; v2.4: pyROAR + ROAR20 bars from the holder products, burn.html + roar20.html; v2.3: Coming chips, mane hero, rarity back to a slot, registry supply fallbacks; v2.2: the market section in aDAO's exact shape; pyROAR + ROAR20 supply bars): aDAO's sections in aDAO's places, every tile opens a FULL PAGE in liondao/ (no sheets), the DAO rows read the positions product. Wording is Lion DAO's — 'the pride', 'LFR' — change it here. Every number names a data path in HomeTiles.derive(); a path with no source renders Unknown with its reason. Addresses live in tenants.json, never here.",
+  "note": "WHAT the Lion DAO home shows (lib/home-tiles.js renders it) — v3.0 (2026-09-22: menus built from the registry; v2.9: ROAR bar on 1T minted with burned + DEX pools; PL rewards tile from the product; BL 7 of 12; v2.7: top burner = top wallet, ROAR20 minted-not-fixed; v2.6: staking rewards as a rate per lion per hour, no floor; v2.5: distributor found → APR from the product, Burning Lions supply live, top burner from the ledger, addresses copy-and-go; v2.4: pyROAR + ROAR20 bars from the holder products, burn.html + roar20.html; v2.3: Coming chips, mane hero, rarity back to a slot, registry supply fallbacks; v2.2: the market section in aDAO's exact shape; pyROAR + ROAR20 supply bars): aDAO's sections in aDAO's places, every tile opens a FULL PAGE in liondao/ (no sheets), the DAO rows read the positions product. Wording is Lion DAO's — 'the pride', 'LFR' — change it here. Every number names a data path in HomeTiles.derive(); a path with no source renders Unknown with its reason. Addresses live in tenants.json, never here.",
   "lcd": [
     "https://terra-lcd.publicnode.com",
     "https://terra.publicnode.com"
@@ -79,27 +79,13 @@
           "kind": "menu",
           "items": [
             {
-              "label": "liondao.money",
-              "href": "https://liondao.money/"
-            },
-            {
-              "label": "Lion DAO on DAODAO",
-              "href": "https://daodao.zone/dao/terra1tkersa2mqwy2h8exj799qx2xrhdu0dkymk9psp6v0k4kz4tkxucssgluec"
-            },
-            {
-              "label": "pixeLions DAO on DAODAO",
-              "href": "https://daodao.zone/dao/terra1c690mdrwdetnr09zfk3tf9xz9jhrgd9wpjyf3tuccj74ql09eqmq6sh7en"
-            },
-            {
-              "label": "ROAR on CoinGecko",
-              "href": "https://www.coingecko.com/en/coins/lion-dao"
-            },
-            {
               "label": "pixeLions on BackBone Labs",
               "href": "https://www.backbonelabs.io/"
             }
           ],
-          "note": "the full list is Lion DAO's to keep — more links land when they hand them over"
+          "note": "From the registry (tenants.json links + derived explorer pages); the full list is Lion DAO's to keep.",
+          "from": "links",
+          "items_section": "More"
         },
         {
           "id": "alliance",
@@ -115,14 +101,6 @@
           "icon": "fa-landmark",
           "kind": "menu",
           "items": [
-            {
-              "label": "Lion DAO treasury (DAODAO)",
-              "href": "https://daodao.zone/dao/terra1tkersa2mqwy2h8exj799qx2xrhdu0dkymk9psp6v0k4kz4tkxucssgluec"
-            },
-            {
-              "label": "pixeLions DAO (DAODAO)",
-              "href": "https://daodao.zone/dao/terra1c690mdrwdetnr09zfk3tf9xz9jhrgd9wpjyf3tuccj74ql09eqmq6sh7en"
-            },
             {
               "label": "Treasury — every holding by wallet",
               "href": "/liondao/dao_treasury.html"
@@ -154,69 +132,19 @@
             {
               "label": "ROAR20 holders",
               "href": "/liondao/roar20.html"
-            },
-            {
-              "label": "LionDAO ops — TLA positions",
-              "href": "/member-portfolio.html?address=terra1ksk66lcvzwaanc47nvn3athj4yzcpay8z8ru04"
-            },
-            {
-              "label": "pixeLions msig — TLA positions",
-              "href": "/member-portfolio.html?address=terra1xgg9cf94ws2mawr6lyrdvmyxt48xkwgp8gvtsrcg2yktqvk8w2rqxflq06"
-            },
-            {
-              "label": "phoenix.money portfolio",
-              "href": "https://phoenix.money/"
             }
-          ]
+          ],
+          "from": "wallets",
+          "items_section": "Pages"
         },
         {
           "id": "contracts",
           "label": "Contracts",
           "icon": "fa-file-contract",
           "kind": "menu",
-          "items": [
-            {
-              "label": "ROAR (cw20)",
-              "href": "https://chainsco.pe/terra2/address/terra1lxx40s29qvkrcj8fsa3yzyehy7w50umdvvnls2r830rys6lu2zns63eelv"
-            },
-            {
-              "label": "ampROAR hub (Eris)",
-              "href": "https://chainsco.pe/terra2/address/terra1vklefn7n6cchn0u962w3gaszr4vf52wjvd4y95t2sydwpmpdtszsqvk9wy"
-            },
-            {
-              "label": "ROAR staking (DAODAO)",
-              "href": "https://chainsco.pe/terra2/address/terra1xuqh84yz35h70p3ppt76dz5kgwwtwmsv34pg0gw6ld4ntptgjcrqe2e70t"
-            },
-            {
-              "label": "ROAR rewards distributor",
-              "href": "https://chainsco.pe/terra2/address/terra1zug2ur6d5ls7vgzwkh0m2002jrallfehpsadpltjqr3vhgvp6lnq90rj3w"
-            },
-            {
-              "label": "pixeLions NFT",
-              "href": "https://chainsco.pe/terra2/address/terra17z7fpaa8kah698xn5tarrcucvualdy4wsztkfc404g3garucpu6qmxp50g"
-            },
-            {
-              "label": "pixeLions staking (DAODAO)",
-              "href": "https://chainsco.pe/terra2/address/terra127dehd2d6t7ynnezkxkre2w83ze0t7lmghpu6vn4y5mfmwfj5x9qqdh4sz"
-            },
-            {
-              "label": "Lion DAO validator",
-              "href": "https://chainsco.pe/terra2/validator/terravaloper1pet430t7ykswxuyhh56d4gk6rt7qgu9as6a5r0"
-            },
-            {
-              "label": "LUNA-ROAR pair (Astroport)",
-              "href": "https://chainsco.pe/terra2/address/terra189v2ewgfx5wdhje6geefdtxefeemujplk8qw2wx3x5hdswn95l8qf4n2r0"
-            },
-            {
-              "label": "ampROAR-ROAR pool (SkeletonSwap)",
-              "href": "https://chainsco.pe/terra2/address/terra1d8ap3zyd6tfnruuuwvs0t927lr4zwptruhulfwnxjpqzudvyn8usfgl8ze"
-            },
-            {
-              "label": "Burning Lions NFT",
-              "href": "#contracts"
-            }
-          ],
-          "note": "Burning Lions contract: tenants.json burning_lions.contract (found 2026-09-22); the folder onboarding is org-nft-inventory's"
+          "items": [],
+          "note": "Built from tenants.json (the registry). A contract missing here is a registry edit, never a page edit.",
+          "from": "contracts"
         }
       ]
     },
@@ -227,9 +155,14 @@
       "bars": [
         {
           "label": "ROAR",
-          "total_key": "roar.total_supply",
-          "total_reason": "token_info not read",
+          "total_key": "roar.minted",
+          "total_reason": "no minted figure in the registry",
           "parts": [
+            {
+              "label": "Burned",
+              "key": "roar.burned",
+              "reason": "token_info not read"
+            },
             {
               "label": "Staked in Lion DAO",
               "key": "roar.staked_daodao",
@@ -241,12 +174,13 @@
               "reason": "balance not read"
             },
             {
-              "label": "Burned",
-              "key": "roar.burned",
-              "reason": "burn source not found yet"
+              "label": "In DEX pools",
+              "key": "roar.in_pools",
+              "reason": "no pool balance read"
             }
           ],
-          "note": "The rest — ampROAR, TLA LPs, DEX LPs outside TLA, wallets — is the supply map (in build). The black remainder is what is not attributed yet."
+          "note": "Of the 1T minted: burned = minted − live supply ({roar.total_supply|big} today); staked and treasury live from the contracts; DEX pools = the ROAR held by the registered pairs ({roar.pools_note}). The black remainder, {roar.unattributed|big}, is ROAR in wallets and in contracts not listed here (the ampROAR hub, the OTC escrow, the pyROAR-ROAR pair) — the supply map product will name it.",
+          "total_source_key": "roar.minted_source"
         },
         {
           "label": "pixeLions",
@@ -381,12 +315,12 @@
         {
           "label": "pixeLions rewards",
           "key": "unclaimed.nft_usd",
-          "reason": "distributor contract not found yet",
+          "reason": "the positions product has not read the distributor yet",
+          "source": "pending_rewards on the DAODAO distributor, per roster wallet — ally-positions, hourly",
+          "href": "/liondao/dao_unclaimed.html",
           "lines": [
-            "The DAODAO distributor that pays staked pixeLions hourly — once its address is known, what is claimable shows here."
-          ],
-          "source": "Coming",
-          "href": "/liondao/dao_unclaimed.html"
+            "{pl_rewards.pending_note}. Staking pays {pl_rewards.roar_per_lion_per_hour|num} ROAR per lion per hour; no roster wallet stakes pixeLions today."
+          ]
         }
       ]
     },
@@ -501,18 +435,18 @@
       "metrics": [
         {
           "label": "Supply",
-          "key": "bl.supply",
-          "fmt": "int",
+          "key": "bl.supply_text",
+          "fmt": "text",
           "reason": "cw721 num_tokens not read and no registry figure",
-          "source": "{bl.supply_source}",
+          "source": "cw721 num_tokens · tenants.json burning_lions.supply",
           "href": "/liondao/ecosystem.html",
-          "sub": "{bl.name} · one per drawing from the burn festival"
+          "sub": "{bl.name} · minted on the cw721 (live) vs the pride’s stated count · {bl.gap_note}"
         },
         {
           "label": "ROAR burned in the festival",
           "key": "burn.reported_total",
           "fmt": "big",
-          "sub": "reported by Lion DAO, {burn.reported_as_of|date} · {burn.reported_participants|int} wallets · gone from supply on chain: {burn.supply_delta|big}",
+          "sub": "reported by Lion DAO, {burn.reported_as_of|date} · {burn.reported_participants|int} wallets · measured: {burn.supply_delta|big} gone from supply (1T minted − live), {pyroar.holder_count|int} pyROAR holders",
           "source": "Lion DAO's published figures — not ours yet",
           "href": "/liondao/ecosystem.html"
         },
@@ -581,7 +515,7 @@
       "layout_note": "1.2.0: aDAO's marketplace layout in aDAO's places — three venue cards (BBL · Boost · Atrium) with floor / all-time volume / total sales / currently listed / class floors, Live Activity full width with the kind chips, All Current Listings as a 3-column grid with venue + class filters, Top 10 All-Time Sales behind a button. The venue order and rows are aDAO's; the classes (Base · 1 of 1 · Burning Lions) are this collection's."
     }
   ],
-  "version": "2.7",
+  "version": "3.0",
   "solana_rpc": [
     "https://solana-rpc.publicnode.com",
     "https://api.mainnet-beta.solana.com"
