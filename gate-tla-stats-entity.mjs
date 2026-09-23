@@ -1,0 +1,27 @@
+// gate-tla-stats-entity.mjs — TLA Stats on an ally's tenant (2026-09-23): the DAO entity comes from the tenant. Extracts the
+// entity block from tla-stats.html and runs it in jsdom with the Lion DAO tenant + the positions fixture. Run from the repo root:
+//   TLA_CORE_DIR=<tla-core> DAOO_DIR=<dao-originations> node gate-tla-stats-entity.mjs
+import { JSDOM } from 'jsdom'; import fs from 'fs'; import path from 'path';
+const CORE = process.env.TLA_CORE_DIR, DAOO = process.env.DAOO_DIR; if (!CORE || !DAOO) { console.error('TLA_CORE_DIR and DAOO_DIR required'); process.exit(1); }
+const J = (p) => JSON.parse(fs.readFileSync(p, 'utf8')); const tenants = J(path.join(CORE, 'docs/curated/tenants.json')); const cur = J(path.join(DAOO, 'lion-dao/positions/current.json'));
+let pass = 0, fail = 0; const ok = (m, c, x) => { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++; console.log('  ✗ ' + m + (x !== undefined ? ' → ' + JSON.stringify(x).slice(0, 400) : '')); } };
+const html = fs.readFileSync('tla-stats.html', 'utf8'); const i = html.indexOf('const DAO_ENTITY = {'); const j = html.indexOf('    const CONFIG = {', i); const block = html.slice(i, j);
+ok('tla-stats.html carries the entity block and routes the positions fetch through loadDaoPositions', i > 0 && /loadDaoPositions\(CONFIG\.adaoPositionsUrl\)/.test(html) && !/fetch\(CONFIG\.adaoPositionsUrl\)/.test(html));
+async function runWith(tenantSlug) {
+  const dom = new JSDOM('<!doctype html><html><body><main><h1>TLA Total VP</h1><span id="lbl">aDAO VP · aDAO votes · the aDAO tab</span><div id="dyn"></div></main><header id="site-header"><span>aDAO</span></header></body></html>', { runScripts: 'outside-only', url: 'https://thealliancedao.com/tla-stats.html' });
+  const w = dom.window; w.CollectionContext = { load: async () => ({ tenant: tenantSlug === 'adao' ? { slug: 'adao', label: 'Alliance DAO', short: 'aDAO' } : Object.assign({ slug: tenantSlug }, tenants.tenants[tenantSlug]) }) };
+  const fetched = []; w.fetch = async (u) => { fetched.push(String(u)); if (/dao-originations\/main\/lion-dao\/positions\/current\.json/.test(u)) return { ok: true, json: async () => cur }; if (/member-data\/positions\/current\.json/.test(u)) return { ok: true, json: async () => ({ treasury: { wallet: 'terra1adao', summary: { voting_power_human: 841500 } }, members: [{ wallet: 'terra1m1' }] }) }; return { ok: false }; };
+  w.eval(block + '\nwindow.__loadDaoPositions = loadDaoPositions; window.__daoEntityP = daoEntityP;');
+  const P = await w.__loadDaoPositions('https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/current.json'); const E = await w.__daoEntityP; await new Promise(r => setTimeout(r, 50));
+  return { w, P, E, fetched };
+}
+console.log('— aDAO tenant: nothing changes');
+{ const { w, P, E, fetched } = await runWith('adao'); ok('entity = aDAO; the aDAO positions product is fetched as before; the page copy is untouched ("aDAO VP")', E.slug === 'adao' && fetched.some(u => /member-data\/positions/.test(u)) && P.treasury.summary.voting_power_human === 841500 && w.document.getElementById('lbl').textContent.startsWith('aDAO VP'), [E, fetched]); }
+console.log('— Lion DAO tenant: the entity is the roster');
+{ const { w, P, E, fetched } = await runWith('liondao'); const W = Object.values(cur.wallets); const vp = W.reduce((a, x) => a + (Number(x.portfolio && x.portfolio.summary && x.portfolio.summary.voting_power_human) || 0), 0); const lps = W.reduce((a, x) => a + ((x.portfolio && x.portfolio.lp_positions) || []).length, 0);
+  ok('entity = Lion DAO (label from the registry, daoRoot lion-dao); dao-originations/lion-dao/positions is fetched, NOT member-data/positions', E.slug === 'liondao' && E.daoRoot === 'lion-dao' && fetched.some(u => /lion-dao\/positions/.test(u)) && !fetched.some(u => /member-data\/positions/.test(u)), [E.slug, E.daoRoot, fetched]);
+  ok('the shim: treasury = the roster SUMMED into one entity — VP ' + vp.toLocaleString() + ' = Σ wallets, ' + lps + ' LP positions concatenated, votes_per_bucket summed; members = the ' + W.length + ' roster wallets in the member shape (wallet, name, summary, voting, lp_positions)', P.treasury._entity === 'roster_sum' && Math.abs(P.treasury.summary.voting_power_human - vp) < 1e-6 && Math.abs(P.treasury.voting.total_voting_power_human - vp) < 1e-6 && P.treasury.lp_positions.length === lps && P.members.length === W.length && P.members.every(m => m.wallet && m.name && m.summary && m.voting), [P.treasury.summary.voting_power_human, vp, P.members.length]);
+  ok('the page copy reads as the ally: "aDAO VP" → "' + E.short + ' VP", "the aDAO tab" → "the ' + E.short + ' tab"; the site header (every tenant listed) is left alone', w.document.getElementById('lbl').textContent === E.short + ' VP · ' + E.short + ' votes · the ' + E.short + ' tab' && w.document.querySelector('#site-header span').textContent === 'aDAO', w.document.getElementById('lbl').textContent);
+  const dyn = w.document.getElementById('dyn'); dyn.innerHTML = '<b title="aDAO snapshot">aDAO Vote History</b>'; await new Promise(r => setTimeout(r, 30));
+  ok('text the page renders LATER is relabeled too (MutationObserver), title attributes included', dyn.textContent === E.short + ' Vote History' && dyn.querySelector('b').title === E.short + ' snapshot', [dyn.textContent, dyn.querySelector('b').title]); }
+console.log(`${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

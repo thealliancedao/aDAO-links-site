@@ -2081,6 +2081,30 @@
     // ============================================================
     // CONFIGURATION
     // ============================================================
+    // ---------------------------------------------------------------- 2026-09-23 (owner): the DAO ENTITY is the tenant's, not always aDAO.
+    //   On aDAO nothing changes. On an ally's tenant (Lion DAO) the "aDAO" entity on this page — the VP slice, the vote and bribe
+    //   tables, the members list — becomes that ally: its positions product (dao-originations/<dao>/positions/current.json, the same
+    //   capture engine, the same member shape under each wallet's `portfolio`) is folded into one entity (the roster summed) and the
+    //   word "aDAO" in the page's own copy reads as the ally's short name. Every number is the ally's roster; nothing is estimated.
+    const DAO_ENTITY = { slug: 'adao', label: 'aDAO', short: 'aDAO', daoRoot: null, tenant: null };
+    const daoEntityP = (async () => { try { if (!window.CollectionContext || !CollectionContext.load) return DAO_ENTITY; const ctx = await CollectionContext.load(); const t = ctx && ctx.tenant; if (!t || !t.slug || t.slug === 'adao') return DAO_ENTITY; DAO_ENTITY.slug = t.slug; DAO_ENTITY.label = t.label || t.slug; DAO_ENTITY.short = t.short || t.label || t.slug; DAO_ENTITY.daoRoot = Array.isArray(t.daos) && t.daos.length ? t.daos[0] : null; DAO_ENTITY.tenant = t; return DAO_ENTITY; } catch (e) { return DAO_ENTITY; } })();
+    async function loadDaoPositions(adaoUrl) {
+        const E = await daoEntityP;
+        if (E.slug === 'adao' || !E.daoRoot) return fetch(adaoUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('adao-positions fetch:', e.message); return null; });
+        const url = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/' + E.daoRoot + '/positions/current.json?t=' + Math.floor(Date.now() / 300000);
+        const c = await fetch(url).then(r => r.ok ? r.json() : null).catch(e => { console.warn('ally positions fetch:', e.message); return null; }); if (!c || !c.wallets) return null;
+        const W = Object.values(c.wallets); const members = W.map(w => { const p = w.portfolio || {}; return Object.assign({}, p, { wallet: w.address, name: w.label || w.address, _role: w.counts_as || w.role || null, summary: p.summary || { voting_power_human: 0, vp_boost_human: 0, fixed_amount_human: 0, lock_count: 0 }, voting: p.voting || { total_voting_power_human: 0, votes_per_bucket: {} }, lp_positions: p.lp_positions || [], locks: p.locks || [], pending_rewards: p.pending_rewards || [], pending_bribes: p.pending_bribes || [] }); });   // a roster wallet with no TLA (the validator account) is still a member, with zeros — never a hole
+        const sumBy = (k) => members.reduce((a, m) => a + (Number(m.summary && m.summary[k]) || 0), 0); const vpb = {}; members.forEach(m => { const v = m.voting && m.voting.votes_per_bucket; if (v && typeof v === 'object') Object.keys(v).forEach(b => { vpb[b] = (vpb[b] || 0) + (Number(v[b]) || 0); }); });
+        const treasuryAddr = (W.find(w => w.counts_as === 'treasury') || W[0] || {}).address;
+        const entity = { wallet: treasuryAddr, name: E.label, _entity: 'roster_sum', _wallets: W.map(w => w.address),
+            lp_positions: members.flatMap(m => (m.lp_positions || []).map(l => Object.assign({}, l, { _wallet: m.wallet }))), locks: members.flatMap(m => m.locks || []), pending_rewards: members.flatMap(m => m.pending_rewards || []), pending_bribes: members.flatMap(m => m.pending_bribes || []),
+            summary: { voting_power_human: sumBy('voting_power_human'), vp_boost_human: sumBy('vp_boost_human'), fixed_amount_human: sumBy('fixed_amount_human'), lock_count: sumBy('lock_count'), amplified_lp_usd: sumBy('amplified_lp_usd'), non_amplified_lp_usd: sumBy('non_amplified_lp_usd'), total_lp_position_usd: sumBy('total_lp_position_usd'), total_pending_rewards_usd: sumBy('total_pending_rewards_usd'), total_pending_bribes_usd: sumBy('total_pending_bribes_usd') },
+            voting: { total_voting_power_human: members.reduce((a, m) => a + (Number(m.voting && m.voting.total_voting_power_human) || 0), 0), votes_per_bucket: vpb } };
+        return { capturedAt: c.capturedAt, source: 'dao-originations/' + E.daoRoot + '/positions (roster summed into one entity)', treasury: entity, members, _entity: E };
+    }
+    // the page's own copy says "aDAO" in ~80 places; on an ally's tenant those read as the ally (the site header, which lists every tenant, is left alone)
+    daoEntityP.then(E => { if (E.slug === 'adao') return; const root = document.querySelector('main'); if (!root) return; const RE = /\baDAO\b/g; const fix = (n) => { if (n.nodeType === 3) { if (RE.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(RE, E.short); } else if (n.nodeType === 1 && !/^(SCRIPT|STYLE)$/.test(n.tagName)) { for (const c of n.childNodes) fix(c); if (n.title && RE.test(n.title)) n.title = n.title.replace(RE, E.short); } }; fix(root); new MutationObserver(ms => { for (const m of ms) { for (const n of m.addedNodes) fix(n); if (m.type === 'characterData') fix(m.target); } }).observe(root, { childList: true, subtree: true, characterData: true }); });
+
     const CONFIG = {
         // New continuous data sources (post-2026 cron rebuild)
         tlaSnapshotUrl:    'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/tla-snapshot/current.json',
@@ -2984,7 +3008,7 @@
                 fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/optimization/current.json?t=' + Math.floor(Date.now() / 900000)).then(r => r.ok ? r.json() : null).catch(() => null).then(d => { store.votionByPid = {}; for (const [gauge, gd] of Object.entries((d && d.aggregate) || {})) for (const [pid, pp] of Object.entries(gd.pools || {})) store.votionByPid[gauge + '|' + pid] = { current_vp: pp.current_vp || 0, planned_vp: pp.planned_vp || 0 }; store.votionOptAt = d && d.capturedAt || null; store.votionOptPeriod = d && d.period || null; store.votionOptRaw = d; return d; }),
                 fetch(CONFIG.tlaSnapshotUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('tla-snapshot fetch:', e.message); return null; }),
                 fetch(CONFIG.networkPricesUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('network-prices fetch:', e.message); return null; }),
-                fetch(CONFIG.adaoPositionsUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('adao-positions fetch:', e.message); return null; }),
+                loadDaoPositions(CONFIG.adaoPositionsUrl),   // 2026-09-23: the tenant's DAO entity (aDAO unchanged; an ally's roster otherwise)
                 fetch(CONFIG.bribesCurrentUrl).then(r => r.ok ? r.json() : null)
                     // ORG ADAPTER: bribe-state month file is a LIST of harvests; the
                     // page expects {active_bribes:[...]}. Latest harvest's buckets are
