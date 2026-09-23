@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" data-tenant="liondao">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- liondao/whales.html 1.0 (2026-09-23) — THE ROAR WHALE TRACKER. Every wallet's ROAR by where it sits: staked in the DAO ·
+         liquid ROAR · liquid ampROAR (in ROAR at the hub's rate) · in TLA-amplified LP (≈, a derivation) · in plain LP · total.
+         Reads dao-originations/<dao>/roar/holders.json (ally-positions/holders.js duty `roar`, daily). Each column names its source
+         on the product; a column whose source failed is Coming for everyone, never a zero. Names: roster, then the address catalog. -->
+    <base href="/">
+    <title>ROAR whales | Lion DAO | thealliancedao.com</title>
+    <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
+    <meta name="description" content="Who holds ROAR and where it sits — staked, liquid, ampROAR, in LP — every wallet, ranked, from the chain.">
+    <meta name="theme-color" content="#0b0b0b">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #262626; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }
+        .wh-ctl { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: .3rem 0 .8rem } .wh-ctl input { background: #000; border: 1px solid var(--t-border); color: #fff; padding: .35rem .6rem; font-size: .8rem; min-width: 16rem } .wh-ctl input:focus { outline: none; border-color: var(--t-accent) }
+        .wh-tab { font-size: .72rem; font-weight: 600; padding: .28rem .65rem; border: 1px solid #3a3a3a; border-radius: 999px; background: transparent; color: #9ca3af; cursor: pointer } .wh-tab.on { color: var(--t-accent); border-color: var(--t-accent); background: rgba(255,230,0,.1) }
+        .wh-mini { display: flex; height: 6px; background: #1a1a1a; margin-top: .25rem; overflow: hidden; border-radius: 3px } .wh-mini i { display: block; height: 100% }
+        .wh-num { font-variant-numeric: tabular-nums; white-space: nowrap } .wh-est { color: #9ca3af } .wh-est::before { content: "≈ " }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/collection-context.js"></script>
+    <script src="/lib/site-header.js"></script>
+    <script src="/liondao/lib/ld.js?v=1.2.0"></script>
+
+    <main class="ld" id="page">
+        <div id="crumb"></div>
+        <div id="hero"></div>
+        <div id="chart"></div>
+        <div id="board"></div>
+        <div id="about"></div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>
+    (async function () {
+        const REV = '1.0', REV_DATE = '2026-09-23';
+        const { fmt, ui, esc, isNum, sum } = LD;
+        await LD.mount({ page: 'liondao-whales', rev: REV, revDate: REV_DATE });
+        const T = LD._M.tenant || {}; const DAO = LD._M.dao;
+        const $ = (id) => document.getElementById(id);
+        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'ROAR whales' }]);
+        const [P, nap] = await Promise.all([DAO ? LD.jsonFetch(LD.DAOO + DAO + '/roar/holders.json', { timeoutMs: 45000 }) : null, LD.nap()]);
+        if (!P || !Array.isArray(P.holders)) { $('hero').innerHTML = ui.note('The whale product has not been written yet — <b>ally-positions/holders.js</b> (duty <code>roar</code>, daily inside the positions job) walks the stakers, the cw20, the ampROAR owners, the participants and the pairs, and publishes <b>' + esc(DAO || '<dao>') + '/roar/holders.json</b>. Until its first run this page has nothing to show; nothing here is estimated.'); return; }
+        const sym = P.token.symbol || 'ROAR'; const px = nap && nap.token_prices && nap.token_prices[sym] ? nap.token_prices[sym].final_price_usd : null; const usd = (v) => isNum(v) && px != null ? fmt.usd(v * px) : null;
+        const C = P.columns || {}; const S = P.sums || {}; const H = P.holders.slice(); const supply = P.token.total_supply;
+        const COLS = [{ k: 'staked', label: 'Staked', color: '#ffe600' }, { k: 'liquid', label: 'Liquid ' + sym, color: '#f59e0b' }, { k: 'amp', label: 'Liquid amp' + sym, color: '#fde68a' }, { k: 'lp_amp', label: 'TLA-amp LP', color: '#79c0ff', est: true }, { k: 'lp_plain', label: 'Plain LP', color: '#a78bfa' }];
+        const colOk = (k) => C[k] && C[k].ok;
+
+        // ---- hero
+        $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · ' + esc(sym) + ' whales · where every wallet\'s ' + esc(sym) + ' sits</div>' +
+            '<div class="ld-hero-v ld-num">' + esc(fmt.int(P.holder_count)) + ' <span style="font-size:.5em;color:var(--ld-muted)">wallets ≥ ' + esc(fmt.big(P.min_total_roar || 0)) + '</span></div>' +
+            '<div class="ld-hero-l">Of ' + esc(fmt.big(supply)) + ' in supply, the wallets and contracts here account for <b>' + esc(fmt.big(S.total)) + '</b> (' + esc(fmt.pctPlain(S.total / supply * 100, 1)) + '): <b>' + esc(fmt.big(S.staked)) + '</b> staked in the DAO, <b>' + esc(fmt.big(S.liquid)) + '</b> liquid, <b>' + esc(fmt.big(S.amp)) + '</b> as amp' + esc(sym) + ' (at the hub\'s rate), <b>' + esc(fmt.big(S.lp_amp)) + '</b> in TLA-amplified LP (≈), <b>' + esc(fmt.big(S.lp_plain)) + '</b> in plain LP. The largest holds <b>' + esc(fmt.pctPlain(P.concentration.top1_pct, 1)) + '</b> of supply, the top ten <b>' + esc(fmt.pctPlain(P.concentration.top10_pct, 1)) + '</b>, the top twenty-five <b>' + esc(fmt.pctPlain(P.concentration.top25_pct, 1)) + '</b>.</div>' +
+            '<div class="ld-hero-s">walked ' + ui.when(P.capturedAt) + ' · ' + esc(fmt.int(P.wallets_seen)) + ' wallets seen · staked gate Δ <b class="' + (C.staked && C.staked.gate_delta === 0 ? 'ld-good' : 'ld-bad') + '">' + esc(C.staked && C.staked.gate_delta != null ? fmt.big(C.staked.gate_delta) : '—') + '</b> vs the module total · ' + esc(sym) + ' ' + esc(fmt.price(px) || '—') + '</div></div>' +
+            '<div class="ld-grid ld-g4" style="margin-top:1.1rem">' + COLS.slice(0, 4).map(c => ui.stat({ label: c.label + (c.est ? ' (≈)' : ''), value: colOk(c.k) ? fmt.big(S[c.k]) : null, reason: (C[c.k] && C[c.k].reason) || 'column not read', sub: colOk(c.k) ? (usd(S[c.k]) || '') + ' · ' + fmt.pctPlain(S[c.k] / supply * 100, 1) + ' of supply' : '', source: (C[c.k] && C[c.k].source) || '' })).join('') + '</div></section>';
+
+        // ---- the chart: top 25 stacked by column
+        const top = H.slice(0, 25); const nameOf = (h) => h.label || fmt.short(h.address);
+        $('chart').innerHTML = ui.section('The whales', 'top 25 by total ' + esc(sym) + ' · stacked by where it sits · contracts (pools, the hub, DAO cores) included and marked',
+            '<div class="ld-tile"><div class="ld-chart" style="height:' + (Math.max(320, top.length * 26)) + 'px"><canvas id="wh-chart"></canvas></div><div class="ld-src">A bar is one wallet; its segments are the five columns. amp' + esc(sym) + ' is in ' + esc(sym) + ' at the hub\'s exchange rate; TLA-amplified LP is a derivation (half of each two-sided position by value ÷ price) — every other segment is a contract read.</div></div>');
+        (function () { const Ch = window.Chart; if (!Ch) return; const el = document.getElementById('wh-chart'); if (!el) return; Ch.defaults.color = '#a3a3a3'; Ch.defaults.font.family = 'Inter, system-ui, sans-serif'; Ch.defaults.font.size = 11;
+            new Ch(el.getContext('2d'), { type: 'bar', data: { labels: top.map(nameOf), datasets: COLS.filter(c => colOk(c.k)).map(c => ({ label: c.label + (c.est ? ' ≈' : ''), data: top.map(h => h[c.k] || 0), backgroundColor: c.color, borderWidth: 0, stack: 's' })) },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'top', labels: { boxWidth: 10 } }, tooltip: { callbacks: { label: (x) => ' ' + x.dataset.label + ': ' + fmt.big(x.parsed.x) + ' ' + sym, footer: (items) => 'total ' + fmt.big(items.reduce((a, i) => a + i.parsed.x, 0)) + ' ' + sym } } }, scales: { x: { stacked: true, grid: { color: 'rgba(255,230,0,.08)' }, ticks: { callback: (v) => fmt.big(v) } }, y: { stacked: true, grid: { display: false }, ticks: { autoSkip: false } } } } }); })();
+
+        // ---- the board
+        let shown = 50, q = '', kind = 'all';
+        const paint = () => {
+            const rows = H.filter(h => (kind === 'all' || (kind === 'wallets' ? h.kind !== 'contract' : h.kind === 'contract')) && (!q || h.address.includes(q) || (h.label || '').toLowerCase().includes(q.toLowerCase())));
+            const list = rows.slice(0, shown); const max = H[0] ? H[0].total : 1;
+            const cell = (h, c) => colOk(c.k) ? ui.td('<span class="wh-num' + (c.est && h[c.k] > 0 ? ' wh-est' : '') + '">' + esc(fmt.big(h[c.k])) + '</span>', true) : ui.td(ui.unk((C[c.k] && C[c.k].reason) || 'column not read'), true);
+            $('board').innerHTML = ui.section('Every wallet', esc(fmt.int(rows.length)) + ' of ' + esc(fmt.int(H.length)) + ' · ranked by total · ' + esc(sym) + ' per column',
+                '<div class="wh-ctl"><input id="wh-q" placeholder="find an address or a name" value="' + esc(q) + '">' + [['all', 'All'], ['wallets', 'Wallets'], ['contracts', 'Contracts']].map(x => '<button type="button" class="wh-tab' + (kind === x[0] ? ' on' : '') + '" data-k="' + x[0] + '">' + x[1] + '</button>').join('') + '<span class="ld-sub">' + (px != null ? 'USD at ' + esc(fmt.price(px)) : 'no price') + '</span></div>' +
+                '<div class="ld-tile">' + ui.table([{ label: '#' }, { label: 'Wallet' }].concat(COLS.map(c => ({ label: c.label + (c.est ? ' ≈' : ''), r: true }))).concat([{ label: 'Total', r: true }, { label: 'USD', r: true }, { label: 'of supply', r: true }]),
+                    list.map(h => '<tr data-kind="' + esc(h.kind || '') + '"><td class="ld-num" style="color:var(--ld-dim)">' + esc(h.rank) + '</td><td>' + (h.kind === 'contract' ? ui.chip(h.contract_label || 'contract', '') + ' ' : (h.kind === 'roster' ? ui.chip('roster', 'o') + ' ' : '')) + ui.addr(h.address) + '<div class="wh-mini">' + COLS.filter(c => colOk(c.k) && h[c.k] > 0).map(c => '<i style="width:' + (h[c.k] / max * 100) + '%;background:' + c.color + '" title="' + esc(c.label + ' ' + fmt.big(h[c.k])) + '"></i>').join('') + '</div></td>' + COLS.map(c => cell(h, c)).join('') + ui.td('<b class="wh-num" style="color:#fff">' + esc(fmt.big(h.total)) + '</b>', true) + ui.td(esc(usd(h.total) || '—'), true) + ui.td(esc(fmt.pctPlain(h.total / supply * 100, 2)), true) + '</tr>')) +
+                (rows.length > list.length ? '<div class="ld-center"><button class="ld-more" type="button" id="wh-more">Show ' + Math.min(50, rows.length - list.length) + ' more (' + (rows.length - list.length) + ' left)</button></div>' : '') + '</div>');
+            const inp = $('wh-q'); inp.addEventListener('input', (e) => { q = e.target.value.trim(); shown = 50; paint(); const i2 = $('wh-q'); i2.focus(); i2.setSelectionRange(i2.value.length, i2.value.length); });
+            document.querySelectorAll('.wh-tab').forEach(b => b.addEventListener('click', () => { kind = b.dataset.k; shown = 50; paint(); }));
+            const more = $('wh-more'); if (more) more.addEventListener('click', () => { shown += 50; paint(); });
+        };
+        paint();
+        $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/' + esc(DAO) + '/roar/holders.json</b>, written daily by <b>platform-crons/ally-positions/holders.js</b> (duty <code>roar</code>). Columns and their reads — ' + Object.keys(C).map(k => '<b>' + esc(k) + '</b>: ' + esc(C[k].ok ? C[k].source : 'not read — ' + C[k].reason)).join(' · ') + '. A wallet under the ' + esc(fmt.big(P.min_total_roar || 0)) + ' floor is counted in the sums but not listed. Contract-or-wallet by the chain for the top 40; the rest are wallets by all odds and say so on hover.'));
+    })().catch(e => { document.getElementById('hero').innerHTML = LD.ui.note('The page hit an error: ' + LD.esc(e && e.message || e)); throw e; });
+    </script>
+</body>
+</html>
