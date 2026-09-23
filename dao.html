@@ -183,6 +183,7 @@
     <!-- Site header + address picker + ticker — lib/site-header.js + lib/address-picker.js
          (SPEC-unified-header uniform-chrome, 2026-08-21). -->
     <div id="site-header"></div>
+    <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
     <script src="/lib/prop-audit.js"></script>
     <script src="/lib/address-picker.js"></script>
@@ -226,7 +227,8 @@
         var want = new URLSearchParams(location.search).get('dao');
         var go = function (id) { if (!id || id === 'adao') return; try { switchMemberView(id); } catch (e) {} try { document.querySelectorAll('#adao-stats-bar .sh-subtab').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === id); }); } catch (e) {} };
         if (want) { go(want); return; }
-        if (window.CollectionContext && CollectionContext.load) CollectionContext.load().then(function (ctx) { var slug = ctx && ctx.tenant && ctx.tenant.slug; var start = slug && slug !== 'adao' ? (slug === 'liondao' ? 'partner' : 'alliance') : null; if (start) { var tries = 0; var t = setInterval(function () { tries++; if (typeof switchMemberView === 'function' && document.querySelector('#adao-stats-bar .sh-subtab')) { clearInterval(t); go(start); } else if (tries > 40) clearInterval(t); }, 250); } }).catch(function () {});
+        var waitCtx = function (n) { return new Promise(function (res) { var k = 0; (function tick() { if (window.CollectionContext && CollectionContext.load) return res(CollectionContext); if (++k > (n || 40)) return res(null); setTimeout(tick, 150); })(); }); };   /* 2026-09-23: the header may inject collection-context.js later — wait for it instead of assuming */
+        waitCtx().then(function (CC) { if (!CC) return; return CC.load(); }).then(function (ctx) { if (!ctx) return; var slug = ctx && ctx.tenant && ctx.tenant.slug; var start = slug && slug !== 'adao' ? (slug === 'liondao' ? 'partner' : 'alliance') : null; if (start) { var tries = 0; var t = setInterval(function () { tries++; if (typeof switchMemberView === 'function' && document.querySelector('#adao-stats-bar .sh-subtab')) { clearInterval(t); go(start); } else if (tries > 40) clearInterval(t); }, 250); } }).catch(function () {});
     } catch (e) {} })();
 </script>
     

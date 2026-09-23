@@ -751,6 +751,7 @@
          (SPEC-unified-header step 3, 2026-08-21). The picker drives #member-selector below
          (kept, hidden) so the page's member overlay code is untouched. -->
     <div id="site-header"></div>
+    <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
     <script src="/lib/address-picker.js"></script>
     <style>.sh-epoch{display:flex;align-items:center;gap:1em}.sh-epoch #data-notice{margin:0 0 0 .5em}</style>
@@ -2087,7 +2088,8 @@
     //   capture engine, the same member shape under each wallet's `portfolio`) is folded into one entity (the roster summed) and the
     //   word "aDAO" in the page's own copy reads as the ally's short name. Every number is the ally's roster; nothing is estimated.
     const DAO_ENTITY = { slug: 'adao', label: 'aDAO', short: 'aDAO', daoRoot: null, tenant: null };
-    const daoEntityP = (async () => { try { if (!window.CollectionContext || !CollectionContext.load) return DAO_ENTITY; const ctx = await CollectionContext.load(); const t = ctx && ctx.tenant; if (!t || !t.slug || t.slug === 'adao') return DAO_ENTITY; DAO_ENTITY.slug = t.slug; DAO_ENTITY.label = t.label || t.slug; DAO_ENTITY.short = t.short || t.label || t.slug; DAO_ENTITY.daoRoot = Array.isArray(t.daos) && t.daos.length ? t.daos[0] : null; DAO_ENTITY.tenant = t; return DAO_ENTITY; } catch (e) { return DAO_ENTITY; } })();
+    const waitForContext = () => new Promise(res => { let k = 0; (function tick() { if (window.CollectionContext && CollectionContext.load) return res(CollectionContext); if (++k > 40) return res(null); setTimeout(tick, 150); })(); });   // 2026-09-23: the lib may arrive after this script — wait, never assume
+    const daoEntityP = (async () => { try { const CC = await waitForContext(); if (!CC) return DAO_ENTITY; const ctx = await CC.load(); const t = ctx && ctx.tenant; if (!t || !t.slug || t.slug === 'adao') return DAO_ENTITY; DAO_ENTITY.slug = t.slug; DAO_ENTITY.label = t.label || t.slug; DAO_ENTITY.short = t.short || t.label || t.slug; DAO_ENTITY.daoRoot = Array.isArray(t.daos) && t.daos.length ? t.daos[0] : null; DAO_ENTITY.tenant = t; return DAO_ENTITY; } catch (e) { return DAO_ENTITY; } })();
     async function loadDaoPositions(adaoUrl) {
         const E = await daoEntityP;
         if (E.slug === 'adao' || !E.daoRoot) return fetch(adaoUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('adao-positions fetch:', e.message); return null; });
