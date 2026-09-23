@@ -7601,7 +7601,8 @@
         // user) and used by the aDAO tab — wrong scale for this breakdown chart.
         const totalVP = data?.vote?.summary?.total_vp || 0;
         const votionVP = data?.vote?.summary?.total_votion_current_vp || data?.ext_data?.votion?.total_vp || 0;
-        const adaoVP = data?.vote?.summary?.total_adao_vp || data?.locks?.summary?.total_vp || 0;
+        // 2026-09-23: on an ally's tenant the DAO slice is the ally's roster VP (the positions shim), not aDAO's from the vote-state product
+        const adaoVP = (DAO_ENTITY.slug !== 'adao') ? (Number(store.adaoPositions?.treasury?.voting?.total_voting_power_human) || 0) : (data?.vote?.summary?.total_adao_vp || data?.locks?.summary?.total_vp || 0);
         const otherVP = Math.max(0, totalVP - votionVP - adaoVP);
         
         // Update chart header
@@ -7625,7 +7626,7 @@
         }
         const adjustedOtherVP = Math.max(0, otherVP - memberSliceVp);
 
-        let vpLabels = ['Votion VP', 'aDAO VP', 'Other'];
+        let vpLabels = ['Votion VP', DAO_ENTITY.short + ' VP', 'Other'];   // 2026-09-23: the entity's name on the slice (canvas text is not DOM — the observer cannot relabel it)
         let vpData = [votionVP, adaoVP, adjustedOtherVP];
         let vpColors = ['#a855f7', '#06b6d4', '#64748b'];
         if (memberSliceVp > 0) {
@@ -13084,11 +13085,11 @@
                 label: 'TLA VP'
             },
             'adao-vote': {
-                title: `${poolName} - aDAO Vote History`,
+                title: `${poolName} - ${DAO_ENTITY.short} Vote History`,
                 getValue: (pool) => pool?.adao_vp || 0,
                 format: (v) => fmtNum(v),
                 color: '#06b6d4',
-                label: 'aDAO VP'
+                label: DAO_ENTITY.short + ' VP'
             }
         };
         

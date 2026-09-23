@@ -225,10 +225,10 @@
     // in the URL still wins. Everything else on the page is unchanged; only the starting view moves.
     (function () { try {
         var want = new URLSearchParams(location.search).get('dao');
-        var go = function (id) { if (!id || id === 'adao') return; try { switchMemberView(id); } catch (e) {} try { document.querySelectorAll('#adao-stats-bar .sh-subtab').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === id); }); } catch (e) {} };
+        var go = function (id) { if (!id || id === 'adao') return; try { switchMemberView(id); } catch (e) {} try { document.querySelectorAll('.sh-subtab[data-tab="adao"], .sh-subtab[data-tab="partner"], .sh-subtab[data-tab="alliance"]').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === id); }); } catch (e) {} };
         if (want) { go(want); return; }
         var waitCtx = function (n) { return new Promise(function (res) { var k = 0; (function tick() { if (window.CollectionContext && CollectionContext.load) return res(CollectionContext); if (++k > (n || 40)) return res(null); setTimeout(tick, 150); })(); }); };   /* 2026-09-23: the header may inject collection-context.js later — wait for it instead of assuming */
-        waitCtx().then(function (CC) { if (!CC) return; return CC.load(); }).then(function (ctx) { if (!ctx) return; var slug = ctx && ctx.tenant && ctx.tenant.slug; var start = slug && slug !== 'adao' ? (slug === 'liondao' ? 'partner' : 'alliance') : null; if (start) { var tries = 0; var t = setInterval(function () { tries++; if (typeof switchMemberView === 'function' && document.querySelector('#adao-stats-bar .sh-subtab')) { clearInterval(t); go(start); } else if (tries > 40) clearInterval(t); }, 250); } }).catch(function () {});
+        waitCtx().then(function (CC) { if (!CC) return; return CC.load(); }).then(function (ctx) { if (!ctx) return; var slug = ctx && ctx.tenant && ctx.tenant.slug; var start = slug && slug !== 'adao' ? (slug === 'liondao' ? 'partner' : 'alliance') : null; if (start) { var tries = 0; var t = setInterval(function () { tries++; if (typeof switchMemberView === 'function' && document.querySelector('.sh-subtab[data-tab="partner"]')) { clearInterval(t); go(start); } else if (tries > 80) clearInterval(t); }, 250); } }).catch(function () {});
     } catch (e) {} })();
 </script>
     
