@@ -47,7 +47,7 @@ ok('validator operator + account + home registered', LD.validator && LD.validato
 ok('staking block names ROAR, the staking module, the ROAR distributor and the pixeLions distributor (found 2026-09-22 by the claim tx 8896AD9B…, note says so)', LD.staking && LD.staking.roar_cw20 && LD.staking.roar_staking && LD.staking.roar_rewards_distributor && LD.staking.pl_rewards_distributor === 'terra1krewrx5uye0ux786w9jd2qx4wqz5pz2y5mqxw2k58p4xjhnw5lfqm450m7' && /8896AD9B/.test(LD.staking.pl_rewards_distributor_note) && LD.staking.pl_voting_module.startsWith('terra127dehd2'));
 
 console.log('— shell + header');
-ok('page mounted the engine (home-tiles ' + (w.HomeTiles && w.HomeTiles.VERSION) + ')', !!d.querySelector('.ht') && w.HomeTiles.VERSION === '1.4.0');
+ok('page mounted the engine (home-tiles ' + (w.HomeTiles && w.HomeTiles.VERSION) + ')', !!d.querySelector('.ht') && w.HomeTiles.VERSION === '1.5.0');
 ok('<html data-tenant="liondao">', d.documentElement.getAttribute('data-tenant') === 'liondao');
 const logo = d.querySelector('.sh-logo'); ok('header logo links to the Lion DAO home (1.12.0 homeOf)', logo && logo.getAttribute('href') === '/liondao/', logo && logo.getAttribute('href'));
 const selEl = d.querySelector('.sh-tenant'); ok('tenant dropdown lists both allies with Lion DAO selected', selEl && selEl.classList.contains('sh-on') && [...selEl.options].map(o => o.value).join() === 'adao,liondao' && selEl.value === 'liondao', selEl && [...selEl.options].map(o => o.value));
@@ -63,7 +63,7 @@ ok('hero status: validator rank is Unknown in this run (LCD not reachable in the
 
 console.log('— nav tiles');
 const nav = d.querySelectorAll('.ht-nav .ht-tile'); ok('9 nav tiles in the config order (ecosystem tall first, contracts last)', nav.length === 9 && T(nav[0]).startsWith('Lion DAO ecosystem') && nav[0].classList.contains('ht-tall') && T(nav[8]).startsWith('Contracts'), [...nav].map(x => T(x).slice(0, 22)));
-ok('v3.1: lore and rarity open coming.html?tile=<id> (slots with a name) and read muted; supply, mint and alliance are real pages, not muted', [2, 3].every(i => /coming\.html\?tile=/.test(nav[i].getAttribute('onclick')) && nav[i].classList.contains('ht-soon')) && [1, 4, 6].every(i => !/coming\.html/.test(nav[i].getAttribute('onclick')) && !nav[i].classList.contains('ht-soon')), [1, 2, 3, 4, 6].map(i => nav[i].getAttribute('onclick')));
+ok('v3.2: lore and rarity open coming.html?tile=<id> (slots with a name) and read muted; supply, mint and alliance are real pages; alliance is the first tile of the second row, then the three link tiles', [2, 3].every(i => /coming\.html\?tile=/.test(nav[i].getAttribute('onclick')) && nav[i].classList.contains('ht-soon')) && [1, 4, 5].every(i => !/coming\.html/.test(nav[i].getAttribute('onclick')) && !nav[i].classList.contains('ht-soon')) && /alliance\.html/.test(nav[5].getAttribute('onclick')) && [6, 7, 8].every(i => /toggleMenu/.test(nav[i].getAttribute('onclick'))), [1, 2, 3, 4, 5, 6].map(i => nav[i].getAttribute('onclick')));
 ok('v2: the ecosystem tile opens liondao/ecosystem.html; no sheet exists on the page', /ecosystem\.html/.test(nav[0].getAttribute('onclick')) && !d.querySelector('.ht-sheet'));
 ok('v2: the DAO links menu carries the treasury, TLA, unclaimed and validator pages', ['dao_treasury', 'dao_tla_deposits', 'dao_unclaimed', 'validator'].every(p => d.querySelector('.ht-menu a[href="/liondao/' + p + '.html"]')));
 
