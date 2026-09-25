@@ -783,7 +783,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     calculateStats();
     renderProposals();
     renderMembers();
-    updateStatsCards('adao');
+    updateStatsCards(currentMemberView);   // 2026-09-25: the view already chosen (Lions on Lion DAO), not always aDAO
     document.getElementById('load-status').innerHTML = '<i class="fas fa-check text-green-400 mr-1"></i>Live';
     
     // Load pending proposals from DAODAO (after main data)
@@ -2460,6 +2460,9 @@ async function loadPartnerData() {
         processAllianceVoters();
         
         console.log('✅ Partner data loaded');
+        // 2026-09-25 (owner: "Lions doesn't load"): on Lion DAO the page opens on Lions BEFORE this data lands — the view was drawn empty
+        // (0 props · 0/0 · "No matching voters") and never redrawn. Redraw whatever view is showing now that the data is here.
+        if (currentMemberView !== 'adao') { try { switchMemberView(currentMemberView); } catch (e) { console.warn('partner redraw', e); } }
         
     } catch(e) {
         console.error('Error loading partner data:', e);

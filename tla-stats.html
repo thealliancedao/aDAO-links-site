@@ -2089,6 +2089,7 @@
     //   word "aDAO" in the page's own copy reads as the ally's short name. Every number is the ally's roster; nothing is estimated.
     const DAO_ENTITY = { slug: 'adao', label: 'aDAO', short: 'aDAO', daoRoot: null, tenant: null };
     const waitForContext = () => new Promise(res => { let k = 0; (function tick() { if (window.CollectionContext && CollectionContext.load) return res(CollectionContext); if (++k > 40) return res(null); setTimeout(tick, 150); })(); });   // 2026-09-23: the lib may arrive after this script — wait, never assume
+    const entityColor = () => (DAO_ENTITY.tenant && DAO_ENTITY.tenant.theme && DAO_ENTITY.tenant.theme.accent) || '#06b6d4';   // 2026-09-25
     const daoEntityP = (async () => { try { const CC = await waitForContext(); if (!CC) return DAO_ENTITY; const ctx = await CC.load(); const t = ctx && ctx.tenant; if (!t || !t.slug || t.slug === 'adao') return DAO_ENTITY; DAO_ENTITY.slug = t.slug; DAO_ENTITY.label = t.label || t.slug; DAO_ENTITY.short = t.short || t.label || t.slug; DAO_ENTITY.daoRoot = Array.isArray(t.daos) && t.daos.length ? t.daos[0] : null; DAO_ENTITY.tenant = t; return DAO_ENTITY; } catch (e) { return DAO_ENTITY; } })();
     async function loadDaoPositions(adaoUrl) {
         const E = await daoEntityP;
@@ -6119,9 +6120,9 @@
         membersVp = Math.min(membersVp, remainder); remainder -= membersVp;
         alliesVp = Math.min(alliesVp, remainder); remainder -= alliesVp;
 
-        const labels = ['Votion VP', 'aDAO Treasury', `aDAO Members (${(store.adaoStakerSet || new Set()).size})`, `Allies · registered (${(store.allyRegisteredSet || new Set()).size})`];
+        const labels = ['Votion VP', DAO_ENTITY.short + ' Treasury', `aDAO Members (${(store.adaoStakerSet || new Set()).size})`, `Allies · registered (${(store.allyRegisteredSet || new Set()).size})`];
         const data = [votionVP, adaoTreasuryVP, membersVp, alliesVp];
-        const colors = ['#a855f7', '#06b6d4', '#10b981', '#f472b6'];
+        const colors = ['#a855f7', entityColor(), '#10b981', '#f472b6'];
         if (selSlice > 0) {
             const inMembers = store.adaoStakerSet?.has(selected);
             const inAllies = store.allyRegisteredSet?.has(selected);
@@ -7628,11 +7629,11 @@
 
         let vpLabels = ['Votion VP', DAO_ENTITY.short + ' VP', 'Other'];   // 2026-09-23: the entity's name on the slice (canvas text is not DOM — the observer cannot relabel it)
         let vpData = [votionVP, adaoVP, adjustedOtherVP];
-        let vpColors = ['#a855f7', '#06b6d4', '#64748b'];
+        let vpColors = ['#a855f7', entityColor(), '#64748b'];   // 2026-09-25: the entity's slice wears the ally's accent (Lion DAO yellow; aDAO stays cyan)
         if (memberSliceVp > 0) {
             vpLabels.push(memberSliceLabel);
             vpData.push(memberSliceVp);
-            vpColors.push('#f59e0b');   // amber — distinct from existing 3 colors
+            vpColors.push(DAO_ENTITY.tenant ? '#f472b6' : '#f59e0b');   // amber — distinct from existing 3 colors (pink beside Lion DAO's yellow)
         }
         // Community mode: split "Other" into aDAO Members (staked NFT wallets combined),
         // registered Allies, and the true remainder. Slice math in computeCommunitySlices().

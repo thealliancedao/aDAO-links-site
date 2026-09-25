@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- 2026-09-25 (owner: "going back to Home loads aDAO then switches to Lion DAO"): a device that chose another ally goes to that ally's home
+         before this page paints — the same rule site-header 1.13.0 applies, run here ahead of the page's markup. ?tenant= in the URL always wins. -->
+    <script>(function(){try{if(new URLSearchParams(location.search).get('tenant'))return;var p=JSON.parse(localStorage.getItem('ally:prefs')||'{}'),c=p.theme_cache;if(c&&c.slug&&c.slug===p.tenant&&c.home&&c.home!=='/'){location.replace(c.home);}}catch(e){}})();</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- PWA: detect standalone mode + redirect to user's preferred default page on launch -->
@@ -1246,7 +1249,7 @@
     <script src="/lib/address-picker.js"></script>
     <script src="/lib/denoms.js?v=1.0.0"></script>
     <script>if (window.Denoms) Denoms.load();</script>
-    <script src="/lib/alert-center.js?v=1.10.0"></script>
+    <script src="/lib/alert-center.js?v=2.0.0"></script>
     <script src="/lib/live-activity.js?v=1.1.0"></script>   <!-- 4.36: episodes → tiers, deal filter, words (one renderer) -->
     <script>SiteHeader.mount({ page: 'index', mobileTabs: false }); if (window.AddressPicker) AddressPicker.mount({});
     // Uniform chrome: the refresh strip rides in the shared sub-nav's right slot (no tabs on Home).
@@ -1256,7 +1259,7 @@
       // as hidden receivers. The refresh strip is retired (hidden; its JS is left intact).
       // 4.24 (owner 2026-09-17): Ecosystem Pulse retired; the Alert Center is the default window (SPEC-alert-center).
       SiteHeader.subnav([
-        { id: 'alerts', label: 'Ecosystem Alerts', icon: 'fa-bell', active: true },
+        { id: 'alerts', label: 'Props', icon: 'fa-scroll', active: true },   // 2026-09-25 (owner): the home window is props across every DAO — the Ecosystem tile is gone
       ], { onSelect: function () {}, attach: '#alert-center-card',
            // Rev 3.81: epoch countdown (local time default, UTC toggle) rides in the right slot; filled by epochClock() below.
            right: '<span id="sh-epoch-pill" title="TLA gauge epoch — 7-day periods from 2022-10-31 00:00 UTC; votes settle and rewards distribute at rollover" style="display:inline-flex;align-items:center;gap:8px;padding:4px 6px 4px 10px;border-radius:9px;border:1px solid rgba(34,211,238,.35);background:rgba(34,211,238,.08)"><span style="font-size:10px;letter-spacing:.08em;color:#22d3ee;font-weight:700">EPOCH</span><span id="sh-epoch-clock" style="font-family:ui-monospace,monospace;font-size:13px;color:#fff;font-weight:600">…</span><span id="sh-epoch-tzseg" style="display:inline-flex;border:1px solid rgba(255,255,255,.15);border-radius:6px;overflow:hidden;font-size:11px"><button type="button" data-tz="local" style="padding:3px 8px;border:0;background:transparent;color:#9ca3af;cursor:pointer">Local</button><button type="button" data-tz="utc" style="padding:3px 8px;border:0;background:transparent;color:#9ca3af;cursor:pointer">UTC</button></span></span>' });
@@ -16601,11 +16604,13 @@
         }
         // Per-DAO history: cron corpus when we capture it (date · outcome · votes for every
         // proposal), else a deeper live read (daodao reverse_proposals 25 / Astroport list).
+        const voteOver = (p) => { const t = p && p.expiration && p.expiration.at_time_iso ? Date.parse(p.expiration.at_time_iso) : NaN; return isFinite(t) && t < Date.now() - 6 * 3600e3; };   // 2026-09-25: 6h slack for an estimated (height→time) end
         const corpusCard = (daoName, p) => {
             const st = String(p.status || '').toLowerCase().replace(/ /g, '_');
             const c = { dao: daoName, id: Number(String(p.id).replace(/\D/g, '')), title: p.title, desc: String(p.description || '').slice(0, 220),
-                status: st === 'open' ? 'open' : st, live: st === 'open', pending: st === 'veto_timelock',
+                status: st === 'open' ? (voteOver(p) ? 'vote ended — awaiting close' : 'open') : st, live: st === 'open' && !voteOver(p), pending: st === 'veto_timelock',   // 2026-09-25: an anchor-gov poll stays "Open" until end_poll — CAPA #13 showed live a year after its vote closed
                 daysLeft: null, yesPct: p.voting ? p.voting.yesPercent : null, noPct: p.voting ? p.voting.noPercent : null, turnoutPct: p.voting ? p.voting.turnout : null,
+                abstainPct: p.voting && p.voting.abstainPercent != null ? p.voting.abstainPercent : null, quorumPct: p.voting && p.voting.quorumThreshold != null ? p.voting.quorumThreshold : null, thresholdPct: p.voting && p.voting.passThreshold != null ? p.voting.passThreshold : null,
                 vetoUntil: p.vetoLockUntil || null, endIso: p.expiration && p.expiration.at_time_iso ? p.expiration.at_time_iso : null, endHeight: p.expiration && p.expiration.at_height != null ? p.expiration.at_height : null,
                 movesFunds: !!(p.treasuryImpact && p.treasuryImpact.outflows && p.treasuryImpact.outflows.length), lowEffort: scanLowEffort(p.title, p.description),
                 link: p.link || ((newsState.all.find(x => x.dao === daoName) || {}).link || '#'), rawMsgs: p.rawMsgs || [], outcome: p.outcome, outcomeReason: p.outcomeReason };
@@ -17198,7 +17203,7 @@
             const gov = window.__govCards || null, live = gov ? (gov.all || []) : [];
             const key = (c) => c.dao + '|' + c.id; const seen = new Set(live.map(key));
             const merged = live.slice();
-            for (const c of (st.corpus || [])) if (!seen.has(key(c))) merged.push(c); else { const l = live.find(x => key(x) === key(c)); if (l && !l.descFull) { l.descFull = c.descFull; l.decodedActions = c.decodedActions; } }
+            for (const c of (st.corpus || [])) if (!seen.has(key(c))) merged.push(c); else { const l = live.find(x => key(x) === key(c)); if (l && !l.descFull) { l.descFull = c.descFull; l.decodedActions = c.decodedActions; } if (l) { if (l.quorumPct == null) l.quorumPct = c.quorumPct; if (l.thresholdPct == null) l.thresholdPct = c.thresholdPct; if (l.abstainPct == null) l.abstainPct = c.abstainPct; if (!l.endIso && c.endIso) l.endIso = c.endIso; } }   // 2026-09-25: the vote-state block needs quorum + the pass line
             return { cards: merged, isOpen: gov ? gov.isOpen : ((c) => !!(c.live || c.pending)) };
         }
         const el = () => document.getElementById('alert-center');
@@ -17232,7 +17237,7 @@
                 onClose: (now, seen) => { if (seen) { st.windowMs = null; } draw(); },
             };
             window.__acCardOpts = () => Object.assign({ myTokens: myTokens(), now: Date.now() }, fullOpts);   // 4.28: Live Activity details use the same card + context
-            AlertCenter.render(c, result, Object.assign({}, fullOpts, { onOpen: (tile) => AlertCenter.openFull(result, Object.assign({}, fullOpts, { openTile: tile })) }));
+            AlertCenter.render(c, result, Object.assign({}, fullOpts, { onOpen: (tile, counter) => AlertCenter.openFull(result, Object.assign({}, fullOpts, { openTile: tile, openCounter: counter || null })) }));
             if (st.reopen) { const r = st.reopen; st.reopen = null; AlertCenter.openFull(result, Object.assign({}, fullOpts, { openTile: r.openTile, openCounter: r.openCounter })); }
         }
         window.__acRefresh = function () { clearTimeout(st.timer); st.timer = setTimeout(draw, 150); };
