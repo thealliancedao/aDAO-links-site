@@ -35,6 +35,7 @@
         <div id="hero"></div>
         <div id="chart"></div>
         <div id="board"></div>
+        <div id="custody"></div>
         <div id="about"></div>
     </main>
 
@@ -43,7 +44,7 @@
     <script src="/lib/site-footer.js"></script>
     <script>
     (async function () {
-        const REV = '1.0', REV_DATE = '2026-09-23';
+        const REV = '1.1', REV_DATE = '2026-09-25';   // 1.1: holders.js 1.2.0 takes the custody contracts (staking module, amp hub, pairs, LP incentives) out of the ranking and the sums — they hold ROAR for others; listed on their own below the board
         const { fmt, ui, esc, isNum, sum } = LD;
         await LD.mount({ page: 'liondao-whales', rev: REV, revDate: REV_DATE });
         const T = LD._M.tenant || {}; const DAO = LD._M.dao;
@@ -87,6 +88,11 @@
             const more = $('wh-more'); if (more) more.addEventListener('click', () => { shown += 50; paint(); });
         };
         paint();
+        // 1.1 — held for others: contracts whose ROAR belongs to stakers, amp holders or LP holders (not ranked, not in the sums above)
+        const CU = P.custody && Array.isArray(P.custody.rows) ? P.custody.rows : null;
+        if (CU && CU.length) $('custody').innerHTML = ui.section('Held for others', esc(fmt.int(CU.length)) + ' contracts · ' + esc(fmt.big(P.custody.total)) + ' ' + esc(sym) + ' (' + esc(fmt.pctPlain(P.custody.total / supply * 100, 1)) + ' of supply) · not ranked and not in the sums above — each one says whose ' + esc(sym) + ' it holds and where that is counted instead',
+            '<div class="ld-tile">' + ui.table([{ label: 'Contract' }, { label: 'Holds', r: true }, { label: 'of supply', r: true }, { label: 'Whose it is' }],
+                CU.map(h => '<tr>' + ui.td(ui.chip(h.contract_label || h.label || 'contract', '') + ' ' + ui.addr(h.address)) + ui.td('<span class="wh-num">' + esc(fmt.big(h.total)) + '</span>', true) + ui.td(esc(fmt.pctPlain(h.total / supply * 100, 1)), true) + ui.td('<span style="color:var(--ld-muted);font-size:.85em">' + esc(h.custody || '') + '</span>') + '</tr>')) + '</div>');
         $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/' + esc(DAO) + '/roar/holders.json</b>, written daily by <b>platform-crons/ally-positions/holders.js</b> (duty <code>roar</code>). Columns and their reads — ' + Object.keys(C).map(k => '<b>' + esc(k) + '</b>: ' + esc(C[k].ok ? C[k].source : 'not read — ' + C[k].reason)).join(' · ') + '. A wallet under the ' + esc(fmt.big(P.min_total_roar || 0)) + ' floor is counted in the sums but not listed. Contract-or-wallet by the chain for the top 40; the rest are wallets by all odds and say so on hover.'));
     })().catch(e => { document.getElementById('hero').innerHTML = LD.ui.note('The page hit an error: ' + LD.esc(e && e.message || e)); throw e; });
     </script>
