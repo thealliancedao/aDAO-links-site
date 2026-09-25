@@ -3083,6 +3083,7 @@
                         const out = {};
                         const list = Array.isArray(tc.tokens) ? tc.tokens : Object.entries(tc.tokens).map(([denom, t]) => ({ denom, ...(t || {}) }));
                         store.tokenCatalogRaw = list;   // Batch B: decimals + symbols for the wallet's idle-asset read
+                        store.tokenCatalogPools = Array.isArray(tc.pools) ? tc.pools : [];   // T6.8: underlyings per gauge — names the pools the snapshot only knows by address
                         for (const t of list) {
                             const addr = t && t.denom; const name = (t && t.effective && t.effective.symbol) || (t && t.discovered && t.discovered.symbol) || (t && t.symbol) || null;
                             if (!addr || !name) continue;
@@ -3231,6 +3232,33 @@
                 lst_ratios: networkPricesResp?.lst_ratios || {},
             };
             store.adaoSnapSource = { epoch: currentEpoch, phase: 'live', isFallback: false };
+
+            // T6.8 (owner 2026-09-25, "is the Vote Market working?"): name every pool ONCE, before anything keys on names.
+            // (a) the snapshot names a new pool by its raw address ("cw20:terra13788…") — Votion's plan titles it, and the token
+            //     catalog lists its underlyings; the first that answers names it (the raw name is kept as name_raw);
+            // (b) two gauges with one name (LUNA-WBTC: the dewhitelisted pool users are leaving and the new one) — the variant
+            //     safeguard kept the one with more VP, i.e. the OLD pool, and demoted the live one. A non-active twin of an
+            //     active pool is now named "(old)", so both show and neither is mistaken for the other.
+            (function resolvePoolNames(pools) {
+                if (!Array.isArray(pools)) return;
+                const RAW = /^(cw20|native):|^terra1[0-9a-z]{38,}$|^Unknown$|^$/;
+                const titles = {}; const agg = (store.votionOptRaw && store.votionOptRaw.aggregate) || {};
+                for (const gd of Object.values(agg)) for (const [pid, pp] of Object.entries((gd && gd.pools) || {})) if (pp && pp.title) titles[pid] = String(pp.title).replace(/\s+LP(\s*\(S\))?$/, '').trim();
+                const sym = (knownTokensResp && knownTokensResp.tokens) || {}; const cat = {}; for (const c of (store.tokenCatalogPools || [])) if (c && c.gauge_pool_id) cat[c.gauge_pool_id] = c;
+                const symOf = (d) => sym[d] || sym['native:' + d] || sym['cw20:' + d] || null;
+                let named = 0, olds = 0;
+                for (const p of pools) {
+                    if (!p || !RAW.test(String(p.name || ''))) continue;
+                    const gid = String(p.gauge_pool_id || p.name || ''); const bare = gid.replace(/^(cw20|native):/, '');
+                    let nm = titles[bare] || null, src = nm ? 'votion plan title' : null;
+                    if (!nm) { const c = cat[gid]; const u = c && Array.isArray(c.underlyings) ? c.underlyings.map(symOf) : []; if (u.length && u.every(Boolean)) { nm = u.join('-'); src = 'token-catalog underlyings'; } }
+                    if (nm) { p.name_raw = p.name; p.name = nm; p.name_source = src; named++; }
+                }
+                const dk = (d) => { d = d || ''; return d.includes('Astro') ? 'Astro' : d.includes('Skeleton') ? 'Skeleton' : (d || 'Single'); };
+                const groups = new Map(); for (const p of pools) { const k = `${p.name}|${dk(p.dex)}|${p.bucket}`; (groups.get(k) || groups.set(k, []).get(k)).push(p); }
+                for (const g of groups.values()) { if (g.length < 2 || !g.some(p => p.status === 'active')) continue; for (const p of g) if (p.status !== 'active') { p.name_raw = p.name_raw || p.name; p.name = p.name + ' (old)'; olds++; } }
+                if (named || olds) console.info(`T6.8 pool names: ${named} raw-address pools named, ${olds} old twin gauge(s) marked (old)`);
+            })(tlaSnapshotResp && tlaSnapshotResp.pools);
 
             // === Build the legacy "data" shape from new sources ===
             const transformedData = buildLegacyDataShape({
@@ -3512,7 +3540,7 @@
             // Historical lookup — try both pool name keys (with/without DEX)
             const histKey1 = `${p.name}|${p.dex}`;
             const histKey2 = p.name;
-            const historicalEntry = historicalByPool[histKey1] || historicalByPool[histKey2] || {};
+            const historicalEntry = historicalByPool[histKey1] || historicalByPool[histKey2] || (p.name_raw ? (historicalByPool[`${p.name_raw}|${p.dex}`] || historicalByPool[p.name_raw]) : null) || {};   // T6.8: a renamed pool keeps its history
 
             // APR — filtered for ranking credibility.
             // Use `staked_in_tla_usd` as the filter (not `depth_usd`) because:
@@ -6255,7 +6283,7 @@
         const summary = document.getElementById('bounty-summary');
         if (!bribed.length) { el.innerHTML = '<div class="text-gray-600 text-sm">No active bribes this epoch — nothing is paying for votes.</div>'; if (summary) summary.innerHTML = ''; return; }
         // Votion's per-pool VP lives on the normalized store.pools (Batch A repoint) — match by name + bucket + dex
-        const _vot = (p) => { const m = (store.pools || []).find(x => x.name === p.name && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase() && (x.dex || '') === (p.dex || '')); return m ? (m.votion_now_vp || 0) : (p.votion_now_vp || 0); };
+        const _vot = (p) => { const m = (p.gauge_pool_id && (store.pools || []).find(x => x.gauge_pool_id === p.gauge_pool_id && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase())) || (store.pools || []).find(x => x.name === p.name && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase() && (x.dex || '') === (p.dex || ''));   /* T6.8: by gauge first */ return m ? (m.votion_now_vp || 0) : (p.votion_now_vp || 0); };
         const live = store.livePots && Number(store.livePots.period) === Number(store.votionOptPeriod || store.epoch) ? store.livePots : null;
         const liveKey = (p) => String(p.bucket || '').toLowerCase() + '|' + String(p.gauge_pool_id || '').replace(/^(cw20|native):/, '');
         // LIVE MODE: the pot for the period being voted, read from the manager minutes ago, wins over the capture.
@@ -6393,13 +6421,16 @@
         const emissionsPerVp = (p) => { const lp = (store.tlaPools || []).find(x => x.name === p.name && (x.dex || '') === (p.dex || '')); const wk = lp && lp.rewards_per_year ? lp.rewards_per_year / 52.18 : null; return wk && p.vp > 0 ? wk / p.vp : null; };
         const rows = [];
         for (const p of pools) {
-            const base = locked.get(keyOf(p));
+            const byG = store.lockedInByGauge; const base = byG && p.gauge_pool_id ? (byG.get(p.gauge_pool_id) || { total: 0, votion: 0, _new: true }) : locked.get(keyOf(p));   // T6.8: the pool's OWN gauge at lock-in (absent = not whitelisted then = 0)
             const users = base ? (p.vp || 0) - (base.total || 0) : null;              // on-chain since lock-in (no baseline → unknown, never 0)
-            const np = (store.pools || []).find(x => x.name === p.name && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase() && (x.dex || '') === (p.dex || '')) || p;   // Votion fields live on the normalized pools
-            const votion = (np.votion_next_vp || 0) - (np.votion_now_vp || 0);       // Votion's plan vs its current votes
-            const proj = (users || 0) + votion;
-            if (Math.abs(users || 0) < 1000 && Math.abs(votion) < 1000) continue;
-            rows.push({ p, users, votion, proj, mine: myPools.has(`${p.name}|${String(p.bucket || '').toUpperCase()}`), epv: emissionsPerVp(p) });
+            const np = (p.gauge_pool_id && (store.pools || []).find(x => x.gauge_pool_id === p.gauge_pool_id && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase())) || (store.pools || []).find(x => x.name === p.name && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase() && (x.dex || '') === (p.dex || '')) || p;   // Votion fields live on the normalized pools · T6.8: by gauge first
+            let votion = (np.votion_next_vp || 0) - (np.votion_now_vp || 0);       // Votion's plan vs its current votes
+            // T6.8: on a gauge that did not exist at lock-in, Votion's votes there are already a move of this epoch — they are not
+            // "users", and Votion's net move since lock-in is its whole plan (it lands at planned, from 0)
+            let usersAdj = users; if (base && base._new) { usersAdj = users != null ? users - (np.votion_now_vp || 0) : null; votion = np.votion_next_vp || 0; }
+            const proj = (usersAdj || 0) + votion;
+            if (Math.abs(usersAdj || 0) < 1000 && Math.abs(votion) < 1000) continue;
+            rows.push({ p, users: usersAdj, votion, proj, mine: myPools.has(`${p.name}|${String(p.bucket || '').toUpperCase()}`), epv: emissionsPerVp(p), newGauge: !!(base && base._new) });
         }
         if (!rows.length) { el.innerHTML = '<div class="text-gray-600 text-sm">No meaningful vote movement since epoch start yet, and Votion plans no moves.</div>'; return; }
         rows.sort((a, b) => b.proj - a.proj);
@@ -6419,7 +6450,7 @@
             return `
             <div class="p-2 rounded-lg bg-white/[0.02]${x.mine ? ' border border-amber-500/20' : ''}">
                 <div class="flex items-center justify-between mb-0.5">
-                    <div class="flex items-baseline gap-2 min-w-0"><span class="text-sm font-medium truncate">${x.p.name}</span><span class="text-[9px] text-gray-600 uppercase shrink-0">${x.p.bucket || ''}</span>${x.mine ? '<span class="text-[9px] px-1 rounded bg-amber-500/15 text-amber-300">yours</span>' : ''}</div>
+                    <div class="flex items-baseline gap-2 min-w-0"><span class="text-sm font-medium truncate">${x.p.name}</span><span class="text-[9px] text-gray-600 uppercase shrink-0">${x.p.bucket || ''}</span>${x.newGauge ? '<span class="text-[9px] px-1 rounded bg-cyan-500/15 text-cyan-300 shrink-0" title="this gauge was not on the TLA at lock-in — all of its VP arrived this epoch (often a migration from an older pool of the same pair)">new gauge</span>' : ''}${x.mine ? '<span class="text-[9px] px-1 rounded bg-amber-500/15 text-amber-300">yours</span>' : ''}</div>
                     <div class="text-right shrink-0"><span class="mono text-sm font-semibold ${pos ? 'text-emerald-400' : 'text-red-400'}" title="projected = users + Votion's plan">${sgn(x.proj)} VP</span><div class="text-[9px] text-gray-500">${pctTla(x.proj)}</div></div>
                 </div>
                 <div class="flex items-center gap-3 text-[10px] mono mb-1">
@@ -6438,7 +6469,7 @@
             (gainers.length ? `<div class="text-[10px] text-emerald-400/80 uppercase tracking-wider font-semibold">Gaining support · projected</div>` + gainers.map(row).join('') : '') +
             (losers.length ? `<div class="text-[10px] text-red-400/80 uppercase tracking-wider font-semibold mt-2">Losing support · projected</div>` + losers.map(row).join('') : '') +
             ((hidden > 0 || open) ? `<div class="text-center pt-1"><button type="button" class="text-[10px] px-3 py-1 rounded-full bg-white/5 text-gray-400 hover:text-cyan-300 font-medium" onclick="window.toggleMovers()">${open ? 'show top 3 + 3' : `show all ${allG.length + allL.length} movers (${hidden} hidden)`} <i class="fas fa-chevron-${open ? 'up' : 'down'} text-[8px] ml-1"></i></button></div>` : '') +
-            `<div class="text-[9px] text-gray-600 pt-1"><span class="inline-block w-2 h-2 rounded-sm bg-cyan-400 mr-1 align-middle"></span>users' on-chain moves since lock-in${store.lockedInDate ? ` (${store.lockedInDate})` : ''} · <span class="inline-block w-2 h-2 rounded-sm bg-violet-400 mr-1 align-middle"></span>Votion's published plan (it casts at the end of the period) · projected = the two together${totalTla ? ` · % is of voting VP (${fmtNum(totalTla)} on gauges at lock-in; Eris's "Total Voting Power" also counts idle locks and reads higher)` : ''}</div>`;
+            `<div class="text-[9px] text-gray-600 pt-1"><span class="inline-block w-2 h-2 rounded-sm bg-cyan-400 mr-1 align-middle"></span>users' on-chain moves since lock-in${store.lockedInDate ? ` (${store.lockedInDate})` : ''} · <span class="inline-block w-2 h-2 rounded-sm bg-violet-400 mr-1 align-middle"></span>Votion's published plan (it casts at the end of the period) · projected = the two together · <b class="text-gray-500">new gauge</b> = not on the TLA at lock-in; its votes arrived this epoch, usually moved from the older pool of the same pair (the lock-in file does not record Votion's votes, so on a pool Votion left, its share of the drop reads as users)${totalTla ? ` · % is of voting VP (${fmtNum(totalTla)} on gauges at lock-in; Eris's "Total Voting Power" also counts idle locks and reads higher)` : ''}</div>`;
     }
 
     window.toggleMovers = function () { store.moversExpanded = !store.moversExpanded; renderEpochMovers(); };
@@ -9871,8 +9902,9 @@
                 const resp = await fetch(`${base}/${ymd}.json`);
                 if (!resp.ok) continue;
                 const daily = await resp.json();
-                const byName = new Map();
+                const byName = new Map(); const byGauge = new Map();   // T6.8: by gauge too — a name can move to a new gauge (LUNA-WBTC migrated; name-keyed, the new pool read -6.40M against the old one's lock-in)
                 for (const p of (daily.pools || [])) {
+                    if (p.gauge_pool_id) byGauge.set(p.gauge_pool_id, { total: (p.voting_power || {}).vp_human || 0, votion: (p.voting_power || {}).votion_current_vp || 0 });
                     if (p.status !== 'active') continue;
                     const vp = p.voting_power || {};
                     const total = vp.vp_human || 0;
@@ -9885,7 +9917,7 @@
                     const cur = byName.get(key);
                     if (!cur || total > cur.total) byName.set(key, { total, votion });
                 }
-                store.lockedInByPool = byName;
+                store.lockedInByPool = byName; store.lockedInByGauge = byGauge.size ? byGauge : null;
                 store.lockedInDate = ymd;
                 // The Movers card depends on this baseline and usually renders before
                 // it lands — re-render now that it's here.
@@ -13693,6 +13725,7 @@
     <!-- Vercel Web Analytics (auto-enabled for Vercel-hosted sites) -->
     <script defer src="/_vercel/insights/script.js"></script>
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.7', revDate: '2026-09-21', page: 'tla-stats' });   // T6.7: pots price off the feed by the catalog symbol (network-and-prices 3.1.0); the T6.5 page bridge is gone · T6.6 (step 5): the Vote Market's +$X cell carries Votion's own threshold flags for the bucket (moves / holds, its published gain) and the per-bucket back-test error; a header chip shows the mean model-vs-plan error. Words + one derived number; no layout change.   // T6.5: live pots price through the catalog's own price when the feed keys a symbol differently (USDC.n vs USDC); a pot with tokens is never 'not funded' — the LUNA-EURe $10 pot for p203 was funded all along.   // T6.4: the Top-by-APR subline names the LUNA price the product is on (live / day price, as-of) and the trading-leg caveat for the four pools that read lower than Eris. Words only.   // T6.3: the Bribes popup reads the rollup too (1.1.0 oracle join); footer says why an epoch can be missing.   // T6.2: hero-tile popups read member-data/tla-snapshot/epoch-history.json (every epoch since E184 for pools / TVL / rewards / voting VP, APR from E196, on the tiles' own basis; bribes keep their live point until the oracle join); the band product is used only for epochs the rollup lacks — no mixed definitions. In place under the freeze.   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.8', revDate: '2026-09-25', page: 'tla-stats' });   // T6.8: every pool named before anything keys on names (Votion plan title / catalog underlyings for raw-address pools; a dewhitelisted twin gauge is "(old)" instead of hiding the live one)
+    //   // T6.7: pots price off the feed by the catalog symbol (network-and-prices 3.1.0); the T6.5 page bridge is gone · T6.6 (step 5): the Vote Market's +$X cell carries Votion's own threshold flags for the bucket (moves / holds, its published gain) and the per-bucket back-test error; a header chip shows the mean model-vs-plan error. Words + one derived number; no layout change.   // T6.5: live pots price through the catalog's own price when the feed keys a symbol differently (USDC.n vs USDC); a pot with tokens is never 'not funded' — the LUNA-EURe $10 pot for p203 was funded all along.   // T6.4: the Top-by-APR subline names the LUNA price the product is on (live / day price, as-of) and the trading-leg caveat for the four pools that read lower than Eris. Words only.   // T6.3: the Bribes popup reads the rollup too (1.1.0 oracle join); footer says why an epoch can be missing.   // T6.2: hero-tile popups read member-data/tla-snapshot/epoch-history.json (every epoch since E184 for pools / TVL / rewards / voting VP, APR from E196, on the tiles' own basis; bribes keep their live point until the oracle join); the band product is used only for epochs the rollup lacks — no mixed definitions. In place under the freeze.   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
 </body>
 </html>
