@@ -60,7 +60,8 @@
           "vol_label": "vol 24h",
           "source": "DexScreener · hourly capture",
           "href": "/liondao/roar20.html",
-          "value_reason_key": "roar20.price_reason"
+          "value_reason_key": "roar20.price_reason",
+          "logo": "/assets/token-logos/ROAR20_LOGO.png"
         },
         {
           "label": "pixeLions",
@@ -80,12 +81,18 @@
         },
         {
           "label": "Burning Lions",
-          "what": "floor",
-          "value_key": "bl.floor_usd",
-          "value_reason_key": "bl.market_reason",
+          "what": "one-of-ones",
+          "logo": "/assets/images/burning-lions-logo.png",
+          "value_key": "bl.supply_text",
+          "value_fmt": "raw",
+          "value_reason": "the cw721 did not answer",
+          "chg_label": "floor",
           "market_reason_key": "bl.market_reason",
-          "vol_label": "sales 24h",
-          "source": "lands with onboarding",
+          "vol_key": "bl.holders",
+          "vol_fmt": "int",
+          "vol_label": "holders",
+          "vol_reason_key": "bl.holders_reason",
+          "source": "minted of stated · holders live (cw721)",
           "href": "/liondao/mint.html#burning-lions"
         }
       ]
@@ -606,7 +613,7 @@
       "activity_note": "1.6.0 (owner): this ally's NFTs only (pixeLions now, Burning Lions when onboarded) and every action a holder can take — sell, list, reprice, delist, bid, stake (DAODAO or Enterprise), unstake and claim, transfer or mint; no aDAO, no TLA locks"
     }
   ],
-  "version": "3.5",
+  "version": "3.6",
   "solana_rpc": [
     "https://solana-rpc.publicnode.com",
     "https://api.mainnet-beta.solana.com"
