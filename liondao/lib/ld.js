@@ -26,7 +26,7 @@
   else root.LD = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
-  var VERSION = '1.1.0';
+  var VERSION = '1.3.0';   // 1.3.0 (owner 2026-09-25: "in all the tables with addresses we aren't showing DAO-registered handle names"): every ui.addr() names its address from ONE source — the tenant roster, then the address catalog (registry entities + DAODAO profile handles, tla-core/catalog) — loaded once in ready(); LD.nameOf(a) for pages that want the name alone
   var G = typeof globalThis !== 'undefined' ? globalThis : this;
   var CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/';
   var DAOO = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/';
@@ -71,6 +71,8 @@
     var map = { accent: '--t-accent', accent2: '--t-accent2', bg: '--t-bg', surface: '--t-surface', surface2: '--t-surface2', text: '--t-text', border: '--t-border', font: '--t-font' };
     Object.keys(map).forEach(function (k) { if (th[k]) r.setProperty(map[k], th[k]); });
   }
+  var NAMES = { map: {} };
+  function nameOf(a) { return a && NAMES.map[a] ? NAMES.map[a] : null; }
   function ready() {
     if (M.readyP) return M.readyP;
     M.readyP = (G.CollectionContext ? G.CollectionContext.load().catch(function () { return null; }) : Promise.resolve(null)).then(function (ctx) {
@@ -79,6 +81,10 @@
       if (!t && ctx && ctx.tenants && ctx.tenants.liondao) t = ctx.tenants.liondao;
       M.tenant = t; if (t) applyTheme(t);
       M.dao = t && Array.isArray(t.daos) && t.daos.length ? t.daos[0] : null;   // the DAO folder in dao-originations (registry, never a literal here)
+      // 1.3.0: names — the roster first (the registry's own words), then the catalog's entities and handles; never blocks the page past 6 s
+      var nm = {}; Object.keys((t && t.wallets) || {}).forEach(function (a) { nm[a] = { label: t.wallets[a].label, kind: 'roster' }; }); if (t && t.validator && t.validator.account) nm[t.validator.account] = { label: 'validator account', kind: 'roster' }; NAMES.map = nm;
+      var cat = jsonFetch(CORE + 'catalog/snapshots/current.json', { timeoutMs: 6000 }).then(function (c) { if (c && c.entities) Object.keys(c.entities).forEach(function (a) { if (!nm[a] && c.entities[a] && c.entities[a].label) nm[a] = { label: c.entities[a].label, kind: 'entity' }; }); if (c && c.by_address) Object.keys(c.by_address).forEach(function (a) { var h = c.by_address[a] && c.by_address[a].handle; if (!nm[a] && h) nm[a] = { label: h, kind: 'handle' }; }); return nm; }).catch(function () { return nm; });
+      return cat.then(function () { return M; });
       return M;
     });
     return M.readyP;
@@ -150,8 +156,8 @@
     section: function (title, sub, body, id) { return '<section class="ld-sec"' + (id ? ' id="' + esc(id) + '"' : '') + '><div class="ld-h">' + esc(title) + (sub ? '<small>' + sub + '</small>' : '') + '</div>' + body + '</section>'; },
     // 1.0.2 (owner): EVERY address is copy-and-go — short form · copy (clipboard, "copied" flash) · search it (address catalog) · the
     //   explorer (Chainscope for terra, Solscan for solana). The full address is the title and the copy payload. Delegated handler in mount().
-    addr: function (a, opts) { opts = opts || {}; if (!a) return ''; var sol = opts.chain === 'solana' || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a) && a.indexOf('terra') !== 0; var ex = sol ? 'https://solscan.io/account/' + encodeURIComponent(a) : 'https://chainsco.pe/terra2/address/' + a; var search = sol ? null : '/address-catalog.html?address=' + encodeURIComponent(a);
-      return '<span class="ld-addr" title="' + esc(a) + '">' + (opts.label ? '<b>' + esc(opts.label) + '</b> ' : '') + '<code>' + esc(opts.full ? a : fmt.short(a)) + '</code><button type="button" class="ld-copy" data-copy="' + esc(a) + '" title="copy the full address" aria-label="copy"><i class="fa-regular fa-copy"></i></button>' + (search ? '<a class="ld-go" href="' + esc(search) + '" title="search this address on the site"><i class="fa-solid fa-magnifying-glass"></i></a>' : '') + '<a class="ld-go" href="' + esc(ex) + '" target="_blank" rel="noopener" title="' + (sol ? 'Solscan' : 'Chainscope') + '"><i class="fa-solid fa-arrow-up-right-from-square"></i></a></span>'; },
+    addr: function (a, opts) { opts = opts || {}; if (!a) return ''; if (!opts.label && opts.name !== false) { var nm0 = nameOf(a); if (nm0 && (nm0.kind === 'handle' || opts.name === 'any')) { opts.label = nm0.label; opts.kind = nm0.kind; } }   /* the handle by default — roster and entity names are already chips on most pages; opts.name:'any' asks for every kind */    var sol = opts.chain === 'solana' || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a) && a.indexOf('terra') !== 0; var ex = sol ? 'https://solscan.io/account/' + encodeURIComponent(a) : 'https://chainsco.pe/terra2/address/' + a; var search = sol ? null : '/address-catalog.html?address=' + encodeURIComponent(a);
+      return '<span class="ld-addr" title="' + esc(a) + '">' + (opts.label ? '<b class="ld-nm' + (opts.kind ? ' ld-nm-' + esc(opts.kind) : '') + '" title="' + (opts.kind === 'handle' ? 'DAODAO profile handle' : opts.kind === 'entity' ? 'registry entity' : opts.kind === 'roster' ? 'the DAO roster' : 'name') + '">' + esc(opts.label) + '</b> ' : '') + '<code>' + esc(opts.full ? a : fmt.short(a)) + '</code><button type="button" class="ld-copy" data-copy="' + esc(a) + '" title="copy the full address" aria-label="copy"><i class="fa-regular fa-copy"></i></button>' + (search ? '<a class="ld-go" href="' + esc(search) + '" title="search this address on the site"><i class="fa-solid fa-magnifying-glass"></i></a>' : '') + '<a class="ld-go" href="' + esc(ex) + '" target="_blank" rel="noopener" title="' + (sol ? 'Solscan' : 'Chainscope') + '"><i class="fa-solid fa-arrow-up-right-from-square"></i></a></span>'; },
     wallet: function (w, opts) { opts = opts || {}; var a = w.address || w; var label = w.label || fmt.short(a); var role = w.role || ''; return '<span class="ld-wal ld-role-' + esc(role) + '" title="' + esc(a) + '"><span class="ld-dot"></span><b>' + esc(label) + '</b>' + (opts.role !== false && role ? '<span style="color:var(--ld-dim)">' + esc(role) + '</span>' : '') + ' ' + ui.addr(a, { chain: opts.chain }) + '</span>'; },
     // a horizontal bar of parts [{label, v, color}] — the parts say what they are; a null part is listed, never drawn
     bar: function (parts, opts) { opts = opts || {}; var known = parts.filter(function (p) { return isNum(p.v) && p.v > 0; }); var tot = sum(known.map(function (p) { return p.v; })) || 0; var f = opts.fmt || fmt.usd; var bar = '<div class="ld-bar" role="img" aria-label="' + esc(opts.label || '') + '">' + known.map(function (p) { return '<span style="width:' + (tot ? p.v / tot * 100 : 0) + '%;background:' + p.color + '" title="' + esc(p.label + ' ' + (f(p.v) || '')) + '"></span>'; }).join('') + '</div>'; if (opts.legend === false) return bar; return bar + '<div class="ld-leg">' + parts.map(function (p) { return '<span><i style="background:' + p.color + '"></i>' + esc(p.label) + ' <b style="color:#fff">' + (isNum(p.v) ? esc(f(p.v)) : ui.unk(p.reason)) + '</b>' + (isNum(p.v) && tot ? ' <span style="color:var(--ld-dim)">' + (p.v / tot * 100).toFixed(0) + '%</span>' : '') + '</span>'; }).join('') + '</div>'; },
@@ -207,6 +213,6 @@
     return ready();
   }
   function copyFallback(v) { try { var ta = G.document.createElement('textarea'); ta.value = v; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; G.document.body.appendChild(ta); ta.select(); G.document.execCommand('copy'); G.document.body.removeChild(ta); } catch (e) { } }
-  return { VERSION: VERSION, ready: ready, mount: mount, _copyFallback: copyFallback, positions: positions, nap: nap, collection: collection, lcd: { get: lcdGet, paged: lcdPaged, smart: smart }, jsonFetch: jsonFetch,
+  return { VERSION: VERSION, ready: ready, mount: mount, nameOf: nameOf, _copyFallback: copyFallback, positions: positions, nap: nap, collection: collection, lcd: { get: lcdGet, paged: lcdPaged, smart: smart }, jsonFetch: jsonFetch,
     fmt: fmt, ui: ui, chart: chart, basis: basis, walletsOf: walletsOf, sortWallets: sortWallets, whatChanged: whatChanged, sum: sum, get: get, isNum: isNum, esc: esc, CSS: CSS, _M: M, CORE: CORE, DAOO: DAOO, NFTC: NFTC };
 });
