@@ -49,11 +49,11 @@
     <script src="/lib/cron-registry.js"></script>
     <script src="/lib/denoms.js?v=1.0.0"></script>
     <script src="/lib/live-activity.js?v=1.1.0"></script>
-    <script src="/lib/home-tiles.js?v=1.7.0"></script>
+    <script src="/lib/home-tiles.js?v=1.9.0"></script>
     <script src="/lib/site-footer.js"></script>
     <script>
         (async function () {
-            const REV = '3.8', REV_DATE = '2026-09-26';   /* 3.8: market cards carry market cap · TVL · kill a zero (tokens) and market cap · mark · last sale (NFTs). 3.7: Burning Lions floor from its own inventory; pyROAR 24h from the daily market series. 3.6: ROAR20 + Burning Lions logos; the Burning Lions card shows minted of stated and holders live */
+            const REV = '3.9', REV_DATE = '2026-09-26';   /* 3.9: trend charts on every tile with a kept series; Burning Lions in the marketplace, its own row rebuilt (market, holders by real owner); the pixeLions total no longer adds a market cap to a volume. 3.8: market cards carry market cap · TVL · kill a zero (tokens) and market cap · mark · last sale (NFTs). 3.7: Burning Lions floor from its own inventory; pyROAR 24h from the daily market series. 3.6: ROAR20 + Burning Lions logos; the Burning Lions card shows minted of stated and holders live */
             SiteFooter.mount({ rev: REV, revDate: REV_DATE, page: 'liondao-home' });
             let ctx = null;
             try { ctx = await CollectionContext.load(); } catch (e) { ctx = null; }   // the /liondao/ path names the tenant (collection-context readFromLocation)
