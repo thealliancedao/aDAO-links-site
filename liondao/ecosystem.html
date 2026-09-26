@@ -46,7 +46,7 @@
     <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
     <script src="/liondao/lib/ld.js?v=1.3.0"></script>
-    <script src="/lib/home-tiles.js?v=1.6.0"></script>
+    <script src="/lib/home-tiles.js?v=1.6.1"></script>
 
     <main class="ld" id="page">
         <div id="crumb"></div>
@@ -92,18 +92,18 @@
                 what: 'The pride\'s pixel-art collection — the Pixel Lions DAO\'s membership.', big: v(P.floor_usd, fmt.usd, 'no floor today') + '<small>floor</small>',
                 kv: [['Floor × minted', v(P.market_cap_usd, fmt.usd)], ['Holders', v(P.holders, fmt.int)], ['Staked', v(P.staked_total, fmt.int) + (isNum(P.staked_pct) ? ' <span style="color:#9ca3af">' + esc(fmt.pctPlain(P.staked_pct, 0)) + '</span>' : '')], ['One-of-ones', '5 · see Rarity']],
                 tie: 'Staked lions earn ROAR from Lion DAO — ' + (isNum(PR.roar_per_lion_per_hour) ? esc(fmt.num(PR.roar_per_lion_per_hour)) + ' ROAR a lion an hour' : 'the rate lands with the positions product') });
-            const py = node('em-py', { title: 'pyROAR', tag: 'burn receipt', href: '/liondao/burn.html',
-                what: 'One pyROAR for every ROAR burned in the year-long burn festival — the frozen ledger of who burned what.', big: v(Y.total_supply, fmt.big, 'pyROAR supply not read') + '<small>ROAR burned in the festival</small>',
-                kv: [['Price', v(Y.price_usd, fmt.price, Y.price_reason)], ['Burners (holders)', v(Y.holder_count, fmt.int)], ['Top burner holds', v(Y.top1_pct, (x) => fmt.pctPlain(x, 1))], ['Reported by Lion DAO', v(D.burn && D.burn.reported_total, fmt.big)]],
-                tie: 'Burned ROAR leaves the supply for good — and the burners were the ones in the draw for the Burning Lions' });
+            const py = node('em-py', { title: 'pyROAR', tag: 'burn token', logo: '/assets/token-logos/pyROAR_LOGO.png', href: '/liondao/burn.html',
+                what: 'Minted 1:1 for every ROAR burned in the Burning Lion Festival — to burners for their own burns, and to ROAR stakers for Lion DAO\'s.', big: v(Y.total_supply, fmt.big, 'pyROAR supply not read') + '<small>ROAR burned in the festival</small>',
+                kv: [['Price', v(Y.price_usd, fmt.price, Y.price_reason)], ['Holders', v(Y.holder_count, fmt.int)], ['Largest holder', v(Y.top1_pct, (x) => fmt.pctPlain(x, 1))], ['Community sent · DAO burned', v(D.burn && D.burn.reported_community, fmt.big) + ' · ' + v(D.burn && D.burn.reported_dao, fmt.big)]],
+                tie: 'Every ROAR the community sent to the burn, Lion DAO burned 10x from its treasury (up to 8B a month) — and the burners were raffled the Burning Lions' });
             const r20 = node('em-r20', { title: 'ROAR20', tag: 'Solana', href: '/liondao/roar20.html',
                 what: 'Lion DAO\'s official memecoin on Solana — the pride outside Terra.', big: v(Z.price_usd, fmt.price, 'DexScreener did not answer') + (isNum(Z.chg_24h_pct) ? '<small style="color:' + (Z.chg_24h_pct >= 0 ? '#4ade80' : '#f87171') + '">' + esc(fmt.pct(Z.chg_24h_pct)) + ' 24h</small>' : ''),
                 kv: [['Market cap', v(Z.market_cap_usd, fmt.usd, 'DexScreener did not answer')], ['Volume 24h', v(Z.volume_24h_usd, fmt.usd, 'DexScreener did not answer')], ['Holders', v(Z.holders, fmt.int, Z.holders_reason)], ['Supply', v(Z.supply, fmt.big)]],
                 tie: 'A separate token on another chain — not ROAR, not bridged; it carries the Lion DAO name' });
             const bl = node('em-bl', { title: 'Burning Lions', tag: 'NFT · 1 of 1', href: '/liondao/mint.html#burning-lions',
-                what: 'Twelve one-of-ones, the prizes of the ROAR burn festival.', big: v(BL.supply_text, String, 'the contract did not answer') + '<small>on the contract</small>',
+                what: 'Twelve one-of-ones, raffled each month to the festival\'s burners — weighted by what they burned.', big: v(BL.supply_text, String, 'the contract did not answer') + '<small>on the contract</small>',
                 kv: [['Floor', ui.unk(BL.market_reason)], ['Stated count', v(BL.planned, fmt.int)], ['Contract', '<code style="font-size:.8em">' + esc(fmt.short(BL.contract || '')) + '</code>']],
-                tie: 'Won by burning ROAR — each winner\'s burn, and Lion DAO\'s match, on NFT Mint History' });
+                tie: 'Won in the burn raffle — who holds each today, on NFT Mint History' });
             $('map').innerHTML = '<div class="em"><svg class="em-svg" aria-hidden="true"></svg>' + pl + core + py + r20 + bl + '</div>';
             requestAnimationFrame(drawLines);
 

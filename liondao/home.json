@@ -42,24 +42,25 @@
         },
         {
           "label": "pyROAR",
-          "what": "burn receipt",
+          "what": "burn token",
           "value_key": "pyroar.price_usd",
           "value_reason_key": "pyroar.price_reason",
           "market_reason_key": "pyroar.market_reason",
           "vol_label": "vol 24h",
           "source": "the pyROAR pair, live",
-          "href": "/liondao/burn.html"
+          "href": "/liondao/burn.html",
+          "logo": "/assets/token-logos/pyROAR_LOGO.png"
         },
         {
           "label": "ROAR20",
           "what": "Solana",
           "value_key": "roar20.price_usd",
-          "value_reason": "DexScreener did not answer",
           "chg_key": "roar20.chg_24h_pct",
           "vol_key": "roar20.volume_24h_usd",
           "vol_label": "vol 24h",
-          "source": "DexScreener",
-          "href": "/liondao/roar20.html"
+          "source": "DexScreener · hourly capture",
+          "href": "/liondao/roar20.html",
+          "value_reason_key": "roar20.price_reason"
         },
         {
           "label": "pixeLions",
@@ -134,7 +135,7 @@
           "label": "NFT Mint History",
           "icon": "fa-coins",
           "kind": "link",
-          "desc": "pixeLions: 5,000 primary sales. Burning Lions: what each winner burned, and the ROAR Lion DAO matched.",
+          "desc": "pixeLions: 5,000 primary sales. Burning Lions: who holds each one-of-one, and how the festival's 10x burn match worked.",
           "href": "/liondao/mint.html"
         },
         {
@@ -199,7 +200,7 @@
               "href": "/liondao/alliance.html"
             },
             {
-              "label": "Burn leaderboard (pyROAR)",
+              "label": "pyROAR holders (the burn festival ledger)",
               "href": "/liondao/burn.html"
             },
             {
@@ -328,7 +329,7 @@
               "reason": "holder product not read"
             }
           ],
-          "note": "One pyROAR was minted per ROAR burned in the festival; the cw20 is frozen, so its ledger is the burn leaderboard. {pyroar.holder_count|int} accounts hold it; the largest WALLET is {pyroar.top1_label} at {pyroar.top1_pct|pctPlain}, the top ten accounts hold {pyroar.top10_pct|pctPlain}; contracts hold {pyroar.contracts_pct|pctPlain} (the largest: {pyroar.top_contract_label}) and did not burn — a pool or a treasury holding receipts. Every account walked and summed against total_supply each day (burn/holders); kinds and labels from the roster and the chain.",
+          "note": "pyROAR was minted 1:1 for every ROAR burned in the Burning Lion Festival (Sept 2023 → Sept 2024). Two ways to receive it: a PyROARmaniac who sent their own ROAR to the burn got the same amount back in pyROAR, and every time Lion DAO burned from its treasury (10x the community's burn, up to 8B a month — 4B to open the festival, prop #95) that pyROAR was shared out to ROAR stakers. So a balance is a wallet's own burn PLUS its staker share — not its burn alone. The token is frozen, so the ledger no longer moves; every account is walked and summed against total_supply daily (burn/holders).",
           "total_source_key": "pyroar.total_source",
           "links": [
             {
@@ -336,7 +337,7 @@
               "href": "/liondao/burn.html"
             }
           ],
-          "lead": "One pyROAR per ROAR burned in the festival — {pyroar.holder_count|int} holders; the largest burner wallet holds {pyroar.top1_pct|pctPlain}.",
+          "lead": "{pyroar.holder_count|int} holders of the festival's pyROAR — the largest wallet holds {pyroar.top1_pct|pctPlain}.",
           "rest_label": "Not attributed"
         },
         {
@@ -519,7 +520,7 @@
     {
       "type": "row",
       "title": "Burning Lions",
-      "sub": "12 one-of-ones from the year-long ROAR burn festival · the collection is not onboarded yet, so floor and sales are Coming",
+      "sub": "12 one-of-ones raffled to the festival's burners, weighted by what they burned · not onboarded yet, so floor and sales are Coming",
       "metrics": [
         {
           "label": "Supply",
@@ -534,14 +535,14 @@
           "label": "ROAR burned in the festival",
           "key": "burn.reported_total",
           "fmt": "big",
-          "sub": "reported by Lion DAO, {burn.reported_as_of|date} · {burn.reported_participants|int} wallets · measured: {burn.supply_delta|big} gone from supply (1T minted − live), {pyroar.holder_count|int} pyROAR holders",
+          "sub": "reported by Lion DAO, {burn.reported_as_of|date}: {burn.reported_community|big} sent by the community, {burn.reported_dao|big} burned by Lion DAO at 10x · measured: {burn.supply_delta|big} gone from supply",
           "source": "Lion DAO's published figures — not ours yet",
           "href": "/liondao/ecosystem.html"
         },
         {
-          "label": "Top burner (wallet)",
+          "label": "Largest pyROAR holder",
           "key": "pyroar.top1_label",
-          "sub": "holds {pyroar.top1_pct|pctPlain} of pyROAR — the burn ledger, walked whole; contracts (pools, treasuries) hold {pyroar.contracts_pct|pctPlain} and are not burners",
+          "sub": "holds {pyroar.top1_pct|pctPlain} of pyROAR — its own burns plus its share of Lion DAO's burns as a staker; contracts hold {pyroar.contracts_pct|pctPlain}",
           "reason": "holder product not read",
           "href": "/liondao/burn.html",
           "source": "burn/holders",
@@ -605,7 +606,7 @@
       "activity_note": "1.6.0 (owner): this ally's NFTs only (pixeLions now, Burning Lions when onboarded) and every action a holder can take — sell, list, reprice, delist, bid, stake (DAODAO or Enterprise), unstake and claim, transfer or mint; no aDAO, no TLA locks"
     }
   ],
-  "version": "3.4",
+  "version": "3.5",
   "solana_rpc": [
     "https://solana-rpc.publicnode.com",
     "https://api.mainnet-beta.solana.com"

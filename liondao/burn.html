@@ -8,8 +8,8 @@
          the contract's total_supply (dao-originations/<dao>/burn/holders.json). Kinds come from the roster and the chain; names
          from the roster, the festival receiver and the trust register. Chain facts only — no published figure enters this page. -->
     <base href="/">
-    <title>Burn leaderboard — pyROAR holders | Lion DAO | thealliancedao.com</title>
-    <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
+    <title>pyROAR holders — the burn festival ledger | Lion DAO | thealliancedao.com</title>
+    <link rel="icon" type="image/png" href="/assets/token-logos/pyROAR_LOGO.png">
     <meta name="description" content="Who holds pyROAR — the frozen ROAR burn ledger — and how much: every account, ranked, with the supply gate, from the chain.">
     <meta name="theme-color" content="#0b0b0b">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -45,7 +45,7 @@
         await LD.mount({ page: 'liondao-burn', rev: REV, revDate: REV_DATE });
         const T = LD._M.tenant || {}; const DAO = LD._M.dao;
         const $ = (id) => document.getElementById(id);
-        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'Burn leaderboard' }]);
+        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'pyROAR holders' }]);
         const P = DAO ? await LD.jsonFetch(LD.DAOO + DAO + '/burn/holders.json', { timeoutMs: 30000 }) : null;
         if (!P || !Array.isArray(P.holders)) { $('hero').innerHTML = ui.note('The burn leaderboard product has not been written yet — <b>ally-positions/holders.js</b> (daily) walks every pyROAR account and publishes <b>' + esc(DAO || '<dao>') + '/burn/holders.json</b>. Until its first run this page has nothing to show; nothing here is estimated.'); return; }
         const H = P.holders.slice().sort((a, b) => b.amount - a.amount); const tok = P.token || {}; const K = P.kinds || {}; const C = P.concentration || {}; const G = P.supply_gate || {};
@@ -54,7 +54,7 @@
 
         $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · pyROAR · the frozen burn ledger</div>' +
             '<div class="ld-hero-v ld-num">' + esc(fmt.big(tok.total_supply)) + ' <span style="font-size:.5em;color:var(--ld-muted)">pyROAR</span></div>' +
-            '<div class="ld-hero-l">One pyROAR was minted for every ROAR burned in the festival, and the cw20 has been frozen since — so who holds it is who burned. <b>' + esc(fmt.int(P.holder_count)) + '</b> accounts hold a balance' + (P.zero_balance_accounts ? ' (' + esc(fmt.int(P.zero_balance_accounts)) + ' more sit at zero)' : '') + '. The largest <b>wallet</b>, <b>' + esc((P.top10_wallets && P.top10_wallets[0]) ? (P.top10_wallets[0].label || fmt.short(P.top10_wallets[0].address)) : (H.find(h => h.kind !== 'contract') || {}).address ? fmt.short(H.find(h => h.kind !== 'contract').address) : '—') + '</b>, holds <b>' + esc(fmt.pctPlain(C.top1_wallet_pct != null ? C.top1_wallet_pct : (H.find(h => h.kind !== 'contract') || {}).share_pct, 2)) + '</b>; contracts — pools and treasuries holding receipts, not burners — hold <b>' + esc(fmt.pctPlain(C.contracts_pct != null ? C.contracts_pct : (K.contract && tok.total_supply ? K.contract.amount / tok.total_supply * 100 : null), 1)) + '</b>' + (H[0] && H[0].kind === 'contract' ? ' (the single largest account is the contract <b>' + esc(H[0].label || fmt.short(H[0].address)) + '</b> at ' + esc(fmt.pctPlain(C.top1_pct, 1)) + ')' : '') + '; the top ten accounts hold <b>' + esc(fmt.pctPlain(C.top10_pct, 1)) + '</b>, the top fifty <b>' + esc(fmt.pctPlain(C.top50_pct, 1)) + '</b>.</div>' +
+            '<div class="ld-hero-l">One pyROAR was minted for every ROAR burned in the Burning Lion Festival, and the cw20 has been frozen since. It reached wallets two ways: a burner got pyROAR 1:1 for the ROAR they sent to the burn, and ROAR stakers shared the pyROAR for every Lion DAO treasury burn (10x the community\'s, up to 8B a month, and 4B to open the festival). So a balance is a wallet\'s own burn plus its staker share. <b>' + esc(fmt.int(P.holder_count)) + '</b> accounts hold a balance' + (P.zero_balance_accounts ? ' (' + esc(fmt.int(P.zero_balance_accounts)) + ' more sit at zero)' : '') + '. The largest <b>wallet</b>, <b>' + esc((P.top10_wallets && P.top10_wallets[0]) ? (P.top10_wallets[0].label || fmt.short(P.top10_wallets[0].address)) : (H.find(h => h.kind !== 'contract') || {}).address ? fmt.short(H.find(h => h.kind !== 'contract').address) : '—') + '</b>, holds <b>' + esc(fmt.pctPlain(C.top1_wallet_pct != null ? C.top1_wallet_pct : (H.find(h => h.kind !== 'contract') || {}).share_pct, 2)) + '</b>; contracts — pools and treasuries holding receipts, not burners — hold <b>' + esc(fmt.pctPlain(C.contracts_pct != null ? C.contracts_pct : (K.contract && tok.total_supply ? K.contract.amount / tok.total_supply * 100 : null), 1)) + '</b>' + (H[0] && H[0].kind === 'contract' ? ' (the single largest account is the contract <b>' + esc(H[0].label || fmt.short(H[0].address)) + '</b> at ' + esc(fmt.pctPlain(C.top1_pct, 1)) + ')' : '') + '; the top ten accounts hold <b>' + esc(fmt.pctPlain(C.top10_pct, 1)) + '</b>, the top fifty <b>' + esc(fmt.pctPlain(C.top50_pct, 1)) + '</b>.</div>' +
             '<div class="ld-hero-s">every account walked ' + ui.when(P.capturedAt) + ' · supply gate: total_supply − Σ balances = <b class="' + (G.delta === 0 ? 'ld-good' : 'ld-bad') + '">' + esc(G.delta == null ? '—' : fmt.big(G.delta)) + '</b>' + (G.exact ? ' (exact)' : '') + ' · cw20 ' + ui.addr(tok.cw20 || '') + '</div></div>' +
             '<div class="ld-grid ld-g4" style="margin-top:1.1rem">' +
             ui.stat({ label: 'Holders', value: fmt.int(P.holder_count), sub: fmt.int(P.account_count) + ' accounts in the ledger', source: 'cw20 all_accounts, walked whole' }) +
@@ -72,7 +72,7 @@
         const paint = () => {
             const rows = H.filter(h => !q || h.address.includes(q) || (h.label || '').toLowerCase().includes(q.toLowerCase()));
             const top = rows.slice(0, shown); const max = H[0] ? H[0].amount : 1;
-            $('board').innerHTML = ui.section('The leaderboard', esc(fmt.int(rows.length)) + ' of ' + esc(fmt.int(H.length)) + ' accounts · ranked by pyROAR held = ROAR burned',
+            $('board').innerHTML = ui.section('The leaderboard', esc(fmt.int(rows.length)) + ' of ' + esc(fmt.int(H.length)) + ' accounts · ranked by pyROAR held (own burns + staker share of Lion DAO\'s burns)',
                 '<div class="hl-ctl"><input id="hl-q" placeholder="find an address or a name" value="' + esc(q) + '"><span class="ld-sub">USD is not shown: pyROAR has no market — it is a receipt.</span></div>' +
                 '<div class="ld-tile">' + ui.table([{ label: '#' }, { label: 'Holder' }, { label: 'Kind' }, { label: 'pyROAR', r: true }, { label: 'Share', r: true }],
                     top.map(h => '<tr><td class="ld-num hl-rank">' + esc(h.rank) + '</td><td>' + kindChip(h) + ' ' + ui.addr(h.address) + '<div class="hl-bar"><i style="width:' + Math.max(.5, h.amount / max * 100) + '%"></i></div></td><td class="ld-sub" title="' + esc(h.kind_source || '') + '">' + esc(kindLabel[h.kind] || h.kind || '—') + '</td>' + ui.td(esc(fmt.big(h.amount)), true) + ui.td(esc(fmt.pctPlain(h.share_pct, 3)), true) + '</tr>')) +
