@@ -503,6 +503,7 @@
         }
         
         /* Epoch selector */
+        svg .dc-pt circle { opacity: 0; } svg .dc-pt:hover circle { opacity: 1; } svg .dc-pt:hover rect { fill: rgba(255,255,255,.06); }   /* T6.9 */
         .epoch-select {
             background: rgba(255,255,255,0.05);
             border: 1px solid rgba(255,255,255,0.1);
@@ -1206,6 +1207,8 @@
                         <div id="waterfall-full" class="desc-full"><span class="ex-lead">What this means:</span> Voting power (VP) decides which pools get rewards. Each bar is a pool; taller = more votes. The colors show who's voting: <span class="text-gray-300">Votion</span> (an optimizer that auto-directs votes for best returns), <span class="text-gray-300">aDAO</span> (the Alliance treasury), and <span class="text-gray-300">Other</span> (everyone else). Together it shows where the community is steering incentives this epoch.</div>
                     </div>
                     <div class="flex items-center gap-4">
+                        <!-- T6.9: any past epoch, from the per-epoch pool history -->
+                        <select id="epoch-past-select" class="epoch-select text-xs" title="See how any past epoch was voted (the last reading of that epoch)" onchange="selectPastEpoch(this.value)"><option value="">Past epochs…</option></select>
                         <!-- Epoch Toggle -->
                         <div class="flex gap-1 bg-white/5 rounded-lg p-0.5" id="epoch-toggle">
                             <button class="epoch-toggle-btn px-2.5 py-1 text-xs rounded-md text-gray-400 hover:text-gray-300 font-medium" data-epoch="current">
@@ -1258,6 +1261,7 @@
                 <!-- Shift summary (Planned view only): the bucket-level current→projected read.
                      Filled by renderWaterfallChart; hidden in the Locked-in view. -->
                 <div id="waterfall-shift-summary" class="hidden text-[11px] text-gray-400 mb-2 px-1"></div>
+                <div id="waterfall-past-note" class="hidden text-[11px] text-gray-400 mb-2 px-1"></div>
 
                 <!-- Scale bar — left-padded by the label gutter (150px) so the axis lines up
                      with the bar plot area, which starts after each row's name column. -->
@@ -3427,6 +3431,7 @@
             // name+bucket convention used throughout Threshold Watch). On duplicate
             // name+bucket (rare), keep the entry with more epochs of coverage.
             store.poolStatusHistory = poolStatusResp;
+            try { populatePastEpochs(); } catch (e) {}   // T6.9
             store.poolHistoryByKey = new Map();
             if (poolStatusResp?.pools) {
                 for (const hp of poolStatusResp.pools) {
@@ -8688,6 +8693,8 @@
 
     function drillChartSvg(pts, w, h, fmt, color = '#22D3EE', opts = {}) {
         const vals = pts.map(p => p[1]).filter(v => v != null);
+        // T6.9: every point answers on hover — epoch, value (and whatever the caller adds: the bucket share for votes)
+        const hov = (sx, sy) => pts.map((p, i) => p[1] == null ? '' : `<g class="dc-pt"><rect x="${(sx(i) - (w - 4) / Math.max(1, pts.length - 1) / 2).toFixed(1)}" y="0" width="${((w - 4) / Math.max(1, pts.length - 1)).toFixed(1)}" height="${h}" fill="transparent"/><circle cx="${sx(i).toFixed(1)}" cy="${sy(p[1]).toFixed(1)}" r="2.2" fill="${color}" vector-effect="non-scaling-stroke"/><title>e${p[0]}: ${fmt(p[1])}${opts.tip ? opts.tip(p) : ''}</title></g>`).join('');
         if (vals.length < 2) return '<div class="text-[10px] text-gray-600">not enough history yet</div>';
         const min = Math.min(...vals), max = Math.max(...vals), span = (max - min) || 1;
         const sx = i => 2 + i * (w - 4) / (pts.length - 1);
@@ -8713,7 +8720,7 @@
             <div class="flex items-center gap-1.5">
               <svg viewBox="0 0 ${w} ${h}" class="flex-1 ${cssH}" preserveAspectRatio="none">
                 <polygon points="${area}" fill="${color}" opacity="0.08"/>
-                <polyline points="${line}" fill="none" stroke="${color}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
+                <polyline points="${line}" fill="none" stroke="${color}" stroke-width="1.5" vector-effect="non-scaling-stroke"/>${hov(sx, sy)}</svg>
               <div class="text-right shrink-0 leading-tight">
                 <div class="text-[9px] text-gray-500 mono">${fmt(max)}</div>
                 <div class="text-[9px] text-gray-600 mono">${fmt(min)}</div>
@@ -8743,8 +8750,9 @@
         const r = _drillRecs.get(key); if (!r || !r.hp) { box.innerHTML = '<div class="text-[10px] text-gray-600 p-2">no history for this pool yet</div>'; return; }
         const eps = Object.keys(r.hp.epochs || {}).map(Number).sort((a, b) => a - b);
         const staked = eps.map(e => [e, r.hp.epochs[String(e)]?.staked_usd ?? null]);
-        const vp = eps.map(e => [e, r.hp.epochs[String(e)]?.vp_human ?? null]);
+        const vp = eps.map(e => [e, r.hp.epochs[String(e)]?.vp_human ?? null, r.hp.epochs[String(e)]?.bucket_pct ?? null]);
         const last = r.hp.epochs[String(eps[eps.length - 1])] || {};
+        const _pastEp = eps.filter(e => e < (store.epoch || Infinity)).slice(-1)[0];
         const f$ = v => '$' + Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
         // this-epoch bribes for the pool (already computed at load)
         let bribeUsd = null;
@@ -8831,7 +8839,8 @@
           <div class="text-[9px] text-gray-500 mt-1 mb-0.5">Weekly change \u2014 green = money added, red = money withdrawn (hover a bar for the exact $)</div>
           ${drillFlowBars(staked, 320, 36)}
           <div class="text-[9px] text-gray-500 mt-1 mb-0.5">Voting support \u2014 vAMP votes decide this pool\u2019s share of weekly rewards; rising support = rewards likely to grow</div>
-          ${drillChartSvg(vp, 320, 48, v => Number(v).toLocaleString(undefined,{maximumFractionDigits:0}))}
+          ${drillChartSvg(vp, 320, 48, v => Number(v).toLocaleString(undefined,{maximumFractionDigits:0}) + ' VP', '#22D3EE', { tip: p => p[2] != null ? ' \u00b7 ' + Number(p[2]).toFixed(1) + '% of the bucket' : '' })}
+          <div class="text-[9px] text-gray-500 mt-1">Hover any point for that epoch\u2019s exact number. ${_pastEp ? `<a href="#epoch-toggle" class="text-cyan-400 hover:underline" onclick="event.preventDefault();openPastVote(${_pastEp}, '${String(r.bucket || '').toUpperCase()}')">See how every ${String(r.bucket || '').toLowerCase()} pool was voted in a past epoch \u2192</a>` : ''}</div>
           </div>
           </div>`;
         box.dataset.built = '1';
@@ -9930,8 +9939,97 @@
         }
     }
 
+    // T6.9 (owner 2026-09-26, a visitor asked "can you view TLA voting for previous epochs?"): the Vote Breakdown shows ANY
+    // past epoch — each pool's votes as they stood at the last reading of that epoch (pool-status-history: vp_human, share of
+    // its bucket, staked), with the change against the epoch before. Who-voted splits (Votion / aDAO / others) are captured live
+    // only, so a past epoch shows each pool's total — said on the chart, never estimated.
+    let waterfallPastEpoch = null;
+    function populatePastEpochs() {
+        const sel = document.getElementById('epoch-past-select'); if (!sel || !store.poolStatusHistory) return;
+        const cur = store.epoch || Infinity;
+        const eps = (store.poolStatusHistory.epochs || []).filter(e => e < cur).sort((a, b) => b - a);
+        sel.innerHTML = '<option value="">Past epochs\u2026</option>' + eps.map(e => `<option value="${e}"${waterfallPastEpoch === e ? ' selected' : ''}>Epoch ${e}</option>`).join('');
+    }
+    window.selectPastEpoch = function (v) {
+        const n = Number(v);
+        if (!v || !isFinite(n)) { waterfallPastEpoch = null; if (waterfallEpochView === 'past') waterfallEpochView = 'next'; }
+        else { waterfallPastEpoch = n; waterfallEpochView = 'past'; }
+        document.querySelectorAll('.epoch-toggle-btn').forEach(b => { const on = waterfallEpochView === b.dataset.epoch; b.classList.toggle('active', on); b.classList.toggle('bg-cyan-500/20', on); b.classList.toggle('text-cyan-400', on); b.classList.toggle('text-gray-400', !on); });
+        const sel = document.getElementById('epoch-past-select'); if (sel) sel.classList.toggle('ring-1', waterfallEpochView === 'past');
+        const activeBtn = document.querySelector('.votion-bucket-btn.active');
+        renderWaterfallChart(activeBtn?.dataset.bucket || 'STABLE');
+    };
+    // jump from a pool's drill-down to the whole vote of that pool's last epoch
+    window.openPastVote = function (epoch, bucket) {
+        const sec = document.getElementById('epoch-toggle'); if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (bucket) { const b = document.querySelector(`.votion-bucket-btn[data-bucket="${String(bucket).toUpperCase()}"]`); if (b) b.click(); }
+        populatePastEpochs(); const sel = document.getElementById('epoch-past-select'); if (sel) sel.value = String(epoch);
+        window.selectPastEpoch(String(epoch));
+    };
+    function renderWaterfallPast(filterBucket, N) {
+        const container = document.getElementById('waterfall-bars');
+        const H = store.poolStatusHistory; const note = document.getElementById('waterfall-past-note');
+        const shiftEl = document.getElementById('waterfall-shift-summary'); if (shiftEl) shiftEl.classList.add('hidden');
+        if (!H) { container.innerHTML = '<div class="text-center text-gray-500 py-8">The per-epoch history did not load \u2014 refresh to try again.</div>'; return; }
+        const bkt = String(filterBucket).toLowerCase();
+        const rows = (H.pools || []).filter(p => String(p.bucket || '').toLowerCase() === bkt && p.epochs && p.epochs[String(N)] && !p.epochs[String(N)].is_migration_corpse)
+            .map(p => { const e = p.epochs[String(N)], pe = p.epochs[String(N - 1)] || null; return { name: p.name, dex: p.dex, vp: Number(e.vp_human) || 0, pct: e.bucket_pct, active: e.active !== false && e.status !== 'inactive', staked: e.staked_usd, prev: pe ? Number(pe.vp_human) || 0 : null, at: e.capturedAt }; })
+            .filter(r => r.vp > 0 || (r.prev || 0) > 0);
+        const act = rows.filter(r => r.active).sort((a, b) => b.vp - a.vp), ina = rows.filter(r => !r.active).sort((a, b) => b.vp - a.vp);
+        const total = rows.reduce((t, r) => t + r.vp, 0), prevTotal = rows.reduce((t, r) => t + (r.prev || 0), 0);
+        const inaVP = ina.reduce((t, r) => t + r.vp, 0);
+        const _largest = Math.max(...act.map(r => Math.max(r.vp, r.prev || 0)), inaVP, 1);
+        const _mag = Math.pow(10, Math.floor(Math.log10(_largest)));
+        const scaleMax = Math.ceil(_largest / (_mag / 4)) * (_mag / 4) || 1000000;
+        document.getElementById('waterfall-total').textContent = fmtNum(total) + ' VP';
+        ['waterfall-votion', 'waterfall-adao', 'waterfall-other'].forEach(id => { const el = document.getElementById(id); if (el) { el.textContent = 'live only'; el.title = 'Who voted (Votion / aDAO / everyone else) is captured for the live epoch only \u2014 past epochs keep each pool\u2019s total.'; } });
+        ['waterfall-member-legend', 'waterfall-footer-member-legend'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+        document.getElementById('scale-max').textContent = fmtNum(scaleMax);
+        document.getElementById('scale-25').textContent = fmtNum(scaleMax * 0.25);
+        document.getElementById('scale-50').textContent = fmtNum(scaleMax * 0.50);
+        document.getElementById('scale-75').textContent = fmtNum(scaleMax * 0.75);
+        const at = (rows.find(r => r.at) || {}).at;
+        const dT = total - prevTotal;
+        const movers = rows.filter(r => r.prev != null).map(r => ({ name: r.name, d: r.vp - r.prev })).filter(m => Math.abs(m.d) >= 1).sort((a, b) => Math.abs(b.d) - Math.abs(a.d)).slice(0, 3);
+        if (note) { note.classList.remove('hidden'); note.innerHTML = `<i class="fas fa-clock-rotate-left text-[9px] mr-1 text-gray-500"></i>Epoch ${N} \u2014 the votes at the last reading of that epoch${at ? ` (${String(at).slice(0, 10)})` : ''} \u00b7 bucket ${prevTotal ? `<span class="mono ${dT >= 0 ? 'text-emerald-400' : 'text-red-400'}">${dT >= 0 ? '+' : '\u2212'}${fmtNum(Math.abs(dT))} VP</span> vs epoch ${N - 1}` : ''}${movers.length ? ' \u2014 biggest moves: ' + movers.map(m => `<span class="mono ${m.d >= 0 ? 'text-emerald-400' : 'text-red-400'}">${m.d >= 0 ? '+' : '\u2212'}${fmtNum(Math.abs(m.d))}</span> ${m.name}`).join(' \u00b7 ') : ''} <span class="text-gray-500">\u00b7 ghost outline = epoch ${N - 1} \u00b7 who-voted split is live-only</span>`; }
+        if (!rows.length) { container.innerHTML = `<div class="text-center text-gray-500 py-8">No ${filterBucket.toLowerCase()} pools held votes in epoch ${N}.</div>`; return; }
+        const bar = (r) => {
+            const w = Math.min(100, r.vp / scaleMax * 100), pw = r.prev != null ? Math.min(100, r.prev / scaleMax * 100) : null;
+            const d = r.prev != null ? r.vp - r.prev : null, dp = r.prev ? d / r.prev * 100 : null;
+            const dexShort = r.dex === 'Single' ? 'Single' : (String(r.dex || '').includes('Astro') ? 'Astro' : 'Skeleton');
+            const dexCls = r.dex === 'Single' ? 'text-gray-400' : (String(r.dex || '').includes('Astro') ? 'text-blue-400' : 'text-orange-400');
+            const lbl = d == null ? '<span class="text-gray-500">new this epoch</span>' : Math.abs(d) < 1 ? '<span class="text-gray-500">no change</span>' : `<span class="${d > 0 ? 'text-emerald-400' : 'text-red-400'}">${d > 0 ? '+' : '\u2212'}${fmtNum(Math.abs(d))}${dp != null && isFinite(dp) ? ` / ${d > 0 ? '+' : ''}${dp.toFixed(0)}%` : ''}</span>`;
+            const lblHtml = `<span class="text-[10px] mono whitespace-nowrap">${fmtNum(r.vp)} <span class="text-gray-500">\u00b7 ${r.pct != null ? Number(r.pct).toFixed(1) + '%' : ''}</span> ${lbl}</span>`;
+            const inside = w >= 55;
+            return `
+                <div class="waterfall-row group flex items-stretch" style="height: 38px;">
+                    <div class="shrink-0 flex flex-col justify-center pr-2 overflow-hidden" style="width: 150px;">
+                        <span class="text-xs text-gray-200 font-medium truncate leading-tight">${r.name}</span>
+                        <span class="text-[9px] truncate leading-tight"><span class="${dexCls}">${dexShort}</span></span>
+                    </div>
+                    <div class="relative flex-1">
+                        <div class="absolute top-1.5 bottom-1.5 rounded" style="left: 0; width: ${Math.max(w, 0.4)}%; background: rgba(34, 211, 238, 0.55);"></div>
+                        ${pw != null && Math.abs(pw - w) > 0.05 ? `<div class="absolute top-1 bottom-1 rounded border border-dashed border-gray-300/30 pointer-events-none z-10" style="left: 0; width: ${Math.max(pw, 0.4)}%;"></div>` : ''}
+                        <div class="absolute top-0 h-full flex items-center z-20 pointer-events-none ${inside ? 'justify-end pr-1.5' : 'pl-1.5'}" style="${inside ? `right: ${Math.max(0, 100 - w)}%` : `left: ${w}%`};">${lblHtml}</div>
+                        <div class="absolute opacity-0 group-hover:opacity-100 transition-opacity z-30 pointer-events-none bg-gray-900/95 border border-white/10 rounded-lg px-3 py-2 text-xs shadow-xl" style="left: ${Math.min(w / 2, 60)}%; top: 100%; margin-top: 2px; min-width: 200px;">
+                            <div class="font-semibold text-white mb-1">${r.name} <span class="text-gray-400 font-normal">(${r.dex})</span> \u00b7 epoch ${N}</div>
+                            <div class="text-gray-300">Votes: <span class="text-cyan-400 font-mono">${fmtNum(r.vp)}</span>${r.pct != null ? ` \u00b7 ${Number(r.pct).toFixed(2)}% of the bucket` : ''}</div>
+                            ${r.prev != null ? `<div class="text-gray-400">Epoch ${N - 1}: <span class="font-mono">${fmtNum(r.prev)}</span></div>` : ''}
+                            ${r.staked != null ? `<div class="text-gray-400">Staked via TLA: <span class="font-mono">${fmt$(r.staked)}</span></div>` : ''}
+                            ${r.active ? '' : '<div class="text-amber-400/80 mt-1">below the 1% threshold that epoch \u2014 no rewards</div>'}
+                        </div>
+                    </div>
+                </div>`;
+        };
+        let html = act.map(bar).join('');
+        if (ina.length) html += `<div class="flex items-center gap-2 py-1.5"><span class="text-[10px] uppercase tracking-wide text-amber-500/70">Below the threshold that epoch (${ina.length}) \u00b7 ${fmtNum(inaVP)} VP</span><div class="flex-1 border-t border-amber-500/15"></div></div>` + (waterfallShowInactive ? ina.map(bar).join('') : `<div class="text-[10px] text-gray-500 px-1 pb-1 cursor-pointer" onclick="toggleWaterfallInactive()">show them \u2192</div>`);
+        container.innerHTML = html;
+    }
     function renderWaterfallChart(filterBucket = 'STABLE') {
         const container = document.getElementById('waterfall-bars');
+        { const _ps = document.getElementById('epoch-past-select'); if (_ps && _ps.options.length <= 1) populatePastEpochs(); }   // T6.9: the history may land after the first paint
+        if (waterfallEpochView === 'past' && waterfallPastEpoch != null) { populatePastEpochs(); return renderWaterfallPast(filterBucket, waterfallPastEpoch); }   // T6.9
+        { const pn = document.getElementById('waterfall-past-note'); if (pn) pn.classList.add('hidden'); }
         const useNextEpoch = waterfallEpochView === 'next';
         
         // Get pools for this bucket, split into active and inactive. Inactive pools are
@@ -10020,7 +10118,10 @@
         // Batch B (owner 2026-08-24): bars are LEFT-ALIGNED and scaled to the largest pool in the
         // bucket (was a cumulative stagger scaled to the bucket total — pools could not be compared
         // by eye). The bucket total stays in the header; the axis is now "VP per pool".
-        const _largest = Math.max(...activePools.map(p => getPoolVP(p)), inactivePools.reduce((s2, p) => s2 + getPoolVP(p), 0), 1);
+        // T6.9 (owner: "the bars keep falling outside of the tile"): in the Planned view the dashed locked-in outline can be LONGER
+        // than the projected bar (a pool losing votes) — the scale must cover it, or the outline and its hatching run off the card.
+        const _lockedOf = (p) => (useNextEpoch && locked) ? (p._demotedVariant ? (p.vp || 0) : (locked.get(lockKey(p))?.total ?? (p.vp || 0))) : 0;   // the same baseline the ghost draws
+        const _largest = Math.max(...activePools.map(p => Math.max(getPoolVP(p), _lockedOf(p))), inactivePools.reduce((s2, p) => s2 + getPoolVP(p), 0), 1);
         const _mag = Math.pow(10, Math.floor(Math.log10(_largest)));
         const scaleMax = Math.ceil(_largest / (_mag / 4)) * (_mag / 4) || 1000000;
         
@@ -10126,7 +10227,7 @@
             const projShift = useNextEpoch ? (poolVP - lockedVP) : 0;
             let ghost = '';
             if (useNextEpoch && locked) {
-                const lockW = (lockedVP / scaleMax) * 100;
+                const lockW = Math.min(100, (lockedVP / scaleMax) * 100);   // T6.9: never past the plot's right edge
                 const projW = poolWidthPct;
                 if (Math.abs(lockW - projW) > 0.05) {
                     const from = Math.min(lockW, projW), span = Math.abs(lockW - projW);
@@ -10153,9 +10254,11 @@
                 // off the right edge and reads cleanly.
                 // Batch B: every bar starts at the left edge now → the label always sits after the bar end
                 // (or inside the bar's right end when the bar is nearly full width).
-                plannedDelta = poolWidthPct < 70
-                    ? `<div class="absolute top-0 h-full flex items-center z-20 pointer-events-none pl-1" style="left: ${Math.min(startPct + poolWidthPct, 100)}%;">${txt}</div>`
-                    : `<div class="absolute top-0 h-full flex items-center justify-end z-20 pointer-events-none pr-1" style="right: 0;">${txt}</div>`;
+                // T6.9: the label sits after the bar only when there is room (the decomposed label is long); otherwise inside the bar's end
+                const _lockEnd = locked ? Math.min(100, (lockedVP / scaleMax) * 100) : 0; const _end = Math.max(startPct + poolWidthPct, _lockEnd);
+                plannedDelta = _end < 50
+                    ? `<div class="absolute top-0 h-full flex items-center z-20 pointer-events-none pl-1" style="left: ${Math.min(_end, 100)}%;">${txt}</div>`
+                    : `<div class="absolute top-0 h-full flex items-center justify-end z-20 pointer-events-none pr-1" style="right: ${Math.max(0, 100 - _end)}%;">${txt}</div>`;
             }
 
             return `
@@ -10166,7 +10269,7 @@
                         <span class="text-[9px] truncate leading-tight"><span class="${dexCls}">${dexShort}</span>${(pool.bribes_total || 0) > 0.5 ? ` <span class="text-amber-300/90" title="Active bribe pot on this pool this epoch — ${(pool.vp || 0) > 1 ? fmt$((pool.bribes_total) / ((pool.vp) / 1e6)) + ' per 1M VP at current votes' : 'no votes yet'} (see Bounty Board)"><i class="fas fa-sack-dollar text-[8px]"></i> ${fmt$(pool.bribes_total)}</span>` : ''}</span>
                     </div>
                     <!-- Plot area (own positioning context) -->
-                    <div class="relative flex-1">
+                    <div class="relative flex-1" style="overflow-x: clip; overflow-y: visible;">
                         <div class="absolute top-1.5 bottom-1.5 flex rounded overflow-hidden" style="left: ${startPct}%; width: ${Math.max(poolWidthPct, 0.4)}%;">
                             ${votionVP > 0 ? `<div class="h-full" style="width: ${vP}%; background: rgba(16, 185, 129, 0.9);"></div>` : ''}
                             ${adaoVP > 0 ? `<div class="h-full" style="width: ${aP}%; background: rgba(56, 189, 248, 0.9);"></div>` : ''}
@@ -10279,6 +10382,7 @@
                 
                 // Update epoch view state
                 waterfallEpochView = btn.dataset.epoch;
+                const _ps = document.getElementById('epoch-past-select'); if (_ps) { _ps.value = ''; _ps.classList.remove('ring-1'); }   // T6.9
                 
                 // Get current bucket filter
                 const activeBtn = document.querySelector('.votion-bucket-btn.active');
@@ -10289,6 +10393,7 @@
             });
         });
         
+        populatePastEpochs();   // T6.9
         // Update epoch labels based on current epoch
         if (store.epoch) {
             document.getElementById('epoch-current-label').textContent = `Epoch ${store.epoch}`;
@@ -13725,7 +13830,7 @@
     <!-- Vercel Web Analytics (auto-enabled for Vercel-hosted sites) -->
     <script defer src="/_vercel/insights/script.js"></script>
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.8', revDate: '2026-09-25', page: 'tla-stats' });   // T6.8: every pool named before anything keys on names (Votion plan title / catalog underlyings for raw-address pools; a dewhitelisted twin gauge is "(old)" instead of hiding the live one)
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.9', revDate: '2026-09-26', page: 'tla-stats' });   // T6.9: the Vote Breakdown shows any past epoch (Past epochs… picker, change vs the epoch before); bars never run off the card (the scale covers the locked-in outline; labels sit inside when long); the pool drill-down charts give each epoch's exact number on hover and jump to that epoch's whole vote.   // T6.8: every pool named before anything keys on names (Votion plan title / catalog underlyings for raw-address pools; a dewhitelisted twin gauge is "(old)" instead of hiding the live one)
     //   // T6.7: pots price off the feed by the catalog symbol (network-and-prices 3.1.0); the T6.5 page bridge is gone · T6.6 (step 5): the Vote Market's +$X cell carries Votion's own threshold flags for the bucket (moves / holds, its published gain) and the per-bucket back-test error; a header chip shows the mean model-vs-plan error. Words + one derived number; no layout change.   // T6.5: live pots price through the catalog's own price when the feed keys a symbol differently (USDC.n vs USDC); a pot with tokens is never 'not funded' — the LUNA-EURe $10 pot for p203 was funded all along.   // T6.4: the Top-by-APR subline names the LUNA price the product is on (live / day price, as-of) and the trading-leg caveat for the four pools that read lower than Eris. Words only.   // T6.3: the Bribes popup reads the rollup too (1.1.0 oracle join); footer says why an epoch can be missing.   // T6.2: hero-tile popups read member-data/tla-snapshot/epoch-history.json (every epoch since E184 for pools / TVL / rewards / voting VP, APR from E196, on the tiles' own basis; bribes keep their live point until the oracle join); the band product is used only for epochs the rollup lacks — no mixed definitions. In place under the freeze.   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
 </body>
 </html>
