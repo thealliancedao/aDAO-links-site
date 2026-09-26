@@ -1249,7 +1249,7 @@
     <script src="/lib/address-picker.js"></script>
     <script src="/lib/denoms.js?v=1.0.0"></script>
     <script>if (window.Denoms) Denoms.load();</script>
-    <script src="/lib/alert-center.js?v=2.0.0"></script>
+    <script src="/lib/alert-center.js?v=2.1.0"></script>
     <script src="/lib/live-activity.js?v=1.1.0"></script>   <!-- 4.36: episodes → tiers, deal filter, words (one renderer) -->
     <script>SiteHeader.mount({ page: 'index', mobileTabs: false }); if (window.AddressPicker) AddressPicker.mount({});
     // Uniform chrome: the refresh strip rides in the shared sub-nav's right slot (no tabs on Home).
@@ -16219,6 +16219,13 @@
                 link: 'https://daodao.zone/dao/' + daoAddr + '/proposals/' + entry.id,
                 rawMsgs: p.msgs || [], endIso: at ? new Date(Number(at) / 1e6).toISOString() : null, kind: 'daodao',
             };
+            // 2026-09-26 (owner: "why does the top prop have more details?"): a live read carries what the corpus card carries —
+            // the full text, and the pass line + quorum from the proposal's OWN threshold (DAODAO stores it per proposal)
+            c.descFull = p.description || null;
+            try { const pc = (x) => x == null ? null : (x.majority !== undefined ? 50 : x.percent != null ? Number(x.percent) * 100 : null); const T = p.threshold || {};
+                if (T.threshold_quorum) { c.thresholdPct = pc(T.threshold_quorum.threshold); c.quorumPct = pc(T.threshold_quorum.quorum); }
+                else if (T.absolute_percentage) { c.thresholdPct = pc(T.absolute_percentage.percentage); c.thresholdOfTotal = true; }
+            } catch (e) { }
             c.risk = riskOf(c);
             return c;
         };
@@ -16243,7 +16250,7 @@
                 live, pending: false, daysLeft, daysLeftEstimated: daysLeft != null, rawMsgs: msgs, endHeight: poll.end_height != null ? Number(poll.end_height) : null,
                 yesPct: cast ? yes / cast * 100 : null, noPct: cast ? no / cast * 100 : null, turnoutPct: tp > 0 ? cast / tp * 100 : null,
                 movesFunds: scanMovesFunds(JSON.stringify(msgs)), lowEffort: scanLowEffort(poll.title, poll.description),
-                link: poll.link || link, kind: 'anchor-gov' };
+                link: poll.link || link, kind: 'anchor-gov', descFull: poll.description || null };
             c.risk = riskOf(c);
             return c;
         };
@@ -16660,7 +16667,8 @@
                 const polls = (pl && pl.polls) || [];
                 if (!polls.length) return;
                 const chainNow = await chainNowMeasured();   // always: in_progress needs the height to tell live from ended
-                for (const p of polls) { const c = capaCard(g.name, g.link, p, chainNow); if (c) cards.push(c); }
+                const cfg = await smartQuery(g.addr, { config: {} }).catch(() => null);   // 2026-09-26: quorum + threshold from the contract, so a poll the corpus has not caught yet still shows them
+                for (const p of polls) { const c = capaCard(g.name, g.link, p, chainNow); if (c) { if (cfg && cfg.quorum != null) c.quorumPct = Number(cfg.quorum) * 100; if (cfg && cfg.threshold != null) c.thresholdPct = Number(cfg.threshold) * 100; cards.push(c); } }
             }));
             // LUNA x/gov (newest 3; live ones get the chain tally)
             await Promise.all(WATCHED_DAOS.filter(g => g.kind === 'x-gov').map(async (g) => {
@@ -17203,7 +17211,7 @@
             const gov = window.__govCards || null, live = gov ? (gov.all || []) : [];
             const key = (c) => c.dao + '|' + c.id; const seen = new Set(live.map(key));
             const merged = live.slice();
-            for (const c of (st.corpus || [])) if (!seen.has(key(c))) merged.push(c); else { const l = live.find(x => key(x) === key(c)); if (l && !l.descFull) { l.descFull = c.descFull; l.decodedActions = c.decodedActions; } if (l) { if (l.quorumPct == null) l.quorumPct = c.quorumPct; if (l.thresholdPct == null) l.thresholdPct = c.thresholdPct; if (l.abstainPct == null) l.abstainPct = c.abstainPct; if (!l.endIso && c.endIso) l.endIso = c.endIso; } }   // 2026-09-25: the vote-state block needs quorum + the pass line
+            for (const c of (st.corpus || [])) if (!seen.has(key(c))) merged.push(c); else { const l = live.find(x => key(x) === key(c)); if (l && !l.descFull) l.descFull = c.descFull; if (l && !l.decodedActions) l.decodedActions = c.decodedActions;   /* 2026-09-26: live cards now carry their own text — the corpus decode still joins */ if (l) { if (l.quorumPct == null) l.quorumPct = c.quorumPct; if (l.thresholdPct == null) l.thresholdPct = c.thresholdPct; if (l.abstainPct == null) l.abstainPct = c.abstainPct; if (!l.endIso && c.endIso) l.endIso = c.endIso; } }   // 2026-09-25: the vote-state block needs quorum + the pass line
             return { cards: merged, isOpen: gov ? gov.isOpen : ((c) => !!(c.live || c.pending)) };
         }
         const el = () => document.getElementById('alert-center');
