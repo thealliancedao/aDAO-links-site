@@ -1,3 +1,9 @@
+// 2026-09-26 (explorer 4.54, owner: Burning Lions into the explorer): a tenant's second collection opens with ?collection=<slug> and a
+//   switcher in the collection hero; a collection with no rarity file (Burning Lions — 1/1s) loads no rank file (it used to borrow
+//   aDAO's), shows "1 of 1" instead of a rank and hides the rank sorts; per-token media (7.gif, 1.png …) comes from the collection's
+//   media index, and a token with no file shows the placeholder, never another collection's image; traits Name + Animated are derived
+//   from the media index as the manifest declares; the Analytics tab of a collection with no sales ledger says what it has and what
+//   is coming instead of "unavailable".
 // 2026-09-19 (explorer 4.53, owner's look at 4.52): the tier ladders are horizontal bars with the number on the bar (the
 //   vertical marker sat a screen away from its value); the supply is the same plain breakdown on every collection — the pixel
 //   grid is gone ("too much to look at"); the lion-silhouette idea stays parked.
@@ -173,6 +179,7 @@ const getActiveRank = (nft) => rankMode === 'bbl' ? (nft.bbl_rank ?? null) : (nf
 // — no "Rarity —" for a grade it never had. aDAO keeps "Rarity G, Rank N".
 const rankDisplay = (nft) => {
     const r = getActiveRank(nft);
+    if (NO_RARITY) return '1 of 1';   // 4.54
     if (!traitOrder.includes('Rarity')) { const pct = nft.intended_pct != null ? ` · top ${Number(nft.intended_pct).toFixed(1)}%` : ''; return r == null ? 'Unranked' : `Rank ${r}${pct}`; }
     const grade = nft.rarityClass ?? '—';
     return r == null ? `Rarity ${grade}, Unranked` : `Rarity ${grade}, Rank ${r}`;
@@ -350,7 +357,7 @@ const IPFS_GATEWAY = 'https://ipfs.io/ipfs'; // cloudflare-ipfs.com retired 2024
 let IMAGE_URL = null;   // 4.41: the collection's image rule from the context (aDAO → the Cloudflare literal below, byte for byte; others → the manifest's cdn_pattern)
 function getImageUrl(nftId, variant = 'public') {
     if (!nftId) return '';
-    if (IMAGE_URL) { const u = IMAGE_URL(nftId, variant); if (u) return u; }
+    if (IMAGE_URL) { const u = IMAGE_URL(nftId, variant); if (u) return u; if (TENANT_CTX && TENANT_CTX.primary && TENANT_CTX.primary.slug !== 'adao') return ''; }   // 4.54: a tenant token with no file → the caller's placeholder, never aDAO's image
     return `${CLOUDFLARE_CDN_BASE}/${nftId}.png/${variant}`;
 }
 
@@ -361,6 +368,7 @@ function convertIpfsUrl(ipfsUrl) {
 
 // Helper to get image with fallback - use for onerror handlers
 // 4.42: an IPFS-pattern collection image (the manifest's cdn_pattern on a public gateway) falls back to a second gateway on error
+let NO_RARITY = false;   // 4.54: a collection with no rarity file (1/1s) — no ranks anywhere, no borrowed file
 let IMAGE_FALLBACK = null;   // 4.44: the manifest's cdn_fallback (a second host for the same file), when it names one
 function getImageFallbackUrl(nftId) {
     if (IMAGE_FALLBACK) { const f = IMAGE_FALLBACK(nftId); if (f) return f; }
@@ -544,19 +552,19 @@ async function loadFullData() {
         const [metaResponse, statusResponse, rarityIntendedResponse, rarityBblResponse] = await Promise.all([
             fetch(METADATA_URL),
             fetch(STATUS_DATA_URL),
-            fetch(RARITY_INTENDED_URL),
+            RARITY_INTENDED_URL ? fetch(RARITY_INTENDED_URL) : Promise.resolve(null),   // 4.54: a 1/1 collection has none
             RARITY_SECONDARY ? fetch(RARITY_BBL_URL) : Promise.resolve(null),   // 4.40: only where the manifest names a second rank oracle
             fetchAndParseMembers() // Load DAO members (non-blocking)
         ]);
 
         if (!metaResponse.ok) throw new Error(`Metadata network response was not ok: ${metaResponse.status}`);
         if (!statusResponse.ok) throw new Error(`Status data network response was not ok: ${statusResponse.status}`);
-        if (!rarityIntendedResponse.ok) throw new Error(`Intended-rarity feed was not ok: ${rarityIntendedResponse.status}`);
+        if (RARITY_INTENDED_URL && !rarityIntendedResponse.ok) throw new Error(`Intended-rarity feed was not ok: ${rarityIntendedResponse.status}`);
         if (RARITY_SECONDARY && !rarityBblResponse.ok) throw new Error(`BBL-rarity feed was not ok: ${rarityBblResponse.status}`);
         
-        const metadata = await metaResponse.json();
+        let metadata = await metaResponse.json(); if (META_NORMALIZE && !Array.isArray(metadata)) metadata = META_NORMALIZE(metadata);   // 4.54
         const statusData = await statusResponse.json();
-        const rarityIntended = await rarityIntendedResponse.json();
+        const rarityIntended = RARITY_INTENDED_URL ? await rarityIntendedResponse.json() : { records: [] };
         const rarityBbl = RARITY_SECONDARY ? await rarityBblResponse.json() : { records: [], built: null };
 
         // Hard-fail integrity gate: good data or a visible error, nothing in between.
@@ -573,7 +581,7 @@ async function loadFullData() {
         // --- Canonical rarity join (ranks come ONLY from these files) ---
         const intendedRecords = rarityIntended && rarityIntended.records;
         const bblRecords = rarityBbl && rarityBbl.records;
-        if (!Array.isArray(intendedRecords) || intendedRecords.length < EXPECTED_TOTAL_NFTS) {
+        if (!NO_RARITY && (!Array.isArray(intendedRecords) || intendedRecords.length < EXPECTED_TOTAL_NFTS)) {
             throw new Error(`Intended-rarity feed failed integrity check: expected ${EXPECTED_TOTAL_NFTS} records, got ${Array.isArray(intendedRecords) ? intendedRecords.length : 'none'}.`);
         }
         if (RARITY_SECONDARY && (!Array.isArray(bblRecords) || bblRecords.length < EXPECTED_TOTAL_NFTS)) {
@@ -594,7 +602,7 @@ async function loadFullData() {
             nft.bbl_top_percent = br ? br.bbl_top_percent : null;
         });
         const rankedCount = allNfts.filter(n => n.intended_rank != null).length;
-        if (rankedCount < EXPECTED_TOTAL_NFTS) {
+        if (!NO_RARITY && rankedCount < EXPECTED_TOTAL_NFTS) {
             throw new Error(`Rarity join incomplete: only ${rankedCount}/${EXPECTED_TOTAL_NFTS} NFTs received an intended rank.`);
         }
 
@@ -687,6 +695,7 @@ async function hydrateFromFull() {
 // byte (gate-explorer-tenant.mjs proves it); Lion DAO resolves to pixel-lions/…. Nothing else about the page changes here —
 // the manifest-driven filters, feature gating and the second collection are the next deliveries.
 let TENANT_CTX = null;
+let META_NORMALIZE = null;   // 4.54: the collection's metadata → the page's array shape (media-index collections)
 // 4.45 — COLLECTION HERO (owner 2026-09-19: "feels like aDAO pretending to be Lion DAO"): above the tabs, the collection's own
 // mark + name, the tenant's one-line tagline from tenants.json, and four live numbers from the inventory summary (supply ·
 // holders · listed · floor). Rendered only for a non-default tenant — aDAO's page stays byte-identical until it asks for one.
@@ -703,8 +712,9 @@ function renderCollectionHero(summary) {
     const listed = ['bbl', 'atrium', 'boost'].reduce((n, k) => n + (Number(S[k + '_listed_count']) || 0), 0);
     const tag = (ctx.tenant.hero && ctx.tenant.hero.tagline) || '';
     const stat = (k, v) => `<div class="ch-stat"><div class="ch-k">${k}</div><div class="ch-v">${v}</div></div>`;
+    const cols = (ctx.collections || []); const sw = cols.length > 1 ? `<div class="ch-cols" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.7rem">${cols.map(x => `<button type="button" onclick="CollectionContext.selectCollection('${x.slug}')" style="padding:.3rem .8rem;border-radius:999px;font-size:.8rem;font-weight:600;border:1px solid ${x.slug === c.slug ? 'var(--accent,#fbbf24)' : '#374151'};background:${x.slug === c.slug ? 'rgba(251,191,36,.12)' : 'transparent'};color:${x.slug === c.slug ? '#fff' : '#9ca3af'}">${x.label}${x.supply ? ` <span style="font-weight:400;opacity:.7">${x.supply.toLocaleString()}</span>` : ''}</button>`).join('')}</div>` : '';   // 4.54: a tenant with more than one collection picks here
     el.innerHTML = `<div class="ch-wrap">${c.assets.mark ? `<img class="ch-mark" src="${c.assets.mark}" alt="">` : ''}<div class="ch-text"><div class="ch-name">${c.label}</div><div class="ch-tenant">${ctx.tenant.label}</div>${tag ? `<div class="ch-tag">${tag}</div>` : ''}</div>
-      <div class="ch-stats">${stat('Supply', (c.supply || S.total_tokens || 0).toLocaleString())}${stat('Holders', (S.unique_holders != null ? S.unique_holders : '—').toLocaleString())}${stat('Listed', listed.toLocaleString())}${stat('Floor', floor != null ? `$${floor.toFixed(2)}${fl.price_display ? `<span class="ch-sub" style="display:block;font-size:.52em;font-weight:400;color:#9ca3af;margin-top:.15em;letter-spacing:0">${fl.price_display}${fl.marketplace ? ' · ' + fl.marketplace : ''}</span>` : ''}` : '—')}</div></div>`;   // 4.49: USD · token amount · venue (the cheapest live ask)
+      <div class="ch-stats">${stat('Supply', (c.supply || S.total_tokens || 0).toLocaleString())}${stat('Holders', (S.unique_holders != null ? S.unique_holders : '—').toLocaleString())}${stat('Listed', listed.toLocaleString())}${stat('Floor', floor != null ? `$${floor.toFixed(2)}${fl.price_display ? `<span class="ch-sub" style="display:block;font-size:.52em;font-weight:400;color:#9ca3af;margin-top:.15em;letter-spacing:0">${fl.price_display}${fl.marketplace ? ' · ' + fl.marketplace : ''}</span>` : ''}` : '—')}</div></div>${sw}`;   // 4.54: + the collection switcher · 4.49: USD · token amount · venue (the cheapest live ask)
 }
 function applyCollectionContext(ctx) {
     const c = ctx && ctx.primary; if (!c) return;
@@ -717,7 +727,9 @@ function applyCollectionContext(ctx) {
     BROKEN_AT_URL = c.url('snapshots/broken-at.json');
     LISTING_HISTORY_URL = c.url('snapshots/listing-history.json');
     if (c.assets.metadata) METADATA_URL = c.assets.metadata;
-    if (c.assets.rarity) RARITY_INTENDED_URL = c.assets.rarity;
+    if (c.assets.rarity) RARITY_INTENDED_URL = c.assets.rarity; else if (c.slug !== 'adao') RARITY_INTENDED_URL = null;   // 4.54: never aDAO's file on another collection
+    NO_RARITY = c.slug !== 'adao' && c.rarity_enabled === false;
+    META_NORMALIZE = typeof c.normalizeMetadata === 'function' ? c.normalizeMetadata.bind(c) : null;
     RARITY_BBL_URL = c.assets.rarity_secondary || RARITY_BBL_URL;
     const daos = (ctx.tenant.daos || []); if (daos.length) { MEMBERS_CSV_URL = `https://raw.githubusercontent.com/thealliancedao/dao-originations/main/${daos[0]}/governance/members.csv`; MEMBERS_CSV_URLS = daos.map(d => `https://raw.githubusercontent.com/thealliancedao/dao-originations/main/${d}/governance/members.csv`); }
     // 4.43: system wallets from the manifest, never aDAO's literals on another collection — the DAO core, every custodian by its registry label
@@ -739,8 +751,8 @@ function applyCollectionContext(ctx) {
     COLLECTION_TRAITS = defs.map(t => t.name).filter(n => n && n !== 'Rarity');
     SPLIT_TRAITS = {}; defs.forEach(t => { if (t.filter === 'slider-direction' && Array.isArray(t.split_suffixes) && t.split_suffixes.length === 2) SPLIT_TRAITS[t.name] = t.split_suffixes.slice(); });
     const hasRarityAttr = defs.some(t => t.name === 'Rarity');
-    traitOrder = ['Rank', ...COLLECTION_TRAITS, ...(hasRarityAttr ? ['Rarity'] : [])];
-    defaultTraitsOn = c.slug === 'adao' ? ['Rank', ...COLLECTION_TRAITS.slice(0, 3)] : ['Rank', ...COLLECTION_TRAITS];   // 4.47 (owner): every display toggle on by default on a tenant collection; aDAO keeps its four
+    traitOrder = [...(NO_RARITY ? [] : ['Rank']), ...COLLECTION_TRAITS, ...(hasRarityAttr ? ['Rarity'] : [])];
+    defaultTraitsOn = c.slug === 'adao' ? ['Rank', ...COLLECTION_TRAITS.slice(0, 3)] : [...(NO_RARITY ? [] : ['Rank']), ...COLLECTION_TRAITS];   // 4.47 (owner): every display toggle on by default on a tenant collection; aDAO keeps its four
     filterLayoutOrder = [...(hasRarityAttr ? ['Rarity'] : []), ...COLLECTION_TRAITS.filter(n => !SPLIT_TRAITS[n])];
     FEATURES = { break_mechanism: !!c.features.break_mechanism, backing: !!c.features.backing, phoenix: !!c.features.phoenix, custody: !!c.features.custody };
     LABELS = { unminted: c.labels.unminted || 'Unminted' };
@@ -752,6 +764,8 @@ function applyCollectionContext(ctx) {
     try { const ctx = TENANT_CTX; const isDefault = !!(ctx && ctx.tenants && ctx.tenants[ctx.tenant.slug] && ctx.tenants[ctx.tenant.slug].default);
         if (ctx && ctx.tenant && !isDefault && window.history && window.history.replaceState) { const u = new URL(window.location.href); if (u.searchParams.get('tenant') !== ctx.tenant.slug) { u.searchParams.set('tenant', ctx.tenant.slug); window.history.replaceState(null, '', u.toString()); } } } catch (e) {}
     if (sortSelect && DEFAULT_SORT !== 'rank-best') sortSelect.value = DEFAULT_SORT;
+    if (NO_RARITY && sortSelect) sortSelect.querySelectorAll('option[value^="rank-"]').forEach(o => o.remove());   // 4.54: no ranks to sort by
+    try { const u = new URL(window.location.href); const first = ctx.first || (ctx.collections && ctx.collections[0]); if (first && c.slug !== first.slug && u.searchParams.get('collection') !== c.slug) { u.searchParams.set('collection', c.slug); window.history.replaceState(null, '', u.toString()); } } catch (e) {}   // 4.54: the URL names the collection
     IMAGE_URL = (typeof c.assets.image === 'function') ? c.assets.image : null;   // 4.41
     IMAGE_FALLBACK = (typeof c.assets.image_fallback === 'function') ? c.assets.image_fallback : null;   // 4.44
     // 4.41: badge-key entries that describe a feature this collection lacks (broken/backing, DAO custody) are hidden
@@ -795,6 +809,7 @@ const initializeExplorer = async () => {
         }
         if (!bundleBooted) {
             await loadFullData();
+            if (_heroSummary) renderCollectionHero(_heroSummary);   // 4.54: a full boot (no bundle — Burning Lions) re-paints the hero's floor from the live listings
         }
 
         calculateRanks();
@@ -2102,6 +2117,22 @@ function holdingsBlurb(h) {
     return `<span class="text-gray-500">now: ${bits.join(" · ")}</span> <span class="${tc}">· ${tag}</span>`;
 }
 
+// 4.54: the Analytics tab for a collection whose sales ledger is not built yet (Burning Lions): what the inventory already knows —
+//   holders, listings by venue with the cheapest ask, the trait split — and exactly what arrives with the ledger. Nothing estimated.
+function liteAnalyticsHtml() {
+    const c = TENANT_CTX && TENANT_CTX.primary; const recs = Array.isArray(allNfts) ? allNfts : [];
+    const owners = new Set(recs.map(n => n.owner).filter(Boolean)); const listed = recs.filter(n => n.listing && n.listing.price_usd != null);
+    const byVenue = {}; listed.forEach(n => { const v = n.listing.marketplace || 'venue'; (byVenue[v] = byVenue[v] || []).push(n); });
+    const usd = (v) => v == null ? '—' : '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: v < 10 ? 2 : 0 });
+    const card = (k, v, sub) => `<div class="bg-gray-800/60 border border-gray-700 rounded-lg p-4"><div class="text-xs uppercase tracking-wide text-gray-400">${k}</div><div class="text-2xl font-bold text-white mt-1">${v}</div>${sub ? `<div class="text-xs text-gray-500 mt-1">${sub}</div>` : ''}</div>`;
+    const traitRows = (COLLECTION_TRAITS || []).map(t => { const counts = {}; recs.forEach(n => (n.attributes || []).forEach(a => { if (a.trait_type === t) counts[a.value] = (counts[a.value] || 0) + 1; }));
+        return `<div class="mt-3"><div class="text-sm font-semibold text-gray-200">${t}</div><div class="flex flex-wrap gap-2 mt-1">${Object.entries(counts).map(([v, n]) => `<span class="text-xs bg-gray-900 border border-gray-700 rounded px-2 py-1 text-gray-300">${v} <b class="text-white">${n}</b></span>`).join('')}</div></div>`; }).join('');
+    const floor = listed.length ? listed.reduce((a, n) => n.listing.price_usd < a.listing.price_usd ? n : a) : null;
+    return `<div class="space-y-4 p-1">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">${card('Tokens', recs.length.toLocaleString(), c && c.manifest && c.manifest.stated_supply ? `of ${c.manifest.stated_supply} stated` : '')}${card('Holders', owners.size.toLocaleString(), 'wallets holding one today')}${card('Listed', listed.length.toLocaleString(), Object.entries(byVenue).map(([v, a]) => `${v} ${a.length}`).join(' · ') || 'none listed')}${card('Floor', usd(floor && floor.listing.price_usd), floor ? `${floor.name || (SHORT_TITLE ? SHORT_TITLE(floor.id) : '#' + floor.id)}${floor.listing.price_display ? ' · ' + floor.listing.price_display : ''}` : 'no live ask')}</div>
+      <div class="bg-gray-800/60 border border-gray-700 rounded-lg p-4"><div class="text-sm font-semibold text-white">Every token</div>${traitRows}</div>
+      <div class="bg-gray-800/40 border border-dashed border-gray-600 rounded-lg p-4 text-sm text-gray-400"><b class="text-gray-200">Sales analytics are on their way.</b> Volume, sales by month, holders' profit and loss and the leaderboards are built from the collection's sales ledger — the same one the other collections have. It is not built for ${c ? c.label : 'this collection'} yet; everything above is read from the live inventory.</div></div>`;
+}
 async function renderAnalytics() {
     const root = document.getElementById("analytics-view");
     if (!root || analyticsLoaded) return;
@@ -2136,6 +2167,7 @@ async function renderAnalytics() {
             _fpLuna = lo ? (lo.prices || lo.daily || lo.data || null) : null;
         } catch (e) { _fpBand = null; }
     } catch (e) {
+        if (ANALYTICS_TENANT && /analytics feed 404/.test(e.message)) { root.innerHTML = liteAnalyticsHtml(); analyticsLoaded = true; return; }   // 4.54: a collection with no sales ledger yet
         root.innerHTML = `<div class="text-center py-16"><i class="fas fa-triangle-exclamation text-amber-400 text-2xl"></i>
           <p class="mt-3 text-gray-300">Analytics data is unavailable right now.</p>
           <p class="text-xs text-gray-500 mt-1">${e.message}. This panel shows live pipeline data only — try again shortly.</p></div>`;
