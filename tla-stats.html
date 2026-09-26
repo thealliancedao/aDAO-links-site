@@ -3432,6 +3432,7 @@
             // name+bucket (rare), keep the entry with more epochs of coverage.
             store.poolStatusHistory = poolStatusResp;
             try { populatePastEpochs(); } catch (e) {}   // T6.9
+            try { for (const b of ['STABLE', 'PROJECT', 'BLUECHIP', 'SINGLE']) if (document.getElementById(`chart-${b}`) && ((store.poolsChartView || {})[b] || 'vp') !== 'liq') renderBucketChart(b, (store.poolsChartScale || {})[b] || 'all'); } catch (e) {}   // T6.10
             store.poolHistoryByKey = new Map();
             if (poolStatusResp?.pools) {
                 for (const hp of poolStatusResp.pools) {
@@ -10461,12 +10462,22 @@
         const sections = order.filter(b => byBucket[b]).map(b => {
             const rs = byBucket[b]; const tot = { staked: rs.reduce((s2, r) => s2 + r.staked, 0), depth: rs.reduce((s2, r) => s2 + r.depth, 0), vol: rs.reduce((s2, r) => s2 + r.vol, 0), emis: rs.reduce((s2, r) => s2 + (r.emisWk || 0), 0), vp: rs.reduce((s2, r) => s2 + r.vp, 0), votion: rs.reduce((s2, r) => s2 + r.votion, 0), adao: rs.reduce((s2, r) => s2 + r.adao, 0), pot: rs.reduce((s2, r) => s2 + r.pot.usd, 0) };
             const bl = b; const tier = (store.poolsChartScale || {})[bl] || 'all';   // the chart machinery keys buckets UPPERCASE (store.pools.bucket)
+            const view = (store.poolsChartView || {})[bl] || 'vp';   // T6.10: votes by default (owner 2026-09-26)
+            const TIERS = view === 'liq' ? [['all', 'All LPs'], ['top', 'Top tier ($100K+)'], ['mid', 'Mid tier ($10K–$100K)'], ['low', 'Low tier (<$10K)']]
+                : [['all', 'All pools'], ['top', 'Big (5%+ of bucket)'], ['mid', 'Middle (1–5%)'], ['low', 'Small (<1%)']];
+            const TITLE = view === 'liq' ? `<i class="fas fa-chart-line mr-1"></i>Daily liquidity &amp; volume — this bucket's pools against each other <span class="text-[9px] text-gray-600 ml-1">solid = liquidity · dashed = volume · past epoch then current · Astroport only</span>`
+                : `<i class="fas fa-vote-yea mr-1"></i>${view === 'share' ? 'Share of the bucket\'s vote' : 'TLA votes (VP)'} — every pool in this bucket, epoch to epoch <span class="text-[9px] text-gray-600 ml-1">last ${VOTE_CHART_EPOCHS} epochs · each point is the pool's vote at the last reading of that epoch${view === 'share' ? ' · dashed = the 1% line' : ''} · hover for the numbers, click a point for that epoch's whole vote</span>`;
             const chartCard = `<div class="rounded-lg bg-white/[0.02] border border-white/[0.05] p-3 mb-2">
                 <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
-                    <div class="text-[11px] text-gray-400"><i class="fas fa-chart-line mr-1"></i>Daily liquidity &amp; volume — this bucket's pools against each other <span class="text-[9px] text-gray-600 ml-1">solid = liquidity · dashed = volume · past epoch then current · Astroport only</span></div>
-                    <select class="scale-select epoch-select text-xs" data-bucket="${bl}" onchange="updateBucketChartScale('${bl}', this.value)" title="Tiers keep the scale readable: compare pools of a similar size instead of squashing small ones against a big one">
-                        ${[['all', 'All LPs'], ['top', 'Top tier ($100K+)'], ['mid', 'Mid tier ($10K–$100K)'], ['low', 'Low tier (<$10K)']].map(([v, l]) => `<option value="${v}"${tier === v ? ' selected' : ''}>${l.replace('<', '&lt;')}</option>`).join('')}
+                    <div class="text-[11px] text-gray-400 min-w-0">${TITLE}</div>
+                    <div class="flex items-center gap-2">
+                    <select class="epoch-select text-xs" onchange="updateBucketChartView('${bl}', this.value)" title="What the chart plots">
+                        ${[['vp', 'Votes (VP)'], ['share', 'Vote share %'], ['liq', 'Liquidity & volume']].map(([v, l]) => `<option value="${v}"${view === v ? ' selected' : ''}>${l.replace('&', '&amp;')}</option>`).join('')}
                     </select>
+                    <select class="scale-select epoch-select text-xs" data-bucket="${bl}" onchange="updateBucketChartScale('${bl}', this.value)" title="Tiers keep the scale readable: compare pools of a similar size instead of squashing small ones against a big one">
+                        ${TIERS.map(([v, l]) => `<option value="${v}"${tier === v ? ' selected' : ''}>${l.replace('<', '&lt;')}</option>`).join('')}
+                    </select>
+                    </div>
                 </div>
                 <div class="relative" style="height:220px"><canvas id="chart-${bl}" class="w-full h-full"></canvas></div>
                 <div id="legend-${bl}" class="flex flex-wrap gap-2 mt-2 text-[10px]"></div>
@@ -10510,6 +10521,8 @@
     function renderBucketChart(bucket, scaleFilter = 'all') {
         const canvas = document.getElementById(`chart-${bucket}`);
         if (!canvas) return;
+        const view = (store.poolsChartView || {})[bucket] || 'vp';   // T6.10
+        if (view !== 'liq') return renderBucketVoteChart(bucket, scaleFilter, view);
         
         // Check if daily-chart data has loaded yet (it's async after page render)
         if (!store.dailyChartData) {
@@ -10586,6 +10599,7 @@
     function rebuildBucketChart(bucket) {
         const state = bucketChartState[bucket];
         if (!state) return;
+        if (state.view && state.view !== 'liq') return rebuildBucketVoteChart(bucket);   // T6.10
         
         const canvas = document.getElementById(`chart-${bucket}`);
         if (!canvas) return;
@@ -10719,6 +10733,7 @@
     function updateBucketLegend(bucket) {
         const state = bucketChartState[bucket];
         if (!state) return;
+        if (state.view && state.view !== 'liq') return updateBucketVoteLegend(bucket);   // T6.10
         
         const legendDiv = document.getElementById(`legend-${bucket}`);
         if (!legendDiv) return;
@@ -10772,12 +10787,12 @@
         
         // Dim all other datasets
         chart.data.datasets.forEach((ds, i) => {
-            const dsLpIndex = Math.floor(i / 2);
+            const dsLpIndex = Math.floor(i / (state.perLp || 2));   // T6.10: the vote views draw one line per pool
             if (dsLpIndex !== lpIndex) {
-                ds.borderColor = ds.borderColor.replace(/[^,]+\)$/, '0.15)').replace(/^#([0-9a-f]{6})$/i, '$&#26');
+                ds.borderColor = ds.borderColor.replace(/[^,]+\)$/, '0.15)').replace(/^#([0-9a-f]{6})$/i, '$&26');   // T6.10: was '$&#26' (an invalid colour)
                 ds.borderWidth = 1;
             } else {
-                ds.borderWidth = i % 2 === 0 ? 3 : 2;
+                ds.borderWidth = (state.perLp === 1 || i % 2 === 0) ? 3 : 2;
                 ds.pointRadius = 3;
             }
         });
@@ -10814,6 +10829,101 @@
         rebuildBucketChart(bucket);
     }
     
+    // T6.10 (owner 2026-09-26: "shift the charts to show votes … all the pools in that bucket … how these votes move epoch to
+    // epoch … past 13 epochs"): the Pools tab's bucket chart plots every pool's TLA vote (or its share of the bucket) over the
+    // last 13 epochs, from pool-status-history (the last reading of each epoch — the same numbers the past-epoch Vote Breakdown
+    // shows). A pool is on the chart if it had votes in any of those epochs; a gap is an epoch it was not on the ballot.
+    const VOTE_CHART_EPOCHS = 13;
+    const VOTE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1', '#14b8a6', '#eab308', '#f43f5e', '#a855f7', '#22c55e', '#0ea5e9', '#d946ef', '#fb7185', '#65a30d', '#fbbf24', '#38bdf8', '#c084fc', '#4ade80', '#fca5a5'];
+    function voteSeriesFor(bucket) {
+        const H = store.poolStatusHistory; if (!H || !H.pools) return null;
+        const eps = (H.epochs || []).slice().sort((a, b) => a - b).slice(-VOTE_CHART_EPOCHS);
+        const bkt = String(bucket).toLowerCase();
+        const byKey = new Map();   // one line per name|dex — a duplicate row (re-registered gauge) folds into the one with more coverage
+        for (const hp of H.pools) {
+            if (String(hp.bucket || '').toLowerCase() !== bkt || !hp.epochs) continue;
+            const vp = eps.map(e => { const r = hp.epochs[String(e)]; return r && !r.is_migration_corpse && r.vp_human > 0 ? r.vp_human : null; });
+            const sh = eps.map(e => { const r = hp.epochs[String(e)]; return r && !r.is_migration_corpse && r.vp_human > 0 && r.bucket_pct != null ? r.bucket_pct : null; });
+            const act = eps.map(e => { const r = hp.epochs[String(e)]; return r ? r.active !== false : null; });
+            const n = vp.filter(v => v != null).length; if (!n) continue;
+            const key = `${hp.name}|${hp.dex || ''}`; const ex = byKey.get(key);
+            if (ex && ex.n >= n) continue;
+            byKey.set(key, { key, name: poolDisplayName(hp.name, hp.gauge_pool_id), dex: hp.dex || '', vp, sh, act, n });
+        }
+        const lines = [...byKey.values()];
+        const nameCount = {}; lines.forEach(l => { nameCount[l.name] = (nameCount[l.name] || 0) + 1; });
+        lines.forEach(l => { if (nameCount[l.name] > 1) l.name += ' (' + (/skeleton/i.test(l.dex) ? 'Skeleton' : /astro/i.test(l.dex) ? 'Astro' : (l.dex || '?')) + ')'; });   // the same pair on two DEXes
+        const last = (a) => { for (let i = a.length - 1; i >= 0; i--) if (a[i] != null) return a[i]; return 0; };
+        lines.forEach(l => { l.lastVp = last(l.vp); l.lastSh = l.sh[l.sh.length - 1] ?? 0; });
+        lines.sort((a, b) => b.lastVp - a.lastVp || b.n - a.n);
+        return { eps, lines, cur: store.epoch || null };
+    }
+    function renderBucketVoteChart(bucket, tier, view) {
+        const canvas = document.getElementById(`chart-${bucket}`); if (!canvas) return;
+        const S = voteSeriesFor(bucket);
+        if (!S || !S.lines.length) {
+            if (bucketCharts[bucket]) { bucketCharts[bucket].destroy(); delete bucketCharts[bucket]; }
+            const leg = document.getElementById(`legend-${bucket}`); if (leg) leg.innerHTML = `<span class="text-gray-500">${S ? 'No votes recorded for this bucket in the last ' + VOTE_CHART_EPOCHS + ' epochs.' : 'Loading the per-epoch vote history…'}</span>`;
+            if (!S) { const g = canvas.getContext('2d'); g.clearRect(0, 0, canvas.width, canvas.height); }
+            return;
+        }
+        const lines = S.lines.filter(l => tier === 'top' ? l.lastSh >= 5 : tier === 'mid' ? (l.lastSh >= 1 && l.lastSh < 5) : tier === 'low' ? l.lastSh < 1 : true);
+        bucketChartState[bucket] = { view, S, lines, lpKeys: lines.map(l => l.key), colors: lines.map((l, i) => VOTE_COLORS[i % VOTE_COLORS.length]), scaleFilter: tier, selectedLP: (bucketChartState[bucket] && bucketChartState[bucket].view === view && lines.some(l => l.key === bucketChartState[bucket].selectedLP)) ? bucketChartState[bucket].selectedLP : null, perLp: 1 };
+        rebuildBucketVoteChart(bucket);
+    }
+    function rebuildBucketVoteChart(bucket) {
+        const state = bucketChartState[bucket]; const canvas = document.getElementById(`chart-${bucket}`); if (!state || !canvas) return;
+        const { view, S, lines, colors, selectedLP } = state; const share = view === 'share';
+        const labels = S.eps.map(e => 'E' + e + (S.cur && e >= S.cur ? ' (so far)' : ''));
+        const datasets = lines.map((l, i) => { const on = !selectedLP || selectedLP === l.key; const c = colors[i];
+            return { label: l.name, data: share ? l.sh : l.vp, borderColor: on ? c : c + '26', backgroundColor: c, borderWidth: on ? 2 : 1, tension: 0.25, spanGaps: false, pointRadius: on ? 2.5 : 0, pointHoverRadius: 5, _key: l.key, _act: l.act, _other: share ? l.vp : l.sh }; });
+        if (share) datasets.push({ label: '1% line', data: S.eps.map(() => 1), borderColor: 'rgba(248,113,113,0.55)', borderDash: [5, 4], borderWidth: 1, pointRadius: 0, pointHitRadius: 0, fill: false, _line: true });
+        if (bucketCharts[bucket]) bucketCharts[bucket].destroy();
+        bucketCharts[bucket] = new Chart(canvas.getContext('2d'), {
+            type: 'line', data: { labels, datasets },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                onClick: (evt, els) => { if (!els || !els.length) return; const e = S.eps[els[0].index]; if (e != null && window.openPastVote && !(S.cur && e >= S.cur)) window.openPastVote(e, bucket); },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index', intersect: false, itemSort: (a, b) => (b.parsed.y ?? -1) - (a.parsed.y ?? -1),
+                        filter: it => !it.dataset._line && it.parsed.y != null && (!selectedLP || it.dataset._key === selectedLP),
+                        callbacks: {
+                            title: items => items.length ? `Epoch ${S.eps[items[0].dataIndex]} — ${lines.length} pools${S.cur && S.eps[items[0].dataIndex] >= S.cur ? ' (epoch still open)' : ''}` : '',
+                            label: c => { const o = c.dataset._other[c.dataIndex]; const inact = c.dataset._act && c.dataset._act[c.dataIndex] === false ? ' · inactive' : '';
+                                return share ? `${c.dataset.label}: ${c.parsed.y.toFixed(2)}%${o != null ? ' · ' + fmtNum(o) + ' VP' : ''}${inact}` : `${c.dataset.label}: ${fmtNum(c.parsed.y)} VP${o != null ? ' · ' + o.toFixed(2) + '%' : ''}${inact}`; },
+                            footer: () => 'click to open this epoch’s whole vote',
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#6b7280', font: { size: 9 } } },
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: share ? '#a78bfa' : '#c4b5fd', font: { size: 9 }, callback: v => share ? v + '%' : fmtNum(v) } }
+                }
+            }
+        });
+        updateBucketVoteLegend(bucket);
+    }
+    function updateBucketVoteLegend(bucket) {
+        const state = bucketChartState[bucket]; const div = document.getElementById(`legend-${bucket}`); if (!state || !div) return;
+        const { lines, colors, selectedLP, view } = state; const share = view === 'share';
+        const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        let h = lines.map((l, i) => { const sel = selectedLP === l.key; const k = esc(l.key).replace(/'/g, '&#39;');
+            return `<span class="legend-item flex items-center gap-1 px-2 py-1 rounded cursor-pointer hover:bg-white/10 ${selectedLP && !sel ? 'opacity-30' : ''} ${sel ? 'bg-white/10 ring-1 ring-white/20' : ''}" onmouseenter="highlightLP('${bucket}', this.dataset.k)" onmouseleave="unhighlightLP('${bucket}')" onclick="selectLP('${bucket}', this.dataset.k)" data-k="${k}" title="${esc(l.name)} · ${esc(l.dex)} · latest ${fmtNum(l.lastVp)} VP (${(l.lastSh || 0).toFixed(2)}%)"><span class="w-3 h-0.5" style="background:${colors[i]}"></span><span>${esc(l.name)}</span><span class="text-gray-600 mono">${share ? (l.lastSh || 0).toFixed(1) + '%' : fmtNum(l.lastVp)}</span></span>`; }).join('');
+        if (selectedLP) h += `<span class="flex items-center gap-1 px-2 py-1 rounded cursor-pointer bg-red-500/20 hover:bg-red-500/30 text-red-400 ml-2" onclick="clearLPSelection('${bucket}')"><i class="fas fa-times text-xs"></i><span>Clear</span></span>`;
+        div.innerHTML = h || '<span class="text-gray-500">No pools in this tier</span>';
+    }
+    function updateBucketChartView(bucket, view) {
+        (store.poolsChartView = store.poolsChartView || {})[bucket] = view;
+        (store.poolsChartScale = store.poolsChartScale || {})[bucket] = 'all';   // the tiers mean different things per view
+        if (bucketCharts[bucket]) { bucketCharts[bucket].destroy(); delete bucketCharts[bucket]; }
+        delete bucketChartState[bucket];
+        renderPoolsByBucket();
+    }
+    window.updateBucketChartView = updateBucketChartView;
+
     function updateBucketChartScale(bucket, scale) {
         (store.poolsChartScale = store.poolsChartScale || {})[bucket] = scale;   // remembered across re-renders
         renderBucketChart(bucket, scale);
@@ -13830,7 +13940,7 @@
     <!-- Vercel Web Analytics (auto-enabled for Vercel-hosted sites) -->
     <script defer src="/_vercel/insights/script.js"></script>
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.9', revDate: '2026-09-26', page: 'tla-stats' });   // T6.9: the Vote Breakdown shows any past epoch (Past epochs… picker, change vs the epoch before); bars never run off the card (the scale covers the locked-in outline; labels sit inside when long); the pool drill-down charts give each epoch's exact number on hover and jump to that epoch's whole vote.   // T6.8: every pool named before anything keys on names (Votion plan title / catalog underlyings for raw-address pools; a dewhitelisted twin gauge is "(old)" instead of hiding the live one)
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.10', revDate: '2026-09-26', page: 'tla-stats' });   // T6.10: the Pools tab's bucket charts plot votes — every pool in the bucket, its TLA VP or share of the bucket over the last 13 epochs (a 1% line on the share view; click an epoch for its whole vote); Liquidity & volume is still one pick away.   // T6.9: the Vote Breakdown shows any past epoch (Past epochs… picker, change vs the epoch before); bars never run off the card (the scale covers the locked-in outline; labels sit inside when long); the pool drill-down charts give each epoch's exact number on hover and jump to that epoch's whole vote.   // T6.8: every pool named before anything keys on names (Votion plan title / catalog underlyings for raw-address pools; a dewhitelisted twin gauge is "(old)" instead of hiding the live one)
     //   // T6.7: pots price off the feed by the catalog symbol (network-and-prices 3.1.0); the T6.5 page bridge is gone · T6.6 (step 5): the Vote Market's +$X cell carries Votion's own threshold flags for the bucket (moves / holds, its published gain) and the per-bucket back-test error; a header chip shows the mean model-vs-plan error. Words + one derived number; no layout change.   // T6.5: live pots price through the catalog's own price when the feed keys a symbol differently (USDC.n vs USDC); a pot with tokens is never 'not funded' — the LUNA-EURe $10 pot for p203 was funded all along.   // T6.4: the Top-by-APR subline names the LUNA price the product is on (live / day price, as-of) and the trading-leg caveat for the four pools that read lower than Eris. Words only.   // T6.3: the Bribes popup reads the rollup too (1.1.0 oracle join); footer says why an epoch can be missing.   // T6.2: hero-tile popups read member-data/tla-snapshot/epoch-history.json (every epoch since E184 for pools / TVL / rewards / voting VP, APR from E196, on the tiles' own basis; bribes keep their live point until the oracle join); the band product is used only for epochs the rollup lacks — no mixed definitions. In place under the freeze.   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
 </body>
 </html>
