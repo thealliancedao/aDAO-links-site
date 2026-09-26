@@ -21,7 +21,73 @@
       "title": "The pride",
       "badge": "LFR",
       "line": "ROAR, the pixeLions, the Burning Lions and a validator — every number below opens a page with the full picture.",
-      "status": "ROAR {roar.price_usd|price} · {roar.chg_24h_pct|pct} 24h · validator #{validator.rank|int} of {validator.of|int} · known value {total.known_usd|usd} · {pl.staked_daodao|int} pixeLions staked"
+      "status": "validator #{validator.rank|int} of {validator.of|int} · Lion DAO known value {total.known_usd|usd} · {pl.staked_total|int} pixeLions staked"
+    },
+    {
+      "type": "markets",
+      "note": "1.6.0 (owner 2026-09-25): the ticker idea at hero size — price or floor, 24h move, 24h volume or sales, one card per asset; a card with no source says why on hover",
+      "items": [
+        {
+          "label": "ROAR",
+          "what": "Terra",
+          "logo": "/assets/token-logos/ROAR_LOGO.png",
+          "value_key": "roar.price_usd",
+          "value_reason": "network-and-prices not loaded",
+          "chg_key": "roar.chg_24h_pct",
+          "vol_key": "roar.volume_24h",
+          "vol_label": "vol 24h",
+          "vol_reason": "CoinGecko did not answer",
+          "source": "price: TLA pool · volume: CoinGecko",
+          "href": "/liondao/supply.html"
+        },
+        {
+          "label": "pyROAR",
+          "what": "burn receipt",
+          "value_key": "pyroar.price_usd",
+          "value_reason_key": "pyroar.price_reason",
+          "market_reason_key": "pyroar.market_reason",
+          "vol_label": "vol 24h",
+          "source": "the pyROAR pair, live",
+          "href": "/liondao/burn.html"
+        },
+        {
+          "label": "ROAR20",
+          "what": "Solana",
+          "value_key": "roar20.price_usd",
+          "value_reason": "DexScreener did not answer",
+          "chg_key": "roar20.chg_24h_pct",
+          "vol_key": "roar20.volume_24h_usd",
+          "vol_label": "vol 24h",
+          "source": "DexScreener",
+          "href": "/liondao/roar20.html"
+        },
+        {
+          "label": "pixeLions",
+          "what": "floor",
+          "logo": "/assets/images/pixelions-pfp.webp",
+          "value_key": "pl.floor_usd",
+          "value_fmt": "usd",
+          "value_reason": "no floor row today",
+          "chg_key": "pl.floor_chg_24h_pct",
+          "chg_reason": "one floor row only",
+          "vol_key": "pl.sales_24h",
+          "vol_fmt": "int",
+          "vol_label": "sales 24h",
+          "vol_reason": "activity ledger not loaded",
+          "source": "floor-history · activity ledger",
+          "href": "/nft-explorer-index.html?tenant=liondao"
+        },
+        {
+          "label": "Burning Lions",
+          "what": "floor",
+          "value_key": "bl.floor_usd",
+          "value_reason_key": "bl.market_reason",
+          "market_reason_key": "bl.market_reason",
+          "vol_label": "sales 24h",
+          "source": "lands with onboarding",
+          "href": "/liondao/mint.html#burning-lions"
+        }
+      ]
     },
     {
       "type": "wallet",
@@ -36,43 +102,39 @@
           "icon": "fa-paw",
           "tall": true,
           "kind": "link",
-          "desc": "Validator rank, ROAR supply and market, staked ROAR, the burn festival, Burning Lions, ROAR20 — the whole ecosystem on one page.",
+          "desc": "The big picture: Lion DAO at the centre — ROAR, the treasury and what it is all worth — with pixeLions, pyROAR, ROAR20 and the Burning Lions around it.",
           "href": "/liondao/ecosystem.html"
         },
         {
           "id": "supply",
-          "label": "ROAR supply map",
+          "label": "ROAR supply",
           "icon": "fa-layer-group",
           "kind": "link",
-          "reason": "in build — the ampCAPA-style map of every place ROAR sits",
           "href": "/liondao/supply.html",
-          "desc": "Where every ROAR of the 1T sits, and the whale tracker — each wallet's ROAR by staked, liquid, ampROAR, LP."
+          "desc": "Who holds the most influence (ROAR staked in Lion DAO), and who holds the most ROAR once every place it can sit is added up."
         },
         {
-          "id": "lore",
-          "label": "Lore",
-          "icon": "fa-book-open",
+          "id": "roar20",
+          "label": "ROAR20",
+          "icon": "fa-fire",
           "kind": "link",
-          "reason": "Lion DAO writes it — pixeLions and Burning Lions",
-          "href": "/liondao/coming.html?tile=lore",
-          "soon": true
+          "desc": "Lion DAO's Solana memecoin — holders, supply, price, all on one page.",
+          "href": "/liondao/roar20.html"
         },
         {
           "id": "rarity",
-          "label": "Rarity",
+          "label": "Pixel Lions Rarity",
           "icon": "fa-gem",
           "kind": "link",
-          "reason": "Lion DAO supplies how rank works and what the traits mean",
-          "href": "/liondao/coming.html?tile=rarity",
-          "desc": "How pixeLions rank and what the traits mean — the pride’s words, when they hand them over. A slot with a name.",
-          "soon": true
+          "href": "/liondao/rarity.html",
+          "desc": "The trait classes, how rare each trait is inside its class, and the one-of-ones."
         },
         {
           "id": "mint",
-          "label": "Mint history",
+          "label": "NFT Mint History",
           "icon": "fa-coins",
           "kind": "link",
-          "desc": "5,000 primary sales, hour by hour: who minted, the two price tiers, LUNA and USD at the time, who still holds.",
+          "desc": "pixeLions: 5,000 primary sales. Burning Lions: what each winner burned, and the ROAR Lion DAO matched.",
           "href": "/liondao/mint.html"
         },
         {
@@ -105,16 +167,16 @@
           "kind": "menu",
           "items": [
             {
+              "label": "The ecosystem map",
+              "href": "/liondao/ecosystem.html"
+            },
+            {
               "label": "Treasury — every holding by wallet",
               "href": "/liondao/dao_treasury.html"
             },
             {
-              "label": "ROAR supply map",
+              "label": "ROAR supply — where it sits, the vote, every wallet",
               "href": "/liondao/supply.html"
-            },
-            {
-              "label": "ROAR whales — who holds it, and where",
-              "href": "/liondao/whales.html"
             },
             {
               "label": "TLA positions — LP, locks, votes",
@@ -129,7 +191,7 @@
               "href": "/liondao/validator.html"
             },
             {
-              "label": "Mint history",
+              "label": "NFT Mint History",
               "href": "/liondao/mint.html"
             },
             {
@@ -143,6 +205,10 @@
             {
               "label": "ROAR20 holders",
               "href": "/liondao/roar20.html"
+            },
+            {
+              "label": "Pixel Lions Rarity",
+              "href": "/liondao/rarity.html"
             }
           ],
           "from": "wallets",
@@ -162,7 +228,7 @@
     {
       "type": "supply",
       "title": "Supply",
-      "sub": "ROAR by where it sits · pixeLions by who holds them · pyROAR by who holds the burn receipts · ROAR20 by account size",
+      "sub": "where each supply sits · every colour is named below its bar · open \"how it is measured\" for the method",
       "bars": [
         {
           "label": "ROAR",
@@ -194,14 +260,12 @@
           "total_source_key": "roar.minted_source",
           "links": [
             {
-              "label": "the supply map",
+              "label": "who holds it — ROAR supply",
               "href": "/liondao/supply.html"
-            },
-            {
-              "label": "the whales",
-              "href": "/liondao/whales.html"
             }
-          ]
+          ],
+          "lead": "Of the 1T ROAR ever minted: {roar.burned|big} burned, {roar.staked_daodao|big} staked in Lion DAO, {roar.treasury_balance|big} in the treasury, {roar.in_pools|big} in DEX pools.",
+          "rest_label": "In wallets & other contracts"
         },
         {
           "label": "pixeLions",
@@ -209,7 +273,7 @@
           "total_fmt": "int",
           "parts": [
             {
-              "label": "Staked in the DAO",
+              "label": "Staked in DAODAO",
               "key": "pl.staked_daodao",
               "fmt": "int"
             },
@@ -219,12 +283,7 @@
               "fmt": "int"
             },
             {
-              "label": "Listed",
-              "key": "pl.listed_total",
-              "fmt": "int"
-            },
-            {
-              "label": "Held liquid",
+              "label": "In wallets",
               "key": "pl.liquid",
               "fmt": "int"
             },
@@ -234,7 +293,9 @@
               "fmt": "int"
             }
           ],
-          "note": "Listed counts overlap with held; the bar shows each count against the 5,000 supply."
+          "note": "Listed lions are counted inside \"In wallets\" (a listing does not move the NFT out of its owner's hands), so they are a line above the bar, not a slice of it. Staked = DAODAO voting module + Enterprise; the rest are unminted or held by a contract the capture has not attributed.",
+          "lead": "{pl.staked_total|int} of 5,000 staked · {pl.liquid|int} in wallets · {pl.listed_total|int} of those listed for sale.",
+          "rest_label": "Unminted / in other custody"
         },
         {
           "label": "pyROAR",
@@ -274,7 +335,9 @@
               "label": "full leaderboard",
               "href": "/liondao/burn.html"
             }
-          ]
+          ],
+          "lead": "One pyROAR per ROAR burned in the festival — {pyroar.holder_count|int} holders; the largest burner wallet holds {pyroar.top1_pct|pctPlain}.",
+          "rest_label": "Not attributed"
         },
         {
           "label": "ROAR20",
@@ -304,27 +367,39 @@
               "label": "full holder list",
               "href": "/liondao/roar20.html"
             }
-          ]
+          ],
+          "lead": "{roar20.holders|int} holders on Solana; the ten largest wallets hold {roar20.top10_wallets_pct|pctPlain}.",
+          "rest_label": "Not attributed"
         }
       ]
     },
     {
       "type": "rewards",
       "title": "Unclaimed rewards",
-      "sub": "across the roster · {unclaimed.total_known_usd|usd} known · opens the full claim page",
+      "sub": "what the roster can claim right now · {unclaimed.total_known_usd|usd} known · opens the claim page",
       "groups": [
         {
-          "label": "TLA",
-          "key": "unclaimed.tla_usd",
+          "label": "TLA deposit rewards",
+          "key": "unclaimed.tla_deposit_usd",
           "reason": "positions product not loaded",
           "lines": [
-            "Deposit rewards, rebase and vote bribes across the wallets with TLA locks."
+            "LP rewards plus the ampLUNA rebase on the locks · {unclaimed.tla_deposit_wallets|int} wallets with something to claim"
           ],
           "source": "positions product, hourly",
           "href": "/liondao/dao_unclaimed.html"
         },
         {
-          "label": "Validator",
+          "label": "TLA vote rewards",
+          "key": "unclaimed.tla_vote_usd",
+          "reason": "positions product not loaded",
+          "lines": [
+            "Bribes earned by voting with the locks · {unclaimed.tla_vote_wallets|int} wallets with something to claim"
+          ],
+          "source": "positions product, hourly",
+          "href": "/liondao/dao_unclaimed.html"
+        },
+        {
+          "label": "Validator rewards",
           "key": "unclaimed.validator_usd",
           "reason": "LCD not reachable",
           "lines": [
@@ -332,23 +407,14 @@
           ],
           "source": "positions product + the distribution module",
           "href": "/liondao/dao_unclaimed.html"
-        },
-        {
-          "label": "pixeLions rewards",
-          "key": "unclaimed.nft_usd",
-          "reason": "the positions product has not read the distributor yet",
-          "source": "pending_rewards on the DAODAO distributor, per roster wallet — ally-positions, hourly",
-          "href": "/liondao/dao_unclaimed.html",
-          "lines": [
-            "{pl_rewards.pending_note}. Staking pays {pl_rewards.roar_per_lion_per_hour|num} ROAR per lion per hour; no roster wallet stakes pixeLions today."
-          ]
         }
-      ]
+      ],
+      "note": "1.6.0 (owner): pixeLions staking rewards left this row — they are paid to whoever stakes lions, and no roster wallet stakes them, so the DAO's own figure is always 0. The staking rate stays on the pixeLions row."
     },
     {
       "type": "row",
       "title": "Lion DAO",
-      "sub": "treasury, TLA and the validator — each tile opens its page",
+      "sub": "the treasury, TLA, Credia and Votion, and the validator — each tile opens its page",
       "metrics": [
         {
           "label": "Treasury ROAR",
@@ -368,6 +434,15 @@
           "sub": "{tla.vp|big} VP · staked {positions.tla_staked_usd|usd} · compounder {positions.tla_compounder_usd|usd} · locks {positions.tla_locked_usd|usd}"
         },
         {
+          "label": "Credia · Votion",
+          "key": "credia_votion_usd",
+          "fmt": "usd",
+          "reason": "positions product not loaded",
+          "source": "positions product, hourly",
+          "href": "/liondao/dao_treasury.html",
+          "sub": "Credia collateral {credia.collateral_usd|usd} · Votion {votion.usd|usd}"
+        },
+        {
           "label": "Validator",
           "key": "validator.rank",
           "prefix": "#",
@@ -376,14 +451,6 @@
           "reason": "validator set not read",
           "source": "live · staking module",
           "href": "/liondao/validator.html"
-        },
-        {
-          "label": "ROAR price",
-          "key": "roar.price_usd",
-          "fmt": "price",
-          "sub": "{roar.chg_24h_pct|pct} 24h · {roar.chg_7d_pct|pct} 7d · 1 ampROAR = {roar.lst_ratio|num} ROAR",
-          "source": "network-and-prices · TLA pool",
-          "href": "/liondao/ecosystem.html"
         }
       ],
       "total": {
@@ -398,12 +465,13 @@
       "sub": "5,000 lions · captured {pl.captured_at|ago}",
       "metrics": [
         {
-          "label": "Staked in the DAO",
-          "key": "pl.staked_daodao",
-          "fmt": "int",
-          "sub": "{pl.staked_pct|num}% of supply staked (DAO + Enterprise)",
-          "source": "nft-collections · hourly",
-          "href": "/nft-explorer-index.html?tenant=liondao"
+          "label": "Staked",
+          "key": "pl.staked_total_text",
+          "fmt": "text",
+          "reason": "collection snapshot not loaded",
+          "source": "nft-collections · hourly · the week-ago count from the ally's daily history",
+          "href": "/nft-explorer-index.html?tenant=liondao",
+          "sub": "{pl.staked_daodao|int} in DAODAO · {pl.staked_enterprise|int} in Enterprise · {pl.staked_pct|num}% of supply · {pl.staked_delta_text}"
         },
         {
           "label": "The pride",
@@ -417,7 +485,7 @@
           "label": "Floor",
           "key": "pl.floor_usd",
           "fmt": "usd",
-          "sub": "lowest listing · last sale floor {pl.sales_floor_usd|usd}",
+          "sub": "{pl.floor_chg_24h_pct|pct} 24h · last-sale floor {pl.sales_floor_usd|usd} · {pl.sales_24h|int} sales in 24h",
           "reason": "no floor row today",
           "source": "floor-history, daily",
           "href": "/nft-explorer-index.html?tenant=liondao&view=analytics"
@@ -451,7 +519,7 @@
     {
       "type": "row",
       "title": "Burning Lions",
-      "sub": "12 one-of-ones from the year-long ROAR burn festival — collection not onboarded yet; floor and burners per lion land with it",
+      "sub": "12 one-of-ones from the year-long ROAR burn festival · the collection is not onboarded yet, so floor and sales are Coming",
       "metrics": [
         {
           "label": "Supply",
@@ -478,22 +546,13 @@
           "href": "/liondao/burn.html",
           "source": "burn/holders",
           "fmt": "text"
-        },
-        {
-          "label": "ROAR20 (Solana)",
-          "key": "roar20.price_usd",
-          "fmt": "price",
-          "sub": "{roar20.chg_24h_pct|pct} 24h · mcap {roar20.market_cap_usd|usd} · {roar20.dex}",
-          "reason": "DexScreener not reachable",
-          "source": "DexScreener · pump.fun token",
-          "href": "/liondao/ecosystem.html"
         }
       ]
     },
     {
       "type": "market",
       "title": "NFT Marketplace Activity",
-      "sub": "pixeLions on every venue · Burning Lions join when onboarded",
+      "sub": "pixeLions on every venue · Burning Lions join when onboarded · Live Activity shows this ally's own NFTs only",
       "activity_title": "Live Activity",
       "listings_title": "All Current Listings",
       "sales_title": "Top 10 All-Time Sales",
@@ -532,10 +591,21 @@
           "reason": "not onboarded yet — the tab lights up with its folder"
         }
       ],
-      "layout_note": "1.2.0: aDAO's marketplace layout in aDAO's places — three venue cards (BBL · Boost · Atrium) with floor / all-time volume / total sales / currently listed / class floors, Live Activity full width with the kind chips, All Current Listings as a 3-column grid with venue + class filters, Top 10 All-Time Sales behind a button. The venue order and rows are aDAO's; the classes (Base · 1 of 1 · Burning Lions) are this collection's."
+      "layout_note": "1.2.0: aDAO's marketplace layout in aDAO's places — three venue cards (BBL · Boost · Atrium) with floor / all-time volume / total sales / currently listed / class floors, Live Activity full width with the kind chips, All Current Listings as a 3-column grid with venue + class filters, Top 10 All-Time Sales behind a button. The venue order and rows are aDAO's; the classes (Base · 1 of 1 · Burning Lions) are this collection's.",
+      "activity_groups": [
+        "sale",
+        "listing",
+        "price_change",
+        "delisting",
+        "bid",
+        "stake",
+        "unstake",
+        "transfer"
+      ],
+      "activity_note": "1.6.0 (owner): this ally's NFTs only (pixeLions now, Burning Lions when onboarded) and every action a holder can take — sell, list, reprice, delist, bid, stake (DAODAO or Enterprise), unstake and claim, transfer or mint; no aDAO, no TLA locks"
     }
   ],
-  "version": "3.3",
+  "version": "3.4",
   "solana_rpc": [
     "https://solana-rpc.publicnode.com",
     "https://api.mainnet-beta.solana.com"

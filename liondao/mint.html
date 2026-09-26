@@ -9,7 +9,7 @@
          hold a pixeLion today (a wallet-level join on the collection's owner snapshot; token-level "did they keep the ones they
          minted" stays Unknown until the by-wallet join exists). Every USD is the day's LUNA price at the mint (price-history). -->
     <base href="/">
-    <title>pixeLions mint history | Lion DAO | thealliancedao.com</title>
+    <title>NFT Mint History | Lion DAO | thealliancedao.com</title>
     <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
     <meta name="description" content="The pixeLions mint, hour by hour: 5,000 primary sales from the launchpad ledger — sellout curve, price tiers, LUNA paid and its USD value at the time, top minters, and who still holds.">
     <meta name="theme-color" content="#0b0b0b">
@@ -28,7 +28,7 @@
     <div id="site-header"></div>
     <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
-    <script src="/liondao/lib/ld.js?v=1.2.0"></script>
+    <script src="/liondao/lib/ld.js?v=1.3.0"></script>
 
     <main class="ld" id="page">
         <div id="crumb"></div>
@@ -37,6 +37,7 @@
         <div id="price"></div>
         <div id="minters"></div>
         <div id="after"></div>
+        <div id="burning-lions"></div>
         <div id="about"></div>
     </main>
 
@@ -45,12 +46,12 @@
     <script src="/lib/site-footer.js"></script>
     <script>
     (async function () {
-        const REV = '1.0', REV_DATE = '2026-09-22';
+        const REV = '1.1', REV_DATE = '2026-09-26';   // 1.1 (owner 2026-09-25): NFT Mint History — the Burning Lions join the pixeLions: each lion's holder, the ROAR they burned, and Lion DAO's match
         const { fmt, ui, chart, esc, isNum, sum } = LD;
         await LD.mount({ page: 'liondao-mint', rev: REV, revDate: REV_DATE });
         const T = LD._M.tenant || {};
         const $ = (id) => document.getElementById(id);
-        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'Mint history' }]);
+        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'NFT Mint History' }]);
         const SLUG = (T.collections && T.collections[0]) || 'pixel-lions';
 
         const [MS, SUM, trusted, nap] = await Promise.all([LD.collection(SLUG, 'ledger/primary-sales.json'), LD.collection(SLUG, 'snapshots/summary.json'), LD.jsonFetch(LD.CORE + 'docs/curated/trusted-addresses.json'), LD.nap()]);
@@ -131,6 +132,32 @@
             ui.stat({ label: 'Minters fully out', value: isNum(walked) ? fmt.int(walked) : null, reason: 'owner snapshot not read', sub: isNum(walked) ? fmt.pctPlain(walked / minters.length * 100, 0) + ' of minters hold no pixeLion now — sold, sent or moved wallets' : '', source: 'the same join, the other side' }) +
             ui.stat({ label: 'Kept what they minted', value: null, reason: 'token-level join not built — needs the by-wallet shards (who holds token #N, and whether that is its minter)', sub: 'per token: still with its minter, sold on a venue, transferred, staked by the minter. Lands with the mint-history product.', source: 'Unknown, not estimated' }) +
             '</div>');
+
+        // ---- 1.1 BURNING LIONS — the one-of-ones won in the ROAR burn festival: who holds each today, what that wallet burned, and Lion DAO's match
+        (async function () { const el = $('burning-lions'); const BL = T.burning_lions || {}; if (!BL.contract) { el.innerHTML = ''; return; }
+            el.innerHTML = ui.section('Burning Lions', 'the one-of-ones from the ROAR burn festival', ui.note('Reading the Burning Lions contract…'));
+            const cfgH = await LD.jsonFetch('/liondao/home.json'); const hosts = (cfgH && cfgH.lcd) || [];
+            const q = (m) => LD.lcd.smart(hosts, BL.contract, m);
+            const [numT, burnP] = await Promise.all([q({ num_tokens: {} }), LD._M.dao ? LD.jsonFetch(LD.DAOO + LD._M.dao + '/burn/holders.json', { timeoutMs: 30000 }) : null]);
+            const ids = []; let start = null; for (let page = 0; page < 10; page++) { const r = await q({ all_tokens: Object.assign({ limit: 30 }, start ? { start_after: start } : {}) }); if (!r || !Array.isArray(r.tokens) || !r.tokens.length) break; r.tokens.forEach(t => ids.push(t)); if (r.tokens.length < 30) break; start = r.tokens[r.tokens.length - 1]; }
+            const lions = await Promise.all(ids.map(async (id) => { const [o, info] = await Promise.all([q({ owner_of: { token_id: id } }), q({ nft_info: { token_id: id } })]); const ext = info && info.extension || {}; const imgRaw = ext.image || null; const img = imgRaw && /^ipfs:\/\//.test(imgRaw) ? 'https://ipfs.io/ipfs/' + imgRaw.slice(7) : imgRaw; return { id, owner: o ? o.owner : null, name: ext.name || null, image: img }; }));
+            const burnBy = {}; const bH = burnP && Array.isArray(burnP.holders) ? burnP.holders : []; bH.forEach(h => { burnBy[h.address] = h; }); const pyTot = burnP && burnP.token ? burnP.token.total_supply : null;
+            const ratio = T.burn && isNum(T.burn.dao_match_ratio) ? T.burn.dao_match_ratio : null;
+            const stated = isNum(BL.supply) ? BL.supply : null; const minted = numT && isNum(Number(numT.count)) ? Number(numT.count) : (ids.length || null);
+            const rowsBL = lions.map(l => { const b = l.owner ? burnBy[l.owner] : null; const burned = b ? b.amount : (l.owner && burnP ? 0 : null); return Object.assign(l, { burned, burnRank: b ? b.rank : null, matched: isNum(burned) && ratio != null ? burned * ratio : null }); }).sort((a, b) => (b.burned || 0) - (a.burned || 0));
+            const uniq = {}; rowsBL.forEach(r => { if (r.owner && isNum(r.burned)) uniq[r.owner] = r.burned; }); const burnedSum = Object.keys(uniq).length ? sum(Object.values(uniq)) : null;   /* a wallet holding three lions burned once */
+            const body = '<div class="ld-grid ld-g4">' +
+                ui.stat({ label: 'Minted on the contract', value: minted != null ? fmt.int(minted) + (stated ? ' of ' + fmt.int(stated) : '') : null, reason: 'the contract did not answer', sub: stated && minted != null && minted < stated ? fmt.int(stated - minted) + ' of the pride\'s stated ' + fmt.int(stated) + ' are not on this contract — not minted yet, or minted elsewhere' : 'cw721 num_tokens, live', source: 'live · ' + fmt.short(BL.contract) }) +
+                ui.stat({ label: 'Burned by today\'s holders', value: fmt.big(burnedSum), reason: 'burn ledger not read', sub: isNum(burnedSum) && isNum(pyTot) ? fmt.pctPlain(burnedSum / pyTot * 100, 1) + ' of every ROAR burned in the festival · ' + fmt.int(Object.keys(uniq).length) + ' wallets hold the ' + fmt.int(rowsBL.length) : '', source: 'their pyROAR — one per ROAR burned' }) +
+                ui.stat({ label: 'Lion DAO\'s match', value: ratio != null && isNum(burnedSum) ? fmt.big(burnedSum * ratio) : null, reason: 'the match rule is not in the registry yet (tenants.json burn.dao_match_ratio) — Lion DAO to confirm', sub: ratio != null ? 'matched ' + fmt.num(ratio) + ' : 1 — every ROAR burned took ' + fmt.num(ratio) + ' more with it' : 'Lion DAO matched the festival burns; the ratio lands here once it is in the registry', source: 'registry' }) +
+                ui.stat({ label: 'Reported for the festival', value: fmt.big(T.burn && T.burn.reported ? (T.burn.reported.community_burned || 0) + (T.burn.reported.dao_burned || 0) : null), reason: 'no reported figure', sub: T.burn && T.burn.reported ? fmt.big(T.burn.reported.community_burned) + ' by the community · ' + fmt.big(T.burn.reported.dao_burned) + ' by Lion DAO · ' + fmt.int(T.burn.reported.participants) + ' wallets' : '', source: 'Lion DAO\'s published figures', href: '/liondao/burn.html' }) + '</div>' +
+                '<div class="ld-tile" style="margin-top:.9rem">' + ui.table([{ label: 'Lion' }, { label: 'Held by (today)' }, { label: 'ROAR burned', r: true }, { label: 'Burn rank', r: true }, { label: 'Lion DAO match', r: true }, { label: 'Burned in all', r: true }],
+                    rowsBL.map(r => '<tr><td>' + (r.image ? '<img src="' + esc(r.image) + '" alt="" style="width:40px;height:40px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:.5rem;image-rendering:pixelated" onerror="this.remove()">' : '') + '<b style="color:#fff">' + esc(r.name || ('Burning Lion #' + r.id)) + '</b></td><td>' + (r.owner ? ui.addr(r.owner, { name: 'any' }) : ui.unk('owner_of did not answer')) + '</td>' +
+                        ui.td(isNum(r.burned) ? '<span class="ld-num">' + esc(fmt.big(r.burned)) + '</span>' : ui.unk('burn ledger not read'), true) + ui.td(r.burnRank ? '#' + esc(fmt.int(r.burnRank)) : (isNum(r.burned) ? '—' : ''), true) +
+                        ui.td(isNum(r.matched) ? esc(fmt.big(r.matched)) : ui.unk('match ratio not in the registry'), true) + ui.td(isNum(r.matched) ? '<b class="ld-num">' + esc(fmt.big(r.burned + r.matched)) + '</b>' : ui.unk('needs the match ratio'), true) + '</tr>'), { empty: 'the contract answered no tokens' }) +
+                '<div class="ld-src" style="margin-top:.6rem">"Held by" is the wallet holding each lion today (the contract\'s owner_of) — a lion that changed hands since the festival shows its new holder, and that holder\'s burn. ROAR burned is that wallet\'s pyROAR: one was minted per ROAR burned and the token is frozen, so the balance is the burn.</div></div>';
+            el.innerHTML = ui.section('Burning Lions', esc(fmt.int(minted) || '—') + ' one-of-ones on the contract · won in the ROAR burn festival · who holds each, and what they burned', body);
+        })().catch(e => { $('burning-lions').innerHTML = ui.note('The Burning Lions section hit an error: ' + esc(e && e.message || e)); });
 
         $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>nft-collections/' + esc(SLUG) + '/ledger/primary-sales.json</b> — one row per token from the launchpad contract\'s sale events (buyer, height, tx, price, the day\'s LUNA price from price-history). The page folds 5,000 rows into hours, tiers and wallets itself; nothing is sampled. <b>Still hold</b> reads <b>snapshots/summary.json</b>\'s per-real-owner counts (the same owner resolution the collection pages use). A minter who moved their pixeLions to another wallet of their own counts as "out" here — the products know addresses, not people.' + (owners ? ' Owner snapshot captured ' + ui.when(SUM.capturedAt) + '.' : '')));
     })().catch(e => { document.getElementById('hero').innerHTML = LD.ui.note('The page hit an error: ' + LD.esc(e && e.message || e)); throw e; });

@@ -3,35 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- liondao/supply.html 1.0 (2026-09-22) — THE ROAR SUPPLY MAP. Where every ROAR of the 1T minted sits, measured: burned (minted −
-         live supply), staked in the DAO (and how much of that via the ampROAR hub), the treasury, each registered DEX pair, the hub's own
-         buffer, the OTC escrow — and the remainder, named for what it is (wallets + contracts not listed). Reads the SAME loader and
-         derive as the home (lib/home-tiles.js), so a number here is the number on the home. Every address copies. -->
+    <!-- liondao/supply.html 2.0 (2026-09-26) — ROAR SUPPLY, one page (owner 2026-09-25: "show the whales and the ROAR supply in a way
+         it's all in one place"). Four questions, top to bottom:
+           1. Where does every ROAR of the 1T sit?          — one bar, every colour named, from the whale product (one snapshot)
+           2. Who holds the vote?                            — ROAR staked in Lion DAO = voting power (the DAO's own member list)
+           3. Who holds the most ROAR, everywhere it can sit? — staked · liquid · ampROAR · TLA-amp LP · plain LP, totalled per wallet
+           4. What is held for others?                       — the staking module, the ampROAR hub, the pairs, incentive contracts
+         Sources: dao-originations/<dao>/roar/holders.json (ally-positions/holders.js duty roar, daily) · <dao>/governance/members.csv and
+         proposals.json (the governance cron) · network-and-prices (USD) · tenants.json (minted, roster, pools). Replaces whales.html
+         (which now forwards here). A contract that holds ROAR FOR OTHERS is never ranked beside wallets (holders.js 1.2.0; this page
+         applies the same rule itself to an older product). Names: the roster, then the address catalog's DAODAO handles. -->
     <base href="/">
-    <title>ROAR supply map | Lion DAO | thealliancedao.com</title>
+    <title>ROAR supply | Lion DAO | thealliancedao.com</title>
     <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
-    <meta name="description" content="Where every ROAR of the 1T minted sits: burned, staked, treasury, DEX pairs, the ampROAR hub — measured live from the contracts.">
+    <meta name="description" content="Where every ROAR sits, who holds the Lion DAO vote, and every wallet's ROAR totalled across staked, liquid, ampROAR and LP.">
     <meta name="theme-color" content="#0b0b0b">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #262626; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }</style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #262626; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }
+        .sp-bar { display: flex; height: 18px; border-radius: 9px; overflow: hidden; background: #0a0a0a; border: 1px solid var(--t-border); margin: .4rem 0 .7rem }
+        .sp-bar span { display: block; height: 100% } .sp-rest { background: repeating-linear-gradient(45deg,#2a2a2a 0 4px,#1a1a1a 4px 8px) }
+        .sp-leg { display: grid; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); gap: .35rem 1.5rem }
+        .sp-lg { display: grid; grid-template-columns: .85rem 1fr auto auto; gap: .55rem; align-items: center; font-size: .85rem; padding: .25rem 0; border-bottom: 1px solid #1c1c1c }
+        .sp-lg i { width: .85rem; height: .85rem; border-radius: 3px; display: block } .sp-lg .p { font-weight: 700; color: #fff; font-variant-numeric: tabular-nums } .sp-lg .v { color: #9ca3af; font-variant-numeric: tabular-nums; min-width: 5rem; text-align: right }
+        .sp-lg small { display: block; color: #6b7280; font-size: .72rem }
+        .wh-ctl { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: .3rem 0 .8rem } .wh-ctl input { background: #000; border: 1px solid var(--t-border); color: #fff; padding: .35rem .6rem; font-size: .8rem; min-width: 16rem } .wh-ctl input:focus { outline: none; border-color: var(--t-accent) }
+        .wh-tab { font-size: .72rem; font-weight: 600; padding: .28rem .65rem; border: 1px solid #3a3a3a; border-radius: 999px; background: transparent; color: #9ca3af; cursor: pointer } .wh-tab.on { color: var(--t-accent); border-color: var(--t-accent); background: rgba(255,230,0,.1) }
+        .wh-mini { display: flex; height: 6px; background: #1a1a1a; margin-top: .25rem; overflow: hidden; border-radius: 3px } .wh-mini i { display: block; height: 100% }
+        .wh-num { font-variant-numeric: tabular-nums; white-space: nowrap } .wh-est { color: #9ca3af } .wh-est::before { content: "≈ " }
+        .sp-jump { display: flex; gap: .5rem; flex-wrap: wrap; margin: 0 0 1.4rem } .sp-jump a { font-size: .75rem; color: var(--t-accent); border: 1px solid #3a3a3a; border-radius: 999px; padding: .3rem .75rem; text-decoration: none } .sp-jump a:hover { border-color: var(--t-accent) }
+        .sp-vp { display: inline-block; height: 8px; background: var(--t-accent); border-radius: 2px; vertical-align: middle; margin-right: .4rem }
+    </style>
 </head>
 <body>
     <div id="site-header"></div>
     <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
-    <script src="/lib/denoms.js"></script>
-    <script src="/lib/live-activity.js"></script>
-    <script src="/lib/home-tiles.js?v=1.5.1"></script>
-    <script src="/liondao/lib/ld.js?v=1.2.0"></script>
+    <script src="/liondao/lib/ld.js?v=1.3.0"></script>
 
     <main class="ld" id="page">
         <div id="crumb"></div>
         <div id="hero"></div>
-        <div id="map"></div>
-        <div id="staked"></div>
+        <div class="sp-jump"><a href="#where">Where it sits</a><a href="#vote">Who holds the vote</a><a href="#holders">Every wallet's ROAR</a><a href="#custody">Held for others</a></div>
+        <div id="where"></div>
+        <div id="vote"></div>
+        <div id="chart"></div>
+        <div id="holders"></div>
+        <div id="custody"></div>
         <div id="about"></div>
     </main>
 
@@ -40,48 +61,149 @@
     <script src="/lib/site-footer.js"></script>
     <script>
     (async function () {
-        const REV = '1.0', REV_DATE = '2026-09-22';
+        const REV = '2.0', REV_DATE = '2026-09-26';   // 2.0: supply map + whale tracker + the vote, one page
         const { fmt, ui, esc, isNum, sum } = LD;
         await LD.mount({ page: 'liondao-supply', rev: REV, revDate: REV_DATE });
-        const T = LD._M.tenant || {}; const st = T.staking || {}; const ctx = LD._M.ctx;
+        const T = LD._M.tenant || {}; const DAO = LD._M.dao; const st = T.staking || {};
         const $ = (id) => document.getElementById(id);
-        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'ROAR supply map' }]);
-        const cfg = await LD.jsonFetch('/liondao/home.json'); if (!cfg) { $('hero').innerHTML = ui.note('home.json did not load.'); return; }
-        $('hero').innerHTML = ui.note('Reading the contracts…');
+        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'ROAR supply' }]);
+        $('hero').innerHTML = ui.note('Reading the holder walk and the member list…');
+        const txt = (u) => fetch(u + (u.indexOf('?') < 0 ? '?' : '&') + 't=' + Math.floor(Date.now() / 3e5)).then(r => r.ok ? r.text() : null).catch(() => null);
+        const [P, nap, csvText, props] = await Promise.all([
+            DAO ? LD.jsonFetch(LD.DAOO + DAO + '/roar/holders.json', { timeoutMs: 45000 }) : null, LD.nap(),
+            DAO ? txt(LD.DAOO + DAO + '/governance/members.csv') : null, DAO ? LD.jsonFetch(LD.DAOO + DAO + '/governance/proposals.json', { timeoutMs: 30000 }) : null]);
+        if (!P || !Array.isArray(P.holders)) { $('hero').innerHTML = ui.note('The holder walk has not been written yet — <b>ally-positions/holders.js</b> (duty <code>roar</code>, daily inside the positions job) publishes <b>' + esc(DAO || '<dao>') + '/roar/holders.json</b>. Until it runs this page has nothing to show; nothing here is estimated.'); return; }
+        const sym = P.token.symbol || 'ROAR'; const px = nap && nap.token_prices && nap.token_prices[sym] ? nap.token_prices[sym].final_price_usd : null; const usd = (v) => isNum(v) && px != null ? fmt.usd(v * px) : null;
+        const C = P.columns || {}; const colOk = (k) => C[k] && C[k].ok; const supply = P.token.total_supply;
+        const minted = T.burn && isNum(T.burn.initial_supply) ? T.burn.initial_supply : null; const burned = isNum(minted) && isNum(supply) ? minted - supply : null;
+        const pairSet = new Set((T.roar_pools || []).map(p => p.address)); const treasury = Object.keys(T.wallets || {}).filter(a => T.wallets[a].counts_as === 'treasury')[0] || null;
+
+        // ---- custody: the product's (holders.js ≥ 1.2.0), or the same rule applied here to an older product
+        let ranked = P.holders.slice(), custody = P.custody && Array.isArray(P.custody.rows) ? P.custody.rows.slice() : null;
+        // the same rule holders.js 1.3.0 applies — run here too, so an older product reads the same way (idempotent on a newer one)
+        const why = (w) => { const lab = String(w.contract_label || w.label || '');
+            if (w.address === st.roar_staking) return 'the staking module — everyone\'s staked ' + sym;
+            if (w.address === st.amproar_hub) return 'the ampROAR hub — its ' + sym + ' backs ampROAR';
+            if (pairSet.has(w.address)) return 'a registered pair — its ' + sym + ' belongs to its LP holders';
+            if (w.kind !== 'contract') return null;
+            if (/pair/i.test(lab)) return 'a pool pair — its ' + sym + ' belongs to its LP holders';
+            if (/incentive|generator/i.test(lab)) return 'an LP incentives contract — holds LP staked by others';
+            if (/core|treasury|multisig|msig|dao\b/i.test(lab)) return null;   // an owner: a DAO core, a treasury, a multisig
+            if (/asset-staking|ve3/i.test(lab)) return 'TLA asset staking — LP deposited by TLA stakers; each member\'s share is in the TLA-amp LP column';
+            if (/staking/i.test(lab)) return 'a staking contract — holds ' + sym + ' for the stakers of another DAO or vault';
+            if (/distributor|reward/i.test(lab)) return 'a rewards distributor — ' + sym + ' waiting to be paid out';
+            if (/ics20|bridge/i.test(lab)) return 'a bridge escrow — ' + sym + ' sent to another chain';
+            if (/hub/i.test(lab)) return 'a liquid-staking hub — holds for its own token\'s holders';
+            if (w.address === st.roar_cw20) return 'the ' + sym + ' token contract itself — sent to it by mistake; no one can move it';
+            return 'a contract — not an owner; what it holds belongs to its users'; };
+        if (!custody) custody = [];
+        const keep = []; ranked.forEach(w => { const y = w.custody ? w.custody : why(w); if (y) custody.push(Object.assign({}, w, { custody: y })); else keep.push(w); });
+        ranked = keep.map((w, i) => Object.assign({}, w, { rank: i + 1 }));
+        const all = ranked.concat(custody);
+        const hubRow = all.filter(w => w.address === st.amproar_hub)[0] || null; const hubStaked = hubRow && isNum(hubRow.staked) ? hubRow.staked : null;
+        const moduleTotal = C.staked && isNum(C.staked.module_total) ? C.staked.module_total : (C.staked && isNum(C.staked.sum) ? C.staked.sum : null);
+
+        // ---- 1. WHERE IT SITS — every ROAR of the minted supply, one snapshot, every colour named
+        const seg = { staked_direct: isNum(moduleTotal) ? moduleTotal - (hubStaked || 0) : null, staked_hub: hubStaked, treasury: 0, ops: 0, pools: 0, forothers: 0, hubbuf: 0, contracts: 0, wallets: 0 };
+        all.forEach(w => { const v = isNum(w.liquid) ? w.liquid : 0; if (!v) return;
+            if (w.address === st.roar_staking) return;                                 // its ROAR IS the staked total (counted above)
+            if (w.address === st.amproar_hub) { seg.hubbuf += v; return; }
+            if (w.address === treasury) { seg.treasury += v; return; }
+            if (T.wallets && T.wallets[w.address]) { seg.ops += v; return; }
+            if (w.custody && /pair/i.test(w.custody)) { seg.pools += v; return; }
+            if (w.custody) { seg.forothers += v; return; }
+            if (w.kind === 'contract') { seg.contracts += v; return; }
+            seg.wallets += v; });
+        const SEGS = [
+            { k: 'burned', label: 'Burned', v: burned, color: '#f87171', note: 'gone for good — ' + (minted ? fmt.big(minted) + ' minted' : 'minted') + ' minus today\'s supply', href: '/liondao/burn.html' },
+            { k: 'staked_direct', label: 'Staked in Lion DAO — directly', v: seg.staked_direct, color: '#ffe600', note: 'wallets that staked ' + sym + ' themselves; it is their vote' },
+            { k: 'staked_hub', label: 'Staked in Lion DAO — by the ampROAR hub', v: seg.staked_hub, color: '#f59e0b', note: 'amp' + sym + ' holders\' ' + sym + ', staked (and voted) by the hub' },
+            { k: 'treasury', label: (T.label || 'Lion DAO') + ' treasury', v: seg.treasury, color: '#60a5fa', note: 'the DAODAO core\'s own ' + sym },
+            { k: 'ops', label: (T.label || 'Lion DAO') + ' ops wallets', v: seg.ops, color: '#93c5fd', note: 'the other roster wallets' },
+            { k: 'pools', label: 'In DEX pools', v: seg.pools, color: '#34d399', note: 'liquidity in the pairs; it belongs to their LP holders (below, per wallet)' },
+            { k: 'forothers', label: 'Contracts holding for others', v: seg.forothers + seg.hubbuf, color: '#2dd4bf', note: 'rewards distributors, other staking contracts, bridge escrow, the hub\'s buffer — listed under Held for others' },
+            { k: 'contracts', label: 'Other DAOs and treasuries', v: seg.contracts, color: '#c084fc', note: 'DAO cores and treasuries that own their ' + sym },
+            { k: 'wallets', label: 'In wallets', v: seg.wallets, color: '#f472b6', note: 'liquid ' + sym + ' in wallets holding at least ' + fmt.big(P.min_total_roar || 0) },
+        ];
+        const measured = sum(SEGS.map(s => s.v)); const rest = isNum(minted) && isNum(measured) ? minted - measured : null;
+        const pct = (v) => isNum(v) && isNum(minted) && minted > 0 ? (v / minted * 100) : null;
+        const barHtml = '<div class="sp-bar" role="img" aria-label="where the minted supply sits">' + SEGS.filter(s => isNum(s.v) && s.v > 0).map(s => '<span style="width:' + pct(s.v) + '%;background:' + s.color + '" title="' + esc(s.label + ' · ' + fmt.pctPlain(pct(s.v), 1)) + '"></span>').join('') + (isNum(rest) && rest > 0 ? '<span class="sp-rest" style="width:' + pct(rest) + '%" title="smaller wallets"></span>' : '') + '</div>';
+        const legHtml = '<div class="sp-leg">' + SEGS.map(s => '<div class="sp-lg"><i style="background:' + s.color + '"></i><span>' + esc(s.label) + '<small>' + esc(s.note) + '</small></span><span class="p">' + (isNum(pct(s.v)) ? fmt.pctPlain(pct(s.v), 1) : ui.unk('not read')) + '</span><span class="v">' + (isNum(s.v) ? esc(fmt.big(s.v)) : '') + '</span></div>').join('') +
+            (isNum(rest) ? '<div class="sp-lg"><i class="sp-rest"></i><span>Wallets under ' + esc(fmt.big(P.min_total_roar || 0)) + '<small>the walk sums them but does not list them one by one</small></span><span class="p">' + fmt.pctPlain(pct(rest), 1) + '</span><span class="v">' + esc(fmt.big(rest)) + '</span></div>' : '') + '</div>';
+
+        // ---- 2. WHO HOLDS THE VOTE — the DAO's own member list (staked ROAR = voting power)
+        const parseCsv = (t) => { const out = []; if (!t) return out; t.replace(/^﻿/, '').split(/\r?\n/).slice(1).forEach(line => { if (!line.trim()) return; const cells = []; let cur = '', q = false; for (let i = 0; i < line.length; i++) { const ch = line[i]; if (ch === '"') { if (q && line[i + 1] === '"') { cur += '"'; i++; } else q = !q; } else if (ch === ',' && !q) { cells.push(cur); cur = ''; } else cur += ch; } cells.push(cur); out.push(cells); }); return out; };
+        const members = parseCsv(csvText).map(c => ({ address: c[0], name: c[1] || null, staked: Number(c[3]), vp: Number(c[4]) })).filter(m => m.address && isNum(m.staked)).sort((a, b) => b.vp - a.vp);
+        const pl = props && props.proposals ? (Array.isArray(props.proposals) ? props.proposals : Object.values(props.proposals)) : [];
+        const voted = {}; pl.forEach(p => (p.voters || []).forEach(v => { const a = v.address || v.voter; if (a) voted[a] = (voted[a] || 0) + 1; }));
+        let cum = 0; members.forEach(m => { cum += m.vp; m.cum = cum; });
+        const n50 = members.findIndex(m => m.cum >= 50) + 1; const top2 = members.length > 1 ? members[0].vp + members[1].vp : null;
+        const who = (a) => a === st.amproar_hub ? 'the ampROAR hub' : (T.wallets && T.wallets[a] ? T.wallets[a].label : null);
+
+        // ---- hero
+        const sumsR = ranked.reduce((t, w) => t + (w.total || 0), 0); const top10 = ranked.slice(0, 10).reduce((t, w) => t + (w.total || 0), 0);
+        $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · ' + esc(sym) + ' supply · where it sits, who votes, who holds it</div>' +
+            '<div class="ld-hero-v ld-num">' + esc(fmt.big(supply) || '—') + ' <span style="font-size:.5em;color:var(--ld-muted)">' + esc(sym) + ' today' + (isNum(minted) ? ' of ' + esc(fmt.big(minted)) + ' minted' : '') + '</span></div>' +
+            '<div class="ld-hero-l">' + (isNum(burned) ? '<b>' + esc(fmt.big(burned)) + '</b> burned. ' : '') + '<b>' + esc(fmt.big(moduleTotal) || '—') + '</b> staked in Lion DAO — that is the vote' + (isNum(hubStaked) && isNum(moduleTotal) ? ', and <b>' + esc(fmt.pctPlain(hubStaked / moduleTotal * 100, 0)) + '</b> of it is staked by the ampROAR hub' : '') + '. ' +
+            (members.length ? '<b>' + (n50 || '—') + '</b> address' + (n50 === 1 ? ' holds' : 'es hold') + ' half of the vote; the top two hold <b>' + esc(fmt.pctPlain(top2, 0)) + '</b>. ' : '') +
+            'The ten largest holders own <b>' + esc(fmt.pctPlain(isNum(supply) && supply ? top10 / supply * 100 : null, 1) || '—') + '</b> of today\'s supply.</div>' +
+            '<div class="ld-hero-s">holder walk ' + ui.when(P.capturedAt) + ' · ' + esc(fmt.int(ranked.length)) + ' holders with ≥ ' + esc(fmt.big(P.min_total_roar || 0)) + ' · ' + esc(sym) + ' ' + esc(fmt.price(px) || '—') + '</div></div>' +
+            '<div class="ld-grid ld-g4" style="margin-top:1.1rem">' +
+            ui.stat({ label: 'Burned', value: fmt.big(burned), reason: 'no minted figure', sub: isNum(pct(burned)) ? fmt.pctPlain(pct(burned), 1) + ' of minted' : '', source: 'minted (registry) − supply', href: '/liondao/burn.html' }) +
+            ui.stat({ label: 'Staked in Lion DAO', value: fmt.big(moduleTotal), reason: 'staking column not read', sub: (usd(moduleTotal) || '') + (isNum(moduleTotal) && isNum(supply) ? ' · ' + fmt.pctPlain(moduleTotal / supply * 100, 1) + ' of supply' : ''), source: 'staking module, walked whole' }) +
+            ui.stat({ label: 'Half the vote', value: n50 ? fmt.int(n50) + ' address' + (n50 === 1 ? '' : 'es') : null, reason: 'member list not read', sub: members.length ? fmt.int(members.length) + ' stakers in all' : '', source: 'governance/members.csv' }) +
+            ui.stat({ label: 'Largest holder', value: ranked[0] ? (who(ranked[0].address) || (LD.nameOf(ranked[0].address) || {}).label || fmt.short(ranked[0].address)) : null, reason: 'no holders', sub: ranked[0] ? fmt.big(ranked[0].total) + ' ' + esc(sym) + ' everywhere it sits' : '', source: 'the holder walk' }) +
+            '</div></section>';
+
+        $('where').innerHTML = ui.section('Where it sits', 'every ' + esc(sym) + ' of the ' + esc(fmt.big(minted) || '') + ' minted · one snapshot · each colour named below', '<div class="ld-tile">' + barHtml + legHtml + '</div>');
+
+        const vRow = (m, i) => { const nm = who(m.address); return '<tr><td class="ld-num" style="color:var(--ld-dim)">' + (i + 1) + '</td><td>' + (nm ? ui.chip(nm, 'o') + ' ' : '') + ui.addr(m.address, m.name ? { label: m.name, kind: 'handle' } : {}) + (m.address === st.amproar_hub ? '<div class="ld-sub">votes the ' + esc(sym) + ' of every amp' + esc(sym) + ' holder — they hold the hub\'s vote only through it</div>' : '') + '</td>' +
+            ui.td('<span class="wh-num">' + esc(fmt.big(m.staked)) + '</span>', true) + ui.td('<span class="sp-vp" style="width:' + Math.max(2, m.vp * 1.2) + 'px"></span><b class="wh-num">' + esc(fmt.pctPlain(m.vp, 2)) + '</b>', true) + ui.td('<span class="wh-num" style="color:var(--ld-muted)">' + esc(fmt.pctPlain(m.cum, 1)) + '</span>', true) +
+            ui.td(pl.length ? '<span class="wh-num">' + esc(fmt.int(voted[m.address] || 0)) + ' of ' + esc(fmt.int(pl.length)) + '</span>' : ui.unk('proposals not read'), true) + '</tr>'; };
+        let vShown = 15;
+        const paintVote = () => { $('vote').innerHTML = ui.section('Who holds the vote', 'staked ' + esc(sym) + ' is Lion DAO voting power · the DAO\'s own member list · ' + esc(fmt.int(members.length)) + ' stakers',
+            members.length ? '<div class="ld-tile">' + ui.table([{ label: '#' }, { label: 'Staker' }, { label: 'Staked ' + sym, r: true }, { label: 'Voting power', r: true }, { label: 'Cumulative', r: true }, { label: 'Props voted', r: true }], members.slice(0, vShown).map(vRow)) +
+                (members.length > vShown ? '<div class="ld-center"><button class="ld-more" type="button" id="v-more">Show ' + Math.min(25, members.length - vShown) + ' more (' + (members.length - vShown) + ' left)</button></div>' : '') + '</div>' : ui.note('governance/members.csv did not load.'));
+            const b = $('v-more'); if (b) b.addEventListener('click', () => { vShown += 25; paintVote(); }); };
+        paintVote();
+
+        // ---- 3. EVERY WALLET'S ROAR — staked · liquid · ampROAR · TLA-amp LP · plain LP, totalled
+        const COLS = [{ k: 'staked', label: 'Staked', color: '#ffe600' }, { k: 'liquid', label: 'Liquid ' + sym, color: '#f472b6' }, { k: 'amp', label: 'amp' + sym, color: '#f59e0b' }, { k: 'lp_amp', label: 'TLA-amp LP', color: '#60a5fa', est: true }, { k: 'lp_plain', label: 'Plain LP', color: '#34d399' }];
+        const top = ranked.slice(0, 25); const nameOf = (h) => who(h.address) || h.label || (LD.nameOf(h.address) || {}).label || fmt.short(h.address);
+        $('chart').innerHTML = ui.section('The largest holders', 'top 25 by total ' + esc(sym) + ' · each bar split by where it sits',
+            '<div class="ld-tile"><div class="ld-chart" style="height:' + Math.max(320, top.length * 26) + 'px"><canvas id="wh-chart"></canvas></div></div>');
+        (function () { const Ch = window.Chart; if (!Ch) return; const el = document.getElementById('wh-chart'); if (!el) return; Ch.defaults.color = '#a3a3a3'; Ch.defaults.font.family = 'Inter, system-ui, sans-serif'; Ch.defaults.font.size = 11;
+            new Ch(el.getContext('2d'), { type: 'bar', data: { labels: top.map(nameOf), datasets: COLS.filter(c => colOk(c.k)).map(c => ({ label: c.label + (c.est ? ' ≈' : ''), data: top.map(h => h[c.k] || 0), backgroundColor: c.color, borderWidth: 0, stack: 's' })) },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'top', labels: { boxWidth: 10 } }, tooltip: { callbacks: { label: (x) => ' ' + x.dataset.label + ': ' + fmt.big(x.parsed.x) + ' ' + sym } } },
+                    scales: { x: { stacked: true, grid: { color: '#1f1f1f' }, ticks: { callback: (v) => fmt.big(v) } }, y: { stacked: true, grid: { display: false } } } } }); })();
+        let shown = 50, q = '', kind = 'all';
         const paint = () => {
-            const D = HomeTiles.derive(loader.sources, cfg, ctx); const R = D.roar; const sym = R.symbol || 'ROAR'; const px = isNum(R.price_usd) ? R.price_usd : null;
-            const usd = (v) => isNum(v) && px != null ? fmt.usd(v * px) : null;
-            const rows = [
-                { label: 'Burned', v: R.burned, src: R.burned_note || 'minted − live supply', addr: null, color: '#f87171', note: 'the ROAR that no longer exists: 1T minted (registry) minus the contract\'s live total_supply' },
-                { label: 'Staked in the DAO', v: R.staked_daodao, src: 'staking module total, live', addr: st.roar_staking, color: LD.chart.palette[0], note: isNum(R.hub_staked) ? fmt.big(R.hub_staked) + ' of it (' + fmt.pctPlain(R.staked_via_hub_pct, 1) + ') is the ampROAR hub\'s stake — ampROAR holders\' ROAR, staked by the hub' : 'the hub\'s share of this is Coming (staked_balance not read)' },
-                { label: (T.label || 'Lion DAO') + ' treasury', v: R.treasury_balance, src: 'cw20 balance, live', addr: (T.daos || [])[0] || null, color: LD.chart.palette[1], note: 'the DAODAO core\'s own ROAR' },
-            ].concat((R.pools || []).map((p, i) => ({ label: p.label + ' pair', v: p.roar, src: 'cw20 balance of the pair, live', addr: p.address, color: LD.chart.palette[3 + (i % 3)], note: 'ROAR sitting as liquidity in this pool' })))
-                .concat([{ label: 'ampROAR hub (unstaked buffer)', v: R.hub_balance, src: 'cw20 balance of the hub, live', addr: st.amproar_hub || null, color: '#a78bfa', note: 'ROAR the hub holds but has not (yet) staked — usually small; its stake is inside "Staked in the DAO"' }]);
-            const known = sum(rows.map(r => r.v)); const rest = isNum(R.minted) && isNum(known) && rows.every(r => isNum(r.v)) ? R.minted - known : null;
-            const parts = rows.filter(r => isNum(r.v) && r.v > 0).map(r => ({ label: r.label, v: r.v, color: r.color })).concat(isNum(rest) && rest > 0 ? [{ label: 'Everywhere else', v: rest, color: '#3f3f46' }] : []);
-            $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · ' + esc(sym) + ' · where the supply sits</div>' +
-                '<div class="ld-hero-v ld-num">' + esc(fmt.big(R.minted) || '—') + ' <span style="font-size:.5em;color:var(--ld-muted)">minted</span></div>' +
-                '<div class="ld-hero-l">Live supply <b>' + esc(fmt.big(R.total_supply) || '—') + '</b>' + (isNum(R.burned) ? ' — <b>' + esc(fmt.big(R.burned)) + '</b> burned (' + esc(fmt.pctPlain(R.burned / R.minted * 100, 1)) + ' of what was minted)' : '') + '. Of what remains: <b>' + esc(fmt.big(R.staked_daodao) || '—') + '</b> staked in the DAO' + (isNum(R.staked_via_hub_pct) ? ' (' + esc(fmt.pctPlain(R.staked_via_hub_pct, 0)) + ' of it through the ampROAR hub)' : '') + ', <b>' + esc(fmt.big(R.treasury_balance) || '—') + '</b> in the treasury, <b>' + esc(fmt.big(R.in_pools) || '—') + '</b> as DEX liquidity' + (isNum(rest) ? ', and <b>' + esc(fmt.big(rest)) + '</b> everywhere else — wallets and contracts not listed here.' : '.') + '</div>' +
-                '<div class="ld-hero-s">' + esc(sym) + ' ' + esc(fmt.price(px) || '—') + ' (' + esc(R.price_source || 'no price') + ') · minted: ' + esc(R.minted_source || '—') + ' · every other figure is a live contract read</div></div>' +
-                '<div class="ld-grid ld-g4" style="margin-top:1.1rem">' +
-                ui.stat({ label: 'Burned', value: fmt.big(R.burned), reason: R.burned_note, sub: isNum(R.burned) ? fmt.pctPlain(R.burned / R.minted * 100, 1) + ' of minted' : '', source: 'minted − live total_supply', href: '/liondao/burn.html' }) +
-                ui.stat({ label: 'Staked in the DAO', value: fmt.big(R.staked_daodao), reason: 'staking module not read', sub: (usd(R.staked_daodao) || '') + (isNum(R.hub_staked) ? ' · ' + fmt.big(R.hub_staked) + ' via ampROAR' : ''), source: 'staking module, live' }) +
-                ui.stat({ label: 'In DEX pools', value: fmt.big(R.in_pools), reason: 'no pool balance read', sub: (usd(R.in_pools) || '') + ' · ' + fmt.int(R.pools_read) + ' of ' + fmt.int(R.pools_total) + ' registered pairs read', source: 'cw20 balances of the pairs, live' }) +
-                ui.stat({ label: 'Everywhere else', value: fmt.big(rest), reason: 'a segment above did not read', sub: isNum(rest) ? fmt.pctPlain(rest / R.minted * 100, 1) + ' of minted · wallets, the OTC escrow, the pyROAR-ROAR pair, contracts not listed' : '', source: 'the remainder after every measured segment' }) +
-                '</div></section>';
-            $('map').innerHTML = ui.section('The map', 'one bar of the 1T minted · every segment a contract read; the last is what no listed contract holds',
-                '<div class="ld-tile">' + ui.bar(parts, { fmt: fmt.big }) + '<div style="margin-top:.9rem">' + ui.table([{ label: 'Where' }, { label: 'ROAR', r: true }, { label: 'of minted', r: true }, { label: 'USD', r: true }, { label: 'Read from' }],
-                    rows.concat([{ label: 'Everywhere else', v: rest, src: 'remainder', addr: null, note: 'wallets and contracts not listed; the OTC escrow ' + (T.otc_escrow ? '(' + fmt.short(T.otc_escrow.address) + ') ' : '') + 'and the pyROAR-ROAR pair are inside this until registered as segments' }]).map(r => '<tr><td><b style="color:#fff">' + esc(r.label) + '</b>' + (r.addr ? ' ' + ui.addr(r.addr) : '') + '<div class="ld-sub">' + esc(r.note || '') + '</div></td>' + ui.td(isNum(r.v) ? esc(fmt.big(r.v)) : ui.unk(r.src), true) + ui.td(isNum(r.v) && isNum(R.minted) ? esc(fmt.pctPlain(r.v / R.minted * 100, 1)) : '—', true) + ui.td(esc(usd(r.v) || '—'), true) + '<td class="ld-sub">' + esc(r.src) + '</td></tr>')) + '</div></div>');
-            $('staked').innerHTML = ui.section('Inside "staked"', 'who the staked ROAR belongs to',
-                '<div class="ld-grid ld-g3">' +
-                ui.stat({ label: 'Total staked', value: fmt.big(R.staked_daodao), reason: 'not read', sub: usd(R.staked_daodao) || '', source: st.roar_staking ? 'staking module ' + fmt.short(st.roar_staking) : '' }) +
-                ui.stat({ label: 'Via the ampROAR hub', value: fmt.big(R.hub_staked), reason: 'hub stake not read', sub: isNum(R.staked_via_hub_pct) ? fmt.pctPlain(R.staked_via_hub_pct, 1) + ' of all staked — ampROAR holders, staked by the hub on their behalf' : '', source: st.amproar_hub ? (R.hub_staked_source || 'hub state') + ' · ' + fmt.short(st.amproar_hub) : '' }) +
-                ui.stat({ label: 'Staked directly', value: isNum(R.staked_daodao) && isNum(R.hub_staked) ? fmt.big(R.staked_daodao - R.hub_staked) : null, reason: 'needs both reads', sub: 'wallets that staked ROAR themselves (the treasury and the roster included)', source: 'total − via the hub' }) +
-                '</div>');
-            $('staked').innerHTML += ui.section('Who holds it', '', ui.note('Every wallet\'s ' + esc(sym) + ' by where it sits — staked, liquid, amp' + esc(sym) + ', in LP — is the <a href="/liondao/whales.html" style="color:var(--ld-accent)">whale tracker</a>.'));
-            $('about').innerHTML = ui.section('How this page is built', '', ui.note('The same loader and derive as the home (<b>lib/home-tiles.js</b>): minted from the registry (tenants.json burn.initial_supply, the Lion DAO Medium post), everything else a live contract read — token_info, the staking module\'s totals and the hub\'s staked_balance, cw20 balances of the treasury, each registered pair (tenants.json roar_pools) and the hub. A pair not in the registry sits inside "everywhere else" until it is added — a registry edit, never a page edit. Nothing is estimated; a read that fails is Coming with its reason.'));
+            const rows = ranked.filter(h => (kind === 'all' || (kind === 'wallets' ? h.kind !== 'contract' : h.kind === 'contract')) && (!q || h.address.includes(q) || String(nameOf(h)).toLowerCase().includes(q.toLowerCase())));
+            const list = rows.slice(0, shown); const max = ranked[0] ? ranked[0].total : 1;
+            const cell = (h, c) => colOk(c.k) ? ui.td('<span class="wh-num' + (c.est && h[c.k] > 0 ? ' wh-est' : '') + '">' + (h[c.k] > 0 ? esc(fmt.big(h[c.k])) : '<span style="color:#3f3f46">—</span>') + '</span>', true) : ui.td(ui.unk((C[c.k] && C[c.k].reason) || 'column not read'), true);
+            $('holders').innerHTML = ui.section('Every wallet\'s ' + sym, esc(fmt.int(rows.length)) + ' of ' + esc(fmt.int(ranked.length)) + ' · ranked by the total across every place ' + esc(sym) + ' can sit',
+                '<div class="wh-ctl"><input id="wh-q" placeholder="find an address or a name" value="' + esc(q) + '">' + [['all', 'All'], ['wallets', 'Wallets'], ['contracts', 'Contracts']].map(x => '<button type="button" class="wh-tab' + (kind === x[0] ? ' on' : '') + '" data-k="' + x[0] + '">' + x[1] + '</button>').join('') + '</div>' +
+                '<div class="ld-tile">' + ui.table([{ label: '#' }, { label: 'Holder' }].concat(COLS.map(c => ({ label: c.label + (c.est ? ' ≈' : ''), r: true }))).concat([{ label: 'Total', r: true }, { label: 'USD', r: true }, { label: 'of supply', r: true }]),
+                    list.map(h => { const nm = who(h.address); return '<tr><td class="ld-num" style="color:var(--ld-dim)">' + esc(h.rank) + '</td><td>' + (nm ? ui.chip(nm, 'o') + ' ' : h.kind === 'contract' ? ui.chip(h.contract_label || h.label || 'contract', '') + ' ' : '') + ui.addr(h.address) +
+                        '<div class="wh-mini">' + COLS.filter(c => colOk(c.k) && h[c.k] > 0).map(c => '<i style="width:' + (h[c.k] / max * 100) + '%;background:' + c.color + '"></i>').join('') + '</div></td>' + COLS.map(c => cell(h, c)).join('') +
+                        ui.td('<b class="wh-num">' + esc(fmt.big(h.total)) + '</b>', true) + ui.td(esc(usd(h.total) || ''), true) + ui.td(esc(fmt.pctPlain(isNum(supply) && supply ? h.total / supply * 100 : null, 2) || ''), true) + '</tr>'; })) +
+                (rows.length > list.length ? '<div class="ld-center"><button class="ld-more" type="button" id="wh-more">Show ' + Math.min(50, rows.length - list.length) + ' more (' + (rows.length - list.length) + ' left)</button></div>' : '') + '</div>');
+            const inp = $('wh-q'); inp.addEventListener('input', (e) => { q = e.target.value.trim(); shown = 50; paint(); const i2 = $('wh-q'); i2.focus(); i2.setSelectionRange(i2.value.length, i2.value.length); });
+            document.querySelectorAll('.wh-tab').forEach(b => b.addEventListener('click', () => { kind = b.dataset.k; shown = 50; paint(); }));
+            const more = $('wh-more'); if (more) more.addEventListener('click', () => { shown += 50; paint(); });
         };
-        const loader = HomeTiles.load(cfg, ctx, () => { clearTimeout(window.__ldT); window.__ldT = setTimeout(paint, 150); }); paint(); await loader.all; paint();
+        paint();
+
+        // ---- 4. HELD FOR OTHERS
+        const ctot = custody.reduce((t, w) => t + (w.total || 0), 0);
+        $('custody').innerHTML = ui.section('Held for others', esc(fmt.int(custody.length)) + ' contracts · ' + esc(fmt.big(ctot)) + ' ' + esc(sym) + ' · not ranked above — each says whose ' + esc(sym) + ' it holds and where that is counted instead',
+            '<div class="ld-tile">' + ui.table([{ label: 'Contract' }, { label: 'Holds', r: true }, { label: 'of supply', r: true }, { label: 'Whose it is' }],
+                custody.map(h => '<tr>' + ui.td(ui.chip(h.contract_label || h.label || 'contract', '') + ' ' + ui.addr(h.address)) + ui.td('<span class="wh-num">' + esc(fmt.big(h.total)) + '</span>', true) + ui.td(esc(fmt.pctPlain(isNum(supply) && supply ? h.total / supply * 100 : null, 1) || ''), true) + ui.td('<span style="color:var(--ld-muted);font-size:.85em">' + esc(h.custody || '') + '</span>') + '</tr>')) + '</div>');
+
+        $('about').innerHTML = ui.section('How this page is built', '', ui.note('<b>Where it sits</b> and <b>every wallet</b> read one snapshot: <b>dao-originations/' + esc(DAO) + '/roar/holders.json</b>, written daily by <b>platform-crons/ally-positions/holders.js</b> (duty <code>roar</code>). Columns and their reads — ' +
+            Object.keys(C).map(k => '<b>' + esc(k) + '</b>: ' + esc(C[k].ok ? C[k].source : 'not read — ' + (C[k].reason || ''))).join(' · ') + '. Minted is the registry\'s figure (tenants.json burn.initial_supply); burned = minted − today\'s supply. ' +
+            '<b>Who holds the vote</b> reads the DAO\'s own member list (<b>governance/members.csv</b>, staked ' + esc(sym) + ' and voting power as DAODAO reports them) and counts each member\'s votes in <b>governance/proposals.json</b>. ' +
+            'A contract that holds ' + esc(sym) + ' for others — the staking module, the ampROAR hub, the pairs, incentive contracts — is listed on its own and never ranked beside wallets, so nothing is counted twice. TLA-amplified LP is a derivation (half of each position\'s USD at the ' + esc(sym) + ' price), marked ≈. Names: the roster, then DAODAO profile handles from the address catalog.'));
     })().catch(e => { document.getElementById('hero').innerHTML = LD.ui.note('The page hit an error: ' + LD.esc(e && e.message || e)); throw e; });
     </script>
 </body>

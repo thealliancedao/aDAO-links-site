@@ -3,36 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- liondao/ecosystem.html 1.1 (2026-09-22; 1.1: Burning Lions supply live, holder products, Every address) — THE LION DAO ECOSYSTEM. The page behind the home's big tile: the validator,
-         ROAR (contract supply, the TLA pool price, CoinGecko's market view — theirs, labeled), ROAR staked in the DAO, the
-         treasury, the burn festival (Lion DAO's reported figures beside what the contract says is gone), the Burning Lions,
-         ROAR20 on Solana (DexScreener, labeled). It runs the same source loader and derive() as the home (lib/home-tiles.js
-         1.1.0) so every number here IS the home's number, and renders through liondao/lib/ld.js. The burn ledger, validator
-         tracker, ROAR20 and supply-map products replace the live reads section by section as they land. -->
+    <!-- liondao/ecosystem.html 2.0 (2026-09-26) — THE LION DAO ECOSYSTEM MAP (owner 2026-09-25: "Lion DAO at the center … ROAR, core DAO
+         holdings and overall value … then side projects with the same type of data for Pixel Lions, pyROAR, ROAR20 and BL … laid out like the
+         new-here tab, a big-picture view"). Lion DAO sits in the middle with ROAR; the four projects sit around it, each with the same five
+         lines (what it is · its price or floor · how many there are · who holds them · where to go), and each line from the centre says how
+         the project ties to Lion DAO. Below the map: what Lion DAO owns, the page for every question, and every address the registry knows.
+         Numbers come from the same loader and derive() as the home (lib/home-tiles.js 1.6.0), so the map and the home never disagree. -->
     <base href="/">
     <title>Lion DAO ecosystem | thealliancedao.com</title>
     <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
-    <meta name="description" content="The Lion DAO ecosystem on Terra: the validator, ROAR supply and market, staked ROAR, the burn festival and the Burning Lions, ROAR20 on Solana.">
+    <meta name="description" content="The Lion DAO ecosystem on one map: Lion DAO and ROAR at the centre, pixeLions, pyROAR, ROAR20 and the Burning Lions around it.">
     <meta name="theme-color" content="#0b0b0b">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #4a4000; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }</style>
+    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #4a4000; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }
+        .em { position: relative; display: grid; grid-template-columns: 1fr 1.25fr 1fr; grid-template-rows: auto auto; gap: 2.2rem 3rem; align-items: stretch; margin: .5rem 0 2.5rem }
+        .em-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible }
+        .em-node { position: relative; z-index: 1; background: linear-gradient(180deg,#1a1a1a,#121212); border: 1px solid #2a2a2a; border-radius: 16px; padding: 1rem 1.1rem 1.1rem; text-decoration: none; color: inherit; display: block; transition: border-color .15s, transform .15s }
+        .em-node:hover { border-color: var(--t-accent); transform: translateY(-2px) }
+        .em-core { grid-column: 2; grid-row: 1 / span 2; align-self: center; border: 2px solid var(--t-accent); box-shadow: 0 0 0 6px rgba(255,230,0,.06), 0 20px 60px -30px rgba(255,230,0,.55); padding: 1.4rem 1.4rem 1.3rem; background: radial-gradient(120% 90% at 50% 0%, rgba(255,230,0,.12), transparent 60%), #141414 }
+        .em-pl { grid-column: 1; grid-row: 1 } .em-py { grid-column: 3; grid-row: 1 } .em-r20 { grid-column: 1; grid-row: 2 } .em-bl { grid-column: 3; grid-row: 2 }
+        .em-h { display: flex; align-items: center; gap: .55rem; font-weight: 800; color: #fff; font-size: 1.05rem } .em-h img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover } .em-h small { margin-left: auto; font-weight: 600; font-size: .66rem; color: #9ca3af; text-transform: uppercase; letter-spacing: .06em }
+        .em-core .em-h { font-size: 1.35rem; justify-content: center } .em-core .em-h img { width: 44px; height: 44px }
+        .em-what { font-size: .8rem; color: #9ca3af; margin: .35rem 0 .7rem; line-height: 1.45 } .em-core .em-what { text-align: center }
+        .em-big { font-size: 1.6rem; font-weight: 800; color: var(--t-accent); font-variant-numeric: tabular-nums; line-height: 1.1 } .em-core .em-big { font-size: 2.3rem; text-align: center }
+        .em-big small { font-size: .5em; color: #9ca3af; font-weight: 600; margin-left: .35rem }
+        .em-kv { display: grid; grid-template-columns: 1fr auto; gap: .28rem .8rem; margin-top: .75rem; font-size: .82rem } .em-kv dt { color: #9ca3af } .em-kv dd { margin: 0; color: #fff; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums }
+        .em-tie { margin-top: .75rem; font-size: .74rem; color: var(--t-accent); border-top: 1px dashed #333; padding-top: .55rem; line-height: 1.45 }
+        .em-go { position: absolute; right: .9rem; bottom: .7rem; font-size: .7rem; color: #6b7280 }
+        .em-core .em-kv { grid-template-columns: repeat(2, 1fr auto) }
+        @media (max-width: 1000px) { .em { grid-template-columns: 1fr 1fr; gap: 1rem } .em-core { grid-column: 1 / span 2; grid-row: 1 } .em-pl { grid-column: 1; grid-row: 2 } .em-py { grid-column: 2; grid-row: 2 } .em-r20 { grid-column: 1; grid-row: 3 } .em-bl { grid-column: 2; grid-row: 3 } .em-svg { display: none } }
+        @media (max-width: 640px) { .em { grid-template-columns: 1fr } .em-core, .em-pl, .em-py, .em-r20, .em-bl { grid-column: 1; grid-row: auto } .em-core .em-kv { grid-template-columns: 1fr auto } }
+        .em-q { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: .6rem }
+        .em-q a { display: block; padding: .7rem .9rem; border: 1px solid #262626; border-radius: 12px; text-decoration: none; background: #141414 } .em-q a:hover { border-color: var(--t-accent) }
+        .em-q b { display: block; color: #fff; font-size: .88rem } .em-q span { font-size: .75rem; color: #9ca3af }
+    </style>
 </head>
 <body>
     <div id="site-header"></div>
     <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
-    <script src="/liondao/lib/ld.js?v=1.2.0"></script>
-    <script src="/lib/home-tiles.js?v=1.5.1"></script>
+    <script src="/liondao/lib/ld.js?v=1.3.0"></script>
+    <script src="/lib/home-tiles.js?v=1.6.0"></script>
 
     <main class="ld" id="page">
         <div id="crumb"></div>
-        <div id="hero"></div>
-        <div id="roar"></div>
-        <div id="burn"></div>
-        <div id="roar20"></div>
+        <div id="intro"></div>
+        <div id="map"></div>
+        <div id="owns"></div>
+        <div id="where"></div>
         <div id="addresses"></div>
         <div id="about"></div>
     </main>
@@ -42,68 +63,75 @@
     <script src="/lib/site-footer.js"></script>
     <script>
     (async function () {
-        const REV = '1.1', REV_DATE = '2026-09-22';
+        const REV = '2.0', REV_DATE = '2026-09-26';
         const { fmt, ui, esc, isNum, sum } = LD;
         await LD.mount({ page: 'liondao-ecosystem', rev: REV, revDate: REV_DATE });
         const ctx = LD._M.ctx || { tenant: { slug: 'liondao' }, tenants: {}, collections: [], primary: null }; const T = LD._M.tenant || {};
         const $ = (id) => document.getElementById(id);
         $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'Ecosystem' }]);
-        const cfg = await LD.jsonFetch('/liondao/home.json'); if (!cfg) { $('hero').innerHTML = ui.note('liondao/home.json did not load.'); return; }
-        const paintAll = () => paint(HomeTiles.derive(loader.sources, cfg, ctx));
-        const loader = HomeTiles.load(cfg, ctx, () => { clearTimeout(window.__ldT); window.__ldT = setTimeout(paintAll, 150); });
-        paintAll(); await loader.all; paintAll();
+        const cfg = await LD.jsonFetch('/liondao/home.json'); if (!cfg) { $('intro').innerHTML = ui.note('liondao/home.json did not load.'); return; }
+        $('intro').innerHTML = ui.section('The Lion DAO ecosystem', 'the big picture on one map · every card opens the page with the full story', '');
+        const v = (x, f, why) => x == null ? ui.unk(why || 'not read yet') : esc((f || String)(x));
+        const node = (cls, o) => '<a class="em-node ' + cls + '" href="' + esc(o.href) + '" data-node="' + cls + '"><div class="em-h">' + (o.logo ? '<img src="' + esc(o.logo) + '" alt="" onerror="this.remove()">' : '') + esc(o.title) + (o.tag ? '<small>' + esc(o.tag) + '</small>' : '') + '</div><div class="em-what">' + o.what + '</div><div class="em-big">' + o.big + '</div><dl class="em-kv">' + o.kv.map(r => '<dt>' + esc(r[0]) + '</dt><dd>' + r[1] + '</dd>').join('') + '</dl>' + (o.tie ? '<div class="em-tie">' + o.tie + '</div>' : '') + '<span class="em-go">opens →</span></a>';
+        const drawLines = () => { const box = document.querySelector('.em'); const svg = document.querySelector('.em-svg'); if (!box || !svg) return; const B = box.getBoundingClientRect(); const core = box.querySelector('[data-node="em-core"]'); if (!core) return; const C = core.getBoundingClientRect(); const cx = C.left + C.width / 2 - B.left, cy = C.top + C.height / 2 - B.top;
+            svg.setAttribute('viewBox', '0 0 ' + B.width + ' ' + B.height); svg.innerHTML = ['em-pl', 'em-py', 'em-r20', 'em-bl'].map(k => { const n = box.querySelector('[data-node="' + k + '"]'); if (!n) return ''; const R = n.getBoundingClientRect(); const nx = R.left + R.width / 2 - B.left, ny = R.top + R.height / 2 - B.top; return '<line x1="' + cx + '" y1="' + cy + '" x2="' + nx + '" y2="' + ny + '" stroke="#ffe600" stroke-opacity=".35" stroke-width="2" stroke-dasharray="6 6"/><circle cx="' + nx + '" cy="' + ny + '" r="3" fill="#ffe600" fill-opacity=".5"/>'; }).join(''); };
+        window.addEventListener('resize', () => { clearTimeout(window.__emT); window.__emT = setTimeout(drawLines, 120); });
 
-        function paint(D) {
-            const V = D.validator || {}, R = D.roar || {}, B = D.burn || {}, R20 = D.roar20 || {}, P = D.positions || null;
-            // hero
-            const line = [
-                isNum(V.rank) ? `The validator stands <b>#${V.rank}</b> of ${V.of} with ${fmt.big(V.tokens_luna)} LUNA bonded` : 'The validator set has not answered',
-                isNum(R.total_supply) ? `ROAR's contract reports <b>${fmt.big(R.total_supply)}</b> in supply` + (isNum(R.price_usd) ? ` at ${fmt.price(R.price_usd)}` : '') : null,
-                isNum(R.staked_daodao) ? `${fmt.big(R.staked_daodao)} (${fmt.pctPlain(R.staked_pct)}) is staked in the DAO` : null,
-                isNum(B.supply_delta) ? `and ${fmt.big(B.supply_delta)} has left the supply since the ${fmt.big(B.initial_supply)} mint — Lion DAO reports ${fmt.big(B.reported_total)} burned in the festival` : null,
-            ].filter(Boolean).join(', ') + '.';
-            $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · ecosystem</div><div class="ld-hero-v">' + esc(T.short || 'LFR') + '</div><div class="ld-hero-l">' + line + '</div><div class="ld-hero-s">' + (P ? 'positions ' + ui.when(P.captured_at) + ' · ' : '') + 'chain reads live · CoinGecko and DexScreener are theirs, labeled</div></div>' +
-                '<div class="ld-grid ld-g4" style="margin-top:1.1rem">' +
-                ui.stat({ label: 'Validator', value: isNum(V.rank) ? '#' + V.rank : null, reason: 'validator set not read', sub: (fmt.big(V.tokens_luna) || '—') + ' LUNA · ' + (fmt.int(V.delegators) || '—') + ' delegators · ' + (fmt.pctPlain(V.commission_rate_pct) || '—') + ' commission', source: 'staking module, live', href: '/liondao/validator.html' }) +
-                ui.stat({ label: 'ROAR price', value: fmt.price(R.price_usd), reason: 'no feed', sub: (fmt.pct(R.chg_24h_pct) || '—') + ' 24h · ' + (fmt.pct(R.chg_7d_pct) || '—') + ' 7d · 1 ampROAR = ' + (fmt.num(R.lst_ratio, 4) || '—') + ' ROAR', source: 'network-and-prices · TLA pool' }) +
-                ui.stat({ label: 'Market cap', value: fmt.usd(R.market_cap_cg), reason: 'CoinGecko not reachable', sub: 'CoinGecko rank #' + (fmt.int(R.cg_rank) || '—') + ' · FDV at our price ' + (fmt.usd(R.fdv_ours) || '—'), source: 'CoinGecko — their figures' }) +
-                ui.stat({ label: 'Known value', value: fmt.usd(D.total && D.total.known_usd), reason: 'positions product not loaded', sub: P ? P.wallets + ' wallets · liabilities ' + (fmt.usd(P.liabilities_usd) || '$0') : 'live parts only', source: (D.total && D.total.source) || '', href: '/liondao/dao_treasury.html' }) +
-                '</div></section>';
-            // ROAR: supply + where it sits (what can be read today) — the supply map product completes this
-            const parts = [{ label: 'Staked in Lion DAO', v: R.staked_daodao, color: '#ffe600', reason: 'staking contract not read' }, { label: 'Lion DAO treasury', v: R.treasury_balance, color: '#f59e0b', reason: 'balance not read' }, { label: 'Gone from supply', v: B.supply_delta, color: '#4a4000', reason: 'token_info not read' }];
-            const known = sum(parts.map(p => p.v)); const rest = isNum(R.total_supply) && isNum(known) ? R.total_supply + (B.supply_delta || 0) - known : null;
-            $('roar').innerHTML = ui.section('ROAR', 'the token — contract supply, where it sits, what it is worth', '<div class="ld-grid ld-g23" style="align-items:start"><div class="ld-tile"><div class="ld-k">Of the ' + (fmt.big(B.initial_supply) || 'minted') + ' minted</div>' + ui.bar(parts.concat([{ label: 'Everywhere else (ampROAR, LPs, wallets — the supply map)', v: rest, color: '#222', reason: 'supply map in build' }]), { fmt: fmt.big, label: 'ROAR' }) + '<div class="ld-src">Contract total supply ' + (fmt.big(R.total_supply) || '—') + (R.max_supply_note ? ' · ' + esc(R.max_supply_note) : isNum(R.max_supply) ? ' · minter cap ' + fmt.big(R.max_supply) : '') + '. The full map — ampROAR, TLA LPs, DEX LPs, wallets, whales — is the supply-map product, in build.</div></div>' +
-                '<div class="ld-grid ld-g2"><div class="ld-tile"><div class="ld-k">Treasury ROAR</div><div class="ld-v">' + (isNum(R.treasury_balance) ? esc(fmt.big(R.treasury_balance)) : ui.unk('balance not read')) + '</div><div class="ld-s">' + (fmt.usd(R.treasury_usd) || '—') + ' · ' + (fmt.pctPlain(R.treasury_pct) || '—') + ' of supply</div><div class="ld-src"><a href="/liondao/dao_treasury.html" style="color:var(--ld-accent)">every holding →</a></div></div>' +
-                '<div class="ld-tile"><div class="ld-k">Staked in the DAO</div><div class="ld-v">' + (isNum(R.staked_daodao) ? esc(fmt.big(R.staked_daodao)) : ui.unk('staking contract not read')) + '</div><div class="ld-s">' + (fmt.pctPlain(R.staked_pct) || '—') + ' of supply · Nakamoto coefficient ' + ui.unk(R.nakamoto_note || 'needs the staker list') + '</div><div class="ld-src">DAODAO cw20 staking module, live</div></div>' +
-                '<div class="ld-tile"><div class="ld-k">24h volume</div><div class="ld-v">' + (isNum(R.volume_24h_cg) ? esc(fmt.usd(R.volume_24h_cg)) : ui.unk('CoinGecko not reachable')) + '</div><div class="ld-s">circulating (CG) ' + (fmt.big(R.circulating_cg) || '—') + '</div><div class="ld-src">CoinGecko — theirs</div></div>' +
-                '<div class="ld-tile"><div class="ld-k">LUNA</div><div class="ld-v">' + (isNum(D.luna && D.luna.price_usd) ? esc(fmt.price(D.luna.price_usd)) : ui.unk('no feed')) + '</div><div class="ld-s">' + (fmt.pct(D.luna && D.luna.chg_24h_pct) || '—') + ' 24h · the price every LUNA-denominated row uses</div><div class="ld-src">network-and-prices</div></div></div></div>');
-            // burn festival
-            $('burn').innerHTML = ui.section('The burn festival and the Burning Lions', (T.burn && T.burn.festival_window) ? esc(T.burn.festival_window) : '', '<div class="ld-grid ld-g4">' +
-                ui.stat({ label: 'Reported burned', value: fmt.big(B.reported_total), reason: 'no reported figure in the registry', sub: (fmt.big(B.reported_community) || '—') + ' by ' + (fmt.int(B.reported_participants) || '—') + ' community wallets + ' + (fmt.big(B.reported_dao) || '—') + ' by the DAO · top wallet ' + (fmt.big(B.reported_top_wallet) || '—'), source: 'Lion DAO\'s published figures, ' + (B.reported_as_of || '') }) +
-                ui.stat({ label: 'Gone from supply', value: fmt.big(B.supply_delta), reason: 'token_info not read', sub: 'initial ' + (fmt.big(B.initial_supply) || '—') + ' − live ' + (fmt.big(R.total_supply) || '—') + (isNum(B.reported_vs_delta) ? ' · reported exceeds it by ' + fmt.big(B.reported_vs_delta) : ''), source: 'the ROAR contract, live' }) +
-                ui.stat({ label: 'pyROAR ledger', value: D.pyroar && D.pyroar.product ? fmt.int(D.pyroar.holder_count) + ' holders' : (B.pyroar_cw20 ? 'found' : null), reason: 'not found', sub: D.pyroar && D.pyroar.product ? 'largest ' + esc(D.pyroar.top1_label || '—') + ' at ' + (fmt.pctPlain(D.pyroar.top1_pct, 1) || '—') + ' · top ten ' + (fmt.pctPlain(D.pyroar.top10_pct, 1) || '—') : 'the "Burnt ROAR" token minted 1:1 to burners — its balances are the frozen leaderboard; the holder product walks them daily', source: B.pyroar_cw20 ? 'cw20 ' + fmt.short(B.pyroar_cw20) + ' — copy it under Every address' : '', href: '/liondao/burn.html' }) +
-                ui.stat({ label: 'Burning Lions', value: fmt.int(D.bl && D.bl.supply), reason: 'cw721 num_tokens not read and no registry figure', sub: (D.bl && D.bl.name ? esc(D.bl.name) + ' · ' : '') + 'one per drawing from the festival; floor and the burner behind each lion land when the folder is onboarded', source_html: (D.bl && D.bl.supply_source ? esc(D.bl.supply_source) + ' · ' : '') + (D.bl && D.bl.contract ? ui.addr(D.bl.contract) : '') }) + '</div>');
-            // ROAR20
-            $('roar20').innerHTML = ui.section('ROAR20 on Solana', R20.mint ? ui.addr(R20.mint, { chain: 'solana' }) + ' · pump.fun token · 1B fixed' : '', '<div class="ld-grid ld-g4">' +
-                ui.stat({ label: 'Price', value: fmt.price(R20.price_usd), reason: 'DexScreener not reachable', sub: (fmt.pct(R20.chg_24h_pct) || '—') + ' 24h · ' + esc(R20.dex || ''), source: 'DexScreener — theirs' }) +
-                ui.stat({ label: 'Market cap', value: fmt.usd(R20.market_cap_usd), reason: 'DexScreener not reachable', source: 'DexScreener — theirs' }) +
-                ui.stat({ label: 'Liquidity', value: fmt.usd(R20.liquidity_usd), reason: 'DexScreener not reachable', source: 'DexScreener — theirs' }) +
-                ui.stat({ label: 'Owners', value: fmt.int(D.roar20 && D.roar20.holders), reason: (D.roar20 && D.roar20.holders_reason) || 'holder product not read', sub: D.roar20 && D.roar20.product ? (fmt.int(D.roar20.program_count) || '—') + ' program-owned accounts hold ' + (fmt.pctPlain(D.roar20.program_pct, 1) || '—') + ' · top 10 wallets ' + (fmt.pctPlain(D.roar20.top10_wallets_pct, 1) || '—') : 'every token account, folded to owners, daily', source: 'roar20/holders (Helius)', href: '/liondao/roar20.html' }) + '</div>');
-            // 1.1 (owner): EVERY address the registry knows for this tenant, in one place, each copy · search · explorer
-            var A = []; var W = T.wallets || {}; Object.keys(W).forEach(function (w) { A.push({ group: 'Roster', label: W[w].label, role: W[w].counts_as || W[w].role || '', addr: w }); });
+        const paint = (D) => {
+            const R = D.roar || {}, P = D.pl || {}, Y = D.pyroar || {}, Z = D.roar20 || {}, BL = D.bl || {}, TT = D.total || {}, PR = D.pl_rewards || {};
+            const mcap = isNum(R.total_supply) && isNum(R.price_usd) ? R.total_supply * R.price_usd : null;
+            const core = node('em-core', { title: T.label || 'Lion DAO', logo: T.logo || '/assets/token-logos/ROAR_LOGO.png', href: '/liondao/dao_treasury.html',
+                what: 'The DAO at the centre: it runs ROAR, keeps the treasury, stakes in TLA, runs a validator — and every project around it ties back here.',
+                big: v(TT.known_usd, fmt.usd, 'positions product not loaded') + '<small>known value</small>',
+                kv: [['ROAR', v(R.price_usd, fmt.price) + (isNum(R.chg_24h_pct) ? ' <span style="color:' + (R.chg_24h_pct >= 0 ? '#4ade80' : '#f87171') + '">' + esc(fmt.pct(R.chg_24h_pct)) + '</span>' : '')], ['ROAR market cap', v(mcap, fmt.usd, 'supply or price not read')],
+                    ['Treasury ROAR', v(R.treasury_balance, fmt.big)], ['Treasury ROAR value', v(R.treasury_usd, fmt.usd)],
+                    ['Staked in the DAO', v(R.staked_daodao, fmt.big, 'staking module not read') + (isNum(R.staked_pct) ? ' <span style="color:#9ca3af">' + esc(fmt.pctPlain(R.staked_pct, 0)) + '</span>' : '')], ['Burned for good', v(R.burned, fmt.big)],
+                    ['TLA positions', v(D.tla && D.tla.total_usd, fmt.usd)], ['Validator', isNum(D.validator && D.validator.rank) ? '#' + esc(fmt.int(D.validator.rank)) + ' of ' + esc(fmt.int(D.validator.of)) : ui.unk('validator set not read')]],
+                tie: 'ROAR is the token · staking it is the vote · the treasury, TLA positions, Credia and the validator are what the DAO owns' });
+            const pl = node('em-pl', { title: 'pixeLions', tag: 'NFT · 5,000', logo: '/assets/images/pixelions-pfp.webp', href: '/nft-explorer-index.html?tenant=liondao',
+                what: 'The pride\'s pixel-art collection — the Pixel Lions DAO\'s membership.', big: v(P.floor_usd, fmt.usd, 'no floor today') + '<small>floor</small>',
+                kv: [['Floor × minted', v(P.market_cap_usd, fmt.usd)], ['Holders', v(P.holders, fmt.int)], ['Staked', v(P.staked_total, fmt.int) + (isNum(P.staked_pct) ? ' <span style="color:#9ca3af">' + esc(fmt.pctPlain(P.staked_pct, 0)) + '</span>' : '')], ['One-of-ones', '5 · see Rarity']],
+                tie: 'Staked lions earn ROAR from Lion DAO — ' + (isNum(PR.roar_per_lion_per_hour) ? esc(fmt.num(PR.roar_per_lion_per_hour)) + ' ROAR a lion an hour' : 'the rate lands with the positions product') });
+            const py = node('em-py', { title: 'pyROAR', tag: 'burn receipt', href: '/liondao/burn.html',
+                what: 'One pyROAR for every ROAR burned in the year-long burn festival — the frozen ledger of who burned what.', big: v(Y.total_supply, fmt.big, 'pyROAR supply not read') + '<small>ROAR burned in the festival</small>',
+                kv: [['Price', v(Y.price_usd, fmt.price, Y.price_reason)], ['Burners (holders)', v(Y.holder_count, fmt.int)], ['Top burner holds', v(Y.top1_pct, (x) => fmt.pctPlain(x, 1))], ['Reported by Lion DAO', v(D.burn && D.burn.reported_total, fmt.big)]],
+                tie: 'Burned ROAR leaves the supply for good — and the burners were the ones in the draw for the Burning Lions' });
+            const r20 = node('em-r20', { title: 'ROAR20', tag: 'Solana', href: '/liondao/roar20.html',
+                what: 'Lion DAO\'s official memecoin on Solana — the pride outside Terra.', big: v(Z.price_usd, fmt.price, 'DexScreener did not answer') + (isNum(Z.chg_24h_pct) ? '<small style="color:' + (Z.chg_24h_pct >= 0 ? '#4ade80' : '#f87171') + '">' + esc(fmt.pct(Z.chg_24h_pct)) + ' 24h</small>' : ''),
+                kv: [['Market cap', v(Z.market_cap_usd, fmt.usd, 'DexScreener did not answer')], ['Volume 24h', v(Z.volume_24h_usd, fmt.usd, 'DexScreener did not answer')], ['Holders', v(Z.holders, fmt.int, Z.holders_reason)], ['Supply', v(Z.supply, fmt.big)]],
+                tie: 'A separate token on another chain — not ROAR, not bridged; it carries the Lion DAO name' });
+            const bl = node('em-bl', { title: 'Burning Lions', tag: 'NFT · 1 of 1', href: '/liondao/mint.html#burning-lions',
+                what: 'Twelve one-of-ones, the prizes of the ROAR burn festival.', big: v(BL.supply_text, String, 'the contract did not answer') + '<small>on the contract</small>',
+                kv: [['Floor', ui.unk(BL.market_reason)], ['Stated count', v(BL.planned, fmt.int)], ['Contract', '<code style="font-size:.8em">' + esc(fmt.short(BL.contract || '')) + '</code>']],
+                tie: 'Won by burning ROAR — each winner\'s burn, and Lion DAO\'s match, on NFT Mint History' });
+            $('map').innerHTML = '<div class="em"><svg class="em-svg" aria-hidden="true"></svg>' + pl + core + py + r20 + bl + '</div>';
+            requestAnimationFrame(drawLines);
+
+            const parts = TT.parts || [];
+            $('owns').innerHTML = ui.section('What Lion DAO owns', 'the known parts of its value · the positions product, hourly',
+                '<div class="ld-tile">' + ui.table([{ label: 'Part' }, { label: 'USD', r: true }, { label: 'share', r: true }], parts.map(p => '<tr><td>' + esc(p.label) + '</td>' + ui.td(p.usd == null ? ui.unk(p.note || 'not read') : '<b class="ld-num">' + esc(fmt.usd(p.usd)) + '</b>', true) + ui.td(isNum(p.usd) && isNum(TT.known_usd) && TT.known_usd ? esc(fmt.pctPlain(p.usd / TT.known_usd * 100, 1)) : '', true) + '</tr>')) +
+                '<div class="ld-src" style="margin-top:.5rem">Every wallet and every holding: <a href="/liondao/dao_treasury.html" style="color:var(--t-accent)">the treasury page →</a></div></div>');
+        };
+        const Q = [['Where does every ROAR sit, and who holds the vote?', '/liondao/supply.html', 'ROAR supply'], ['Who holds the most ROAR, everywhere it can sit?', '/liondao/supply.html#holders', 'ROAR supply · every wallet'],
+            ['What does Lion DAO own, wallet by wallet?', '/liondao/dao_treasury.html', 'Treasury'], ['What does Lion DAO have in TLA?', '/liondao/dao_tla_deposits.html', 'TLA positions'], ['What can the DAO claim right now?', '/liondao/dao_unclaimed.html', 'Unclaimed rewards'],
+            ['How is the validator doing?', '/liondao/validator.html', 'Validator'], ['Who burned the most ROAR?', '/liondao/burn.html', 'Burn leaderboard'], ['Who holds ROAR20?', '/liondao/roar20.html', 'ROAR20'],
+            ['How rare is my pixeLion?', '/liondao/rarity.html', 'Pixel Lions Rarity'], ['How did the mints go — pixeLions and Burning Lions?', '/liondao/mint.html', 'NFT Mint History'], ['What did Lion DAO and aDAO build together?', '/liondao/alliance.html', 'Alliance with aDAO'], ['Every pixeLion, filterable', '/nft-explorer-index.html?tenant=liondao', 'NFT Explorer']];
+        $('where').innerHTML = ui.section('Where to find it', 'one question, one page', '<div class="em-q">' + Q.map(q => '<a href="' + esc(q[1]) + '"><b>' + esc(q[0]) + '</b><span>' + esc(q[2]) + ' →</span></a>').join('') + '</div>');
+        // every address the registry knows for this tenant
+        (function () { var A = []; var W = T.wallets || {}; Object.keys(W).forEach(function (w) { A.push({ group: 'Roster', label: W[w].label, role: W[w].counts_as || W[w].role || '', addr: w }); });
             if (T.validator) { if (T.validator.operator) A.push({ group: 'Validator', label: 'operator', addr: T.validator.operator }); if (T.validator.account) A.push({ group: 'Validator', label: 'account (commission accrues here)', addr: T.validator.account }); }
-            var ST = T.staking || {}; Object.keys(ST).forEach(function (k) { if (/^terra1/.test(String(ST[k]))) A.push({ group: 'Contracts', label: k.replace(/_/g, ' '), addr: ST[k] }); });
-            if (T.burn) { if (T.burn.pyroar_cw20) A.push({ group: 'Contracts', label: 'pyROAR (Burnt ROAR) cw20', addr: T.burn.pyroar_cw20 }); if (T.burn.festival_receiver) A.push({ group: 'Contracts', label: 'festival receiver (Enterprise core)', addr: T.burn.festival_receiver }); }
+            var ST = T.staking || {}; var LBL = T.staking_labels || {}; Object.keys(ST).forEach(function (k) { if (/^terra1/.test(String(ST[k]))) A.push({ group: 'Contracts', label: LBL[k] || k.replace(/_/g, ' '), addr: ST[k] }); });
+            if (T.burn) { if (T.burn.pyroar_cw20) A.push({ group: 'The burn', label: 'pyROAR (Burnt ROAR) cw20', addr: T.burn.pyroar_cw20 }); if (T.burn.pyroar_pair) A.push({ group: 'The burn', label: 'pyROAR pair', addr: T.burn.pyroar_pair }); if (T.burn.festival_receiver) A.push({ group: 'The burn', label: 'festival receiver (Enterprise core)', addr: T.burn.festival_receiver }); }
+            (T.roar_pools || []).forEach(function (p) { if (p.address) A.push({ group: 'Pools', label: p.label + ' pair', addr: p.address }); });
             if (T.burning_lions && T.burning_lions.contract) A.push({ group: 'Collections', label: 'Burning Lions cw721', addr: T.burning_lions.contract });
-            (LD._M.ctx && LD._M.ctx.collections || []).forEach(function (c) { if (c.contract) A.push({ group: 'Collections', label: (c.label || c.slug) + ' cw721', addr: c.contract }); if (c.manifest && c.manifest.governance) { var g = c.manifest.governance; if (g.dao_address) A.push({ group: 'Collections', label: (g.dao_name || 'DAO') + ' treasury (DAODAO core)', addr: g.dao_address }); } });
-            (T.daos || []).forEach(function (dd) { if (/^terra1/.test(String(dd))) A.push({ group: 'DAO', label: 'core', addr: dd }); });
+            (ctx.collections || []).forEach(function (c) { if (c.contract) A.push({ group: 'Collections', label: (c.label || c.slug) + ' cw721', addr: c.contract }); if (c.manifest && c.manifest.governance && c.manifest.governance.dao_address) A.push({ group: 'Collections', label: (c.manifest.governance.dao_name || 'DAO') + ' — DAODAO core', addr: c.manifest.governance.dao_address }); });
             if (T.roar20 && T.roar20.mint) A.push({ group: 'Solana', label: 'ROAR20 mint', addr: T.roar20.mint, chain: 'solana' });
-            var seen = {}; A = A.filter(function (x) { if (seen[x.addr]) return false; seen[x.addr] = true; return true; });
-            var groups = []; A.forEach(function (x) { if (groups.indexOf(x.group) === -1) groups.push(x.group); });
-            $('addresses').innerHTML = ui.section('Every address', A.length + ' from the registry · copy, search the site, or open the explorer', '<div class="ld-tile">' + groups.map(function (g) { return '<div class="ld-k" style="margin-top:.5rem">' + esc(g) + '</div>' + ui.table([{ label: 'What' }, { label: 'Address' }], A.filter(function (x) { return x.group === g; }).map(function (x) { return '<tr><td>' + esc(x.label) + (x.role ? ' <span class="ld-sub">' + esc(x.role) + '</span>' : '') + '</td><td>' + ui.addr(x.addr, { full: true, chain: x.chain }) + '</td></tr>'; })); }).join('') + '<div class="ld-src">Source: tenants.json (the registry holds the literals) and the collection manifests. A wrong or missing address here is a registry edit, never a page edit.</div></div>');
-        }
-        $('about').innerHTML = ui.section('How this page is built', '', ui.note('The same loader and derive() as the home (lib/home-tiles.js): the validator from the bonded set, ROAR from its contract and the TLA pool price, staked ROAR from the DAODAO staking module, the treasury and known value from the positions product, CoinGecko and DexScreener as third parties — labeled as theirs on every row that uses them. Lion DAO\'s reported burn figures sit beside the contract\'s supply delta, never inside it. Sections switch to their products (burn ledger, validator tracker, ROAR20, supply map) as those land.'));
-    })().catch(e => { document.getElementById('hero').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });
+            var seen = {}; A = A.filter(function (x) { if (seen[x.addr]) return false; seen[x.addr] = true; return true; }); var groups = []; A.forEach(function (x) { if (groups.indexOf(x.group) === -1) groups.push(x.group); });
+            $('addresses').innerHTML = ui.section('Every address', A.length + ' from the registry · copy, search the site, or open the explorer', ui.details('Show every address', '<div class="ld-tile">' + groups.map(function (g) { return '<div class="ld-k" style="margin-top:.5rem">' + esc(g) + '</div>' + ui.table([{ label: 'What' }, { label: 'Address' }], A.filter(function (x) { return x.group === g; }).map(function (x) { return '<tr><td>' + esc(x.label) + (x.role ? ' <span class="ld-sub">' + esc(x.role) + '</span>' : '') + '</td><td>' + ui.addr(x.addr, { full: true, chain: x.chain }) + '</td></tr>'; })); }).join('') + '</div>')); })();
+        $('about').innerHTML = ui.section('How this page is built', '', ui.note('The same loader and derive() as the home (<b>lib/home-tiles.js</b>): Lion DAO\'s known value and holdings from the positions product (hourly), ROAR from its contract and the TLA pool price, staking from the DAODAO module, pixeLions from the collection snapshots, pyROAR from the burn ledger and its pair, ROAR20 from DexScreener (theirs, labeled) and the holder walk, the Burning Lions from their contract. A number with no source says why instead of guessing.'));
+        const paintAll = () => paint(HomeTiles.derive(loader.sources, cfg, ctx));
+        const loader = HomeTiles.load(cfg, ctx, () => { clearTimeout(window.__ldT); window.__ldT = setTimeout(paintAll, 150); }); paintAll(); await loader.all; paintAll();
+    })().catch(e => { document.getElementById('intro').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });
     </script>
 </body>
 </html>

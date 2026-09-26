@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" data-tenant="liondao">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- liondao/rarity.html 1.0 (2026-09-26) — PIXEL LIONS RARITY (owner 2026-09-25: "breaks down the different trait classes and how rare
+         traits are in these classes as well as showcase the 1/1"; Lore and Rarity share this tile). Every number is counted from the
+         collection's own files — nft-collections/pixel-lions: metadata/traits-reference.json (every class's value counts, summing to 5,000),
+         rarity/rarity.json (rank and top-percent per lion, mirrored from BBL), snapshots/explorer-bundle.json (each lion's traits, status,
+         listing). The rarity TIERS on this page are fixed share bands, named below; they are this page's words for "how many lions share it",
+         not BBL's. Lore is Lion DAO's to write and has its slot at the bottom. -->
+    <base href="/">
+    <title>Pixel Lions Rarity | Lion DAO | thealliancedao.com</title>
+    <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
+    <meta name="description" content="pixeLions rarity: the six trait classes, how rare every trait is inside its class, the one-of-ones, and any lion's rank.">
+    <meta name="theme-color" content="#0b0b0b">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #262626; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }
+        .rr-one { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .9rem } @media (max-width: 1100px) { .rr-one { grid-template-columns: repeat(3, minmax(0, 1fr)) } } @media (max-width: 640px) { .rr-one { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+        .rr-card { background: linear-gradient(180deg,#1b1b1b,#121212); border: 1px solid #4a4000; border-radius: 14px; overflow: hidden; box-shadow: 0 0 0 1px rgba(255,230,0,.08), 0 10px 30px -18px rgba(255,230,0,.4) }
+        .rr-card img { width: 100%; aspect-ratio: 1; object-fit: cover; image-rendering: pixelated; display: block; background: #0a0a0a }
+        .rr-card .b { padding: .7rem .8rem } .rr-card .t { font-weight: 700; color: #fff } .rr-card .s { font-size: .75rem; color: #9ca3af; margin-top: .25rem; line-height: 1.45 }
+        .rr-classes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem } @media (max-width: 900px) { .rr-classes { grid-template-columns: 1fr } }
+        .rr-row { display: grid; grid-template-columns: 9.5rem 1fr 4.2rem 3.4rem 5.8rem; gap: .6rem; align-items: center; font-size: .8rem; padding: .22rem 0; border-bottom: 1px solid #1c1c1c }
+        .rr-row .n { color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap } .rr-row .c, .rr-row .p { text-align: right; font-variant-numeric: tabular-nums } .rr-row .p { color: #9ca3af }
+        .rr-track { height: 8px; background: #111; border-radius: 4px; overflow: hidden } .rr-track i { display: block; height: 100%; border-radius: 4px }
+        .rr-tier { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; text-align: right }
+        .t-one { color: #ffe600 } .t-leg { color: #f59e0b } .t-rare { color: #c084fc } .t-unc { color: #60a5fa } .t-com { color: #6b7280 }
+        .rr-find { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center } .rr-find input { background: #000; border: 1px solid var(--t-border); color: #fff; padding: .45rem .7rem; font-size: .9rem; width: 12rem } .rr-find input:focus { outline: none; border-color: var(--t-accent) }
+        .rr-res { display: grid; grid-template-columns: 9rem 1fr; gap: 1rem; margin-top: .9rem; align-items: start } .rr-res img { width: 9rem; height: 9rem; image-rendering: pixelated; border-radius: 10px; border: 1px solid #333 }
+        .rr-chips span { display: inline-block; font-size: .75rem; padding: .2rem .55rem; border: 1px solid #333; border-radius: 999px; margin: 0 .3rem .35rem 0; color: #d1d5db }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/collection-context.js"></script>
+    <script src="/lib/site-header.js"></script>
+    <script src="/liondao/lib/ld.js?v=1.3.0"></script>
+
+    <main class="ld" id="page">
+        <div id="crumb"></div>
+        <div id="hero"></div>
+        <div id="ones"></div>
+        <div id="how"></div>
+        <div id="find"></div>
+        <div id="classes"></div>
+        <div id="lore"></div>
+        <div id="about"></div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>
+    (async function () {
+        const REV = '1.0', REV_DATE = '2026-09-26';
+        const { fmt, ui, esc, isNum } = LD;
+        await LD.mount({ page: 'liondao-rarity', rev: REV, revDate: REV_DATE });
+        const T = LD._M.tenant || {}; const slug = (T.collections || [])[0] || 'pixel-lions';
+        const $ = (id) => document.getElementById(id);
+        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'Pixel Lions Rarity' }]);
+        $('hero').innerHTML = ui.note('Reading the collection…');
+        const [col, ref, rar, bun] = await Promise.all([LD.collection(slug, 'collection.json'), LD.collection(slug, 'metadata/traits-reference.json'), LD.collection(slug, 'rarity/rarity.json'), LD.collection(slug, 'snapshots/explorer-bundle.json')]);
+        if (!ref || !ref.traits) { $('hero').innerHTML = ui.note('metadata/traits-reference.json did not load — the page has nothing to count.'); return; }
+        const supply = (col && col.supply) || 5000; const name = (col && col.name) || 'pixeLions'; const pat = (col && col.token_name_pattern) || (name + ' #{id}');
+        const img = (id) => col && col.images && col.images.cdn_pattern ? col.images.cdn_pattern.replace('{id}', id) : null;
+        const CLASSES = Object.keys(ref.traits);
+        // tiers: fixed bands of "how many lions share this trait" — this page's words, named in "How rarity works"
+        const tierOf = (n) => n === 1 ? ['1 of 1', 't-one', '#ffe600'] : n / supply <= .01 ? ['Legendary', 't-leg', '#f59e0b'] : n / supply <= .03 ? ['Rare', 't-rare', '#c084fc'] : n / supply <= .08 ? ['Uncommon', 't-unc', '#60a5fa'] : ['Common', 't-com', '#4b5563'];
+        // the bundle: each lion's traits (indices into dict), rank, status bits, listing
+        const F = {}; (bun && bun.fields || []).forEach((f, i) => F[f] = i); const D = bun && bun.dict || {}; const bits = bun && bun.flagBits || {};
+        const lion = {}; (bun && bun.rows || []).forEach(r => { const t = {}; CLASSES.forEach(c => { const k = c.toLowerCase(); if (F[k] != null && D[c]) t[c] = D[c][r[F[k]]]; }); lion[String(r[F.id])] = { id: String(r[F.id]), traits: t, rank: r[F.intended_rank], pct: r[F.intended_pct], flags: r[F.flags] || 0, listing: r[F.listing_usd] }; });
+        const rank = {}; (rar && rar.records || []).forEach(x => { rank[String(x.token_id)] = x; });
+        const statusOf = (L) => { if (!L) return ''; const f = L.flags; return f & (bits.daodao_staked || 0) ? 'staked in DAODAO' : f & (bits.enterprise_staked || 0) ? 'staked in Enterprise' : (f & ((bits.bbl_listed || 0) | (bits.boost_listed || 0) | (bits.atrium_listed || 0))) ? 'listed' + (isNum(L.listing) ? ' at ' + fmt.usd(L.listing) : '') : f & (bits.unminted || 0) ? 'not minted' : 'in a wallet'; };
+        const ones = Object.keys(rank).filter(id => rank[id].rank === 1).sort((a, b) => Number(a) - Number(b));
+        const oneTraits = {}; CLASSES.forEach(c => Object.keys(ref.traits[c].values).forEach(v => { if (ref.traits[c].values[v] === 1) (oneTraits[c] = oneTraits[c] || []).push(v); }));
+        const nOneTraits = Object.values(oneTraits).reduce((t, a) => t + a.length, 0);
+        const distinct = CLASSES.reduce((t, c) => t + Object.keys(ref.traits[c].values).length, 0);
+        const onOnes = ones.reduce((t, id) => t + CLASSES.filter(c => lion[id] && lion[id].traits[c] && ref.traits[c].values[lion[id].traits[c]] === 1).length, 0);
+        const soloElsewhere = Object.keys(lion).filter(id => rank[id] && rank[id].rank !== 1 && CLASSES.some(c => lion[id].traits[c] && ref.traits[c].values[lion[id].traits[c]] === 1)).sort((a, b) => (rank[a].rank - rank[b].rank));
+
+        $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(name) + ' · rarity</div>' +
+            '<div class="ld-hero-v ld-num">' + esc(fmt.int(ones.length)) + ' <span style="font-size:.5em;color:var(--ld-muted)">one-of-ones among ' + esc(fmt.int(supply)) + ' lions</span></div>' +
+            '<div class="ld-hero-l">' + esc(fmt.int(CLASSES.length)) + ' trait classes — ' + CLASSES.map(esc).join(', ') + ' — and ' + esc(fmt.int(distinct)) + ' traits between them. ' + esc(fmt.int(nOneTraits)) + ' traits exist on a single lion. ' + esc(fmt.int(onOnes)) + ' of them make up the one-of-ones\' sets — each of the ' + esc(fmt.int(ones.length)) + ' wears a whole set no other lion has' + (soloElsewhere.length ? '; the other ' + esc(fmt.int(nOneTraits - onOnes)) + ' sit on ' + esc(fmt.int(soloElsewhere.length)) + ' more lion' + (soloElsewhere.length === 1 ? '' : 's') + ' (' + soloElsewhere.map(id => '#' + esc(id)).join(', ') + ')' : '') + '. Every class\'s counts add up to exactly ' + esc(fmt.int(supply)) + '.</div>' +
+            '<div class="ld-hero-s">ranks mirrored from BBL ' + (rar && rar.sweptAt ? ui.when(rar.sweptAt) : '') + ' · traits counted from the collection\'s trait reference</div></div></section>';
+
+        $('ones').innerHTML = ui.section('The one-of-ones', 'rank 1, shared — each carries its own set of traits found on no other lion',
+            '<div class="rr-one">' + ones.map(id => { const L = lion[id]; const tr = L ? L.traits : {}; const set = CLASSES.filter(c => tr[c] && ref.traits[c].values[tr[c]] === 1).map(c => tr[c]);
+                return '<a class="rr-card" href="/nft-explorer-index.html?tenant=liondao&search=' + encodeURIComponent(id) + '" style="text-decoration:none">' + (img(id) ? '<img loading="lazy" src="' + esc(img(id)) + '" alt="' + esc(pat.replace('{id}', id)) + '">' : '') +
+                    '<div class="b"><div class="t">' + esc(pat.replace('{id}', id)) + '</div><div class="s">' + (set.length ? 'only here: ' + set.map(esc).join(' · ') : '') + '</div><div class="s" style="color:var(--t-accent)">' + esc(statusOf(L)) + '</div></div></a>'; }).join('') + '</div>');
+
+        $('how').innerHTML = ui.section('How rarity works', '',
+            '<div class="ld-grid ld-g2"><div class="ld-tile"><div class="ld-k">The rank</div><div class="ld-s" style="font-size:.9rem;line-height:1.6;color:#d1d5db">Every lion has one trait in each of the ' + esc(fmt.int(CLASSES.length)) + ' classes. A trait that few lions share counts for more than one that many share, and a lion\'s score adds its traits up — so rank 1 is the lion whose traits are, together, the hardest to find. The ranks here are BBL\'s, mirrored lion for lion and checked against ' + esc(fmt.int(74)) + ' known anchors and the trait counts.</div></div>' +
+            '<div class="ld-tile"><div class="ld-k">The tiers on this page</div><div class="ld-s" style="font-size:.9rem;line-height:1.9;color:#d1d5db">' +
+            [['1 of 1', 't-one', 'on a single lion'], ['Legendary', 't-leg', 'on 1% of lions or fewer (≤ ' + fmt.int(supply * .01) + ')'], ['Rare', 't-rare', 'on 3% or fewer (≤ ' + fmt.int(supply * .03) + ')'], ['Uncommon', 't-unc', 'on 8% or fewer (≤ ' + fmt.int(supply * .08) + ')'], ['Common', 't-com', 'on more than 8%']].map(x => '<div><b class="' + x[1] + '">' + esc(x[0]) + '</b> — ' + esc(x[2]) + '</div>').join('') + '</div></div></div>');
+
+        const paintFind = (id) => { const L = lion[id], R = rank[id];
+            const res = !id ? '' : (!L && !R) ? '<div class="ld-note" style="margin-top:.8rem">No lion #' + esc(id) + ' in the collection files.</div>' :
+                '<div class="rr-res">' + (img(id) ? '<img src="' + esc(img(id)) + '" alt="">' : '<div></div>') + '<div><div style="font-weight:700;color:#fff;font-size:1.05rem">' + esc(pat.replace('{id}', id)) + '</div>' +
+                '<div style="margin:.35rem 0 .6rem;color:#d1d5db">Rank <b style="color:var(--t-accent)">#' + esc(fmt.int(R ? R.rank : L.rank) || '—') + '</b> of ' + esc(fmt.int(supply)) + (R && isNum(R.top_percent) ? ' · top ' + esc(fmt.pctPlain(R.top_percent, R.top_percent < 1 ? 2 : 1)) : '') + ' · ' + esc(statusOf(L)) + '</div>' +
+                '<div class="rr-chips">' + CLASSES.map(c => { const v = L && L.traits[c]; if (!v) return ''; const n = ref.traits[c].values[v]; const tt = tierOf(n); return '<span title="' + esc(fmt.int(n) + ' of ' + fmt.int(supply) + ' lions') + '">' + esc(c) + ': <b style="color:#fff">' + esc(v) + '</b> <b class="' + tt[1] + '">' + esc(tt[0]) + '</b> <span style="color:#6b7280">' + esc(fmt.pctPlain(n / supply * 100, 2)) + '</span></span>'; }).join('') + '</div>' +
+                '<a href="/nft-explorer-index.html?tenant=liondao&search=' + encodeURIComponent(id) + '" style="color:var(--t-accent);font-size:.85rem">open in the NFT explorer →</a></div></div>';
+            $('find').innerHTML = ui.section('Look up a lion', 'its rank, and how rare each of its traits is', '<div class="ld-tile"><div class="rr-find"><input id="rr-q" inputmode="numeric" placeholder="lion number, e.g. 710" value="' + esc(id || '') + '"><button class="ld-more" type="button" id="rr-go">Look up</button></div>' + res + '</div>');
+            const go = () => { const v = String($('rr-q').value || '').replace(/\D/g, ''); paintFind(v); }; $('rr-go').addEventListener('click', go); $('rr-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); }); };
+        paintFind(new URLSearchParams(location.search).get('id') || '');
+
+        $('classes').innerHTML = ui.section('The trait classes', 'every trait in every class, rarest first · the bar is its share of the ' + esc(fmt.int(supply)) + ' lions',
+            '<div class="rr-classes">' + CLASSES.map(c => { const vals = Object.entries(ref.traits[c].values).sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])); const max = Math.max.apply(null, vals.map(v => v[1]));
+                const tiers = {}; vals.forEach(v => { const t = tierOf(v[1])[0]; tiers[t] = (tiers[t] || 0) + 1; });
+                return '<div class="ld-tile"><div class="ld-k">' + esc(c) + ' · ' + esc(fmt.int(vals.length)) + ' traits</div><div class="ld-s" style="margin-bottom:.5rem">' + Object.entries(tiers).map(x => esc(x[1] + ' ' + x[0].toLowerCase())).join(' · ') + '</div>' +
+                    vals.map(v => { const tt = tierOf(v[1]); return '<div class="rr-row"><span class="n" title="' + esc(v[0]) + '">' + esc(v[0]) + '</span><span class="rr-track"><i style="width:' + Math.max(1.5, v[1] / max * 100) + '%;background:' + tt[2] + '"></i></span><span class="c">' + esc(fmt.int(v[1])) + '</span><span class="p">' + esc(fmt.pctPlain(v[1] / supply * 100, v[1] / supply < .01 ? 2 : 1)) + '</span><span class="rr-tier ' + tt[1] + '">' + esc(tt[0]) + '</span></div>'; }).join('') + '</div>'; }).join('') + '</div>');
+
+        $('lore').innerHTML = ui.section('Lore', 'Lion DAO\'s to write', ui.note('The story of the pride — who the lions are, what the one-of-ones stand for, where the traits come from — is Lion DAO\'s to tell. When they hand it over, it goes here, beside the numbers.'));
+        $('about').innerHTML = ui.section('How this page is built', '', ui.note('Counted in the page from the collection\'s own files in <b>nft-collections/' + esc(slug) + '</b>: <b>metadata/traits-reference.json</b> (every class\'s trait counts' + (ref.supply_proof ? ' — ' + esc(ref.supply_proof) : '') + '), <b>rarity/rarity.json</b> (rank and top-percent for every lion, ' + esc((rar && rar.method) || 'mirrored from BBL') + '), and <b>snapshots/explorer-bundle.json</b> (each lion\'s traits, whether it is staked or listed). The tiers are fixed shares of the supply, named above; nothing is estimated.'));
+    })().catch(e => { document.getElementById('hero').innerHTML = LD.ui.note('The page hit an error: ' + LD.esc(e && e.message || e)); throw e; });
+    </script>
+</body>
+</html>
