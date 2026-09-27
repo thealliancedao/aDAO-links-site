@@ -48,7 +48,7 @@ const pools = Object.values(m.pools);
   check(`E7 60% of a voter's ${m.pools[src].name} votes move (${Math.round(sc.moved)} = 60% of ${Math.round(now[src])})`, near(sc.moved, 0.6 * now[src], 1e-9));
   check('E7 the bucket\'s total votes are unchanged by moving votes inside it', near(sc.plan.bucketVotes, sc.base.bucketVotes, 1e-9));
   check('E7 Votion\'s votes are conserved (flows net to ~0)', Math.abs(sc.flows.reduce((s, x) => s + x.d, 0)) < 1000 * (sc.flows.length + 1), sc.flows);
-  check('E7 net cost = bribe − the share of it your votes collect', near(sc.netCost, 100 - sc.bribeBack, 1e-9) && sc.bribeBack >= 0 && sc.bribeBack <= 100);
+  check('E7 real cost = bribe − the change in your bribe income (dilution and votes moved away included)', near(sc.netCost, 100 - (sc.myPlan - sc.myNow), 1e-9) && sc.bribeBack >= 0 && sc.bribeBack <= 100);
   check('E7 emissions bought = the target\'s weekly emissions after − before', near(sc.emissionsBought, sc.plan.rows[tgt].weeklyUsd - sc.base.rows[tgt].weeklyUsd, 1e-9)); }
 // E8 best split: all VP placed, and it earns at least the wallet's current votes AND 100% on any single funded pool (Votion reacting)
 { const w = m.voters['terra1hr8zsfpch47qygc96c8e6rzkd2t7mafqx77ulw'] || Object.values(m.voters).sort((a, c) => c.vp - a.vp)[0];
@@ -57,6 +57,9 @@ const pools = Object.values(m.pools);
     const singles = m.buckets[b].pks.filter(pk => m.pools[pk].potUsd > 0).map(pk => { const mine = {}; mine[pk] = w.vp; return VM.outcome(m, b, { mine, mineNow: VM.walletVotes(m, w, b) }).myUsd; });
     const bestSingle = Math.max(0, ...singles);
     check(`E8 ${b}: best $${r.usd.toFixed(2)} ≥ now $${r.nowUsd.toFixed(2)} and ≥ best single pool $${bestSingle.toFixed(2)} (−1%)`, r.usd >= r.nowUsd * 0.99 - 0.01 && r.usd >= bestSingle * 0.99 - 0.01); } }
+// E9b Best impact ranks only pools Votion is offered unless untested ones are asked for
+{ const a = VM.lens(m, { lens: 'impact', usd: 50, limit: 50 }), b = VM.lens(m, { lens: 'impact', usd: 50, limit: 50, untested: true });
+  check('E9b Best impact: no untested pool by default; asking adds them', a.every(r => !r.pool.votionUntested) && b.some(r => r.pool.votionUntested)); }
 // E9 lenses: impact is sorted by emissions bought; underdogs are graded A–C under 5%; PD lens has no PD bribe; liquidity sorted by depth
 { const im = VM.lens(m, { lens: 'impact', usd: 50 }); check('E9 impact lens: 10 rows, sorted by emissions bought', im.length === 10 && im.every((r, i) => i === 0 || im[i - 1].im.emissionsBought >= r.im.emissionsBought));
   const ud = VM.lens(m, { lens: 'underdogs', usd: 50 }); check(`E9 underdogs (${ud.length}): graded A–C and under 5% of the bucket`, ud.every(r => ['A', 'B', 'C'].includes(r.pool.grade) && r.im.share0 < 0.05));
@@ -99,7 +102,8 @@ if (JSDOM) {
   check(`P2 tile 1 = Votion ${sc.votionIn > 0 ? '+' : ''}${vpS(sc.votionIn)} into ${m.pools[tgt].name}`, tiles[0] && tiles[0].includes((sc.votionIn > 0 ? '+' : sc.votionIn < 0 ? '−' : '±') + vpS(Math.abs(sc.votionIn))), tiles[0]);
   const apr1 = sc.plan.rows[tgt].apr; const aprS = (x) => x == null ? '—' : (x >= 1000 ? Math.round(x).toLocaleString() : x >= 100 ? x.toFixed(0) : x.toFixed(1)) + '%';
   check(`P2 tile 3 = APR → ${aprS(apr1)}`, tiles[2] && tiles[2].includes(aprS(apr1)), tiles[2]);
-  check(`P2 tile 4 = net $${Math.round(sc.netCost)}`, tiles[3] && tiles[3].includes('$' + Math.round(sc.netCost)), tiles[3]);
+  const f$ = (x) => { const a = Math.abs(x); return (x < 0 ? '−$' : '$') + (a >= 1e4 ? Math.round(a).toLocaleString('en-US') : a >= 100 ? a.toFixed(0) : a.toFixed(2)); };   // the page's own money format
+  check(`P2 tile 4 = real cost ${f$(sc.netCost)}`, tiles[3] && tiles[3].includes('really costs' + f$(sc.netCost)), tiles[3]);
   const trs = [...d.querySelectorAll('#vm-bucket-table tbody tr')]; check('P3 the bucket table marks the target row', trs.some(r => r.classList.contains('target')));
   // a wallet from VIEWING: the best split's headline equals the engine's for that wallet
   const cam = 'terra1hr8zsfpch47qygc96c8e6rzkd2t7mafqx77ulw'; if (onSel && m.voters[cam]) { onSel(cam, 'DeFi_Patriot'); await new Promise(r => setTimeout(r, 1500)); d.getElementById('vm-best-btn').click(); await new Promise(r => setTimeout(r, 1500));
