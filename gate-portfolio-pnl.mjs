@@ -35,7 +35,7 @@ const L0 = ledgerOf(OWNER); const D0 = PPL.decode(L0.v3);
   ok('the parts add to the net (usd): market + lp + rewards + unrealized == net (± $0.05)', Math.abs(S.market + S.lp + S.rewards + S.unrealized - S.net) < 0.05, [S.market, S.lp, S.rewards, S.unrealized, S.net]); }
 
 async function run(wallet, opts = {}) {
-  const pageUrl = 'https://thealliancedao.com/member-portfolio.html?wallet=' + wallet;
+  const pageUrl = 'https://thealliancedao.com/member-portfolio.html' + (wallet ? '?wallet=' + wallet : '');
   const html = fs.readFileSync(path.join(SITE, 'member-portfolio.html'), 'utf8').replace(/<link[^>]+>/g, '').replace(/<script src="[^"]*"><\/script>/g, '').replace(/<script defer src="[^"]*"><\/script>/g, '');
   const vc = new VirtualConsole(); vc.on('jsdomError', () => {});
   const dom = new JSDOM(html, { url: pageUrl, runScripts: 'dangerously', pretendToBeVisual: true, virtualConsole: vc, beforeParse(win) {
@@ -49,7 +49,7 @@ async function run(wallet, opts = {}) {
     for (const lib of ['lib/portfolio-pnl.js', 'lib/winddown.js']) if (!(opts.noLib && lib.includes('portfolio'))) win.eval(fs.readFileSync(path.join(SITE, lib), 'utf8'));
   } });
   const w = dom.window; w.document.dispatchEvent(new w.Event('DOMContentLoaded', { bubbles: true }));
-  for (let i = 0; i < 60; i++) { await new Promise(r => setTimeout(r, 250)); const sc = w.document.getElementById('story-card'); if (sc && !/Adding up/.test(sc.textContent) && (opts.noV3 || opts.noLib || w.document.querySelector('[data-pp="net"]'))) break; }
+  for (let i = 0; i < 60; i++) { await new Promise(r => setTimeout(r, 250)); const sc = w.document.getElementById('story-card'); if (!wallet && !w.document.getElementById('state-welcome').classList.contains('hidden')) break; if (sc && !/Adding up/.test(sc.textContent) && (opts.noV3 || opts.noLib || w.document.querySelector('[data-pp="net"]'))) break; }
   await new Promise(r => setTimeout(r, 400)); return w;
 }
 
@@ -102,6 +102,14 @@ if (NFTC) { const shard = OWNER.slice(-1); const phx = new Set(J(path.join(NFTC,
   d.querySelector('#pp-nfts [data-pp-lens="luna"]').click(); await new Promise(r => setTimeout(r, 50));
   ok('LUNA lens reaches the NFT card', /LUNA/.test(T(d.querySelector('[data-pp-nft="adao"]')))); }
 else console.log('  (NFTC_DIR not given — P10 skipped)');
+
+console.log('— P11 live, and no pre-picked wallet (3.2) —');
+{ const w = await run(null); const d = w.document; const wel = d.getElementById('state-welcome');
+  ok('no wallet chosen → the welcome asks for one ("Choose a wallet"), the portfolio stays hidden', !wel.classList.contains('hidden') && /Choose a wallet/.test(T(wel)) && d.getElementById('portfolio').classList.contains('hidden'));
+  ok('no wallet is put forward: no DeFi_Patriot / LionDAO / Whale / treasury chips', !/DeFi_Patriot|LionDAO|The Whale|aDAO Treasury/.test(T(wel)) && d.querySelectorAll('.demo-chip').length === 0, T(wel).slice(0, 200));
+  const ts = fs.readFileSync(path.join(SITE, 'tla-stats.html'), 'utf8'), tools = fs.readFileSync(path.join(SITE, 'tools.html'), 'utf8');
+  ok('TLA Stats tab bar: Member Portfolio is a live link (href member-portfolio.html, badge NEW) — not greyed SOON', /id: 'portfolio', label: 'Member Portfolio', icon: 'fa-user-astronaut',\s+href: 'member-portfolio\.html', badge: 'NEW'/.test(ts) && !/id: 'portfolio'[^\n]*disabled: true/.test(ts));
+  ok('Tools: the portfolio is no longer a test slot', !/file: 'member-portfolio\.html'/.test(tools)); }
 
 console.log('— P9 the picker\'s "View portfolio →" —');
 { const mk = (url) => { const dom = new JSDOM('<div id="sh-picker"></div>', { url, runScripts: 'outside-only' }); const w = dom.window; w.fetch = () => Promise.resolve({ ok: false, json: async () => ({}) }); w.eval(fs.readFileSync(path.join(SITE, 'lib/address-picker.js'), 'utf8')); w.AddressPicker.mount({ emitInitial: false }); return w; };
