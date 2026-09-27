@@ -30,6 +30,7 @@
   <section class="view" id="v-vote"><div id="vote"></div></section>
   <section class="view" id="v-market"><div id="market"></div></section>
   <section class="view" id="v-portfolio"><div id="portfolio"></div></section>
+  <section class="view" id="v-vmkt"><div id="vmkt"></div></section>
   <div class="dev" id="page-rev"></div>
 </main>
 <nav class="tabs" id="tabs"></nav>
@@ -167,6 +168,19 @@ input.in{width:100%;font-family:inherit;font-size:16px;color:#fff;background:var
 .dd{font-size:.72em;font-weight:700;padding:.08em .38em;border-radius:9999px;font-family:"JetBrains Mono",monospace}.dd.up{background:rgba(52,211,153,.12);color:var(--gr)}.dd.dn{background:rgba(248,113,113,.12);color:var(--rd)}
 .sheet .sec{margin-top:.8em}
 .sheet .lgs .lg{background:var(--card2)}
+/* ---------- v2.1: Vote Market (the bribe planner) ---------- */
+.vup{color:var(--gr)}.vdn{color:var(--rd)}.vfl{color:var(--mut)}.mono{font-family:"JetBrains Mono",monospace}
+.vmw{display:flex;align-items:center;gap:.4em;flex-wrap:wrap;font-size:.86em;color:var(--tx2);margin:.1em .2em .55em}
+.vmin{width:7.2em;font-family:"JetBrains Mono",monospace;font-size:16px;color:#fff;background:var(--card2);border:1px solid var(--line2);border-radius:.6em;padding:.3em .5em}
+.vmsel{appearance:none;-webkit-appearance:none;width:100%;font-family:inherit;font-size:16px;color:#fff;background-color:var(--card2);border:1px solid var(--line2);border-radius:.75em;padding:.65em 2em .65em .85em;outline:0;font-weight:700;margin-bottom:.55em;background-image:linear-gradient(45deg,transparent 50%,#9ca3af 50%),linear-gradient(135deg,#9ca3af 50%,transparent 50%);background-position:calc(100% - 1.1em) 55%,calc(100% - .75em) 55%;background-size:.35em .35em;background-repeat:no-repeat;padding-right:2em}.vmsel.sm{margin:0;padding:.45em 2em .45em .7em;font-weight:600;flex:1;min-width:0}.vmsel option,.vmsel optgroup{background:#0f1218;color:#fff}
+.vmctl{padding:.75em .85em}.vmlab{display:flex;justify-content:space-between;align-items:baseline;font-weight:700;font-size:.92em;margin-bottom:.3em}.vmlab b{font-size:1.25em;color:var(--am)}
+.vmrange{width:100%;accent-color:#fbbf24;height:2em;margin:0}
+.vmbill{border-color:rgba(52,211,153,.4)}.vmbk{display:flex;justify-content:space-between;align-items:baseline;gap:.7em;padding:.35em 0;font-size:.95em}.vmbk .mono{white-space:nowrap}.vmbk.tot{border-top:1px solid var(--line2);margin-top:.2em;padding-top:.5em;font-size:1.05em}.vmbk.tot .mono{font-size:1.3em}
+.vmback{display:flex;justify-content:space-between;align-items:center;gap:.6em;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.35);border-radius:.8em;padding:.55em .7em;margin:.45em 0 .2em}.vmbig{font-family:"JetBrains Mono",monospace;font-weight:800;font-size:1.75em;white-space:nowrap}
+.vmv{display:flex;justify-content:space-between;align-items:baseline;gap:.6em;font-size:.9em;padding:.2em 0}
+.vmflow{display:grid;grid-template-columns:minmax(0,1fr) 30% 4.2em;align-items:center;gap:.5em;font-size:.86em;padding:.22em 0}.vmflow>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vmflow .bar{margin:0}.vmflow b{text-align:right;white-space:nowrap}.vmme{color:var(--am);font-weight:700}
+.vmr .vmn{font-family:"JetBrains Mono",monospace;color:var(--dim);font-size:.8em;width:1.2em;text-align:center;flex:0 0 auto}.vmr .t .pill{vertical-align:.1em}
+.vmest{display:flex;gap:.55em;align-items:flex-start;font-size:.8em;color:#fde68a;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:var(--r2);padding:.6em .75em;margin:.8em 0 .2em}.vmest i{margin-top:.15em}
 </style>
 <script>
 (function(){
@@ -176,9 +190,9 @@ const CORE='https://raw.githubusercontent.com/thealliancedao/tla-core/main/',NFT
 const DAO ='https://raw.githubusercontent.com/thealliancedao/dao-originations/main/';
 const CDN ='https://imagedelivery.net/v_zOWVQCPb7Xpcbu-gQC1A/alliance_dao';
 const DAOS=[['aDAO','adao','p_adao'],['Lion DAO','lion-dao','p_lion'],['Pixel Lions','pixel-lions','p_pixel']];
-const REV='2.0.5', REV_DATE='2026-09-18';   // 2.0.5: LUNA daily history from the org oracle series (tla-core/price-history/series/LUNA.json) — the per-collection luna-usd-daily copy is retired; the 14d change reads the sorted day→usd map · 2.0.4: transfers rows labeled superseded_by are skipped (site-wide rule with index 4.26+) · 2.0.3: aDAO NFT products (snapshots, transfers) read from nft-collections/adao/ — the aDAO migration
+const REV='2.1.0', REV_DATE='2026-09-27';   // 2.1.0: Vote Market tab (pickable; a card on TLA opens it) — the bribe planner built for the phone: Where $ goes · Plan · Best split, same engine as vote-market.html (/lib/vote-market.js 1.3.0, Votion's fitted move rule), the app wallet read only or a try-with VP, Reset on each + Reset all · 2.0.5: LUNA daily history from the org oracle series (tla-core/price-history/series/LUNA.json) — the per-collection luna-usd-daily copy is retired; the 14d change reads the sorted day→usd map · 2.0.4: transfers rows labeled superseded_by are skipped (site-wide rule with index 4.26+) · 2.0.3: aDAO NFT products (snapshots, transfers) read from nft-collections/adao/ — the aDAO migration
 const NFT_CONTRACT='terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9';   /* aDAO collection — the activity guard keys on it */   /* rev footer law → #page-rev */
-const TABS={today:['Today','fa-house'],nfts:['NFTs','fa-images'],tla:['TLA','fa-chart-line'],dao:['DAO','fa-landmark'],me:['Me','fa-user'],vote:['Vote','fa-check-to-slot'],market:['Market','fa-store'],portfolio:['Portfolio','fa-chart-pie']};   /* first five = the proposal; the last three stay pickable */
+const TABS={today:['Today','fa-house'],nfts:['NFTs','fa-images'],tla:['TLA','fa-chart-line'],dao:['DAO','fa-landmark'],me:['Me','fa-user'],vote:['Vote','fa-check-to-slot'],market:['Market','fa-store'],portfolio:['Portfolio','fa-chart-pie'],vmkt:['Vote Market','fa-sack-dollar']};   /* first five = the proposal; the last three stay pickable */
 const DEFAULT_TABS=['today','nfts','tla','dao','me'];
 const TLA_TOTAL_VP_FALLBACK=29.4e6;   // reconciled vs Eris (doctrine); replaced by max bucket VP when the snapshot carries it
 const $=id=>document.getElementById(id);
@@ -734,7 +748,7 @@ function vTla(){
       (P.lps.length?`<div class="sec"><span>LP positions</span><span class="pill mut">${P.lps.length} · ${fmt.usd(P.lpUsd,0)}</span></div><div class="list">${P.lps.map(l=>{const pool=poolById(l.pool_gauge_id);const apr=pool&&pool.rewards&&num(pool.rewards.approx_apr_pct);const st=l.status||(pool&&pool.status)||'';return`<div class="li"><span class="ic gr"><i class="fas fa-droplet"></i></span><div class="l"><div class="t">${esc(l.pool_name||'LP')}</div><div class="s">${esc(l.dex||'')} · ${esc(l.bucket||'')} · ${l.is_amplified?'amplified':'not amplified'}${st&&st!=='active'?' · <span style="color:#fbbf24">'+esc(st)+'</span>':''}</div></div><div class="r">${fmt.usd(l.value_usd||l.usd_value||l.user_usd,0)}<div class="s">${apr!=null?apr.toFixed(1)+'% APR':''}</div></div></div>`}).join('')}</div>`:'')+
       (yourVoting||(P.vp>0?'':`<div class="card row"><span class="ic am"><i class="fas fa-check-to-slot"></i></span><div class="l"><div class="k2">No voting power on this wallet.</div><div class="sub">Lock an LST on TLA to vote on gauges and earn bribes.</div></div></div>`));
   }
-  $('tla').innerHTML=mineHtml+
+  $('tla').innerHTML=mineHtml+vTlaVmCard()+
   `<div class="hero"><div class="lab">STAKED IN TLA</div><div class="big">${fmt.usd(m.tvl,0)}</div><div class="row"><span class="pill mut">${fmt.n(m.active)} active pools</span><span class="pill mut">depth ${fmt.usd(m.depth,0)}</span><span class="pill cy">${fmt.usd(m.weekly,0)}/wk LUNA</span></div><div class="sub">Epoch ${m.epoch} · ${fmt.until(m.epochEnd)} left · ${m.epochPct!=null?Math.round(m.epochPct)+'% through':''}</div><div class="bar"><i style="width:${Math.min(100,m.epochPct||0)}%;background:linear-gradient(90deg,#00f2fe,#2889fc)"></i></div></div>
   <div class="grid2"><div class="tile"><div class="k">LUNA</div><div class="v">${fmt.usd(m.luna,4)}</div><div class="sub">${chg(m.luna24)} 24h</div></div><div class="tile"><div class="k">Total VP</div><div class="v">${fmt.k(m.totalVp)}</div><div class="sub">max bucket (Eris convention)</div></div></div>
   ${lsts.length?`<div class="sec"><span>LSTs</span></div><div class="list">${lsts.map(x=>`<div class="li"><div class="l"><div class="t">${esc(x.s)}</div><div class="s mono">${fmt.usd(x.p,4)}${m.luna?' · '+(x.p/m.luna).toFixed(4)+' LUNA':''}</div></div><div class="sp">${spark(x.sr,{w:64,h:24})}</div></div>`).join('')}</div>`:''}
@@ -743,8 +757,181 @@ function vTla(){
   <div class="sec"><span>Biggest pools</span></div><div class="list">${pools.slice(0,8).map(p=>`<div class="li"><div class="l"><div class="t">${esc(p.name)}</div><div class="s">${esc(p.dex||'')} · ${esc(p.bucket)}${p.status!=='active'?' · <span style="color:#fbbf24">'+esc(p.status)+'</span>':''}</div></div><div class="r">${fmt.usd(p.staked_in_tla_usd,0)}<div class="s">${p.rewards&&num(p.rewards.approx_apr_pct)!=null?num(p.rewards.approx_apr_pct).toFixed(1)+'% APR':''}</div></div></div>`).join('')}</div>
   <div class="btns"><a class="btn" href="tla-stats.html"><i class="fas fa-chart-line"></i> TLA Stats</a>${P?`<a class="btn g" href="member-portfolio.html?wallet=${encodeURIComponent(P.w)}">Full portfolio</a>`:''}<a class="btn g" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">TLA app <i class="fas fa-arrow-up-right-from-square"></i></a></div>
   <div class="dev">tla-snapshot ${fmt.ago(D.tla&&D.tla.capturedAt)} · prices ${fmt.ago(D.nap&&D.nap.capturedAt)}${P?' · participants '+fmt.ago(D.members&&D.members.capturedAt):''}</div>`;
+  { const vc=$('tla').querySelector('#tla-vm'); if(vc) vc.onclick=()=>show('vmkt'); } vmEngine();
   $('tla').querySelectorAll('[data-lock]').forEach(r=>r.onclick=()=>{const l=P.locks.find(x=>String(x.token_id)===r.getAttribute('data-lock'));if(!l)return;sheet(`<i class="fas fa-lock" style="color:#67e8f9"></i> Lock #${esc(l.token_id)}`,`<div class="grid2"><div class="tile"><div class="k">Locked</div><div class="v xs">${fmt.n(l.amount_human,4)} ${esc(l.asset_symbol)}</div></div><div class="tile"><div class="k">Underlying at lock</div><div class="v xs">${fmt.n(num(l.underlying_at_lock_raw)/1e6,2)} LUNA</div></div><div class="tile"><div class="k">Voting power</div><div class="v xs">${fmt.k(l.vp_total_human)}</div><div class="sub">boost ${fmt.k(l.voting_power_human)} + fixed ${fmt.k(l.fixed_amount_human)}</div></div><div class="tile"><div class="k">Coefficient</div><div class="v xs">×${l.coefficient||'—'}</div><div class="sub">${l.is_auto_max_locked?'auto-max, no decay':l.end==='permanent'?'permanent':'ends period '+(l.end_period||'—')}</div></div></div><div class="sub" style="margin-top:.6em">Since period ${l.start_period||'—'} · TLA locks are NFTs and can change hands on Atrium.</div><div class="btns"><a class="btn" href="https://www.theliquidityalliance.com/" target="_blank" rel="noopener">Manage on TLA <i class="fas fa-arrow-up-right-from-square"></i></a></div>`)});
 }
+
+/* ================= v2.1 · VOTE MARKET — the bribe planner, built for the phone (same engine as vote-market.html: /lib/vote-market.js) ================= */
+const VM_LIB='/lib/vote-market.js?v=1.3.0';
+const VMD={amt:50,bucket:'all',lens:'impact',untested:false,bribe:0,pct:0,from:'all',hypoVp:1e6};
+const VMS=Object.assign({sub:'where',target:null,m:null,err:null,loading:null,voters:false,live:false,liveAt:0,best:null,bestKey:''},VMD);
+const vmUp=(d,e)=>d>(e||0)?'vup':d<-(e||0)?'vdn':'vfl';
+const vm$=(n,d)=>fmt.usd(n,d==null?2:d);
+const vmS$=(n,d)=>(n>=0?'+':'−')+fmt.usd(Math.abs(n),d==null?2:d);
+const vmVp=n=>fmt.k(n);
+const vmSVp=n=>(n>=0?'+':'−')+fmt.k(Math.abs(n));
+const vmPct=n=>n==null||!isFinite(n)?'—':n.toFixed(n>=100?0:1)+'%';
+const vmOn=()=>{const v=$('v-vmkt');return !!(v&&v.classList.contains('on'))};
+function vmRepaint(){if(vmOn())vVmkt()}
+function vmLive(){const m=VMS.m;if(!m||Date.now()-VMS.liveAt<5*60e3)return;VMS.liveAt=Date.now();window.VoteMarket.fetchLivePots(m).then(l=>{if(l){window.VoteMarket.applyLivePots(m,l);VMS.live=true;VMS.best=null;vmRepaint()}}).catch(()=>{})}
+function vmEngine(){
+  if(VMS.loading)return VMS.loading;
+  VMS.loading=new Promise((res,rej)=>{if(window.VoteMarket)return res();const s=document.createElement('script');s.src=VM_LIB;s.onload=()=>res();s.onerror=()=>rej(new Error('the planner engine did not load'));document.head.appendChild(s)})
+    .then(()=>window.VoteMarket.load({}))
+    .then(m=>{VMS.m=m;VMS.err=null;if(!VMS.target){const r=window.VoteMarket.lens(m,{lens:'impact',usd:VMD.amt,limit:1})[0];VMS.target=r?r.pool.pk:Object.keys(m.pools)[0]}vmRepaint();if($('tla-vm')){$('tla-vm').outerHTML=vTlaVmCard();$('tla-vm').onclick=()=>show('vmkt')}vmLive();return m.loadVoters().then(()=>{VMS.voters=true;VMS.best=null;vmRepaint()})})
+    .catch(e=>{VMS.err=e.message;VMS.loading=null;vmRepaint()});
+  return VMS.loading;
+}
+function vmWallet(){const w=wallet();const rec=w&&VMS.m&&VMS.m.voters?VMS.m.voters[w]:null;return rec||{vp:VMS.hypoVp,votes:{},lp:[],hypothetical:true}}
+function vmPool(pk){return VMS.m.pools[pk]}
+const vmBucket=pk=>pk.split('|')[0];
+const vmWind=p=>p&&p.winding?`<span class="pill am" style="font-size:.66em"><i class="fas fa-triangle-exclamation"></i> ${esc(p.winding.symbol||'asset')} ending</span>`:'';
+/* the wallet line: the app's wallet, read only — or a "try with" VP when none / no TLA votes */
+function vmWalletRow(){
+  const w=wallet();const rec=w&&VMS.m&&VMS.m.voters?VMS.m.voters[w]:null;
+  if(w&&!VMS.voters)return`<div class="vmw"><i class="fas fa-circle-notch fa-spin"></i> reading ${esc(fmt.addr(w))}…</div>`;
+  if(rec)return`<div class="vmw"><i class="fas fa-wallet" style="color:#67e8f9"></i> <b>${esc(rec.name||labelAddr(w))}</b> · <b class="mono">${vmVp(rec.vp)}</b> VP</div>`;
+  return`<div class="vmw">${w?`<span style="color:var(--am)">${esc(fmt.addr(w))} has no TLA votes</span> · `:''}try with <input class="vmin" id="vm-hypo" type="number" inputmode="numeric" min="0" step="100000" value="${VMS.hypoVp}"> VP</div>`;
+}
+function vmBindWallet(root,after){const h=root.querySelector('#vm-hypo');if(h)h.onchange=()=>{VMS.hypoVp=Math.max(0,Number(h.value)||0);VMS.best=null;after()}}
+
+function vVmkt(){
+  const el=$('vmkt');
+  if(!VMS.m){
+    if(VMS.err){el.innerHTML=`<div class="empty"><i class="fas fa-triangle-exclamation"></i>The Vote Market's data is unavailable right now.<div class="sub">${esc(VMS.err)}</div><div class="btns" style="justify-content:center"><button class="btn" type="button" id="vm-retry">Try again</button></div></div>`;$('vm-retry').onclick=()=>{VMS.err=null;vVmkt()};return}
+    el.innerHTML='<div class="sk" style="height:6.5em;margin-bottom:.6em;border-radius:20px"></div><div class="sk" style="height:2.4em;margin-bottom:.6em"></div><div class="sk skc"></div><div class="sk skc"></div><div class="sk skc"></div>';vmEngine();return;
+  }
+  vmLive();
+  const m=VMS.m, VM=window.VoteMarket;
+  const left=m.voteBefore?Math.max(0,Date.parse(m.voteBefore)-Date.now()):null;
+  const lt=left==null?'':left>864e5?Math.floor(left/864e5)+'d '+Math.floor(left%864e5/36e5)+'h':Math.floor(left/36e5)+'h '+Math.floor(left%36e5/6e4)+'m';
+  const funded=Object.values(m.pools).reduce((s,p)=>s+(p.potUsd||0),0), nPots=Object.values(m.pools).filter(p=>p.potUsd>0.5).length;
+  const casts=(m.moveRuleDoc&&m.moveRuleDoc.timing&&m.moveRuleDoc.timing.casts)||[];const usual=casts.filter(c=>c.hours_before_deadline>0&&c.hours_before_deadline<6).map(c=>c.hours_before_deadline).sort((a,b)=>a-b);const hb=usual.length?usual[Math.floor(usual.length/2)]:null;
+  el.innerHTML=`<div class="hero"><div class="lab">ROUND ${esc(m.period)}${lt?' · DEADLINE IN '+lt.toUpperCase():''}</div><div class="big">${vm$(funded,0)}</div><div class="row"><span class="pill mut">${nPots} funded pots</span>${VMS.live?'<span class="pill gr">● live</span>':'<span class="pill mut">captured</span>'}${hb!=null?`<span class="pill cy"><i class="fas fa-robot"></i> Votion casts ~${hb} h before</span>`:''}</div></div>
+  <div class="seg" id="vm-seg">${[['where','Where $ goes'],['plan','Plan'],['best','Best split']].map(([k,l])=>`<button type="button" data-s="${k}" class="${VMS.sub===k?'on':''}">${l}</button>`).join('')}</div>
+  <div id="vm-body"></div>
+  <div class="vmest"><i class="fas fa-circle-info"></i><span><b>Estimates.</b> Every number assumes nothing else changes before the round closes — other voters, bribers and Votion's own timing can move it.</span></div>
+  <div class="btns"><a class="btn g" href="vote-market.html"><i class="fas fa-up-right-from-square"></i> Full planner</a><button class="btn g" type="button" id="vm-reset-all"><i class="fas fa-rotate-left"></i> Reset all</button></div>
+  <div class="dev">vote-market engine ${esc(VM.VERSION)} · pots ${VMS.live?'live':'captured '+fmt.ago(m.capturedAt)}${m.moveRule?' · Votion move rule: &gt; '+vm$(m.moveRule.gain_usd_gt)+' and &gt; '+m.moveRule.deviation_pct_gt+'% shift':''}</div>`;
+  el.querySelectorAll('#vm-seg [data-s]').forEach(b=>b.onclick=()=>{VMS.sub=b.getAttribute('data-s');vVmkt()});
+  $('vm-reset-all').onclick=()=>{Object.assign(VMS,VMD);VMS.best=null;const r=VM.lens(m,{lens:'impact',usd:VMD.amt,limit:1})[0];VMS.target=r?r.pool.pk:VMS.target;VMS.sub='where';vVmkt();window.scrollTo(0,0);toast('Back to defaults')};
+  ({where:vmWhere,plan:vmPlan,best:vmBest})[VMS.sub]($('vm-body'));
+}
+
+/* ---- 1 · Where $ goes: an amount, a bucket, a lens → the top 10 ---- */
+function vmWhere(root){
+  const m=VMS.m, VM=window.VoteMarket; const w=wallet(); const rec=w&&m.voters?m.voters[w]:null;
+  const lenses=VM.LENSES.filter(L=>!L.needsWallet||rec);if(!lenses.some(L=>L.key===VMS.lens))VMS.lens='impact';
+  const L=lenses.find(x=>x.key===VMS.lens);
+  const nU=Object.values(m.pools).filter(p=>p.votionUntested&&p.stakedUsd>=1000&&!p.winding).length;
+  const rows=VM.lens(m,{lens:VMS.lens,bucket:VMS.bucket,usd:VMS.amt,wallet:rec,limit:10,untested:VMS.untested});
+  const metric=(r)=>{const p=r.pool,im=r.im;
+    if(VMS.lens==='liquidity')return[vm$(p.depthUsd,0),'depth',p.depthUsd];
+    if(VMS.lens==='volume')return[vm$(p.vol7dUsd,0),'/wk traded',p.vol7dUsd];
+    if(VMS.lens==='leaving'){const d=p.votionPlan-p.votionNow;return[`<span class="vdn">${vmSVp(d)}</span>`,'Votion',-d]}
+    if(VMS.lens==='mine'){const pos=(rec.lp||[]).filter(l=>l.pk===p.pk).reduce((s,l)=>s+l.usd,0);return[vm$(pos,0),'your LP',pos]}
+    return[`<span class="${vmUp(im.emissionsBought,0.5)}">${vmS$(im.emissionsBought,0)}</span>`,'/wk to LPs',Math.max(0,im.emissionsBought)]};
+  const max=Math.max(1,...rows.map(r=>metric(r)[2]));
+  const mv=VM.votionMoves(m,'all').slice(0,6);
+  root.innerHTML=`<div class="sec"><span>Spend</span></div>
+  <div class="chips" id="vm-amts">${[25,50,100,250,500,1000].map(v=>`<span class="pill ${VMS.amt===v?'on':''}" data-v="${v}">$${v}</span>`).join('')}</div>
+  <div class="seg" id="vm-bk">${[['all','All'],...VM.BUCKETS.map(b=>[b,VM.BUCKET_LABEL[b]])].map(([k,l])=>`<button type="button" data-b="${k}" class="${VMS.bucket===k?'on':''}">${esc(l)}</button>`).join('')}</div>
+  <div class="chips" id="vm-lens">${lenses.map(x=>`<span class="pill ${VMS.lens===x.key?'on':''}" data-l="${x.key}">${esc(x.label)}</span>`).join('')}${VMS.lens==='impact'&&nU?`<span class="pill ${VMS.untested?'on':''}" id="vm-unt">${VMS.untested?'✓':'+'} untested (${nU})</span>`:''}</div>
+  ${L?`<div class="k" style="margin:0 .2em .45em">${esc(L.hint.charAt(0).toUpperCase()+L.hint.slice(1))} · tap a pool to plan it</div>`:''}
+  <div class="list" id="vm-list">${rows.length?rows.map((r,i)=>{const p=r.pool,im=r.im,mt=metric(r);return`<div class="li tap vmr" data-pk="${esc(p.pk)}"><span class="vmn">${i+1}</span><div class="l"><div class="t">${esc(p.name)} ${vmWind(p)}</div><div class="s">${esc(VM.BUCKET_LABEL[p.bucket])} · APR ${vmPct(im.apr0)} → <span class="${vmUp((im.apr1||0)-(im.apr0||0),0.5)}">${vmPct(im.apr1)}</span>${!im.active0&&im.active1?' · <span class="vup">crosses 1%</span>':!im.active1?' · under 1%':''}</div><div class="bar" style="margin:.3em 0 0"><i style="width:${Math.max(2,Math.min(100,mt[2]/max*100))}%;background:${VMS.lens==='leaving'?'var(--rd)':'var(--cy)'}"></i></div></div><div class="r">${mt[0]}<div class="s">${mt[1]}</div></div></div>`}).join(''):`<div class="empty">${VMS.lens==='mine'?'This wallet has no LP positions in TLA pools on record.':'No pools fit this lens right now.'}</div>`}</div>
+  ${mv.length?`<div class="sec"><span>Votion's plan if nothing changes</span></div><div class="chips" id="vm-moves">${mv.map(x=>`<span class="pill" data-pk="${esc(x.pk)}">${esc(x.name)} <b class="mono ${x.d>0?'vup':'vdn'}">${vmSVp(x.d)}</b></span>`).join('')}</div>`:''}
+  <div class="btns" style="margin-top:.3em"><button class="btn g" type="button" id="vm-reset-w"><i class="fas fa-rotate-left"></i> Reset</button></div>`;
+  root.querySelectorAll('#vm-amts [data-v]').forEach(b=>b.onclick=()=>{VMS.amt=Number(b.getAttribute('data-v'));vmWhere(root)});
+  root.querySelectorAll('#vm-bk [data-b]').forEach(b=>b.onclick=()=>{VMS.bucket=b.getAttribute('data-b');vmWhere(root)});
+  root.querySelectorAll('#vm-lens [data-l]').forEach(b=>b.onclick=()=>{VMS.lens=b.getAttribute('data-l');vmWhere(root)});
+  const u=root.querySelector('#vm-unt');if(u)u.onclick=()=>{VMS.untested=!VMS.untested;vmWhere(root)};
+  root.querySelectorAll('[data-pk]').forEach(r=>r.onclick=()=>vmGoPlan(r.getAttribute('data-pk'),VMS.lens==='impact'||VMS.lens==='underdogs'||VMS.lens==='pd'?VMS.amt:null));
+  $('vm-reset-w').onclick=()=>{Object.assign(VMS,{amt:VMD.amt,bucket:VMD.bucket,lens:VMD.lens,untested:VMD.untested});vmWhere(root)};
+}
+function vmGoPlan(pk,bribe){VMS.target=pk;if(bribe!=null)VMS.bribe=bribe;VMS.sub='plan';vVmkt();window.scrollTo(0,0)}
+
+/* ---- 2 · Plan: one pool, a bribe, votes moved → what Votion does, what comes back, the APR ---- */
+function vmFromOpts(){const VM=window.VoteMarket;const b=vmBucket(VMS.target);const w=vmWallet();const now=VM.walletVotes(VMS.m,w,b);const keys=Object.keys(now).filter(pk=>pk!==VMS.target);const o=[];
+  if(keys.length>1)o.push(['all',`all my ${VM.BUCKET_LABEL[b]} votes`]);keys.sort((a,c)=>now[c]-now[a]).forEach(pk=>o.push([pk,`${vmPool(pk).name} (${vmVp(now[pk])})`]));
+  if(!keys.length)o.push(['all',w.hypothetical?`my ${vmVp(w.vp)} VP (not voted yet)`:(now[VMS.target]?'already all here':`my ${vmVp(w.vp)} VP`)]);
+  if(!o.some(x=>x[0]===VMS.from))VMS.from=o[0][0];return o}
+function vmPlan(root){
+  const m=VMS.m, VM=window.VoteMarket;
+  if(!VMS.target||!m.pools[VMS.target]){const r=VM.lens(m,{lens:'impact',usd:VMD.amt,limit:1})[0];VMS.target=r?r.pool.pk:Object.keys(m.pools)[0]}
+  const w=vmWallet();
+  const opts=VM.BUCKETS.map(b=>`<optgroup label="${esc(VM.BUCKET_LABEL[b])}">${m.buckets[b].pks.filter(pk=>vmPool(pk).stakedUsd>=1000||vmPool(pk).potUsd>0||vmPool(pk).vp>1e5||pk===VMS.target).sort((a,c)=>vmPool(c).vp-vmPool(a).vp).map(pk=>`<option value="${esc(pk)}" ${VMS.target===pk?'selected':''}>${esc(vmPool(pk).name)}${vmPool(pk).winding?' ⚠ winding down':''}</option>`).join('')}</optgroup>`).join('');
+  root.innerHTML=`<select class="in vmsel" id="vm-pool" aria-label="Pool">${opts}</select>
+  ${vmWalletRow()}
+  <div class="card vmctl"><div class="vmlab"><span>Add a bribe</span><b class="mono" id="vm-bribe-v">$${VMS.bribe}</b></div>
+    <div class="chips" id="vm-bq" style="padding-bottom:.3em">${[0,25,50,100,250,500].map(v=>`<span class="pill ${VMS.bribe===v?'on':''}" data-v="${v}">$${v}</span>`).join('')}</div>
+    <input type="range" class="vmrange" id="vm-bribe" min="0" max="1000" step="5" value="${VMS.bribe}" aria-label="Bribe in USD">
+    <div class="vmlab" style="margin-top:.55em"><span>Move my votes here</span><b class="mono" id="vm-pct-v">${VMS.pct}%</b></div>
+    <input type="range" class="vmrange" id="vm-pct" min="0" max="100" step="5" value="${VMS.pct}" aria-label="Percent of votes to move">
+    <div class="row" style="margin-top:.35em"><span class="k" style="flex:0 0 auto">from</span><select class="in vmsel sm" id="vm-from">${vmFromOpts().map(([k,l])=>`<option value="${esc(k)}" ${VMS.from===k?'selected':''}>${esc(l)}</option>`).join('')}</select></div>
+    <div class="k" id="vm-moved" style="margin-top:.3em"></div>
+    <div class="btns" style="margin-top:.5em"><button class="btn g" type="button" id="vm-reset-p"><i class="fas fa-rotate-left"></i> Reset</button></div></div>
+  <div id="vm-res"></div>`;
+  $('vm-pool').onchange=()=>{VMS.target=$('vm-pool').value;vmPlan(root)};
+  vmBindWallet(root,()=>vmPlan(root));
+  root.querySelectorAll('#vm-bq [data-v]').forEach(b=>b.onclick=()=>{VMS.bribe=Number(b.getAttribute('data-v'));$('vm-bribe').value=VMS.bribe;vmPlanRes()});
+  $('vm-bribe').oninput=()=>{VMS.bribe=Number($('vm-bribe').value);vmPlanRes()};
+  $('vm-pct').oninput=()=>{VMS.pct=Number($('vm-pct').value);vmPlanRes()};
+  $('vm-from').onchange=()=>{VMS.from=$('vm-from').value;vmPlanRes()};
+  $('vm-reset-p').onclick=()=>{Object.assign(VMS,{bribe:VMD.bribe,pct:VMD.pct,from:VMD.from});const r=VM.lens(m,{lens:'impact',usd:VMD.amt,limit:1})[0];if(r)VMS.target=r.pool.pk;vmPlan(root)};
+  vmPlanRes();
+}
+function vmPlanRes(){
+  const m=VMS.m, VM=window.VoteMarket, pk=VMS.target, p=vmPool(pk), b=vmBucket(pk), w=vmWallet();
+  $('vm-bribe-v').textContent='$'+VMS.bribe;$('vm-pct-v').textContent=VMS.pct+'%';
+  document.querySelectorAll('#vm-bq [data-v]').forEach(x=>x.classList.toggle('on',Number(x.getAttribute('data-v'))===VMS.bribe));
+  const sc=VM.scenario(m,{bucket:b,target:pk,bribeUsd:VMS.bribe,wallet:w,from:VMS.from,pct:VMS.pct/100});
+  $('vm-moved').textContent=sc.moved>0?`→ ${vmVp(sc.moved)} VP moves here`:'';
+  const t0=sc.base.rows[pk], t1=sc.plan.rows[pk];
+  const R=m.moveRule||{gain_usd_gt:0.05,deviation_pct_gt:5};const TR=(m.moveRuleDoc&&m.moveRuleDoc.track_record&&m.moveRuleDoc.track_record.by_vault)||{};
+  const vName=k=>/arbluna/.test(k)?'arbLUNA vault':/ampluna/.test(k)?'ampLUNA vault':k;
+  const vaults=(sc.decisions||[]).map(d=>{const tr=TR[d.vault];return`<div class="vmv"><span>${vName(d.vault)} <span class="mono k">${vmVp(d.vp)}</span></span>${d.moves?`<b class="vup">re-votes${d.flippedByChange?' · your change':''}</b>`:`<b style="color:var(--am)">holds</b>`}</div>${!d.moves?`<div class="k" style="margin:-.1em 0 .25em">needs &gt; ${vm$(R.gain_usd_gt)} and &gt; ${R.deviation_pct_gt}% shift${d.gainFromChange!=null&&Math.abs(d.gainFromChange)>0.005?` · your change adds ${vm$(d.gainFromChange)}`:''}</div>`:tr&&tr.flagged?`<div class="k" style="margin:-.1em 0 .25em">did so ${tr.moved} of ${tr.flagged} times when the rule said so</div>`:''}`}).join('');
+  const d=sc.myPlan-sc.myNow;
+  let bill;
+  if(VMS.bribe>0){const lost=sc.bribeBack-sc.incomeChange;
+    bill=`<div class="card vmbill"><div class="k">YOUR ${vm$(VMS.bribe,0)} BRIBE · ESTIMATE</div>
+      ${sc.bribeBack>0.005?`<div class="vmback"><div><b>Comes back to your votes</b><div class="k">your share of this pool's pot</div></div><div class="vmbig vup">+${vm$(sc.bribeBack)}</div></div>`:`<div class="vmbk"><span>Comes back to your votes<div class="k">${w.vp>0?'none — your votes are not on this pool. Move some here to collect part of your own bribe.':'none — no votes to collect with'}</div></span><b class="mono vfl">$0</b></div>`}
+      <div class="vmbk"><span>You pay</span><b class="mono vdn">−${vm$(VMS.bribe)}</b></div>
+      ${lost>0.005?`<div class="vmbk"><span>Given up elsewhere<div class="k">${sc.moved>0?'the pool you left + ':''}Votion's new votes diluting you</div></span><b class="mono vdn">−${vm$(lost)}</b></div>`:''}
+      <div class="vmbk tot"><span><b>Real cost this round</b></span><b class="mono">${vm$(sc.netCost)}</b></div>
+      <div class="k" style="margin-top:.35em">Its LPs get <b class="vup">${vmS$(sc.emissionsBought,0)}/wk</b> in emissions</div></div>`}
+  else{const wt=VM.whatItTakes(m,pk);bill=`<div class="tile" style="margin-bottom:.55em"><div class="k">What it takes</div><div class="v">${wt.votionExcluded?'<span class="vfl">—</span>':wt.votionAlready?'<span class="vup">Votion is in</span>':wt.votionIn!=null?vm$(wt.votionIn,0):'&gt; $5K'}</div><div class="sub">${wt.votionExcluded?'Votion will not vote here this round':`${wt.votionAlready?'':'to bring Votion in · '}${t0.active?'already over the 1% line':wt.overLine!=null?vm$(wt.overLine,0)+' to cross the 1% line':'the 1% line is out of reach under $5K'}`}</div></div>`}
+  const fl=sc.flows.slice(0,6);const mx=Math.max(1,...fl.map(x=>Math.abs(x.d)));
+  $('vm-res').innerHTML=(p.winding?`<div class="att" style="border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.07)"><span class="ic am"><i class="fas fa-triangle-exclamation"></i></span><div><div class="t" style="color:var(--am)">${esc(p.name)} holds ${esc(p.winding.symbol||'an asset')} — it is being wound down</div><div class="s">${esc(p.winding.action||p.winding.headline||'')}${p.winding.replacement&&p.winding.replacement.symbol?' · support the '+esc(p.winding.replacement.symbol)+' pairs instead':''}</div>${p.winding.source_url?`<a class="s" style="color:#67e8f9" href="${esc(p.winding.source_url)}" target="_blank" rel="noopener">Migration guide ↗</a>`:''}</div></div>`:'')+bill+
+  `<div class="grid2"><div class="tile"><div class="k">Votion into ${esc(p.name)}</div><div class="v">${p.votionExcluded?'<span class="vfl">stays out</span>':`<span class="${vmUp(sc.votionIn,20000)}">${vmSVp(sc.votionIn)}</span>`}</div><div class="sub">${p.votionExcluded?'outside Votion\'s list':vmVp(t0.votion)+' → '+vmVp(t1.votion)+' VP'}</div></div>
+  <div class="tile"><div class="k">APR next epoch</div><div class="v">${vmPct(t0.apr)} <span class="vfl" style="font-size:.7em">→</span> <span class="${vmUp((t1.apr||0)-(t0.apr||0),0.5)}">${vmPct(t1.apr)}</span></div><div class="sub">${(t0.share*100).toFixed(1)}% → ${(t1.share*100).toFixed(1)}% of votes${!t1.active?' · <span class="vdn">under 1%</span>':!t0.active?' · <span class="vup">over 1%</span>':''}</div></div></div>
+  <div class="tile" style="margin-top:.55em"><div class="k">Your ${esc(VM.BUCKET_LABEL[b])} bribes this round</div><div class="v">${vm$(sc.myNow)} <span class="vfl" style="font-size:.7em">→</span> <span class="${vmUp(d,0.01)}">${vm$(sc.myPlan)}</span></div><div class="sub">${vmS$(d)} ${w.hypothetical?'· with '+vmVp(w.vp)+' VP':'for your wallet'}${d<-0.01&&sc.moved>0?' — the pool you leave paid more':''}</div></div>
+  ${vaults&&!p.votionExcluded?`<div class="sec"><span>Votion's two vaults</span></div><div class="card" style="padding:.6em .8em">${vaults}</div>`:''}
+  <div class="sec"><span>Votion's votes move · ${esc(VM.BUCKET_LABEL[b])}</span></div>
+  ${fl.length?`<div class="card" style="padding:.55em .8em">${fl.map(x=>`<div class="vmflow"><span class="${x.pk===pk?'vmme':''}">${esc(x.name)}</span><div class="bar"><i style="width:${Math.max(3,Math.abs(x.d)/mx*100)}%;background:${x.d>0?'var(--gr)':'var(--rd)'}"></i></div><b class="mono ${x.d>0?'vup':'vdn'}">${vmSVp(x.d)}</b></div>`).join('')}</div>`:`<div class="k" style="margin:0 .2em">${VMS.bribe>0||VMS.pct>0?'Votion stays put — this change is too small to move it.':'Add a bribe or move votes to see where Votion goes.'}</div>`}`;
+}
+
+/* ---- 3 · Best split: every bucket, the most bribes for this VP, Votion's reaction included ---- */
+function vmBest(root){
+  const m=VMS.m, VM=window.VoteMarket; const w=vmWallet(); const addr=wallet();
+  root.innerHTML=vmWalletRow()+'<div id="vm-bestb"></div><div class="btns" style="margin-top:.3em"><button class="btn g" type="button" id="vm-reset-b"><i class="fas fa-rotate-left"></i> Reset</button></div>';
+  vmBindWallet(root,()=>vmBest(root));
+  $('vm-reset-b').onclick=()=>{VMS.hypoVp=VMD.hypoVp;VMS.best=null;vmBest(root)};
+  const out=$('vm-bestb');
+  if(!VMS.voters){out.innerHTML='<div class="sk skc"></div><div class="sk skc"></div>';return}
+  const key=[addr||'',w.hypothetical?VMS.hypoVp:'rec',VMS.live].join('|');
+  if(!VMS.best||VMS.bestKey!==key){try{VMS.best=VM.bestSplitAll(m,w);VMS.bestKey=key}catch(e){out.innerHTML=`<div class="empty">The best split could not run: ${esc(e.message)}</div>`;return}}
+  const r=VMS.best;
+  out.innerHTML=`<div class="hero"><div class="lab">${w.hypothetical?'WITH '+vmVp(w.vp)+' VP':'YOUR VOTES'} · THIS ROUND</div><div class="big">${vm$(r.nowUsd)} <span class="vfl" style="font-size:.6em">→</span> <span class="vup">${vm$(r.usd)}</span></div><div class="row"><span class="pill ${r.gain>0.01?'gr':'mut'}">${vmS$(r.gain)} with the best split</span></div><div class="sub">${w.hypothetical?'not voted yet · ':''}same VP · before other voters react</div></div>`+
+  VM.BUCKETS.map(b=>{const x=r.buckets[b];if(!x||!x.split.length)return`<div class="card row"><div class="l"><b>${esc(VM.BUCKET_LABEL[b])}</b></div><span class="k">no funded pool pays here</span></div>`;
+    return`<div class="card"><div class="row" style="margin-bottom:.35em"><div class="l"><b>${esc(VM.BUCKET_LABEL[b])}</b></div><span class="mono">${vm$(x.nowUsd)} → <b class="vup">${vm$(x.usd)}</b></span></div>${x.split.filter(s=>s.pct>=0.005).map(s=>`<div class="vmflow"><span>${esc(s.name)}${m.pools[s.pk].votionExcluded?' <span class="pill mut" style="font-size:.62em">no Votion</span>':''}</span><div class="bar"><i style="width:${s.pct*100}%;background:var(--am)"></i></div><b class="mono">${(s.pct*100).toFixed(0)}%</b></div>`).join('')}
+      ${x.skipped&&x.skipped.length?`<div class="k" style="margin-top:.3em"><i class="fas fa-triangle-exclamation" style="color:var(--am)"></i> skips ${x.skipped.map(esc).join(', ')} — winding down</div>`:''}
+      <button class="btn g" type="button" style="margin-top:.5em;padding:.45em .8em" data-plan="${esc(x.split[0].pk)}">Plan it →</button></div>`}).join('')+
+  `<div class="k" style="margin:.2em .2em .5em">A small pot moves a lot when anyone else votes it — re-check close to the deadline.</div>`;
+  out.querySelectorAll('[data-plan]').forEach(el=>el.onclick=()=>{VMS.pct=100;VMS.bribe=0;vmGoPlan(el.getAttribute('data-plan'))});
+}
+/* the TLA view's way in */
+function vTlaVmCard(){const m=VMS.m;const funded=m?Object.values(m.pools).reduce((s,p)=>s+(p.potUsd||0),0):null;
+  return`<div class="card tap row" id="tla-vm"><span class="ic am"><i class="fas fa-sack-dollar"></i></span><div class="l"><div style="font-weight:700">Vote Market</div><div class="sub" style="margin-top:.1em">${m?`Round ${esc(m.period)} · ${vm$(funded,0)} in bribes · plan a bribe or your votes`:'Plan a bribe or your votes — where $ does the most'}</div></div><i class="fas fa-chevron-right" style="color:var(--mut)"></i></div>`}
 
 /* ================= v2 · DAO — proposals across the three DAOs · treasuries ================= */
 function vDao(){
@@ -786,7 +973,7 @@ function vMe(){const Pf=prefs();const w=wallet();const P=me();const m=model();
   $('m-reset').onclick=()=>{ls(SNAP,null);toast('Reset — next open is a first look')}; $('m-ob').onclick=()=>onboarding();
 }
 try{window.__ally={D,model,me,todayRows,prefs,setPrefs,setWallet,show,activity,loadWindow,loadNfts,PAST,win}}catch(e){}
-VIEWS={today:vToday,nfts:vNfts,tla:vTla,dao:vDao,me:vMe,vote:vVote,market:vMarket,portfolio:vPortfolio};
+VIEWS={today:vToday,nfts:vNfts,tla:vTla,dao:vDao,me:vMe,vote:vVote,market:vMarket,portfolio:vPortfolio,vmkt:vVmkt};
 /* ---- boot ---- */
 (async()=>{
   try{if(/[?&]source=pwa/.test(location.search)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches))setPrefs({mode:'app'})}catch(e){}

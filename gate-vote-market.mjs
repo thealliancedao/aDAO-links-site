@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// gate-vote-market.mjs — lib/vote-market.js 1.0.0 + the Vote Market page (vote-market.html, VM1.0) on the committed products.
+// gate-vote-market.mjs — lib/vote-market.js + the Vote Market page (vote-market.html) + the app's Vote Market tab (app.html) on the committed products.
 // Relations, never literals: every check derives its expectation from the same fixtures the engine reads.
 // Usage: TLA_CORE_DIR=/path/to/tla-core node gate-vote-market.mjs      (jsdom must be resolvable for the page checks)
 import fs from 'fs'; import path from 'path'; import { createRequire } from 'module';
@@ -9,7 +9,8 @@ const here = path.dirname(new URL(import.meta.url).pathname);
 const VM = require(path.join(here, 'lib/vote-market.js'));
 let PASS = 0, FAIL = 0; const check = (n, ok, x) => { if (ok) { PASS++; console.log('  ✓ ' + n); } else { FAIL++; console.log('  ✗ ' + n + (x != null ? '  ← ' + JSON.stringify(x).slice(0, 400) : '')); } };
 const J = (rel) => JSON.parse(fs.readFileSync(path.join(CORE, rel), 'utf8'));
-const IN = { snapshot: J('member-data/tla-snapshot/current.json'), votion: J('votion/optimization/current.json'), grades: J('lp-grades/snapshots/current.json'), pd: J('tla-voting/pd-bribes/current.json'), prices: J('network-and-prices/current.json'), catalog: J('token-catalog/snapshots/current.json'), participants: J('member-data/participants/current.json') };
+const MR = fs.existsSync(path.join(CORE, 'votion/backtest/move-rule.json')) ? J('votion/backtest/move-rule.json') : null;
+const IN = { moveRule: MR, snapshot: J('member-data/tla-snapshot/current.json'), votion: J('votion/optimization/current.json'), grades: J('lp-grades/snapshots/current.json'), pd: J('tla-voting/pd-bribes/current.json'), prices: J('network-and-prices/current.json'), catalog: J('token-catalog/snapshots/current.json'), participants: J('member-data/participants/current.json') };
 const m = VM.build(IN); const near = (a, b, tol) => Math.abs(a - b) <= (tol != null ? tol : 1e-6) * Math.max(1, Math.abs(a), Math.abs(b));
 const sum = (o, f) => Object.values(o).reduce((s, x) => s + f(x), 0);
 
@@ -78,6 +79,18 @@ check('E10 every pool with a pot or TVL has a readable name', pools.filter(p => 
     const w = Object.values(m.voters).sort((a, c) => c.vp - a.vp)[0]; const bs = VM.bestSplitAll(m, w);
     check('E11 no winding-down pool in the best split', VM.BUCKETS.every(b => bs.buckets[b].split.every(x => !m.pools[x.pk].winding))); } }
 
+// E12 Votion's move rule (votion/backtest/move-rule.json): the model uses it; a vault that holds keeps exactly its current votes;
+// the unchanged state follows Votion's own published flag; a trivial change never flips a vault
+if (MR) check(`E12 the rule in force is the fitted one (gain > $${MR.rule.gain_usd_gt}, shift > ${MR.rule.deviation_pct_gt}% · fit ${MR.fit.matches}/${MR.fit.observations})`, m.moveRule.gain_usd_gt === MR.rule.gain_usd_gt && m.moveRule.deviation_pct_gt === MR.rule.deviation_pct_gt && MR.fit.matches === MR.fit.observations);
+for (const b of VM.BUCKETS) { const o = VM.outcome(m, b, {}); const bad = o.decisions.filter(d => d.published !== null && d.moves !== d.published);
+  check(`E12 ${b}: nothing changed → each vault follows Votion's published flag`, bad.length === 0, bad);
+}
+{ const pools12 = pools.filter(p => p.inVotion && p.stakedUsd >= 1000); let flips = 0; for (const p of pools12) { const a = {}; a[p.pk] = 0.01; const wc = VM.withChange(m, p.bucket, {}, { add: a }); flips += wc.plan.decisions.filter(d => d.flippedByChange).length; }
+  check(`E12 a $0.01 bribe on any of ${pools12.length} Votion pools flips no vault`, flips === 0, flips); }
+{ // a vault forced to hold contributes exactly its current votes
+  const b = 'project'; const o = VM.outcome(m, b, { force: Object.fromEntries(m.vaults.map(v => [v.key, false])) }); const cur = {}; m.vaults.forEach(v => Object.entries(v.byBucket[b].current).forEach(([pk, x]) => cur[pk] = (cur[pk] || 0) + x));
+  check('E12 all vaults holding → Votion\'s votes at close = its current votes', Object.keys(o.rows).every(pk => near(o.rows[pk].votion, cur[pk] || 0, 1e-9))); }
+
 console.log('P. the page (vote-market.html in jsdom, captured pots — the LCD is not reachable)');
 let JSDOM; try { ({ JSDOM } = require('jsdom')); } catch (e) { console.log('  (jsdom not installed — page checks skipped)'); }
 if (JSDOM) {
@@ -103,7 +116,7 @@ if (JSDOM) {
   const apr1 = sc.plan.rows[tgt].apr; const aprS = (x) => x == null ? '—' : (x >= 1000 ? Math.round(x).toLocaleString() : x >= 100 ? x.toFixed(0) : x.toFixed(1)) + '%';
   check(`P2 tile 3 = APR → ${aprS(apr1)}`, tiles[2] && tiles[2].includes(aprS(apr1)), tiles[2]);
   const f$ = (x) => { const a = Math.abs(x); return (x < 0 ? '−$' : '$') + (a >= 1e4 ? Math.round(a).toLocaleString('en-US') : a >= 100 ? a.toFixed(0) : a.toFixed(2)); };   // the page's own money format
-  check(`P2 tile 4 breakdown: pays −${f$(100)} · back +${f$(sc.bribeBack)} · real cost ${f$(sc.netCost)}`, tiles[3] && tiles[3].includes('You pay−' + f$(100)) && tiles[3].includes('+' + f$(sc.bribeBack)) && tiles[3].includes('Real cost this round' + f$(sc.netCost)), tiles[3]);
+  check(`P2 tile 4 breakdown: pays −${f$(100)} · back +${f$(sc.bribeBack)} · real cost ${f$(sc.netCost)}`, tiles[3] && tiles[3].includes('You pay−' + f$(100)) && (sc.bribeBack > 0.005 ? tiles[3].includes('+' + f$(sc.bribeBack)) : /not on this pool[\s\S]*\$0/.test(tiles[3])) && tiles[3].includes('Real cost this round' + f$(sc.netCost)), tiles[3]);
   // Reset all: every section back to its defaults
   d.getElementById('vm-reset-all').click(); await new Promise(r => setTimeout(r, 300));
   check('P5 Reset all → bribe $0, move 0%, $50, all buckets, Best impact', d.getElementById('vm-bribe').value === '0' && d.getElementById('vm-pct').value === '0' && d.querySelector('#vm-amts .pill.on').textContent === '$50' && d.querySelector('#vm-buckets .pill.on').dataset.b === 'all' && d.querySelector('#vm-lenses .pill.on').dataset.l === 'impact');
@@ -113,5 +126,20 @@ if (JSDOM) {
     const bs = VM.bestSplitAll(m, m.voters[cam]); const head = d.getElementById('vm-best').textContent.replace(/\s+/g, ' ');
     check(`P4 best split for the selected wallet: $${bs.nowUsd.toFixed(2)} → $${bs.usd.toFixed(2)}`, head.includes('$' + bs.nowUsd.toFixed(2)) && head.includes('$' + bs.usd.toFixed(2)), head.slice(0, 200));
     check('P4 the wallet chip shows its VP', d.getElementById('vm-wallet').textContent.includes(vpS(m.voters[cam].vp))); }
+}
+
+// ---------------------------------------------------------------- M · the phone layout · A · the app's Vote Market tab (static wiring; the live drive is the 390px browser run)
+console.log('M/A. phone + app');
+{ const page = fs.readFileSync(path.join(here, 'vote-market.html'), 'utf8'); const app = fs.readFileSync(path.join(here, 'app.html'), 'utf8');
+  const libV = VM.VERSION; const pageV = (page.match(/\/lib\/vote-market\.js\?v=([\d.]+)/) || [])[1]; const appV = (app.match(/VM_LIB='\/lib\/vote-market\.js\?v=([\d.]+)'/) || [])[1];
+  check(`M1 phone: Plan a move and Best split fold into bars under 760px`, /@media \(max-width: 760px\)[\s\S]*section\.m-collapsed/.test(page) && /data-drawer="vm-sim-card"/.test(page) && /data-drawer="vm-best-card"/.test(page) && page.includes('id="vm-sim-sum"') && page.includes('id="vm-best-sum"'));
+  check(`M2 phone: the bucket table drops the wide columns`, /\.btable \.hide-sm \{ display: none; \}/.test(page) && /hide-sm-inline">\$\{pctS\(r0\.apr\)\}/.test(page));
+  check(`A1 the page, the app and the engine agree on the engine version (${libV})`, pageV === libV && appV === libV, { libV, pageV, appV });
+  check('A2 app: a pickable Vote Market tab with its view', /vmkt:\['Vote Market','fa-sack-dollar'\]/.test(app) && /vmkt:vVmkt\}/.test(app) && app.includes('<section class="view" id="v-vmkt"><div id="vmkt"></div></section>'));
+  check('A3 app: three sub-tabs — Where $ goes · Plan · Best split', /\[\['where','Where \$ goes'\],\['plan','Plan'\],\['best','Best split'\]\]/.test(app));
+  check('A4 app: the same engine calls as the page (lens · scenario · whatItTakes · bestSplitAll · votionMoves)', ['VM.lens(', 'VM.scenario(', 'VM.whatItTakes(', 'VM.bestSplitAll(', 'VM.votionMoves('].every(k => app.includes(k)));
+  check('A5 app: TLA opens it; estimate banner and Reset on each sub-tab + Reset all', app.includes("vc.onclick=()=>show('vmkt')") && app.includes('<b>Estimates.</b>') && ['vm-reset-w', 'vm-reset-p', 'vm-reset-b', 'vm-reset-all'].every(k => app.includes(`id="${k}"`)));
+  const scripts = [...app.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(x => x[1]); let ok = true, err = null; for (const sc of scripts) { try { new Function(sc); } catch (e) { ok = false; err = e.message; } }
+  check('A6 app: inline script compiles', ok, err);
 }
 console.log(`\n${PASS} passed · ${FAIL} failed`); process.exit(FAIL ? 1 : 0);
