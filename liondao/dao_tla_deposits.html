@@ -24,6 +24,7 @@
     <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
     <script src="/liondao/lib/ld.js?v=1.3.0"></script>
+    <script src="/lib/winddown.js?v=1.0.0"></script>
 
     <main class="ld" id="page">
         <div id="crumb"></div>
@@ -40,14 +41,14 @@
     <script src="/lib/site-footer.js"></script>
     <script>
     (async function () {
-        const REV = '1.0', REV_DATE = '2026-09-22';
+        const REV = '1.1', REV_DATE = '2026-09-27';   // 1.1: Noble USDC sweep — LPs with a USDC.n leg ≥ $1 carry the wind-down pill, the Pools section opens with a banner (lib/winddown.js)
         const { fmt, ui, chart, esc, isNum, sum } = LD;
         await LD.mount({ page: 'liondao-tla', rev: REV, revDate: REV_DATE });
         const T = LD._M.tenant || {};
         const $ = (id) => document.getElementById(id);
         $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'Treasury', href: '/liondao/dao_treasury.html' }, { label: 'TLA positions' }]);
 
-        const [cur, series] = await Promise.all([LD.positions.current(), LD.positions.series()]);
+        const [cur, series, WD] = await Promise.all([LD.positions.current(), LD.positions.series(), window.Winddown ? window.Winddown.load().catch(() => null) : null]);
         if (!cur) { $('hero').innerHTML = ui.note('The positions product did not load (dao-originations/lion-dao/positions/current.json).'); return; }
         const R = cur.rollup && cur.rollup.dao || {};
         const W = LD.sortWallets(LD.walletsOf(cur)).filter(w => w.role !== 'validator');
@@ -87,8 +88,8 @@
         // ---- pools: every LP position, one bar chart + the table
         const byPool = {}; active.forEach(l => { const k = l.pool_name + (l.source === 'asset_compounder' ? ' (amp)' : ''); byPool[k] = (byPool[k] || 0) + (l.estimated_position_usd || 0); });
         const poolKeys = Object.keys(byPool).sort((a, b) => byPool[b] - byPool[a]);
-        const lpRow = (l) => { const u = (l.underlying_token_amounts || []).map(x => esc(fmt.big(x.amount_human)) + ' ' + esc(x.symbol)).join(' + '); return '<tr' + (l.status !== 'active' ? ' class="ld-dim"' : '') + '><td>' + esc(l.pool_name) + '<span class="ld-sub">' + esc(l.dex || '') + ' · ' + esc(l.bucket || '') + (l.status !== 'active' ? ' · ' + esc(l.status) : '') + '</span></td><td>' + ui.wallet(l._w, { role: false }) + '</td><td>' + ui.chip(l.source === 'asset_compounder' ? 'compounder' : 'staked', l.source === 'asset_compounder' ? 'o' : '') + '</td>' + ui.td(u || '<span class="ld-dim">—</span>', true) + ui.td(isNum(l.pool_apr_pct) ? esc(fmt.pctPlain(l.pool_apr_pct)) : '', true) + ui.td(isNum(l.user_pct_of_pool) ? esc(fmt.pctPlain(l.user_pct_of_pool, 2)) : '', true) + ui.td(isNum(l.estimated_position_usd) ? esc(fmt.usd(l.estimated_position_usd)) : ui.unk('not valued'), true) + '</tr>'; };
-        $('pools').innerHTML = ui.section('Pools', active.length + ' active positions · ' + inactive.length + ' inactive · ' + dust.length + ' dust', '<div class="ld-grid ld-g23" style="align-items:start"><div class="ld-tile"><div class="ld-k">Position value by pool</div><div class="ld-chart" style="height:' + Math.max(180, poolKeys.length * 30 + 40) + 'px"><canvas id="pool-chart"></canvas></div></div><div class="ld-tile">' + ui.table([{ label: 'Pool' }, { label: 'Wallet' }, { label: 'How' }, { label: 'Underlying', r: true }, { label: 'Pool APR', r: true }, { label: 'Share', r: true }, { label: 'Value', r: true }], active.concat(inactive).sort((a, b) => (b.estimated_position_usd || 0) - (a.estimated_position_usd || 0)).map(lpRow), { empty: 'no position over $1' }) + (dust.length ? ui.details(dust.length + ' dust positions under $1', ui.table([{ label: 'Pool' }, { label: 'Wallet' }, { label: 'How' }, { label: 'Underlying', r: true }, { label: 'APR', r: true }, { label: 'Share', r: true }, { label: 'Value', r: true }], dust.map(lpRow))) : '') + '</div></div>');
+        const lpRow = (l) => { const u = (l.underlying_token_amounts || []).map(x => esc(fmt.big(x.amount_human)) + ' ' + esc(x.symbol)).join(' + '); return '<tr' + (l.status !== 'active' ? ' class="ld-dim"' : '') + '><td>' + esc(l.pool_name) + (WD && WD.forLp(l) ? window.Winddown.pill(WD.forLp(l).alert) : '') + '<span class="ld-sub">' + esc(l.dex || '') + ' · ' + esc(l.bucket || '') + (l.status !== 'active' ? ' · ' + esc(l.status) : '') + '</span></td><td>' + ui.wallet(l._w, { role: false }) + '</td><td>' + ui.chip(l.source === 'asset_compounder' ? 'compounder' : 'staked', l.source === 'asset_compounder' ? 'o' : '') + '</td>' + ui.td(u || '<span class="ld-dim">—</span>', true) + ui.td(isNum(l.pool_apr_pct) ? esc(fmt.pctPlain(l.pool_apr_pct)) : '', true) + ui.td(isNum(l.user_pct_of_pool) ? esc(fmt.pctPlain(l.user_pct_of_pool, 2)) : '', true) + ui.td(isNum(l.estimated_position_usd) ? esc(fmt.usd(l.estimated_position_usd)) : ui.unk('not valued'), true) + '</tr>'; };
+        $('pools').innerHTML = ui.section('Pools', active.length + ' active positions · ' + inactive.length + ' inactive · ' + dust.length + ' dust', (WD ? WD.scan({ lps: lps }).map(h => window.Winddown.banner(h, { who: 'Lion DAO' })).join('') : '') + '<div class="ld-grid ld-g23" style="align-items:start"><div class="ld-tile"><div class="ld-k">Position value by pool</div><div class="ld-chart" style="height:' + Math.max(180, poolKeys.length * 30 + 40) + 'px"><canvas id="pool-chart"></canvas></div></div><div class="ld-tile">' + ui.table([{ label: 'Pool' }, { label: 'Wallet' }, { label: 'How' }, { label: 'Underlying', r: true }, { label: 'Pool APR', r: true }, { label: 'Share', r: true }, { label: 'Value', r: true }], active.concat(inactive).sort((a, b) => (b.estimated_position_usd || 0) - (a.estimated_position_usd || 0)).map(lpRow), { empty: 'no position over $1' }) + (dust.length ? ui.details(dust.length + ' dust positions under $1', ui.table([{ label: 'Pool' }, { label: 'Wallet' }, { label: 'How' }, { label: 'Underlying', r: true }, { label: 'APR', r: true }, { label: 'Share', r: true }, { label: 'Value', r: true }], dust.map(lpRow))) : '') + '</div></div>');
         chart.bars('pool-chart', poolKeys, [{ label: 'Value', data: poolKeys.map(k => byPool[k]) }], { horizontal: true });
 
         // ---- locks + pending, per wallet
