@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vote Market | Alliance DAO</title>
+<meta name="description" content="Plan a TLA bribe or vote: where $ does the most, how Votion reacts, your bribe rewards, next epoch's APRs, and the best split for your VP.">
+<link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  * { font-family: 'Outfit', sans-serif; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  :root { --bg: #0a0b0f; --card: rgba(255,255,255,.03); --line: rgba(255,255,255,.08); --ink: #f1f5f9; --ink2: #94a3b8; --ink3: #64748b;
+          --cyan: #22d3ee; --amber: #fbbf24; --up: #34d399; --down: #f87171; --orange: #fb923c; }
+  body { background: var(--bg); color: var(--ink); min-height: 100vh; }
+  .bg-mesh { position: fixed; inset: 0; z-index: -1; background: radial-gradient(ellipse 80% 50% at 20% 30%, rgba(6,182,212,.10), transparent), radial-gradient(ellipse 60% 40% at 85% 70%, rgba(251,191,36,.06), transparent); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 1.25rem; }
+  .h2 { font-size: 1.25rem; font-weight: 700; }
+  .pill { padding: .35rem .8rem; border-radius: 999px; font-size: .9rem; background: rgba(255,255,255,.05); color: var(--ink2); border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
+  .pill:hover { color: var(--ink); }
+  .pill.on { background: rgba(34,211,238,.14); color: #a5f3fc; border-color: rgba(34,211,238,.35); }
+  .pill.amt.on { background: rgba(251,191,36,.16); color: #fde68a; border-color: rgba(251,191,36,.4); }
+  .chip { display: inline-flex; align-items: baseline; gap: .35rem; padding: .35rem .7rem; border-radius: 10px; background: rgba(255,255,255,.04); font-size: .9rem; color: var(--ink2); }
+  .chip b { color: var(--ink); font-weight: 600; }
+  .big { font-size: 2rem; line-height: 1.1; font-weight: 700; }
+  .k { font-size: .8rem; color: var(--ink2); text-transform: uppercase; letter-spacing: .04em; }
+  .sub { font-size: .9rem; color: var(--ink2); }
+  .up { color: var(--up); } .down { color: var(--down); } .flat { color: var(--ink3); }
+  .bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.06); overflow: hidden; }
+  .bar > i { display: block; height: 100%; border-radius: 4px; }
+  .row { display: grid; grid-template-columns: 2rem minmax(0,1.5fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr); gap: .75rem; align-items: center; padding: .65rem .6rem; border-top: 1px solid var(--line); cursor: pointer; border-radius: 10px; }
+  .apr-k { display: none; color: var(--ink3); font-size: .8rem; margin-right: .3rem; }
+  .row:hover, .row.sel { background: rgba(255,255,255,.04); }
+  .row.sel { outline: 1px solid rgba(34,211,238,.4); }
+  .tag { font-size: .72rem; padding: .1rem .4rem; border-radius: 5px; background: rgba(255,255,255,.06); color: var(--ink2); text-transform: uppercase; letter-spacing: .03em; }
+  .tag.warn { background: rgba(251,191,36,.14); color: #fcd34d; } .tag.no { background: rgba(248,113,113,.14); color: #fca5a5; } .tag.me { background: rgba(34,211,238,.14); color: #67e8f9; }
+  .tile { background: rgba(255,255,255,.035); border: 1px solid var(--line); border-radius: 14px; padding: 1rem; }
+  input[type=range] { width: 100%; accent-color: #fbbf24; height: 28px; }
+  .num { background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 10px; padding: .45rem .7rem; color: var(--ink); width: 8rem; font-family: 'JetBrains Mono', monospace; }
+  select.sel { background: #111318; border: 1px solid var(--line); border-radius: 10px; padding: .5rem .7rem; color: var(--ink); max-width: 100%; }
+  .btable { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  .btable td, .btable th { padding: .45rem .5rem; border-top: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  .btable th { color: var(--ink3); font-weight: 500; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; border-top: 0; }
+  .btable td:first-child, .btable th:first-child { text-align: left; }
+  .btable tr.target td { background: rgba(251,191,36,.07); }
+  .share { position: relative; width: 140px; height: 10px; display: inline-block; vertical-align: middle; }
+  .share i { position: absolute; top: 0; height: 4px; border-radius: 2px; left: 0; } .share i.b { top: 6px; }
+  .share .line { position: absolute; top: -2px; bottom: -2px; width: 1px; background: #f87171; opacity: .8; }
+  .flow { display: grid; grid-template-columns: minmax(0,14rem) minmax(4rem,16rem) 5.5rem; gap: .5rem; align-items: center; font-size: .95rem; padding: .2rem 0; }
+  .note { font-size: .9rem; color: var(--ink3); }
+  .spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 760px) {
+    .row { grid-template-columns: 1.5rem minmax(0,1fr) minmax(0,1fr); row-gap: .3rem; } .row .hide-sm, .row.head { display: none; }
+    .row .apr { grid-column: 2 / -1; font-size: .95rem; } .row .apr .apr-k { display: inline; } .row .apr > div { display: inline; margin-left: .4rem; }
+    .big { font-size: 1.6rem; } .btable .hide-sm { display: none; } .share { width: 80px; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+<div id="site-header"></div>
+<script src="/lib/site-header.js"></script>
+<script src="/lib/address-picker.js"></script>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 pb-16 pt-4">
+  <!-- ============ HEADER ============ -->
+  <div class="flex items-center gap-3 flex-wrap mb-2">
+    <h1 class="text-2xl sm:text-3xl font-bold flex items-center gap-2"><i class="fas fa-store text-amber-400"></i> Vote Market</h1>
+    <span id="vm-round" class="chip"></span>
+    <span id="vm-src" class="chip"></span>
+    <a href="/tla-stats.html" class="pill ml-auto" style="text-decoration:none"><i class="fas fa-arrow-left mr-1"></i> TLA Stats</a>
+    <button id="vm-help-btn" class="pill" type="button"><i class="fas fa-circle-question mr-1"></i> How it works</button>
+  </div>
+  <div id="vm-help" class="card mb-4 hidden">
+    <div class="grid md:grid-cols-2 gap-4 text-[0.95rem] text-gray-300 leading-relaxed">
+      <div><b class="text-white">Bribes pay voters.</b> A pool's pot is split between everyone voting it: your cut = pot × your votes ÷ all its votes. A pool must hold 1% of its bucket's votes to pay out and earn emissions.</div>
+      <div><b class="text-white">Votion follows the money.</b> Its ~8.6M VP (in every bucket) goes wherever pot ÷ votes is best. Add a bribe and it moves votes in — from the pools paying least. We re-run its maths exactly.</div>
+      <div><b class="text-white">Votes set next week's emissions.</b> Each bucket's weekly LUNA is split by vote share among pools over the 1% line, so votes → emissions → APR for LPs.</div>
+      <div><b class="text-white">It's a forecast.</b> Everything uses this round's pots and votes right now. Other voters and bribers can change it before the round closes, and Votion's own solver lands a few % short of the best split — read the direction and size, not the decimals.</div>
+    </div>
+  </div>
+  <div id="vm-moves" class="mb-5"></div>
+
+  <!-- ============ OVERVIEW ============ -->
+  <section class="card mb-5">
+    <div class="flex items-center gap-2 flex-wrap mb-3">
+      <span class="h2">Where would</span>
+      <span id="vm-amts" class="flex gap-1.5 flex-wrap"></span>
+      <input id="vm-amt" class="num" type="number" min="1" step="5" aria-label="bribe amount">
+      <span class="h2">do the most?</span>
+    </div>
+    <div id="vm-buckets" class="flex gap-1.5 flex-wrap mb-2"></div>
+    <div id="vm-lenses" class="flex gap-1.5 flex-wrap mb-1"></div>
+    <div id="vm-lens-hint" class="note mb-2"></div>
+    <div id="vm-list"><div class="sub py-6"><i class="fas fa-circle-notch spin mr-2"></i>Loading this round's pots and votes…</div></div>
+  </section>
+
+  <!-- ============ SIMULATOR ============ -->
+  <section class="card mb-5" id="vm-sim-card">
+    <div class="flex items-center gap-2 flex-wrap mb-4">
+      <span class="h2"><i class="fas fa-flask text-cyan-400 mr-1"></i> Plan a move</span>
+      <select id="vm-pool" class="sel ml-1" aria-label="pool"></select>
+      <span id="vm-wallet" class="ml-auto"></span>
+    </div>
+    <div class="grid lg:grid-cols-2 gap-5 mb-5">
+      <div class="tile">
+        <div class="flex items-baseline justify-between"><span class="k">Bribe this pool</span><span class="mono text-xl text-amber-300" id="vm-bribe-v">$0</span></div>
+        <input id="vm-bribe" type="range" min="0" max="1000" step="5" value="0" aria-label="bribe">
+        <div class="flex gap-1.5 flex-wrap" id="vm-bribe-quick"></div>
+      </div>
+      <div class="tile" id="vm-move-tile">
+        <div class="flex items-baseline justify-between"><span class="k">Move my votes here</span><span class="mono text-xl text-cyan-300" id="vm-pct-v">0%</span></div>
+        <input id="vm-pct" type="range" min="0" max="100" step="10" value="0" aria-label="percent of my votes">
+        <div class="flex items-center gap-2 flex-wrap text-[0.95rem]"><span class="sub">from</span><select id="vm-from" class="sel" aria-label="move from"></select><span class="sub" id="vm-moved"></span></div>
+      </div>
+    </div>
+    <div id="vm-answers" class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5"></div>
+    <div id="vm-flows" class="mb-5" style="max-width:44rem"></div>
+    <div class="overflow-x-auto"><div id="vm-bucket-table"></div></div>
+    <div class="note mt-3" id="vm-sim-note"></div>
+  </section>
+
+  <!-- ============ BEST SPLIT ============ -->
+  <section class="card mb-5">
+    <div class="flex items-center gap-2 flex-wrap mb-3">
+      <span class="h2"><i class="fas fa-wand-magic-sparkles text-amber-400 mr-1"></i> Vote for the best rewards</span>
+      <span class="sub">— Votion's method, pointed at your VP</span>
+      <button id="vm-best-btn" class="pill on ml-auto" type="button">Find my best split</button>
+    </div>
+    <div id="vm-best"><div class="sub">Pick an address in VIEWING (or enter a VP above) and press the button: it splits your votes in every bucket for the most bribes this round, with Votion's reaction included.</div></div>
+  </section>
+</main>
+
+<div id="site-footer"></div>
+<script src="/lib/cron-registry.js"></script>
+<script src="/lib/site-footer.js"></script>
+<script src="/lib/vote-market.js?v=1.0.0"></script>
+<script>
+(function () {
+  'use strict';
+  // ---------------------------------------------------------------- state
+  const ST = { m: null, amt: 50, bucket: 'all', lens: 'impact', target: null, bribe: 0, pct: 0, from: 'all', wallet: null, hypoVp: 1000000, best: null, live: false };
+  const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const fmtVp = (x) => { const a = Math.abs(x); return a >= 1e6 ? (x / 1e6).toFixed(a >= 1e7 ? 1 : 2) + 'M' : a >= 1e3 ? Math.round(x / 1e3) + 'K' : Math.round(x).toString(); };
+  const fmt$ = (x, d) => { if (x == null || !isFinite(x)) return '—'; const a = Math.abs(x); const s = a >= 1e4 ? Math.round(a).toLocaleString() : a >= 100 ? a.toFixed(0) : a.toFixed(d != null ? d : 2); return (x < 0 ? '−$' : '$') + s; };
+  const sgn$ = (x, d) => (x > 0.005 ? '+' : x < -0.005 ? '' : '±') + fmt$(x, d);
+  const sgnVp = (x) => (x > 0 ? '+' : x < 0 ? '−' : '±') + fmtVp(Math.abs(x));
+  const pctS = (x) => x == null ? '—' : (x >= 1000 ? Math.round(x).toLocaleString() : x >= 100 ? x.toFixed(0) : x.toFixed(1)) + '%';
+  const cls = (d, eps) => d > (eps || 0) ? 'up' : d < -(eps || 0) ? 'down' : 'flat';
+  const pool = (pk) => ST.m.pools[pk];
+  const bucketOf = (pk) => pk.split('|')[0];
+  const dexTag = (p) => p.dex && /astro/i.test(p.dex) ? 'Astro' : p.dex && /skeleton/i.test(p.dex) ? 'Skeleton' : '';
+
+  // ---------------------------------------------------------------- the wallet (VIEWING) — read only, or a typed VP
+  function walletObj() {
+    if (ST.wallet && ST.wallet.rec) return ST.wallet.rec;
+    return { vp: ST.hypoVp, votes: {}, lp: [], hypothetical: true };
+  }
+  async function setWallet(addr, name) {
+    ST.wallet = addr ? { addr, name: name || null, rec: null, loading: true } : null; renderWallet();
+    if (addr) { await ST.m.loadVoters(); const rec = ST.m.voters[addr] || null; if (ST.wallet && ST.wallet.addr === addr) { ST.wallet.rec = rec; ST.wallet.loading = false; } }
+    ST.best = null; renderWallet(); renderControls(); renderFrom(); renderSim(); renderList(); renderBestIdle();
+  }
+  function renderWallet() {
+    const w = ST.wallet; const el = $('vm-wallet');
+    if (w && w.loading) { el.innerHTML = `<span class="chip"><i class="fas fa-circle-notch spin"></i> reading ${esc(w.addr.slice(0, 10))}…</span>`; return; }
+    if (w && w.rec) { el.innerHTML = `<span class="chip"><i class="fas fa-wallet text-cyan-300"></i> <b>${esc(w.name || w.addr.slice(0, 8) + '…' + w.addr.slice(-4))}</b> · <b class="mono">${fmtVp(w.rec.vp)}</b> VP</span>`; return; }
+    el.innerHTML = `<span class="chip">${w ? `<span class="text-amber-300">${esc(w.addr.slice(0, 8))}… has no TLA votes</span> · ` : ''}try with <input id="vm-hypo" class="num" style="width:7.5rem" type="number" min="0" step="100000" value="${ST.hypoVp}"> VP</span>`;
+    const h = $('vm-hypo'); if (h) h.addEventListener('change', () => { ST.hypoVp = Math.max(0, Number(h.value) || 0); ST.best = null; renderFrom(); renderSim(); renderBestIdle(); });
+  }
+
+  // ---------------------------------------------------------------- header strip: round, pots, Votion's own next move
+  function renderHeader() {
+    const m = ST.m; const left = m.voteBefore ? Math.max(0, Date.parse(m.voteBefore) - Date.now()) : null;
+    const lt = left == null ? '' : left > 864e5 ? Math.floor(left / 864e5) + 'd ' + Math.floor(left % 864e5 / 36e5) + 'h' : Math.floor(left / 36e5) + 'h ' + Math.floor(left % 36e5 / 6e4) + 'm';
+    const funded = Object.values(m.pools).reduce((s, p) => s + (p.potUsd || 0), 0); const n = Object.values(m.pools).filter(p => p.potUsd > 0.5).length;
+    $('vm-round').innerHTML = `Round <b>${m.period}</b>${lt ? ` · Votion casts in <b>${lt}</b>` : ''}`;
+    $('vm-src').innerHTML = `<b class="mono">${fmt$(funded, 0)}</b> funded in <b>${n}</b> pots · ${ST.live ? `<span class="text-emerald-400">● live ${new Date(m.liveAt).toISOString().slice(11, 16)}Z</span>` : '<span title="the pots Votion captured for this round — the live read was unavailable">captured</span>'} <button type="button" id="vm-refresh" class="text-gray-500 hover:text-cyan-300 ml-1" title="re-read the pots now"><i class="fas fa-rotate"></i></button>`;
+    $('vm-refresh').onclick = refreshLive;
+    const mv = ST.m && window.VoteMarket.votionMoves(m, 'all').slice(0, 6);
+    $('vm-moves').innerHTML = mv && mv.length ? `<div class="flex items-center gap-2 flex-wrap"><span class="sub"><i class="fas fa-robot text-gray-500 mr-1"></i>Votion's plan if nothing changes:</span>${mv.map(x => `<span class="chip cursor-pointer" data-pk="${esc(x.pk)}" title="${esc(x.name)} (${x.bucket}): Votion ${fmtVp(x.now)} → ${fmtVp(x.plan)} (its published plan)"><b>${esc(x.name)}</b> <span class="mono ${x.d > 0 ? 'up' : 'down'}">${sgnVp(x.d)}</span></span>`).join('')}</div>` : '';
+    $('vm-moves').querySelectorAll('[data-pk]').forEach(el => el.onclick = () => pickPool(el.dataset.pk, true));
+  }
+
+  // ---------------------------------------------------------------- overview: amount · bucket · lens · top 10
+  function renderControls() {
+    $('vm-amts').innerHTML = [25, 50, 100, 250, 500].map(v => `<button type="button" class="pill amt ${ST.amt === v ? 'on' : ''}" data-v="${v}">$${v}</button>`).join('');
+    $('vm-amts').querySelectorAll('button').forEach(b => b.onclick = () => { ST.amt = Number(b.dataset.v); $('vm-amt').value = ''; renderControls(); renderList(); });
+    $('vm-amt').placeholder = 'other $';
+    $('vm-buckets').innerHTML = [['all', 'All buckets'], ...window.VoteMarket.BUCKETS.map(b => [b, window.VoteMarket.BUCKET_LABEL[b]])].map(([k, l]) => `<button type="button" class="pill ${ST.bucket === k ? 'on' : ''}" data-b="${k}">${l}</button>`).join('');
+    $('vm-buckets').querySelectorAll('button').forEach(b => b.onclick = () => { ST.bucket = b.dataset.b; renderControls(); renderList(); });
+    $('vm-lenses').innerHTML = window.VoteMarket.LENSES.filter(L => !L.needsWallet || (ST.wallet && ST.wallet.rec)).map(L => `<button type="button" class="pill ${ST.lens === L.key ? 'on' : ''}" data-l="${L.key}" title="${esc(L.hint)}">${L.label}</button>`).join('');
+    $('vm-lenses').querySelectorAll('button').forEach(b => b.onclick = () => { ST.lens = b.dataset.l; renderControls(); renderList(); });
+    const L = window.VoteMarket.LENSES.find(x => x.key === ST.lens); $('vm-lens-hint').textContent = L ? L.hint.charAt(0).toUpperCase() + L.hint.slice(1) + ' · click a pool to plan it' : '';
+  }
+  function badges(p) {
+    const b = [];
+    if (p.grade) b.push(`<span class="tag" title="LP grade${p.gradeWhy ? ': ' + esc(p.gradeWhy) : ''}">${p.grade}</span>`);
+    if (p.votionExcluded) b.push(`<span class="tag no" title="Funded this round but left out of Votion's list — a bribe here pays human voters only">no Votion</span>`);
+    else if (p.votionUntested) b.push(`<span class="tag warn" title="Votion has not been offered this pool this round — the projection assumes it would take a new pot">Votion untested</span>`);
+    if (ST.wallet && ST.wallet.rec && ST.wallet.rec.lp.some(l => l.pk === p.pk)) b.push(`<span class="tag me">your LP</span>`);
+    return b.join(' ');
+  }
+  function lensMetric(r, max) {
+    const p = r.pool, im = r.im, L = ST.lens;
+    let main = '', mainCls = '', val = 0, tip = '';
+    if (L === 'liquidity') { main = fmt$(p.depthUsd, 0); val = p.depthUsd; tip = 'pool depth (USD)'; }
+    else if (L === 'volume') { main = fmt$(p.vol7dUsd, 0) + '<span class="sub"> /wk</span>'; val = p.vol7dUsd; tip = '7-day volume, estimated from turnover (utilisation × depth)'; }
+    else if (L === 'leaving') { const d = p.votionPlan - p.votionNow; main = `<span class="down">${sgnVp(d)}</span> <span class="sub">Votion</span>`; val = -d; tip = `Votion ${fmtVp(p.votionNow)} now → ${fmtVp(p.votionPlan)} in its plan`; }
+    else if (L === 'mine') { const pos = (ST.wallet.rec.lp || []).filter(l => l.pk === p.pk).reduce((s, l) => s + l.usd, 0); main = fmt$(pos, 0) + '<span class="sub"> your LP</span>'; val = pos; tip = 'your LP position'; }
+    else { main = `<span class="${cls(im.emissionsBought, 0.5)}">${sgn$(im.emissionsBought, 0)}</span><span class="sub">/wk</span>`; val = Math.max(0, im.emissionsBought); tip = `$${ST.amt} → +${fmt$(im.emissionsBought, 0)} of emissions a week to this pool's LPs (next epoch)`; }
+    const w = max > 0 ? Math.max(2, Math.min(100, val / max * 100)) : 0;
+    return { html: `<div><div class="mono text-lg leading-tight">${main}</div><div class="bar mt-1" title="${esc(tip)}"><i style="width:${w}%;background:${L === 'leaving' ? 'var(--down)' : 'var(--cyan)'}"></i></div></div>`, val };
+  }
+  function renderList() {
+    if (!ST.m) return;
+    const rows = window.VoteMarket.lens(ST.m, { lens: ST.lens, bucket: ST.bucket, usd: ST.amt, wallet: ST.wallet && ST.wallet.rec, limit: 10 });
+    if (!rows.length) { $('vm-list').innerHTML = `<div class="sub py-6">No pools fit this lens${ST.bucket !== 'all' ? ' in ' + window.VoteMarket.BUCKET_LABEL[ST.bucket] : ''} right now.</div>`; return; }
+    const vals = rows.map(r => lensMetric(r, 1).val); const max = Math.max(...vals, 1);
+    $('vm-list').innerHTML = `<div class="row head" style="cursor:default;border-top:0;padding-bottom:.25rem"><span></span><span class="k">Pool</span><span class="k">${ST.lens === 'impact' ? `$${ST.amt} buys (emissions)` : ST.lens === 'liquidity' ? 'Depth' : ST.lens === 'volume' ? 'Volume' : ST.lens === 'leaving' ? 'Votion leaving' : ST.lens === 'mine' ? 'Your LP' : `$${ST.amt} buys (emissions)`}</span><span class="k">APR next epoch</span><span class="k hide-sm">Votion</span></div>` +
+      rows.map((r, i) => { const p = r.pool, im = r.im; const mt = lensMetric(r, max);
+        return `<div class="row ${ST.target === p.pk ? 'sel' : ''}" data-pk="${esc(p.pk)}">
+          <span class="mono text-gray-500">${i + 1}</span>
+          <div class="min-w-0"><div class="font-semibold text-[1.05rem] truncate">${esc(p.name)}</div><div class="flex gap-1 flex-wrap items-center mt-0.5"><span class="tag">${window.VoteMarket.BUCKET_LABEL[p.bucket]}</span>${dexTag(p) ? `<span class="tag">${dexTag(p)}</span>` : ''} ${badges(p)}</div></div>
+          ${mt.html}
+          <div class="mono apr" title="APR next epoch from the votes at close: now → with $${ST.amt} added"><span class="apr-k">APR next epoch</span>${pctS(im.apr0)} <span class="text-gray-500">→</span> <span class="${cls((im.apr1 || 0) - (im.apr0 || 0), 0.5)}">${pctS(im.apr1)}</span>${!im.active0 && im.active1 ? '<div class="text-[0.8rem] up">crosses the 1% line</div>' : !im.active1 ? '<div class="text-[0.8rem] flat">under 1%</div>' : ''}</div>
+          <div class="mono hide-sm" title="Votion's votes here: with $${ST.amt} added vs nothing changed"><span class="${cls(im.votionIn, 20000)}">${sgnVp(im.votionIn)}</span><div class="text-[0.8rem] sub">pot ${fmt$(p.potUsd, 0)}</div></div>
+        </div>`; }).join('');
+    $('vm-list').querySelectorAll('.row[data-pk]').forEach(el => el.onclick = () => pickPool(el.dataset.pk, true));
+  }
+
+  // ---------------------------------------------------------------- simulator
+  function renderPoolSelect() {
+    const m = ST.m; const opts = window.VoteMarket.BUCKETS.map(b => `<optgroup label="${window.VoteMarket.BUCKET_LABEL[b]}">${m.buckets[b].pks.filter(pk => pool(pk).stakedUsd >= 1000 || pool(pk).potUsd > 0 || pool(pk).vp > 1e5).sort((a, c) => pool(c).vp - pool(a).vp).map(pk => `<option value="${esc(pk)}" ${ST.target === pk ? 'selected' : ''}>${esc(pool(pk).name)}</option>`).join('')}</optgroup>`).join('');
+    $('vm-pool').innerHTML = opts; $('vm-pool').onchange = () => pickPool($('vm-pool').value, false);
+  }
+  function renderFrom() {
+    if (!ST.target) return; const b = bucketOf(ST.target); const w = walletObj(); const now = window.VoteMarket.walletVotes(ST.m, w, b);
+    const keys = Object.keys(now).filter(pk => pk !== ST.target);
+    const opts = [];
+    if (keys.length > 1) opts.push(['all', `all my ${window.VoteMarket.BUCKET_LABEL[b]} votes`]);
+    keys.sort((a, c) => now[c] - now[a]).forEach(pk => opts.push([pk, `${pool(pk).name} (${fmtVp(now[pk])})`]));
+    if (!keys.length) opts.push(['all', w.hypothetical ? `my ${fmtVp(w.vp)} VP (not voted yet)` : (now[ST.target] ? 'already all here' : `my ${fmtVp(w.vp)} VP`)]);
+    if (!opts.some(o => o[0] === ST.from)) ST.from = opts[0][0];
+    $('vm-from').innerHTML = opts.map(([k, l]) => `<option value="${esc(k)}" ${ST.from === k ? 'selected' : ''}>${esc(l)}</option>`).join('');
+    $('vm-from').onchange = () => { ST.from = $('vm-from').value; renderSim(); };
+  }
+  function pickPool(pk, scroll) {
+    ST.target = pk; renderPoolSelect(); renderFrom(); renderSim(); renderList();
+    if (scroll) $('vm-sim-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function tile(k, big, sub, extra) { return `<div class="tile"><div class="k">${k}</div><div class="big mono mt-1">${big}</div>${sub ? `<div class="sub mt-1">${sub}</div>` : ''}${extra || ''}</div>`; }
+  function renderSim() {
+    if (!ST.m || !ST.target) return;
+    const VM = window.VoteMarket; const m = ST.m; const pk = ST.target; const p = pool(pk); const b = bucketOf(pk); const w = walletObj();
+    $('vm-bribe-v').textContent = '$' + ST.bribe; $('vm-pct-v').textContent = ST.pct + '%';
+    const sc = VM.scenario(m, { bucket: b, target: pk, bribeUsd: ST.bribe, wallet: w, from: ST.from === 'all' ? 'all' : ST.from, pct: ST.pct / 100 });
+    $('vm-moved').textContent = sc.moved > 0 ? `→ ${fmtVp(sc.moved)} VP moves here` : '';
+    const t0 = sc.base.rows[pk], t1 = sc.plan.rows[pk];
+    const gain = sc.votionGain; const likely = Math.abs(sc.votionIn) < 20000 ? '' : gain >= VM.VOTION_MOVE_USD ? `<span class="up">likely</span> — it gains ${fmt$(gain)}` : `<span class="text-amber-300">may hold</span> — it gains only ${fmt$(gain)}`;
+    // 1 · Votion
+    const vt = p.votionExcluded ? tile('Votion', '<span class="flat">stays out</span>', 'this pool is outside Votion\'s list this round') :
+      tile(`Votion into ${esc(p.name)}`, `<span class="${cls(sc.votionIn, 20000)}">${sgnVp(sc.votionIn)}</span>`, `${fmtVp(t0.votion)} → ${fmtVp(t1.votion)} VP${likely ? ' · ' + likely : ''}`);
+    // 2 · your bribes
+    const d = sc.myPlan - sc.myNow;
+    const yt = tile('Your bribes this round', `${fmt$(sc.myNow)} <span class="text-gray-500 text-xl">→</span> <span class="${cls(d, 0.01)}">${fmt$(sc.myPlan)}</span>`, `${sgn$(d)} ${w.hypothetical ? `· with ${fmtVp(w.vp)} VP` : 'for your wallet'}${d < -0.01 && sc.moved > 0 ? ' — the pool you leave paid more' : ''}`);
+    // 3 · the pool's APR
+    const at = tile(`${esc(p.name)} APR · next epoch`, `${pctS(t0.apr)} <span class="text-gray-500 text-xl">→</span> <span class="${cls((t1.apr || 0) - (t0.apr || 0), 0.5)}">${pctS(t1.apr)}</span>`, `${(t0.share * 100).toFixed(1)}% → ${(t1.share * 100).toFixed(1)}% of ${VM.BUCKET_LABEL[b]} votes${!t1.active ? ' · <span class="down">under the 1% line</span>' : !t0.active ? ' · <span class="up">over the 1% line</span>' : ''}`);
+    // 4 · the bribe's bill — or what it takes
+    let bt;
+    if (ST.bribe > 0) bt = tile('Your bribe', `${fmt$(sc.netCost, 0)} <span class="sub text-base">net</span>`, `${fmt$(ST.bribe, 0)} in · ${fmt$(sc.bribeBack)} comes back to your votes · buys <b class="up">${sgn$(sc.emissionsBought, 0)}/wk</b> emissions for its LPs`);
+    else { const wt = VM.whatItTakes(m, pk); bt = tile('What it takes', wt.votionExcluded ? '<span class="flat">—</span>' : wt.votionAlready ? '<span class="up">Votion is in</span>' : wt.votionIn != null ? fmt$(wt.votionIn, 0) : '> $5K', wt.votionExcluded ? 'Votion will not vote here this round' : `${wt.votionAlready ? '' : 'to bring Votion in · '}${t0.active ? 'already over the 1% line' : wt.overLine != null ? `${fmt$(wt.overLine, 0)} to cross the 1% line` : 'the 1% line is out of reach under $5K'}`); }
+    $('vm-answers').innerHTML = vt + yt + at + bt;
+    // flows: where Votion's votes come from
+    const fl = sc.flows; const mx = Math.max(1, ...fl.map(x => Math.abs(x.d)));
+    $('vm-flows').innerHTML = fl.length ? `<div class="k mb-1">Votion's votes move · ${VM.BUCKET_LABEL[b]}</div>` + fl.map(x => `<div class="flow"><span class="truncate ${x.pk === pk ? 'text-amber-200 font-semibold' : ''}">${esc(x.name)}</span><div class="bar" title="${esc(x.name)}: Votion ${sgnVp(x.d)} VP"><i style="width:${Math.max(3, Math.abs(x.d) / mx * 100)}%;background:${x.d > 0 ? 'var(--up)' : 'var(--down)'}"></i></div><span class="mono text-right ${x.d > 0 ? 'up' : 'down'}">${sgnVp(x.d)}</span></div>`).join('') :
+      (ST.bribe > 0 || ST.pct > 0 ? `<div class="sub">Votion's votes stay where they are — this change is too small to move it.</div>` : `<div class="sub">Add a bribe or move votes to see where Votion's votes go.</div>`);
+    // the bucket after: every pool's votes, share against the 1% line, APR
+    const rows = sc.plan.pks.filter(k => pool(k).stakedUsd >= 1000 || sc.plan.rows[k].votes > 1e5 || k === pk).sort((a, c) => sc.plan.rows[c].votes - sc.plan.rows[a].votes);
+    const maxS = Math.max(0.02, ...rows.map(k => Math.max(sc.plan.rows[k].share, sc.base.rows[k].share)));
+    $('vm-bucket-table').innerHTML = `<div class="k mb-1">${VM.BUCKET_LABEL[b]} bucket at close · <span class="text-gray-400 normal-case">top bar now, bottom bar with your plan · red tick = the 1% line</span></div>
+      <table class="btable"><thead><tr><th>Pool</th><th>Votes</th><th class="hide-sm">Share</th><th>APR next epoch</th><th class="hide-sm">Emissions /wk</th><th class="hide-sm">Pot</th></tr></thead><tbody>` +
+      rows.map(k => { const r0 = sc.base.rows[k], r1 = sc.plan.rows[k]; const pp = pool(k); const dv = r1.votes - r0.votes;
+        return `<tr class="${k === pk ? 'target' : ''}"><td><span class="${k === pk ? 'text-amber-200 font-semibold' : ''}">${esc(pp.name)}</span>${!r1.active ? ' <span class="tag no">under 1%</span>' : ''}${sc.crossedUp.includes(k) ? ' <span class="tag me">crosses 1%</span>' : ''}</td>
+          <td class="mono">${fmtVp(r1.votes)}${Math.abs(dv) >= 1000 ? ` <span class="${cls(dv)} text-[0.85rem]">${sgnVp(dv)}</span>` : ''}</td>
+          <td class="hide-sm"><span class="share" title="${(r0.share * 100).toFixed(2)}% → ${(r1.share * 100).toFixed(2)}% of the bucket's votes"><i style="width:${r0.share / maxS * 100}%;background:#475569"></i><i class="b" style="width:${r1.share / maxS * 100}%;background:${k === pk ? 'var(--amber)' : 'var(--cyan)'}"></i><span class="line" style="left:${0.01 / maxS * 100}%"></span></span> <span class="mono text-[0.85rem] sub">${(r1.share * 100).toFixed(1)}%</span></td>
+          <td class="mono">${pctS(r0.apr)} → <span class="${cls((r1.apr || 0) - (r0.apr || 0), 0.5)}">${pctS(r1.apr)}</span></td>
+          <td class="mono hide-sm">${fmt$(r1.weeklyUsd, 0)}${Math.abs(r1.weeklyUsd - r0.weeklyUsd) >= 1 ? ` <span class="${cls(r1.weeklyUsd - r0.weeklyUsd)} text-[0.85rem]">${sgn$(r1.weeklyUsd - r0.weeklyUsd, 0)}</span>` : ''}</td>
+          <td class="mono hide-sm">${r1.pot > 0 ? fmt$(r1.pot, 0) : '—'}</td></tr>`; }).join('') + '</tbody></table>';
+    $('vm-sim-note').innerHTML = `A forecast on this round's ${ST.live ? 'live' : 'captured'} pots and today's votes. Other voters, bribers and Votion's own timing can change it before the round closes.${p.potPricedBy === 'votion' ? ` ${esc(p.name)}'s pot holds a token our price feed does not carry — Votion's price is used.` : ''}`;
+  }
+
+  // ---------------------------------------------------------------- best split
+  function renderBestIdle() { if (!ST.best) $('vm-best').innerHTML = `<div class="sub">${ST.wallet && ST.wallet.rec ? `Splits ${esc(ST.wallet.name || 'this wallet')}'s ${fmtVp(ST.wallet.rec.vp)} VP` : `Splits ${fmtVp(ST.hypoVp)} VP (the “try with” amount above)`} in every bucket for the most bribes this round — Votion's reaction included.</div>`; }
+  function runBest() {
+    const VM = window.VoteMarket; const w = walletObj(); const r = VM.bestSplitAll(ST.m, w); ST.best = r;
+    const head = `<div class="grid sm:grid-cols-3 gap-4 mb-4">${tile('Your votes now earn', fmt$(r.nowUsd), w.hypothetical ? `${fmtVp(w.vp)} VP, not voted yet` : 'this round, if nothing changes')}${tile('Best split earns', `<span class="up">${fmt$(r.usd)}</span>`, 'this round, same VP')}${tile('Difference', `<span class="${cls(r.gain, 0.01)}">${sgn$(r.gain)}</span>`, 'per round · before other voters react')}</div>`;
+    const body = VM.BUCKETS.map(b => { const x = r.buckets[b]; if (!x.split.length) return `<div class="tile"><div class="flex justify-between"><b>${VM.BUCKET_LABEL[b]}</b><span class="sub">no funded pool pays here</span></div></div>`;
+      return `<div class="tile"><div class="flex justify-between items-baseline mb-2"><b class="text-lg">${VM.BUCKET_LABEL[b]}</b><span class="mono">${fmt$(x.nowUsd)} → <span class="up">${fmt$(x.usd)}</span></span></div>` +
+        x.split.filter(s => s.pct >= 0.005).map(s => `<div class="flow" style="grid-template-columns:minmax(0,1fr) 6rem 4rem 4.5rem"><span class="truncate">${esc(s.name)}${ST.m.pools[s.pk].votionExcluded ? ' <span class="tag no" title="Votion does not vote here — less competition for your votes">no Votion</span>' : ''}</span><div class="bar" title="${(s.pct * 100).toFixed(0)}% of your VP (${fmtVp(s.vp)})"><i style="width:${s.pct * 100}%;background:var(--amber)"></i></div><span class="mono text-right">${(s.pct * 100).toFixed(0)}%</span><span class="mono text-right up">${fmt$(s.usd)}</span></div>`).join('') +
+        `<button type="button" class="pill mt-2" data-plan="${esc(x.split[0].pk)}">Plan it →</button></div>`; }).join('');
+    $('vm-best').innerHTML = head + `<div class="grid md:grid-cols-2 gap-4">${body}</div><div class="note mt-3">Weights are a starting point: a pool whose pot is small moves a lot when anyone else votes it. Re-check close to the deadline.</div>`;
+    $('vm-best').querySelectorAll('[data-plan]').forEach(el => el.onclick = () => { ST.pct = 100; $('vm-pct').value = 100; pickPool(el.dataset.plan, true); });
+  }
+
+  // ---------------------------------------------------------------- boot
+  async function refreshLive() {
+    const live = await window.VoteMarket.fetchLivePots(ST.m).catch(() => null);
+    if (live) { window.VoteMarket.applyLivePots(ST.m, live); ST.live = true; renderHeader(); renderList(); renderSim(); }
+  }
+  function bind() {
+    $('vm-help-btn').onclick = () => $('vm-help').classList.toggle('hidden');
+    $('vm-amt').addEventListener('change', () => { const v = Number($('vm-amt').value); if (v > 0) { ST.amt = Math.round(v); renderControls(); renderList(); } });
+    $('vm-bribe').addEventListener('input', () => { ST.bribe = Number($('vm-bribe').value); renderSim(); });
+    $('vm-pct').addEventListener('input', () => { ST.pct = Number($('vm-pct').value); renderSim(); });
+    $('vm-bribe-quick').innerHTML = [0, 25, 50, 100, 250, 500].map(v => `<button type="button" class="pill amt" data-v="${v}">$${v}</button>`).join('');
+    $('vm-bribe-quick').querySelectorAll('button').forEach(b => b.onclick = () => { ST.bribe = Number(b.dataset.v); $('vm-bribe').value = ST.bribe; renderSim(); });
+    $('vm-best-btn').onclick = async () => { if (ST.wallet && !ST.wallet.rec && ST.wallet.loading) return; await ST.m.loadVoters(); runBest(); };
+  }
+  async function boot() {
+    bind();
+    try { ST.m = await window.VoteMarket.load({}); }
+    catch (e) { $('vm-list').innerHTML = `<div class="text-red-300 py-6">The Vote Market's data is unavailable right now (${esc(e.message)}). Try again in a minute.</div>`; return; }
+    renderHeader(); renderControls(); renderList();
+    const firstPk = (window.VoteMarket.lens(ST.m, { lens: 'impact', usd: ST.amt, limit: 1 })[0] || {}).pool; ST.target = firstPk ? firstPk.pk : Object.keys(ST.m.pools)[0];
+    renderPoolSelect(); renderWallet(); renderFrom(); renderSim(); renderBestIdle();
+    const q = new URLSearchParams(location.search); if (q.get('pool') && ST.m.pools[q.get('pool')]) pickPool(q.get('pool'), false);
+    if (window.AddressPicker) { try { AddressPicker.mount({ onSelect: (w, name) => setWallet(w, name), onClear: () => setWallet(null) }); const cur = AddressPicker.get(); if (cur && cur.wallet) setWallet(cur.wallet, cur.name); } catch (e) { console.warn('address picker:', e.message); } }
+    refreshLive();
+    setInterval(() => { if (!document.hidden) refreshLive(); }, 5 * 60 * 1000);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'VM1.0', revDate: '2026-09-27', page: 'vote-market' });   // VM1.0: the Vote Market planner — lenses, the simulator, the best split; engine lib/vote-market.js 1.0.0 (live: /test-2.html redirects to /app.html, so it ships here)</script>
+</body>
+</html>

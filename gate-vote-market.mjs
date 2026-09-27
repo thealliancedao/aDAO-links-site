@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// gate-vote-market.mjs — lib/vote-market.js 1.0.0 + the Vote Market page (test-2.html, VM1.0) on the committed products.
+// gate-vote-market.mjs — lib/vote-market.js 1.0.0 + the Vote Market page (vote-market.html, VM1.0) on the committed products.
 // Relations, never literals: every check derives its expectation from the same fixtures the engine reads.
 // Usage: TLA_CORE_DIR=/path/to/tla-core node gate-vote-market.mjs      (jsdom must be resolvable for the page checks)
 import fs from 'fs'; import path from 'path'; import { createRequire } from 'module';
@@ -65,12 +65,12 @@ const pools = Object.values(m.pools);
 // E10 names: no pool the page shows is a raw address
 check('E10 every pool with a pot or TVL has a readable name', pools.filter(p => p.potUsd > 0 || p.stakedUsd >= 1000).every(p => !/^(cw20|native):|^terra1[0-9a-z]{30,}/.test(p.name)), pools.filter(p => /^(cw20|native):|^terra1/.test(p.name)).map(p => p.name));
 
-console.log('P. the page (test-2.html in jsdom, captured pots — the LCD is not reachable)');
+console.log('P. the page (vote-market.html in jsdom, captured pots — the LCD is not reachable)');
 let JSDOM; try { ({ JSDOM } = require('jsdom')); } catch (e) { console.log('  (jsdom not installed — page checks skipped)'); }
 if (JSDOM) {
-  const html = fs.readFileSync(path.join(here, 'test-2.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '').replace('<script>if (window.SiteFooter)', '<script>if (false)');
+  const html = fs.readFileSync(path.join(here, 'vote-market.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '').replace('<script>if (window.SiteFooter)', '<script>if (false)');
   let onSel = null;
-  const dom = new JSDOM(html, { url: 'https://thealliancedao.com/test-2.html', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
+  const dom = new JSDOM(html, { url: 'https://thealliancedao.com/vote-market.html', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
     w.AddressPicker = { mount(o) { onSel = o.onSelect; }, get() { return null; } }; w.scrollTo = () => {}; w.HTMLElement.prototype.scrollIntoView = function () {};
     w.fetch = async (u) => { const mm = /tla-core\/main\/(.+)$/.exec(String(u).split('?')[0]); if (mm && fs.existsSync(path.join(CORE, mm[1]))) { const t = fs.readFileSync(path.join(CORE, mm[1]), 'utf8'); return { ok: true, status: 200, json: async () => JSON.parse(t) }; } return { ok: false, status: 404, json: async () => ({}) }; };
   } });
