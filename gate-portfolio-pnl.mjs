@@ -87,6 +87,22 @@ console.log('— P8 fallback —');
   ok('no v3 in the ledger → the Phase A story renders, the v3 cards stay hidden', !d.querySelector('[data-pp="net"]') && /In TLA since|No captured flow/.test(T(d.getElementById('story-card'))) && d.getElementById('pp-positions-card').hidden, T(d.getElementById('story-card')).slice(0, 120));
   const w2 = await run(OWNER, { noLib: true }); ok('lib missing → the Phase A story renders (no crash)', /In TLA since|No captured flow/.test(T(w2.document.getElementById('story-card')))); }
 
+console.log('— P10 the NFT leg (3.1) —');
+if (NFTC) { const shard = OWNER.slice(-1); const phx = new Set(J(path.join(NFTC, 'adao/collection.json')).tiers.phoenix.token_ids.map(String));
+  const expect = (slug) => { const e = J(path.join(NFTC, slug, 'ledger/by-wallet', shard + '.json')).wallets[OWNER]; const fh = J(path.join(NFTC, slug, 'snapshots/floor-history.json')); const rows = fh.rows || fh; const pt = rows[rows.length - 1].per_tier;
+    const mark = (tier) => { const f = pt[tier] || {}; const a = f.sales_floor_usd, b = f.listing_floor_usd; return a != null && b != null ? Math.min(a, b) : (a ?? b ?? null); };
+    let worth = 0, paid = 0, n = 0; for (const t of e.holdings_now.tokens) { const tier = slug === 'adao' && phx.has(String(t.token_id)) ? 'phoenix' : (t.broken ? 'broken' : 'base'); const m = mark(tier); if (m != null) worth += m; const u = t.acquired && t.acquired.price && t.acquired.price.usd; if (u != null && m != null) { paid += u; n++; } }
+    return { held: e.holdings_now.total, worth, paid, n, realized: e.realized.usd.total, trips: e.realized.round_trips }; };
+  const w = await run(OWNER); const d = w.document; for (let i = 0; i < 20 && d.getElementById('pp-nfts-card').hidden; i++) await new Promise(r => setTimeout(r, 250));
+  for (const [slug, label] of [['adao', 'aDAO'], ['pixel-lions', 'Pixel Lions']]) { const x = expect(slug); const el = d.querySelector('[data-pp-nft="' + slug + '"]'); const t = T(el);
+    ok(`${label}: ${x.held} held · worth ${PPL.fmt.usd(x.worth)} at the floor · paid ${PPL.fmt.usd(x.paid)} on the ${x.n} priced · sold ${x.trips} round trips ${money(x.realized)}`, el && t.includes(x.held + ' held') && t.includes(PPL.fmt.usd(x.worth)) && t.includes(PPL.fmt.usd(x.paid)) && t.includes(x.n + ' of ' + x.held + ' priced') && t.includes(money(x.realized)), t.slice(0, 300)); }
+  ok('every held token listed with how it came in, what was paid, and the floor', d.querySelectorAll('[data-pp-nft="adao"] tbody tr').length === expect('adao').held);
+  const tier9068 = PPL.nftLeg({ slug: 'adao', entry: { holdings_now: { tokens: [{ token_id: '9068' }, { token_id: '9057' }] } }, perTier: { phoenix: { sales_floor_usd: 1000 }, base: { sales_floor_usd: 90 } }, phoenix: phx });
+  ok('registry Phoenix fix: #9068 marks as phoenix, #9057 as base', tier9068.tokens[0].tier === 'phoenix' && tier9068.tokens[1].tier === 'base');
+  d.querySelector('#pp-nfts [data-pp-lens="luna"]').click(); await new Promise(r => setTimeout(r, 50));
+  ok('LUNA lens reaches the NFT card', /LUNA/.test(T(d.querySelector('[data-pp-nft="adao"]')))); }
+else console.log('  (NFTC_DIR not given — P10 skipped)');
+
 console.log('— P9 the picker\'s "View portfolio →" —');
 { const mk = (url) => { const dom = new JSDOM('<div id="sh-picker"></div>', { url, runScripts: 'outside-only' }); const w = dom.window; w.fetch = () => Promise.resolve({ ok: false, json: async () => ({}) }); w.eval(fs.readFileSync(path.join(SITE, 'lib/address-picker.js'), 'utf8')); w.AddressPicker.mount({ emitInitial: false }); return w; };
   const w1 = mk('https://thealliancedao.com/tla-stats.html?wallet=' + OWNER); const a = w1.document.querySelector('.ap-port');
