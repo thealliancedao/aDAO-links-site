@@ -142,6 +142,7 @@ if (JSDOM) {
   check(`T1 header: ${money0(funded)} in bribes = Σ the engine's pots (the planner's number); a vote costs = VM.votionRate`, txt().includes('Bribes this round' + money0(funded)) && rateSeen === VM.votionRate(m), txt().slice(0, 220));
   const casts = (MR && MR.timing && MR.timing.casts) || []; const hs = casts.filter(c => c.hours_before_deadline > 0 && c.hours_before_deadline < 6).map(c => c.hours_before_deadline).sort((a, b) => a - b);
   if (hs.length) check(`T1b "Votion casts in" uses its fitted timing (about ${hs[Math.floor(hs.length / 2)]} h before close), not the deadline`, txt().includes(`about ${hs[Math.floor(hs.length / 2)]} h before close`));
+  if (m.voteBefore) { const hhmm = new Date(m.voteBefore).toISOString().slice(11, 16); check(`T1c "Voting closes in" names the real deadline (${hhmm} UTC from Votion's voteBefore), never the ~21:20 cast`, txt().includes(hhmm + ' UTC') && !/Voting closes in[^A-Z]*~21:20/.test(txt()), txt().slice(0, 200)); }
   const rows = [...el.querySelectorAll('.vmt-row[data-pk]')]; const top = VM.lens(m, { lens: 'impact', bucket: 'all', usd: 50, limit: 8 });
   check('T2 "Where $ does the most" = the engine\'s top 8 for $50, in order, no winding-down pool', rows.length === top.length && rows.every((r, i) => r.dataset.pk === top[i].pool.pk) && top.every(r => !r.pool.winding), rows.map(r => r.dataset.pk).slice(0, 3));
   check('T3 every row opens the simulator on that pool with $50 in (?pool=…&bribe=50)', rows.every(r => r.getAttribute('href') === '/vote-market.html?pool=' + encodeURIComponent(r.dataset.pk) + '&bribe=50'));
@@ -167,6 +168,12 @@ if (JSDOM) {
   const dd = dw.document; const bill = [...dd.querySelectorAll('#vm-answers .tile')].map(t => t.textContent.replace(/\s+/g, ' ')).find(t => /You pay/.test(t)) || '';
   check(`T9 the simulator opens from the tile's link on ${m.pools[tpk].name} with the $50 bribe in`, dd.getElementById('vm-pool').value === tpk && dd.getElementById('vm-bribe').value === '50' && /Your \$50 bribe/.test(bill), [dd.getElementById('vm-pool').value, dd.getElementById('vm-bribe').value, bill.slice(0, 80)]);
 }
+
+// B · the bribe breakdown always adds up: You pay − Comes back − Elsewhere (signed) = Real cost; a gain elsewhere gets its own line (VM1.7)
+{ const pg = fs.readFileSync(path.join(here, 'vote-market.html'), 'utf8'), ap = fs.readFileSync(path.join(here, 'app.html'), 'utf8');
+  let found = null; for (const pk of Object.keys(m.pools)) { const p = m.pools[pk]; if (!(p.potUsd >= 0) || p.winding || p.votionExcluded) continue; const w = Object.values(m.voters).find(v => Object.keys(v.votes).some(k => k.startsWith(p.bucket + '|')) && !v.votes[pk]); if (!w) continue; const sc = VM.scenario(m, { bucket: p.bucket, target: pk, bribeUsd: 100, wallet: w, from: 'all', pct: 0 }); if (sc.incomeChange - sc.bribeBack > 0.01) { found = sc; break; } }
+  check('B1 the breakdown adds up: 100 − back − (income change − back) = real cost', !found || Math.abs(100 - found.incomeChange - found.netCost) < 1e-6);
+  check('B2 page + app show "Gained elsewhere" when Votion leaving your pools lowers your dilution', /Gained elsewhere/.test(pg) && /Gained elsewhere/.test(ap)); }
 
 // ---------------------------------------------------------------- M · the phone layout · A · the app's Vote Market tab (static wiring; the live drive is the 390px browser run)
 console.log('M/A. phone + app');
