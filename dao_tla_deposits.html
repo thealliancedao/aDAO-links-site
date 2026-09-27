@@ -14,6 +14,7 @@
          Used to overlay live RPC data on top of the snapshot baseline. -->
     <script src="./lib/tla-decompose.js"></script>
     <script src="./lib/adao-live-data.js"></script>
+    <script src="/lib/winddown.js?v=1.0.0"></script>
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #0D0D0D; color: #EAEAEA; }
         .stat-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); }
@@ -564,7 +565,12 @@
             // token-terms Δ per pool from the positions product (underlying amounts) when we have both ends
             const nowPos = (window.__positionsDoc && window.__positionsDoc.treasury && window.__positionsDoc.treasury.lp_positions) || [];
             const pct = (v) => (v>=0?'+':'−') + Math.abs(v).toFixed(2) + '%';
-            let html='<table class="w-full"><thead class="text-gray-500 border-b border-gray-800"><tr><th class="text-left py-1.5 pl-1">Pool</th><th class="text-left py-1.5" style="width:34%">Share · split</th><th class="text-right py-1.5">Deposited</th><th class="text-right py-1.5" title="Incentive APR from chain distributions. Amplified shown as ≥ non-amp until captured.">non / amp APR</th><th class="text-right py-1.5 pr-1" title="USD change vs the selected window">Δ $</th></tr></thead><tbody>';
+            // 3.2 (2026-09-27): winding-down assets (USDC.n → USDC.inj) — lib/winddown.js reads curated alerts.json; a pool whose
+            // USDC.n leg in the treasury's position is ≥ $1 gets the pill, and the table opens with one banner for the lot
+            const WD = window.Winddown && window.Winddown.ready;
+            const wdName = (name) => { if (!WD) return ''; const l = nowPos.find(x => x.pool_name === name && WD.forLp(x)); return l ? window.Winddown.pill(WD.forLp(l).alert) : ''; };
+            const wdHits = WD ? WD.scan({ lps: nowPos }) : [];
+            let html=wdHits.map(h=>window.Winddown.banner(h,{who:'The aDAO treasury'})).join('')+'<table class="w-full"><thead class="text-gray-500 border-b border-gray-800"><tr><th class="text-left py-1.5 pl-1">Pool</th><th class="text-left py-1.5" style="width:34%">Share · split</th><th class="text-right py-1.5">Deposited</th><th class="text-right py-1.5" title="Incentive APR from chain distributions. Amplified shown as ≥ non-amp until captured.">non / amp APR</th><th class="text-right py-1.5 pr-1" title="USD change vs the selected window">Δ $</th></tr></thead><tbody>';
             let totalNa=0,totalAmp=0;
             lpPositions.forEach(p=>{
                 totalNa+=p.nonAmp;totalAmp+=p.amp;
@@ -574,7 +580,7 @@
                 const inc = aprMap[p.name];
                 const share = p.total/book*100, naW = p.total>0 ? p.nonAmp/p.total*100 : 0;
                 html+=`<tr class="pool-row border-b border-gray-800/50">
-                    <td class="py-2 pl-1"><span class="text-white font-medium">${p.name}</span>${p.type==='single'?'<span class="badge-single ml-1">S</span>':''}<div class="text-[10px] text-gray-600">${p.dex||''}</div></td>
+                    <td class="py-2 pl-1"><span class="text-white font-medium">${p.name}</span>${wdName(p.name)}${p.type==='single'?'<span class="badge-single ml-1">S</span>':''}<div class="text-[10px] text-gray-600">${p.dex||''}</div></td>
                     <td class="py-2"><div class="flex items-center gap-2"><div class="h-2 rounded-full overflow-hidden bg-white/5 flex" style="width:${Math.max(8, share*2.4).toFixed(0)}%;min-width:24px" title="${share.toFixed(1)}% of deposits · ${naW.toFixed(0)}% non-amp / ${(100-naW).toFixed(0)}% amplified"><div class="bg-gray-300" style="width:${naW.toFixed(1)}%"></div><div class="bg-orange-500" style="width:${(100-naW).toFixed(1)}%"></div></div><span class="text-[10px] text-gray-500 font-mono">${share.toFixed(1)}%</span></div></td>
                     <td class="py-2 text-right font-mono"><span class="text-white font-bold">${fmt(p.total,0)}</span><div class="text-[10px] font-mono"><span class="text-gray-400">${p.nonAmp>0?fmt(p.nonAmp,0):'–'}</span> <span class="text-gray-600">/</span> <span class="text-orange-400">${p.amp>0?fmt(p.amp,0):'–'}</span></div></td>
                     <td class="py-2 text-right font-mono">${inc!=null?`<span class="text-gray-200">${inc.toFixed(1)}%</span><span class="text-gray-600"> / </span><span class="text-orange-400">≥${inc.toFixed(1)}%</span>`:'<span class="text-gray-700">--</span>'}</td>
@@ -1129,6 +1135,7 @@
             const u=currentData.dashboard?.unclaimed_rewards||{};
             document.getElementById('pending-rewards').textContent=fmt((u.deposit_rewards_usd||0)+(u.zAssets||0),0);
             renderPositions();
+            if (window.Winddown) window.Winddown.load().then(() => renderPositions()).catch(() => {});   // 3.2: flag winding-down legs once the curated alerts land
             renderTokenBalances();
             renderValueBreakdown();
             renderChart();
@@ -1152,6 +1159,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '3.1', revDate: '2026-08-23', page: 'dao_tla_deposits' });</script>
+<script>SiteFooter.mount({ rev: '3.2', revDate: '2026-09-27', page: 'dao_tla_deposits' });   // 3.2: Noble USDC sweep — USDC.n legs flagged + a treasury banner with the USDC.inj migration links (lib/winddown.js)</script>
 </body>
 </html>

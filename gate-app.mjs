@@ -16,6 +16,7 @@ async function boot(opts={}){
   const dom=new JSDOM(html.replace(/<script>[\s\S]*?<\/script>/,'<script></script>').replace(/<link[^>]+>/g,''),{url:'https://thealliancedao.com/app.html'+(opts.hash||''),runScripts:'outside-only',pretendToBeVisual:true});
   const w=dom.window; w.fetch=fakeFetch; w.scrollTo=()=>{}; w.matchMedia=()=>({matches:false}); w.navigator.serviceWorker=undefined;
   w.localStorage.clear(); if(opts.wallet)w.localStorage.setItem('tla:selected_wallet',opts.wallet); w.localStorage.setItem('ally:prefs',JSON.stringify(Object.assign({onboarded:true},opts.prefs||{})));
+  if(opts.lib!==false){const lib=fs.readFileSync(path.join(path.dirname(APP),'lib/winddown.js'),'utf8');w.eval(lib)}   // 2.1.2: the page's <script src=/lib/winddown.js>
   const js=html.match(/<script>([\s\S]*?)<\/script>/)[1]; w.eval(js);
   for(let i=0;i<40&&!(w.__ally&&w.__ally.D&&w.__ally.D._at&&w.document.getElementById('today').querySelector('.wrow'));i++)await sleep(150);
   await sleep(300); return dom;
@@ -142,6 +143,21 @@ console.log('\n== D. TLA · DAO · Me ==');
   /* v1 prefs on a device migrate */
   const dom2=await boot({prefs:{tabs:['home','portfolio','market','vote','more']}}); ok([...dom2.window.document.querySelectorAll('.tab')].map(x=>x.getAttribute('data-v')).join()==='today,nfts,tla,dao,me','v1 default tab set migrates to the v2 default');
   const dom3=await boot({prefs:{tabs:['home','nft','tla','vote','more']}}); ok([...dom3.window.document.querySelectorAll('.tab')].map(x=>x.getAttribute('data-v')).join()==='today,nfts,tla,vote,me','a custom v1 tab set keeps its choices under v2 names');
+}
+console.log('\n== E. Noble USDC wind-down (2.1.2 · lib/winddown.js) ==');
+{ const AL=J('docs/curated/alerts.json').alerts.find(a=>a.id==='usdc-noble-winddown'); const DEN=AL.denom.replace(/^ibc\//,'');
+  const members=J('member-data/participants/current.json').members;
+  const legOf=l=>(l.underlying_token_amounts||[]).find(x=>x.symbol===AL.symbol&&(x.usd_value??0)>=1);   // independent: the catalog symbol on the leg, ≥ $1
+  const expUsd=m=>(m.lp_positions||[]).reduce((a,l)=>{const x=legOf(l);return a+(x?x.usd_value:0)},0)+(m.wallet_balances||[]).filter(b=>(b.symbol===AL.symbol||String(b.denom||'').includes(DEN))&&(b.usd_value??0)>=1).reduce((a,b)=>a+b.usd_value,0);
+  const holder=members.map(m=>({m,u:expUsd(m)})).sort((a,b)=>b.u-a.u)[0]; ok(holder&&holder.u>1000,'fixture: a member holds USDC.n ('+(holder&&usd(holder.u,0))+')');
+  const dom=await boot({wallet:holder.m.wallet}); const doc=dom.window.document; const rows=rowsOf(doc,'today');
+  const r=rows.find(x=>x.label==='USDC.n winding down'); ok(!!r,'Today: "USDC.n winding down" row for '+holder.m.wallet.slice(-6),rows.map(x=>x.label).join(' | '));
+  ok(r&&r.value===usd(holder.u,0),'Today: row value = the USDC.n held = '+usd(holder.u,0),r&&r.value);
+  if(r){r.el.click();await sleep(50);const sh=text(doc.getElementById('sheet-c'));ok(/USDC\.inj/.test(sh)&&/by Oct 31/.test(sh),'sheet: move to USDC.inj by Oct 31',sh.slice(0,160));ok(!!doc.querySelector('#sheet-c a[href="'+AL.links[0].url+'"]'),'sheet: links the step-by-step migration doc')}
+  dom.window.__ally.show('tla'); await sleep(100); const nExp=(holder.m.lp_positions||[]).filter(legOf).length; const nPill=doc.querySelectorAll('#tla .wd-pill').length;
+  ok(nPill===nExp,'TLA: '+nExp+' LP row(s) carry the "USDC.n ending" pill',nPill);
+  const clean=members.find(m=>expUsd(m)===0&&(m.lp_positions||[]).length>0); const dom2=await boot({wallet:clean.wallet}); ok(!rowsOf(dom2.window.document,'today').some(x=>/winding down/.test(x.label)),'a wallet with no USDC.n (or only dust) gets no row');
+  const dom3=await boot({wallet:holder.m.wallet,lib:false}); ok(!rowsOf(dom3.window.document,'today').some(x=>/winding down/.test(x.label))&&rowsOf(dom3.window.document,'today').length>0,'lib missing → the page still renders, no flag (no crash)');
 }
 ok(!fetched.some(u=>u.includes('tla-core/main/nfts/adao')),'no fetch to the frozen tla-core/nfts/adao');ok(fetched.some(u=>u.includes('nft-collections/main/adao/snapshots/')),'aDAO products fetched from nft-collections/adao/');
 console.log(`\n${pass}/${pass+fail} passed`); process.exit(fail?1:0);
