@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-tenant="liondao">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- liondao/mint.html 1.0 (2026-09-22) — THE MINT, HOUR BY HOUR. The full page behind the home's Mint history tile: the
+         5,000 pixeLions primary sales from the launchpad ledger (nft-collections/pixel-lions/ledger/primary-sales.json) — the
+         sellout curve, the two price tiers, what LUNA was worth as it happened, who minted how many, and which minters still
+         hold a pixeLion today (a wallet-level join on the collection's owner snapshot; token-level "did they keep the ones they
+         minted" stays Unknown until the by-wallet join exists). Every USD is the day's LUNA price at the mint (price-history). -->
+    <base href="/">
+    <title>NFT Mint History | Lion DAO | thealliancedao.com</title>
+    <link rel="icon" type="image/png" href="/assets/token-logos/ROAR_LOGO.png">
+    <meta name="description" content="The pixeLions mint, hour by hour: 5,000 primary sales from the launchpad ledger — sellout curve, price tiers, LUNA paid and its USD value at the time, top minters, and who still holds.">
+    <meta name="theme-color" content="#0b0b0b">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>:root { --t-accent: #ffe600; --t-accent2: #f59e0b; --t-bg: #0b0b0b; --t-surface: #161616; --t-surface2: #101010; --t-text: #e5e7eb; --t-border: #4a4000; --t-font: 'Press Start 2P', Inter, sans-serif; } html, body { background: var(--t-bg) !important; }
+        .mt-tier { display: grid; grid-template-columns: 6rem 1fr 9rem; gap: .75rem; align-items: center; font-size: .82rem; margin: .35rem 0; } .mt-tier .ld-bar { margin: 0; }
+        .mt-bucket { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; } @media (max-width: 640px) { .mt-bucket { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mt-tier { grid-template-columns: 1fr; gap: .2rem; } }
+        .mt-bucket .ld-tile { text-align: center; } .mt-bucket .ld-v { font-size: 1.25rem; }
+    </style>
+</head>
+<body>
+    <div id="site-header"></div>
+    <script src="/lib/collection-context.js"></script>
+    <script src="/lib/site-header.js"></script>
+    <script src="/liondao/lib/ld.js?v=1.3.0"></script>
+
+    <main class="ld" id="page">
+        <div id="crumb"></div>
+        <div id="hero"></div>
+        <div id="curve"></div>
+        <div id="price"></div>
+        <div id="minters"></div>
+        <div id="after"></div>
+        <div id="burning-lions"></div>
+        <div id="about"></div>
+    </main>
+
+    <div id="site-footer"></div>
+    <script src="/lib/cron-registry.js"></script>
+    <script src="/lib/site-footer.js"></script>
+    <script>
+    (async function () {
+        const REV = '1.2', REV_DATE = '2026-09-26';   // 1.2: Burning Lions media from the mirrored index (animated: gif as img, mp4/webm as video). 1.1 (owner 2026-09-25): NFT Mint History — the Burning Lions join the pixeLions: each lion's holder, the ROAR they burned, and Lion DAO's match
+        const { fmt, ui, chart, esc, isNum, sum } = LD;
+        await LD.mount({ page: 'liondao-mint', rev: REV, revDate: REV_DATE });
+        const T = LD._M.tenant || {};
+        const $ = (id) => document.getElementById(id);
+        $('crumb').innerHTML = ui.crumb([{ label: T.label || 'Lion DAO', href: '/liondao/' }, { label: 'NFT Mint History' }]);
+        const SLUG = (T.collections && T.collections[0]) || 'pixel-lions';
+
+        const [MS, SUM, trusted, nap] = await Promise.all([LD.collection(SLUG, 'ledger/primary-sales.json'), LD.collection(SLUG, 'snapshots/summary.json'), LD.jsonFetch(LD.CORE + 'docs/curated/trusted-addresses.json'), LD.nap()]);
+        if (!MS || !MS.by_token) { $('hero').innerHTML = ui.note('The mint ledger did not load (nft-collections/' + esc(SLUG) + '/ledger/primary-sales.json).'); return; }
+        const lunaNow = nap && nap.token_prices && nap.token_prices.LUNA ? nap.token_prices.LUNA.final_price_usd : null;
+
+        // ---- fold the ledger once: rows, minters, hours, tiers
+        const rows = Object.keys(MS.by_token).map(id => MS.by_token[id]).filter(r => r && r.buyer && r.ts).map(r => ({ id: r.token_id, buyer: r.buyer, ts: r.ts, t: Date.parse(r.ts), luna: r.price && r.price.denom === 'uluna' ? Number(r.price.amount) / 1e6 : null, denom: r.price ? r.price.denom : null, usd: isNum(r.usd) ? r.usd : null, lunaUsd: isNum(r.luna_usd) ? r.luna_usd : null, tx: r.txhash })).sort((a, b) => a.t - b.t);
+        const n = rows.length, paid = rows.filter(r => isNum(r.luna) && r.luna > 0);
+        const totalLuna = sum(paid.map(r => r.luna)), totalUsd = sum(rows.map(r => r.usd)), unpricedUsd = rows.filter(r => r.usd == null).length;
+        const first = rows[0], last = rows[n - 1]; const hours = (last.t - first.t) / 3.6e6;
+        const byMinter = {}; rows.forEach(r => { const m = byMinter[r.buyer] || (byMinter[r.buyer] = { address: r.buyer, count: 0, luna: 0, usd: 0, firstT: r.t }); m.count++; m.luna += r.luna || 0; m.usd += r.usd || 0; });
+        const minters = Object.values(byMinter).sort((a, b) => b.count - a.count || b.luna - a.luna);
+        const tiers = {}; paid.forEach(r => { tiers[r.luna] = (tiers[r.luna] || 0) + 1; }); const tierRows = Object.keys(tiers).map(Number).sort((a, b) => a - b);
+        const free = n - paid.length;
+        // hourly buckets from the first mint's hour
+        const h0 = Math.floor(first.t / 3.6e6) * 3.6e6, hN = Math.floor(last.t / 3.6e6) * 3.6e6; const hourly = []; for (let h = h0; h <= hN; h += 3.6e6) hourly.push({ t: h, n: 0, lunaUsd: null });
+        rows.forEach(r => { const i = Math.floor((r.t - h0) / 3.6e6); const b = hourly[i]; if (b) { b.n++; if (isNum(r.lunaUsd)) b.lunaUsd = r.lunaUsd; } });
+        let cum = 0; hourly.forEach(b => { cum += b.n; b.cum = cum; });
+        const hl = (t) => { const d = new Date(t); return d.toISOString().slice(5, 10).replace('-', '/') + ' ' + String(d.getUTCHours()).padStart(2, '0') + ':00'; };
+        const peak = hourly.reduce((a, b) => b.n > a.n ? b : a, hourly[0]);
+        const half = hourly.find(b => b.cum >= n / 2);
+        // the holder join (wallet level): the owner snapshot's per-real-owner counts
+        const owners = SUM && SUM.per_real_owner_counts && typeof SUM.per_real_owner_counts === 'object' ? SUM.per_real_owner_counts : null;
+        const stillHold = owners ? minters.filter(m => (owners[m.address] || 0) > 0) : null; const heldByMinters = owners ? sum(stillHold.map(m => owners[m.address])) : null;
+        const lunaStart = rows.find(r => isNum(r.lunaUsd)), lunaEnd = rows.slice().reverse().find(r => isNum(r.lunaUsd));
+        const roster = T.wallets || {}; const names = trusted && trusted.addresses || {};
+        const nameOf = (a) => roster[a] ? { label: roster[a].label, kind: 'o' } : (names[a] ? { label: names[a].label, kind: '' } : null);
+
+        // ---- hero
+        $('hero').innerHTML = '<section class="ld-sec"><div class="ld-hero"><div class="ld-mane"></div><div class="ld-hero-k">' + esc(T.label || 'Lion DAO') + ' · pixeLions mint · primary sales ledger</div>' +
+            '<div class="ld-hero-v ld-num">' + esc(fmt.int(n)) + ' <span style="font-size:.5em;color:var(--ld-muted)">minted</span></div>' +
+            '<div class="ld-hero-l">' + (n ? `The whole collection went in <b>${hours < 48 ? fmt.num(hours, 1) + ' hours' : fmt.num(hours / 24, 1) + ' days'}</b> — first mint ${esc(fmt.date(first.ts))} ${esc(first.ts.slice(11, 16))} UTC, last ${esc(fmt.date(last.ts))} ${esc(last.ts.slice(11, 16))} UTC, half the supply gone ${half ? 'by ' + esc(hl(half.t)) + ' UTC' : '—'}. <b>${esc(fmt.int(minters.length))} wallets</b> paid <b>${esc(fmt.luna(totalLuna))}</b>` + (isNum(totalUsd) ? `, worth <b>${esc(fmt.usd(totalUsd))}</b> at the time` : '') + (lunaStart && lunaEnd ? ` — LUNA went from ${esc(fmt.price(lunaStart.lunaUsd))} to ${esc(fmt.price(lunaEnd.lunaUsd))} while it ran` : '') + (free ? `; ${fmt.int(free)} tokens were free or admin mints` : '') + '.' : 'No mint rows in the ledger.') + '</div>' +
+            '<div class="ld-hero-s">launchpad ' + ui.addr(MS.launchpad || '') + ' · ledger built ' + ui.when(MS.generatedAt) + ' · USD = each mint at that day\'s LUNA price' + (unpricedUsd ? ' · ' + unpricedUsd + ' rows unpriced' : '') + '</div></div>' +
+            '<div class="ld-grid ld-g4" style="margin-top:1.1rem">' +
+            ui.stat({ label: 'Paid in total', value: fmt.luna(totalLuna), sub: (isNum(totalUsd) ? fmt.usd(totalUsd) + ' at the time' : '') + (isNum(lunaNow) ? ' · ' + (fmt.usd(totalLuna * lunaNow) || '—') + ' at today\'s LUNA' : ''), source: 'the same LUNA, two prices — then and now' }) +
+            ui.stat({ label: 'Price tiers', value: tierRows.map(t => fmt.num(t) + ' LUNA').join(' · '), sub: tierRows.map(t => fmt.int(tiers[t]) + ' at ' + fmt.num(t)).join(' · '), source: 'from the ledger, not the launchpad\'s docs' }) +
+            ui.stat({ label: 'Unique minters', value: fmt.int(minters.length), sub: 'top wallet took ' + fmt.int(minters[0].count) + ' · median ' + fmt.int(minters[Math.floor(minters.length / 2)].count) + ' per wallet', source: 'buyer address per primary sale' }) +
+            ui.stat({ label: 'Still hold today', value: stillHold ? fmt.int(stillHold.length) + ' of ' + fmt.int(minters.length) : null, reason: 'owner snapshot not read', sub: stillHold ? fmt.pctPlain(stillHold.length / minters.length * 100, 0) + ' of minters hold ≥1 pixeLion now (' + fmt.int(heldByMinters) + ' tokens between them)' : '', source: 'wallet-level: holds any pixeLion, not necessarily the ones minted' }) +
+            '</div></section>';
+
+        // ---- the sellout curve
+        $('curve').innerHTML = ui.section('The sellout', 'mints per hour and the running total, UTC',
+            '<div class="ld-tile"><div class="ld-chart"><canvas id="mt-curve"></canvas></div><div class="ld-src">Peak hour ' + esc(hl(peak.t)) + ' UTC with ' + esc(fmt.int(peak.n)) + ' mints · ' + esc(fmt.int(hourly.length)) + ' hours from first to last. One row per token, folded into hours in the page.</div></div>');
+        (function () {
+            const C = window.Chart; if (!C) return; const el = document.getElementById('mt-curve'); if (!el) return;
+            C.defaults.color = '#a3a3a3'; C.defaults.font.family = 'Inter, system-ui, sans-serif'; C.defaults.font.size = 11;
+            new C(el.getContext('2d'), { type: 'bar', data: { labels: hourly.map(b => hl(b.t)), datasets: [
+                { type: 'line', label: 'Minted so far', data: hourly.map(b => b.cum), borderColor: '#ffe600', backgroundColor: '#ffe60022', fill: true, tension: .3, pointRadius: 0, borderWidth: 2, yAxisID: 'y1', order: 0 },
+                { type: 'bar', label: 'Mints this hour', data: hourly.map(b => b.n), backgroundColor: '#f59e0b', borderWidth: 0, yAxisID: 'y', order: 1 }] },
+                options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { labels: { boxWidth: 10 } }, tooltip: { callbacks: { label: (c) => ' ' + c.dataset.label + ': ' + fmt.int(c.parsed.y) } } },
+                    scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } }, y: { position: 'left', beginAtZero: true, grid: { color: 'rgba(255,230,0,.08)' }, ticks: { callback: (v) => fmt.int(v) } }, y1: { position: 'right', beginAtZero: true, max: n, grid: { display: false }, ticks: { callback: (v) => fmt.int(v) } } } } });
+        })();
+
+        // ---- price: tiers + LUNA during the mint
+        const tierBars = tierRows.map((t, i) => '<div class="mt-tier"><div class="ld-num" style="color:#fff">' + esc(fmt.num(t)) + ' LUNA</div>' + ui.bar([{ label: fmt.num(t) + ' LUNA', v: tiers[t], color: chart.palette[i] }, { label: 'other tiers', v: paid.length - tiers[t], color: '#222' }], { legend: false, fmt: fmt.int }) + '<div class="ld-num" style="text-align:right">' + esc(fmt.int(tiers[t])) + ' <span class="ld-sub">' + esc(fmt.pctPlain(tiers[t] / paid.length * 100, 1)) + ' · ' + esc(fmt.luna(tiers[t] * t)) + '</span></div></div>').join('');
+        const lunaPts = hourly.filter(b => isNum(b.lunaUsd));
+        $('price').innerHTML = ui.section('What it cost', 'the price tiers the ledger shows, and LUNA\'s dollar price as the mint ran',
+            '<div class="ld-grid ld-g2" style="align-items:start"><div class="ld-tile"><div class="ld-k">Price paid per token</div>' + tierBars + '<div class="ld-src">' + esc(fmt.int(paid.length)) + ' paid mints' + (free ? ' · ' + esc(fmt.int(free)) + ' free / admin' : '') + '. The ledger names the tier per token; why a wallet got the lower one (allowlist, early phase) is the launchpad\'s story, not the chain\'s.</div></div>' +
+            '<div class="ld-tile"><div class="ld-k">LUNA in USD during the mint · ' + (lunaStart && lunaEnd ? esc(fmt.price(lunaStart.lunaUsd)) + ' → ' + esc(fmt.price(lunaEnd.lunaUsd)) : '—') + '</div><div class="ld-chart ld-chart-sm"><canvas id="mt-luna"></canvas></div><div class="ld-src">The day price the ledger priced each mint at (price-history). A 12 LUNA mint was ' + (lunaStart ? esc(fmt.usd(12 * lunaStart.lunaUsd, 2)) : '—') + ' at the start and ' + (lunaEnd ? esc(fmt.usd(12 * lunaEnd.lunaUsd, 2)) : '—') + ' by the end' + (isNum(lunaNow) ? '; it is ' + esc(fmt.usd(12 * lunaNow, 2)) + ' at today\'s ' + esc(fmt.price(lunaNow)) : '') + '.</div></div></div>');
+        if (lunaPts.length) chart.line('mt-luna', [{ label: 'LUNA (USD)', data: lunaPts.map(b => ({ x: hl(b.t), y: b.lunaUsd })), color: '#79c0ff', fill: true }], { fmt: fmt.price });
+
+        // ---- who minted
+        const buckets = [{ label: '1 token', lo: 1, hi: 1 }, { label: '2 – 5', lo: 2, hi: 5 }, { label: '6 – 20', lo: 6, hi: 20 }, { label: '21 +', lo: 21, hi: Infinity }].map(b => { const ms = minters.filter(m => m.count >= b.lo && m.count <= b.hi); return Object.assign(b, { wallets: ms.length, tokens: sum(ms.map(m => m.count)) }); });
+        const top = minters.slice(0, 25);
+        $('minters').innerHTML = ui.section('Who minted', esc(fmt.int(minters.length)) + ' wallets · by how many they took',
+            '<div class="mt-bucket" style="margin-bottom:.9rem">' + buckets.map(b => '<div class="ld-tile"><div class="ld-k">' + esc(b.label) + '</div><div class="ld-v ld-num">' + esc(fmt.int(b.wallets)) + '</div><div class="ld-s">wallets · ' + esc(fmt.int(b.tokens)) + ' tokens (' + esc(fmt.pctPlain(b.tokens / n * 100, 0)) + ')</div></div>').join('') + '</div>' +
+            '<div class="ld-tile"><div class="ld-k">Top minters · ' + esc(fmt.int(top.length)) + ' of ' + esc(fmt.int(minters.length)) + '</div>' +
+            ui.table([{ label: '#' }, { label: 'Wallet' }, { label: 'Minted', r: true }, { label: 'Paid', r: true }, { label: 'USD then', r: true }, { label: 'Holds now', r: true }, { label: 'First mint', r: true }],
+                top.map((m, i) => { const nm = nameOf(m.address); return '<tr><td class="ld-num" style="color:var(--ld-dim)">' + (i + 1) + '</td><td>' + (nm ? ui.chip(nm.label, nm.kind) + ' ' : '') + ui.addr(m.address) + '</td>' + ui.td(esc(fmt.int(m.count)), true) + ui.td(esc(fmt.luna(m.luna)), true) + ui.td(esc(fmt.usd(m.usd)), true) + ui.td(owners ? esc(fmt.int(owners[m.address] || 0)) : ui.unk('owner snapshot not read'), true) + ui.td('<span class="ld-sub">' + esc(new Date(m.firstT).toISOString().slice(0, 16).replace('T', ' ')) + '</span>', true) + '</tr>'; })) +
+            '<div class="ld-src">"Holds now" = pixeLions this wallet owns today by the collection\'s owner snapshot (staked and listed included, custody resolved) — any pixeLion, not necessarily the ones it minted. Names from the Lion DAO roster and the trust register.</div></div>');
+
+        // ---- what minters did next
+        const walked = stillHold ? minters.length - stillHold.length : null;
+        $('after').innerHTML = ui.section('What minters did next', 'the part the products can answer today, and the part they cannot',
+            '<div class="ld-grid ld-g3">' +
+            ui.stat({ label: 'Minters still in', value: stillHold ? fmt.int(stillHold.length) : null, reason: 'owner snapshot not read', sub: stillHold ? 'hold ' + fmt.int(heldByMinters) + ' of ' + fmt.int(SUM.minted_count || n) + ' minted tokens today (' + fmt.pctPlain(heldByMinters / (SUM.minted_count || n) * 100, 0) + ')' : '', source: 'primary-sales buyers ∩ summary.per_real_owner_counts' }) +
+            ui.stat({ label: 'Minters fully out', value: isNum(walked) ? fmt.int(walked) : null, reason: 'owner snapshot not read', sub: isNum(walked) ? fmt.pctPlain(walked / minters.length * 100, 0) + ' of minters hold no pixeLion now — sold, sent or moved wallets' : '', source: 'the same join, the other side' }) +
+            ui.stat({ label: 'Kept what they minted', value: null, reason: 'token-level join not built — needs the by-wallet shards (who holds token #N, and whether that is its minter)', sub: 'per token: still with its minter, sold on a venue, transferred, staked by the minter. Lands with the mint-history product.', source: 'Unknown, not estimated' }) +
+            '</div>');
+
+        // ---- 1.1 BURNING LIONS — the one-of-ones won in the ROAR burn festival: who holds each today, what that wallet burned, and Lion DAO's match
+        (async function () { const el = $('burning-lions'); const BL = T.burning_lions || {}; if (!BL.contract) { el.innerHTML = ''; return; }
+            el.innerHTML = ui.section('Burning Lions', 'the one-of-ones from the ROAR burn festival', ui.note('Reading the Burning Lions contract…'));
+            const cfgH = await LD.jsonFetch('/liondao/home.json'); const hosts = (cfgH && cfgH.lcd) || [];
+            const q = (m) => LD.lcd.smart(hosts, BL.contract, m);
+            const [numT, burnP] = await Promise.all([q({ num_tokens: {} }), LD._M.dao ? LD.jsonFetch(LD.DAOO + LD._M.dao + '/burn/holders.json', { timeoutMs: 30000 }) : null]);
+            const ids = []; let start = null; for (let page = 0; page < 10; page++) { const r = await q({ all_tokens: Object.assign({ limit: 30 }, start ? { start_after: start } : {}) }); if (!r || !Array.isArray(r.tokens) || !r.tokens.length) break; r.tokens.forEach(t => ids.push(t)); if (r.tokens.length < 30) break; start = r.tokens[r.tokens.length - 1]; }
+            /* media: the mirrored index (nft-collections/burning-lions/metadata/metadata.json, written by mirror-images 1.2.0) — the token_uri files are not reliably served by public IPFS, so the page never asks IPFS itself */
+            const MI = await LD.collection('burning-lions', 'metadata/metadata.json').catch(() => null); const mBy = {}; (MI && Array.isArray(MI.tokens) ? MI.tokens : []).forEach(t => { mBy[String(t.id)] = t; });
+            const mBase = MI && MI.media_base || 'https://cdn.jsdelivr.net/gh/thealliancedao/nft-collections@main/burning-lions/images/';
+            const lions = await Promise.all(ids.map(async (id) => { const [o, info] = await Promise.all([q({ owner_of: { token_id: id } }), q({ nft_info: { token_id: id } })]); const ext = info && info.extension || {}; const m = mBy[String(id)] || {};
+                const still = m.image_file ? mBase + m.image_file : (ext.image && !/^ipfs:/.test(ext.image) ? ext.image : null); const anim = m.animation_file ? mBase + m.animation_file : null;
+                return { id, owner: o ? o.owner : null, name: m.name || ext.name || null, image: still, anim, animKind: m.animation_kind || null, imageKind: m.image_kind || null }; }));
+            const mediaCell = (r) => { const st = 'width:44px;height:44px;border-radius:6px;object-fit:cover;vertical-align:middle;margin-right:.5rem;background:#1a1206';
+                if (r.anim && r.animKind === 'video') return '<video src="' + esc(r.anim) + '"' + (r.image ? ' poster="' + esc(r.image) + '"' : '') + ' autoplay muted loop playsinline style="' + st + '"></video>';
+                if (r.image && r.imageKind === 'video') return '<video src="' + esc(r.image) + '" autoplay muted loop playsinline style="' + st + '"></video>';
+                const src = r.anim || r.image; return src ? '<img src="' + esc(src) + '" alt="" loading="lazy" style="' + st + '" onerror="this.remove()">' : '<span title="media not mirrored yet — nft-collections mirror-images, collection burning-lions" style="display:inline-block;' + st + ';text-align:center;line-height:44px">🔥</span>'; };
+            const burnBy = {}; const bH = burnP && Array.isArray(burnP.holders) ? burnP.holders : []; bH.forEach(h => { burnBy[h.address] = h; }); const pyTot = burnP && burnP.token ? burnP.token.total_supply : null;
+            const MX = T.burn && T.burn.mechanics || {}; const ratio = isNum(MX.dao_match_ratio) ? MX.dao_match_ratio : (T.burn && isNum(T.burn.dao_match_ratio) ? T.burn.dao_match_ratio : null); const contrib = T.burn && T.burn.contributions || null;   /* own burns per wallet: a product that does not exist yet (the contribution walk) */
+            const stated = isNum(BL.supply) ? BL.supply : null; const minted = numT && isNum(Number(numT.count)) ? Number(numT.count) : (ids.length || null);
+            const rowsBL = lions.map(l => { const b = l.owner ? burnBy[l.owner] : null; const burned = b ? b.amount : (l.owner && burnP ? 0 : null); const own = contrib && l.owner && isNum(contrib[l.owner]) ? contrib[l.owner] : null; return Object.assign(l, { burned, burnRank: b ? b.rank : null, own, matched: isNum(own) && ratio != null ? own * ratio : null }); }).sort((a, b) => (b.burned || 0) - (a.burned || 0));
+            const uniq = {}; rowsBL.forEach(r => { if (r.owner && isNum(r.burned)) uniq[r.owner] = r.burned; }); const burnedSum = Object.keys(uniq).length ? sum(Object.values(uniq)) : null;   /* a wallet holding three lions burned once */
+            const body = '<div class="ld-grid ld-g4">' +
+                ui.stat({ label: 'Minted on the contract', value: minted != null ? fmt.int(minted) + (stated ? ' of ' + fmt.int(stated) : '') : null, reason: 'the contract did not answer', sub: stated && minted != null && minted < stated ? fmt.int(stated - minted) + ' of the pride\'s stated ' + fmt.int(stated) + ' are not on this contract — not minted yet, or minted elsewhere' : 'cw721 num_tokens, live', source: 'live · ' + fmt.short(BL.contract) }) +
+                ui.stat({ label: 'pyROAR held by today\'s holders', value: fmt.big(burnedSum), reason: 'burn ledger not read', sub: isNum(burnedSum) && isNum(pyTot) ? fmt.pctPlain(burnedSum / pyTot * 100, 1) + ' of all pyROAR · ' + fmt.int(Object.keys(uniq).length) + ' wallets hold the ' + fmt.int(rowsBL.length) + ' · their own burns plus their share of Lion DAO\'s burns as stakers' : '', source: 'burn/holders — the frozen pyROAR ledger' }) +
+                ui.stat({ label: 'Lion DAO\'s match', value: ratio != null ? fmt.num(ratio) + 'x' : null, reason: 'the match rule is not in the registry', sub: ratio != null ? 'every ROAR the community sent, Lion DAO burned ' + fmt.num(ratio) + 'x from its treasury' + (isNum(MX.dao_monthly_cap) ? ', up to ' + fmt.big(MX.dao_monthly_cap) + ' a month' : '') + ' — a burner\'s ROAR took ' + fmt.num(ratio) + ' more out of supply with it' : '', source: MX.source ? 'Lion DAO, Burning Lion Festival: Details & Mechanics' : 'registry' }) +
+                ui.stat({ label: 'Reported for the festival', value: fmt.big(T.burn && T.burn.reported ? (T.burn.reported.community_burned || 0) + (T.burn.reported.dao_burned || 0) : null), reason: 'no reported figure', sub: T.burn && T.burn.reported ? fmt.big(T.burn.reported.community_burned) + ' by the community · ' + fmt.big(T.burn.reported.dao_burned) + ' by Lion DAO · ' + fmt.int(T.burn.reported.participants) + ' wallets' : '', source: 'Lion DAO\'s published figures', href: '/liondao/burn.html' }) + '</div>' +
+                '<div class="ld-tile" style="margin-top:.9rem">' + ui.table([{ label: 'Lion' }, { label: 'Held by (today)' }, { label: 'pyROAR held', r: true }, { label: 'pyROAR rank', r: true }, { label: 'Own burn', r: true }, { label: 'With the ' + (ratio != null ? fmt.num(ratio) + 'x ' : '') + 'match', r: true }],
+                    rowsBL.map(r => '<tr><td>' + mediaCell(r) + '<b style="color:#fff">' + esc(r.name || ('Burning Lion #' + r.id)) + '</b></td><td>' + (r.owner ? ui.addr(r.owner, { name: 'any' }) : ui.unk('owner_of did not answer')) + '</td>' +
+                        ui.td(isNum(r.burned) ? '<span class="ld-num">' + esc(fmt.big(r.burned)) + '</span>' : ui.unk('burn ledger not read'), true) + ui.td(r.burnRank ? '#' + esc(fmt.int(r.burnRank)) : (isNum(r.burned) ? '—' : ''), true) +
+                        ui.td(isNum(r.own) ? esc(fmt.big(r.own)) : ui.unk('each wallet\'s own burns need the contribution walk — the ROAR it sent to the festival address, a cron duty not built yet'), true) + ui.td(isNum(r.matched) ? '<b class="ld-num">' + esc(fmt.big(r.own + r.matched)) + '</b>' : ui.unk('own burn × (1 + the match) — lands with the contribution walk'), true) + '</tr>'), { empty: 'the contract answered no tokens' }) +
+                '<div class="ld-src" style="margin-top:.6rem">"Held by" is the wallet holding each lion today (the contract\'s owner_of) — a lion that changed hands since the festival shows its new holder, and that holder\'s burn. pyROAR held is not the same as ROAR burned: a burner received pyROAR 1:1 for their own burn, and every ROAR staker also received a share of the pyROAR for Lion DAO\'s treasury burns (4B at the opening, prop #95, then up to 8B a month). The raffle for each lion was weighted by the burner\'s own contribution.</div></div>';
+            el.innerHTML = ui.section('Burning Lions', esc(fmt.int(minted) || '—') + ' one-of-ones on the contract · won in the ROAR burn festival · who holds each, and what they burned', body);
+        })().catch(e => { $('burning-lions').innerHTML = ui.note('The Burning Lions section hit an error: ' + esc(e && e.message || e)); });
+
+        $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>nft-collections/' + esc(SLUG) + '/ledger/primary-sales.json</b> — one row per token from the launchpad contract\'s sale events (buyer, height, tx, price, the day\'s LUNA price from price-history). The page folds 5,000 rows into hours, tiers and wallets itself; nothing is sampled. <b>Still hold</b> reads <b>snapshots/summary.json</b>\'s per-real-owner counts (the same owner resolution the collection pages use). A minter who moved their pixeLions to another wallet of their own counts as "out" here — the products know addresses, not people.' + (owners ? ' Owner snapshot captured ' + ui.when(SUM.capturedAt) + '.' : '')));
+    })().catch(e => { document.getElementById('hero').innerHTML = LD.ui.note('The page hit an error: ' + LD.esc(e && e.message || e)); throw e; });
+    </script>
+</body>
+</html>
