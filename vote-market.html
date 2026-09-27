@@ -406,7 +406,12 @@
     renderHeader(); renderControls(); renderList();
     const firstPk = (window.VoteMarket.lens(ST.m, { lens: 'impact', usd: ST.amt, limit: 1 })[0] || {}).pool; ST.target = firstPk ? firstPk.pk : Object.keys(ST.m.pools)[0];
     renderPoolSelect(); renderWallet(); renderFrom(); renderSim(); ST.m.loadVoters().then(() => { if (!ST.best) renderBestIdle(); });
-    const q = new URLSearchParams(location.search); if (q.get('pool') && ST.m.pools[q.get('pool')]) pickPool(q.get('pool'), false);
+    // deep links from TLA Stats' Vote Market tile: ?pool=<bucket|gauge>&bribe=<usd> opens the simulator on that pool with the bribe in; ?view=best opens the best split
+    const q = new URLSearchParams(location.search); const qb = Math.max(0, Math.min(1000, Math.round(Number(q.get('bribe')) || 0)));
+    if (qb) { ST.bribe = qb; $('vm-bribe').value = qb; }
+    if (q.get('pool') && ST.m.pools[q.get('pool')]) { pickPool(q.get('pool'), false); setTimeout(() => { openDrawer('vm-sim-card', true); $('vm-sim-card').scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60); }
+    else if (qb) renderSim();
+    if (q.get('view') === 'best') setTimeout(() => { openDrawer('vm-best-card', true); $('vm-best-card').scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
     if (window.AddressPicker) { try { AddressPicker.mount({ onSelect: (w, name) => setWallet(w, name), onClear: () => setWallet(null) }); const cur = AddressPicker.get(); if (cur && cur.wallet) setWallet(cur.wallet, cur.name); } catch (e) { console.warn('address picker:', e.message); } }
     refreshLive();
     setInterval(() => { if (!document.hidden) refreshLive(); }, 5 * 60 * 1000);
@@ -414,6 +419,6 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 </script>
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'VM1.5', revDate: '2026-09-27', page: 'vote-market' });   //   // VM1.5: phones — the overview first, Plan a move and Best split fold into bars with a one-line summary, 2×2 answers ·   // VM1.4: Votion's fitted move rule (lib 1.3.0 + votion/backtest/move-rule.json) — per-vault re-votes / holds with its track record, when it casts ·   // VM1.3: the bribe tile is a breakdown — the money coming back to your votes in big green; an "estimate, if everything stays the same" banner on the simulator and the best split; Reset on every section + Reset all ·   // VM1.2: the bribe tile shows the REAL cost (bribe − the change in your bribes, dilution included), the best split runs by default, Best impact ranks pools Votion is offered (+ untested on request), migrate-by dates in UTC ·   // VM1.1: the site header + address picker mount (missing in 1.0); pools whose asset is winding down (USDC.n) carry the pill, never recommended, never in the best split ·   // VM1.0: the Vote Market planner — lenses, the simulator, the best split; engine lib/vote-market.js 1.0.0 (live: /test-2.html redirects to /app.html, so it ships here)</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'VM1.6', revDate: '2026-09-27', page: 'vote-market' });   //   // VM1.6: deep links from TLA Stats' tile — ?pool=&bribe= opens the simulator on that pool with the bribe in, ?view=best opens the best split ·   // VM1.5: phones — the overview first, Plan a move and Best split fold into bars with a one-line summary, 2×2 answers ·   // VM1.4: Votion's fitted move rule (lib 1.3.0 + votion/backtest/move-rule.json) — per-vault re-votes / holds with its track record, when it casts ·   // VM1.3: the bribe tile is a breakdown — the money coming back to your votes in big green; an "estimate, if everything stays the same" banner on the simulator and the best split; Reset on every section + Reset all ·   // VM1.2: the bribe tile shows the REAL cost (bribe − the change in your bribes, dilution included), the best split runs by default, Best impact ranks pools Votion is offered (+ untested on request), migrate-by dates in UTC ·   // VM1.1: the site header + address picker mount (missing in 1.0); pools whose asset is winding down (USDC.n) carry the pill, never recommended, never in the best split ·   // VM1.0: the Vote Market planner — lenses, the simulator, the best split; engine lib/vote-market.js 1.0.0 (live: /test-2.html redirects to /app.html, so it ships here)</script>
 </body>
 </html>

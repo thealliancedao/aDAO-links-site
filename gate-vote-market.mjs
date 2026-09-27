@@ -128,6 +128,45 @@ if (JSDOM) {
     check('P4 the wallet chip shows its VP', d.getElementById('vm-wallet').textContent.includes(vpS(m.voters[cam].vp))); }
 }
 
+// ---------------------------------------------------------------- T · TLA Stats' Vote Market tile (lib/vote-market-tile.js) on the same model — its numbers ARE the engine's
+console.log('T. the TLA Stats tile (lib/vote-market-tile.js in jsdom, same model)');
+if (JSDOM) {
+  const cam = 'terra1hr8zsfpch47qygc96c8e6rzkd2t7mafqx77ulw';
+  const tdom = new JSDOM('<!doctype html><html><head></head><body><div id="t"></div></body></html>', { url: 'https://thealliancedao.com/tla-stats.html', runScripts: 'dangerously', pretendToBeVisual: true });
+  const tw = tdom.window; tw.eval(fs.readFileSync(path.join(here, 'lib/vote-market.js'), 'utf8')); tw.eval(fs.readFileSync(path.join(here, 'lib/vote-market-tile.js'), 'utf8'));
+  let rateSeen = null; const T = tw.VoteMarketTile.mount(tw.document.getElementById('t'), { model: m, planner: '/vote-market.html', getWallet: () => cam, onRate: (r) => { rateSeen = r; } });
+  const el = tw.document.getElementById('t'); const txt = () => el.textContent.replace(/\s+/g, ' ');
+  const money0 = (x) => (x < 0 ? '−$' : '$') + Math.abs(x).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const vpS = (x) => { const a = Math.abs(x); return a >= 1e6 ? (x / 1e6).toFixed(a >= 1e7 ? 1 : 2) + 'M' : a >= 1e3 ? Math.round(x / 1e3) + 'K' : Math.round(x).toString(); };
+  const funded = sum(m.pools, p => p.potUsd || 0);
+  check(`T1 header: ${money0(funded)} in bribes = Σ the engine's pots (the planner's number); a vote costs = VM.votionRate`, txt().includes('Bribes this round' + money0(funded)) && rateSeen === VM.votionRate(m), txt().slice(0, 220));
+  const casts = (MR && MR.timing && MR.timing.casts) || []; const hs = casts.filter(c => c.hours_before_deadline > 0 && c.hours_before_deadline < 6).map(c => c.hours_before_deadline).sort((a, b) => a - b);
+  if (hs.length) check(`T1b "Votion casts in" uses its fitted timing (about ${hs[Math.floor(hs.length / 2)]} h before close), not the deadline`, txt().includes(`about ${hs[Math.floor(hs.length / 2)]} h before close`));
+  const rows = [...el.querySelectorAll('.vmt-row[data-pk]')]; const top = VM.lens(m, { lens: 'impact', bucket: 'all', usd: 50, limit: 8 });
+  check('T2 "Where $ does the most" = the engine\'s top 8 for $50, in order, no winding-down pool', rows.length === top.length && rows.every((r, i) => r.dataset.pk === top[i].pool.pk) && top.every(r => !r.pool.winding), rows.map(r => r.dataset.pk).slice(0, 3));
+  check('T3 every row opens the simulator on that pool with $50 in (?pool=…&bribe=50)', rows.every(r => r.getAttribute('href') === '/vote-market.html?pool=' + encodeURIComponent(r.dataset.pk) + '&bribe=50'));
+  check('T4 the simulator is linked from the header button and the footer bar too', el.querySelector('#vmt-cta').getAttribute('href') === '/vote-market.html' && el.querySelector('#vmt-foot').getAttribute('href') === '/vote-market.html' && /Open the simulator/.test(txt()) && /Try it in the simulator/.test(txt()));
+  if (m.voters[cam]) { const bs = VM.bestSplitAll(m, m.voters[cam]); const me = el.querySelector('#vmt-me');
+    check(`T5 the selected wallet's teaser = the engine's best split ($${bs.nowUsd.toFixed(2)} → $${bs.usd.toFixed(2)}) and opens ?view=best`, !!me && me.textContent.includes('$' + bs.nowUsd.toFixed(2)) && me.textContent.includes('$' + bs.usd.toFixed(2)) && me.getAttribute('href') === '/vote-market.html?view=best', me && me.textContent.slice(0, 160)); }
+  el.querySelector('#vmt-seg [data-v="votion"]').click(); const mv = VM.votionMoves(m, 'all');
+  const vr = [...el.querySelectorAll('.vmt-row[data-pk]')];
+  check(`T6 "Votion's next move" = its published plan in real VP (row 1 ${mv[0] && mv[0].name} ${mv[0] && vpS(Math.abs(mv[0].d))})`, mv.length > 0 && vr[0].dataset.pk === mv[0].pk && vr[0].textContent.includes(vpS(Math.abs(mv[0].d))) && vr[0].textContent.includes(vpS(mv[0].now) + ' → ' + vpS(mv[0].plan)), vr[0] && vr[0].textContent.replace(/\s+/g, ' ').slice(0, 120));
+  el.querySelector('#vmt-seg [data-v="pots"]').click(); const pr = [...el.querySelectorAll('.vmt-row[data-pk]')].map(r => m.pools[r.dataset.pk]);
+  check('T7 "Pots & rates" lists funded pots biggest first, and a Votion pool with no pot reads "not funded"', pr.length > 0 && pr.every((p, i) => i === 0 || !(p.potUsd > pr[i - 1].potUsd)) && [...el.querySelectorAll('.vmt-row[data-pk]')].every(r => { const p = m.pools[r.dataset.pk]; return p.potUsd > 0.5 || /not funded/.test(r.textContent); }));
+  el.querySelector('#vmt-seg [data-v="where"]').click(); el.querySelector('[data-amt="250"]').click(); el.querySelector('[data-bk="project"]').click();
+  const r250 = [...el.querySelectorAll('.vmt-row[data-pk]')]; const top250 = VM.lens(m, { lens: 'impact', bucket: 'project', usd: 250, limit: 8 });
+  check('T8 $250 in Project re-ranks to the engine\'s list and the links carry bribe=250', r250.length === top250.length && r250.every((r, i) => r.dataset.pk === top250[i].pool.pk && /&bribe=250$/.test(r.getAttribute('href'))));
+  // the simulator honours the tile's deep link
+  const html2 = fs.readFileSync(path.join(here, 'vote-market.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '').replace('<script>if (window.SiteFooter)', '<script>if (false)');
+  const tpk = top[0].pool.pk; const ddom = new JSDOM(html2, { url: 'https://thealliancedao.com/vote-market.html?pool=' + encodeURIComponent(tpk) + '&bribe=50', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
+    w.SiteHeader = { mount() {} }; w.AddressPicker = { mount() {}, get() { return null; } }; w.scrollTo = () => {}; w.HTMLElement.prototype.scrollIntoView = function () {};
+    w.fetch = async (u) => { const mm = /tla-core\/main\/(.+)$/.exec(String(u).split('?')[0]); if (mm && fs.existsSync(path.join(CORE, mm[1]))) { const t = fs.readFileSync(path.join(CORE, mm[1]), 'utf8'); return { ok: true, status: 200, json: async () => JSON.parse(t) }; } return { ok: false, status: 404, json: async () => { throw new Error('404'); } }; };
+  } });
+  const dw = ddom.window; dw.eval(fs.readFileSync(path.join(here, 'lib/vote-market.js'), 'utf8')); dw.document.dispatchEvent(new dw.Event('DOMContentLoaded')); await new Promise(r => setTimeout(r, 4000));
+  const dd = dw.document; const bill = [...dd.querySelectorAll('#vm-answers .tile')].map(t => t.textContent.replace(/\s+/g, ' ')).find(t => /You pay/.test(t)) || '';
+  check(`T9 the simulator opens from the tile's link on ${m.pools[tpk].name} with the $50 bribe in`, dd.getElementById('vm-pool').value === tpk && dd.getElementById('vm-bribe').value === '50' && /Your \$50 bribe/.test(bill), [dd.getElementById('vm-pool').value, dd.getElementById('vm-bribe').value, bill.slice(0, 80)]);
+}
+
 // ---------------------------------------------------------------- M · the phone layout · A · the app's Vote Market tab (static wiring; the live drive is the 390px browser run)
 console.log('M/A. phone + app');
 { const page = fs.readFileSync(path.join(here, 'vote-market.html'), 'utf8'); const app = fs.readFileSync(path.join(here, 'app.html'), 'utf8');
@@ -141,5 +180,7 @@ console.log('M/A. phone + app');
   check('A5 app: TLA opens it; estimate banner and Reset on each sub-tab + Reset all', app.includes("vc.onclick=()=>show('vmkt')") && app.includes('<b>Estimates.</b>') && ['vm-reset-w', 'vm-reset-p', 'vm-reset-b', 'vm-reset-all'].every(k => app.includes(`id="${k}"`)));
   const scripts = [...app.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(x => x[1]); let ok = true, err = null; for (const sc of scripts) { try { new Function(sc); } catch (e) { ok = false; err = e.message; } }
   check('A6 app: inline script compiles', ok, err);
+  const tla = fs.readFileSync(path.join(here, 'tla-stats.html'), 'utf8'); const TV = require(path.join(here, 'lib/vote-market-tile.js')).VERSION;
+  check(`A7 TLA Stats loads the same engine (${libV}) and the tile (${TV}) and mounts it on the Vote Market card`, (tla.match(/\/lib\/vote-market\.js\?v=([\d.]+)/) || [])[1] === libV && (tla.match(/\/lib\/vote-market-tile\.js\?v=([\d.]+)/) || [])[1] === TV && /VoteMarketTile\.mount\(el/.test(tla));
 }
 console.log(`\n${PASS} passed · ${FAIL} failed`); process.exit(FAIL ? 1 : 0);

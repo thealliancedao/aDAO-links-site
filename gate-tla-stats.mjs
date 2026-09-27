@@ -27,7 +27,7 @@ const dom = new JSDOM(html, { url: 'https://thealliancedao.com/tla-stats.html', 
     if (/\/cosmwasm\/wasm\/v1\/contract\//.test(clean)) return { ok: true, status: 200, json: async () => ({ data: { balance: '0' } }) };
     return nope; };
 } });
-await new Promise(r => setTimeout(r, 6000));
+await new Promise(r => setTimeout(r, 20000));   // 20 s: the page boots slower on a cold jsdom than the old 6 s allowed
 const w = dom.window; const d = w.document;
 let store = null; try { store = w.eval('store'); } catch { }
 const eris = JSON.parse(read('dex-data/eris-apr/current.json')); const byGauge = Object.fromEntries(eris.pools.map(p => [p.gauge_pool_id, p]));
@@ -64,15 +64,14 @@ check('T1 token-name overrides parsed from the org catalog (>20, was 0)', nOv > 
 check('N1 subnav: Member Portfolio is disabled with SOON; Docs is back as a link to the rebuilt hub', subnavItems && subnavItems.some(t => t.id === 'portfolio' && t.disabled && t.badge === 'SOON') && subnavItems.some(t => t.id === 'docs' && t.href === 'tla-docs.html'), subnavItems && subnavItems.map(t => t.id));
 check('L1 no uncaught page errors', !logs.some(l => /^ERR/.test(l) && !/fetch|network/i.test(l)), logs.filter(l => /^ERR/.test(l)).slice(0, 3));
 console.log('\n=== Batch B — Overview redesign ===');
-const vm = d.getElementById('bounty-board-rows'); const vmSum = d.getElementById('bounty-summary');
+const vm = d.getElementById('bounty-board-rows');
 const _vmPools = (store.data.vote.pools || []).filter(p => (p.bribes?.total || 0) > 0.005 && (p.vp || 0) > 50000).filter(p => { const m = store.pools.find(x => x.name === p.name && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase() && (x.dex || '') === (p.dex || '')); return m && (m.votion_now_vp || 0) > 50000; }).map(p => p.bribes.total / (p.vp / 1e6)).sort((a, b) => a - b);
 const _vmMedian = _vmPools[Math.floor((_vmPools.length - 1) * 0.5)];
-check('M1 Vote Market: the rate is the median $/1M VP over the pools Votion votes (recomputed independently), shown in the header tile', /Votion's rate/.test(vmSum.textContent) && Math.abs(store.voteMarketRate - _vmMedian) < 1e-9 && store.voteMarketRate > 8, [store.voteMarketRate, _vmMedian, _vmPools.length]);
-check('M0 Vote Market default is $0 = Votion\'s next move column (its plan vs current votes), with ± VP per pool', /Votion's next move/.test(d.getElementById('bounty-board-rows').textContent) && /showing Votion's next move/.test(d.getElementById('bounty-board-rows').textContent) && /[+\-][\d,.KM]+ VP[\d,.KM]+ → /.test(d.getElementById('bounty-board-rows').textContent), d.getElementById('bounty-board-rows').textContent.slice(0, 200));
-w.setVoteMarketX(25); check('M2 Vote Market grid: rows carry Votion\'s VP caption and the optimizer projection differs per pool', /Votion [\d,.KM]+/.test(vm.textContent) && (() => { const g = [...vm.textContent.matchAll(/\+([\d,.KM]+) VPshare/g)].map(m => m[1]); return g.length >= 3 && new Set(g).size >= 2; })(), [...vm.textContent.matchAll(/\+([\d,.KM]+) VPshare/g)].map(m => m[1]).slice(0, 5));
-w.setVoteMarketX(100); check('M3 Vote Market: the $100 preset re-renders (column header + share-of-market note)', /\+\$100 → Votion votes/.test(d.getElementById('bounty-board-rows').textContent) && /\$100 is \d+% of everything funded/.test(d.getElementById('bounty-board-rows').textContent));
-w.setVoteMarketSort('perdollar'); check('M4 sort "move per $": first funded row has the largest probe gain; sort "best grade" puts A-graded first; grade chips render', (() => { const first = d.querySelector('#bounty-board-rows .grid.items-center'); const ok1 = !!first; w.setVoteMarketSort('grade'); const t = d.getElementById('bounty-board-rows').innerHTML; return ok1 && /title="LP grade"/.test(t) && /sort.*best grade/.test(d.getElementById('bounty-board-rows').textContent); })());
-w.setVoteMarketSort('pot');
+check('M1 Vote Market: the rate is the median $/1M VP over the pools Votion votes (recomputed independently), kept on the page for Threshold Watch (T6.13)', Math.abs(store.voteMarketRate - _vmMedian) < 1e-9 && store.voteMarketRate > 8, [store.voteMarketRate, _vmMedian, _vmPools.length]);
+const _html = fs.readFileSync(path.join(here, 'tla-stats.html'), 'utf8');
+check('M0 (T6.13) the Vote Market card is the engine tile: lib/vote-market.js + lib/vote-market-tile.js load, the card mounts VoteMarketTile, and the old second solver (sort/$X/back-test) is gone from the tile', /<script src="\/lib\/vote-market\.js\?v=[\d.]+"><\/script>/.test(_html) && /<script src="\/lib\/vote-market-tile\.js\?v=[\d.]+"><\/script>/.test(_html) && /VoteMarketTile\.mount\(el/.test(_html) && !/setVoteMarketSort|toggleBountyExpand|votionBacktest/.test(_html));
+check('M2 (T6.13) without the engine (scripts stripped here) the card still links the simulator', /Open the simulator/.test(vm.textContent) && !!vm.querySelector('a[href="/vote-market.html"]'), vm.textContent.slice(0, 120));
+// the tile's own behaviour (numbers = the engine's, deep links, wallet teaser, wind-down) is gated in gate-vote-market.mjs (T section)
 check('W1 Vote breakdown defaults to Planned and bars are left-aligned (every bar starts at left: 0%)', w.eval('waterfallEpochView') === 'next' && [...d.querySelectorAll('#waterfall-bars .waterfall-row [style*="left: 0%"]')].length > 0 && ![...d.querySelectorAll('#waterfall-bars .waterfall-row .flex.rounded.overflow-hidden')].some(b => /left: [1-9]/.test(b.getAttribute('style') || '')));
 check('W2 planned labels expose the users/Votion decomposition where material', /users [+-]|Votion [+-]/.test(d.getElementById('waterfall-bars').textContent));
 const rh = d.getElementById('runway-headline'); check('R1 Runway headline is a sentence about exit pressure, not a number pair', rh && /(Exit pressure from unlocks is|every tracked lock is auto-max)/.test(rh.textContent), rh && rh.textContent.slice(0, 120));
@@ -97,18 +96,9 @@ const wf = w.eval('votionWaterFill'), sim = w.eval('votionSimulate');
 }
 { const base = sim({}) || {}; const capa = Object.keys(base).find(k => /^project\|terra1e6k3u9/.test(k)) || 'project|none'; const withX = sim({ [capa.split('|')[1]]: 100 }) || {};
   check('O2 simulator: +$100 on LUNA-FUEL moves Votion votes toward it (sim > base) and leaves other gauges with less', base[capa] && withX[capa].sim > base[capa].base && Object.keys(base).filter(k => k !== capa && k.startsWith('project|')).some(k => withX[k].sim < base[k].base), base[capa] && [Math.round(base[capa].base), Math.round(withX[capa].sim)]); }
-check('O3 Vote Market projection cells are our exact solve of Votion\'s objective (tooltip names its votes before → after, and says it projects how much moves, not which pools) — T6.6 wording', /Our exact solve of Votion's objective re-run with/.test(d.getElementById('bounty-board-rows').innerHTML) && /not of which pools Votion pulls from/.test(d.getElementById('bounty-board-rows').innerHTML));
-check('O4 LUNA-CAPA (captured mode): pot chip "not funded · through p199" and the one-line warning that Votion\'s votes leave unless p200 is funded', (() => { const rowsTxt = [...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent); const capaRow = rowsTxt.find(t => /LUNA-CAPA/.test(t)); return capaRow && /not funded/.test(capaRow) && /through p199/.test(capaRow) && /leaves unless p200 is funded/.test(capaRow); })(), ([...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent).find(t => /LUNA-CAPA/.test(t)) || '').slice(0, 200));
-check('O5 header tile counts pots funded for the voted period (15/18 on today\'s capture); rows carry the not-funded chip', /15\/18 pots/.test(d.getElementById('bounty-summary').textContent) && /not funded/.test(d.getElementById('bounty-board-rows').textContent), d.getElementById('bounty-summary').textContent);
 console.log('\n=== live auction ===');
 await w.refreshLivePots(); await new Promise(r => setTimeout(r, 200));
-const vmL = d.getElementById('bounty-board-rows').textContent, vmS = d.getElementById('bounty-summary').textContent;
-check('L1 header shows the live read, the cast deadline countdown, and the pot total funded for p200', /live \d\d:\d\dZ/.test(vmS) && /casts in/.test(vmS) && /funded for p200/.test(vmS), vmS);
-check('L2 LUNA-FUEL row reads its live pot (36,000 FUEL) and LUNA-CAPA reads not funded p200 — and sits above the fold as a warning', /36(,000|\.0K) FUEL/.test(vmL) && (() => { const r = [...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent).find(t => /LUNA-CAPA/.test(t)); return r && /not funded/.test(r) && /leaves unless p200 is funded/.test(r); })(), [...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent.replace(/\s+/g, ' ').slice(0, 60)).slice(0, 3));
-globalThis.__capaTopUp = true; await w.refreshLivePots(); await new Promise(r => setTimeout(r, 200));
-const capaRow = [...d.querySelectorAll('#bounty-board-rows > div')].map(x => x.textContent).find(t => /LUNA-CAPA/.test(t)) || '';
-check('L3 a live CAPA top-up (100,000 CAPA for p200) flips the row to funded and the optimizer places Votion votes on it (gauge added as an option)', /100(,000|\.0K) CAPA/.test(capaRow) && !/not funded/.test(capaRow) && /\+[1-9][\d,.KM]* VPshare/.test(capaRow), capaRow.replace(/\s+/g, ' ').slice(0, 300));
-globalThis.__capaTopUp = false;
+check('L1 (T6.13) a live pot read does not break the page (the tile applies it through the engine)', !logs.some(l => /^ERR/.test(l) && /vote market/i.test(l)));
 check('V4 Movers default 3 gainers + 3 losers with an expand button; expanding shows all', (() => { const el = d.getElementById('epoch-movers'); const rowsN = () => el.querySelectorAll(':scope > div.p-2').length; const n0 = rowsN(); if (!(n0 <= 6 && /show all \d+ movers/.test(el.textContent))) return false; w.toggleMovers(); const n1 = rowsN(); const ok = n1 > n0 && /show top 3 \+ 3/.test(el.textContent); w.toggleMovers(); return ok; })());
 console.log('\n=== voter boards ===');
 const vb = d.getElementById('top-board-vp').textContent;
@@ -178,13 +168,5 @@ check('P9 no live reads of retired personal repos remain in tla-stats.html', !/r
   if (feed.token_prices && feed.token_prices['USDC.n']) check('L7 (T6.7) the REAL feed keys the stables by the catalog symbol (USDC.n / USDt / EURe) and no longer by USDC / USDT / EURE — one symbol across products', ['USDC.n', 'USDt', 'EURe'].every(k => feed.token_prices[k] && feed.token_prices[k].final_price_usd > 0) && !['USDC', 'USDT', 'EURE'].some(k => feed.token_prices[k]), Object.keys(feed.token_prices).filter(k => /USD|EUR/.test(k)));
   else console.log(`  (L7 waits for the first network-and-prices 3.1.0 run — the fixture feed captured ${feed.capturedAt} still keys USDC; re-run this gate on a fresh pull after the cron commit)`);
 }
-// ---- T6.6: the Vote Market says what the +$X column can claim — Votion's own threshold flags per bucket and the model-vs-plan back-test
-{ const bt = w.__tlaStore.votionBacktest; const board = d.getElementById('bounty-rows') || d.getElementById('bounty-board') || d.body;
-  check('V6 (T6.6) back-test computed from the captured Votion plan: per-bucket Σ|Δ| pp and a mean, and every bucket carries its published moves/holds flags with gains', !!bt && bt.mean_pp != null && Object.keys(bt.buckets).length >= 3 && Object.values(bt.flags).every(a => a.length >= 1 && a.every(f => typeof f.worth === 'boolean')), bt && { mean: bt.mean_pp, buckets: bt.buckets, flags: Object.fromEntries(Object.entries(bt.flags).map(([k, a]) => [k, a.map(f => f.vault + ':' + (f.worth ? 'moves' : 'holds'))])) });
-  const txt = d.body.textContent.replace(/\s+/g, ' ');
-  check('V7 (T6.6) the header carries the "model vs Votion\'s plan ±N pp" chip', /model vs Votion's plan ±[\d.]+ pp/.test(txt));
-  if (w.setBountyAdd) { try { w.setBountyAdd(50); } catch (e) {} }
-  const t2 = d.body.textContent.replace(/\s+/g, ' ');
-  check('V8 (T6.6) at +$50 a projected row says "Votion\'s rule today: <vault> moves/holds (±$)" under its VP figure', /Votion's rule today: [a-zA-Z]+ Max (moves|holds)/.test(t2), (t2.match(/Votion's rule today:[^·]{0,80}/) || [])[0]);
-}
+// T6.6's back-test chip (V6–V8) retired with the tile's own solver in T6.13 — Votion's fitted move rule (votion/backtest/move-rule.json) is gated in gate-vote-market.mjs (E12)
 console.log(`\n=== PAGE GATE: ${PASS} passed, ${FAIL} failed ===`); process.exit(FAIL ? 1 : 0);

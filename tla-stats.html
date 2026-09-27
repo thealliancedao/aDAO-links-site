@@ -755,6 +755,8 @@
     <script src="/lib/collection-context.js"></script>
     <script src="/lib/site-header.js"></script>
     <script src="/lib/address-picker.js"></script>
+    <script src="/lib/vote-market.js?v=1.3.0"></script>
+    <script src="/lib/vote-market-tile.js?v=1.0.0"></script>
     <style>.sh-epoch{display:flex;align-items:center;gap:1em}.sh-epoch #data-notice{margin:0 0 0 .5em}</style>
     <script>SiteHeader.mount({ page: 'tla-stats' });</script>
     <script>
@@ -1034,16 +1036,8 @@
             <!-- ==================== BOUNTY BOARD + EPOCH MOVERS ==================== -->
             <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="glass-card p-6 lg:col-span-2" id="bounty-board-card" data-cron-source="tla-snapshot,bribes-history">
-                    <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-                        <h3 class="font-semibold text-lg flex items-center gap-2"><i class="fas fa-store text-amber-400"></i> Vote Market <span id="bounty-epoch-chip" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-medium"></span></h3>
-                        <a href="/vote-market.html" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 text-sm font-semibold" style="text-decoration:none" title="The planner: where $ does the most, how Votion reacts, your rewards, the APRs, the best split for your VP"><i class="fas fa-flask"></i> Open the Vote Market planner <i class="fas fa-arrow-right text-xs"></i></a>
-                        <div id="bounty-summary" class="flex items-center gap-3 text-xs mono text-gray-400"></div>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-1">What a Votion vote costs, what is funded for the period it is voting into, and what your next $ would move. <span class="desc-toggle" onclick="document.getElementById('bounty-full').classList.toggle('open')">how it's estimated</span></p>
-                    <div id="bounty-full" class="desc-full"><span class="ex-lead">The model:</span> the projection runs Votion's own optimizer. Its captured worksheet shows the reward model (expected reward = bribe × your-votes ÷ (gauge votes + your-votes)) and the objective (maximize the sum across gauges with the vault's VP as budget); we solve that objective exactly on the same inputs with your $X added, for both max vaults — Votion's own solver lands 0–8% below that optimum on today's inputs (bucket by bucket), and because the objective is flat many different splits are near-optimal — so this column predicts how much your $ moves, not which pools Votion pulls from. Votion re-votes a bucket only when its own re-solve gains more than $0 (its published isWorthChanging flag, from its API); a small add that does not flip that flag moves nothing. Two kinds of votes exist. LPs vote their own pools to keep emissions flowing — those votes are not for sale and sit below the rate. Votion's ~8M VP goes wherever bribe ÷ votes is best, so on the pools Votion is in, the rate equalises; that median is "Votion's rate". Add $X to a pool and its rate jumps above it; Votion moves votes in until the pool pays the rate again — projected votes ≈ (bribe + X) ÷ rate, capped by the Votion votes not already in that pool. Projected LUNA = those votes × the pool's current emissions per vote. Limits: Votion also exits pools it judges poorly regardless (both CAPA gauges next epoch at a fair rate); timing is one epoch; other bribers react. A planning number, back-testable against Votion's published plan every epoch.</div>
-                    <div id="bounty-board-rows" class="space-y-1.5 mt-3">
-                        <div class="loading-pulse text-gray-500 text-sm">Loading...</div>
-                    </div>
+                    <div id="bounty-board-rows"><div class="loading-pulse text-gray-500 text-sm">Loading the Vote Market…</div></div>
+                </div>
                 </div>
                 <div class="glass-card p-6" id="epoch-movers-card" data-cron-source="tla-snapshot">
                     <h3 class="font-semibold text-lg flex items-center gap-2 mb-1"><i class="fas fa-arrow-trend-up text-cyan-400"></i> Movers This Epoch</h3>
@@ -6274,140 +6268,32 @@
     async function refreshLivePots() {
         const per = store.votionOptPeriod || store.epoch; if (!per) return;
         const live = await fetchLivePots(per);
-        if (live) { store.livePots = live; try { renderBountyBoard(); } catch (e) { console.warn('vote market re-render:', e); } }
+        if (live) { store.livePots = live; try { if (store.vmTile) store.vmTile.live(); } catch (e) { console.warn('vote market re-render:', e); } }
     }
 
     // ---------------- Vote Market (was Bounty Board; owner 2026-08-24) ----------------
     // The LP's question: "if I add $X to my pool, what does it buy?" — answered with the
-    // going rate of a vote and a simple equalisation model (see #bounty-full).
+    // going rate of a vote — the tile itself is lib/vote-market-tile.js (T6.13).
     function renderBountyBoard() {
-        const el = document.getElementById('bounty-board-rows');
-        if (!el) return;
+        // T6.13 (owner 2026-09-27, "the overview is falling a little short"): the tile runs on the simulator's engine
+        // (lib/vote-market.js via lib/vote-market-tile.js) — one set of numbers: pots priced the same way ($1,250 not $1.1K),
+        // Votion's moves in real VP (its units ÷ k), the cast time from its fitted timing, not the deadline. Three views:
+        // Where $ does the most · Votion's next move · Pots & rates; every row opens the simulator on that pool.
+        // Kept here: Votion's going rate for Threshold Watch, so that tile still reads before the engine loads.
         const pools = store.data?.vote?.pools || [];
-        const bribed = pools.filter(p => (p.bribes?.total || 0) > 0.005);
-        const chip = document.getElementById('bounty-epoch-chip');
-        if (chip) { chip.textContent = `Voting round ${store.epoch || '—'} · live`; chip.title = `Votes cast in round ${store.epoch || '—'} (ends Sunday 23:59Z) set the emissions of epoch ${store.epoch ? store.epoch + 1 : '—'}. Pots below are the ones funded for this round.`; }   // T6.1: one vocabulary — round N votes → epoch N+1 emissions
-        const summary = document.getElementById('bounty-summary');
-        if (!bribed.length) { el.innerHTML = '<div class="text-gray-600 text-sm">No active bribes this epoch — nothing is paying for votes.</div>'; if (summary) summary.innerHTML = ''; return; }
-        // Votion's per-pool VP lives on the normalized store.pools (Batch A repoint) — match by name + bucket + dex
-        const _vot = (p) => { const m = (p.gauge_pool_id && (store.pools || []).find(x => x.gauge_pool_id === p.gauge_pool_id && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase())) || (store.pools || []).find(x => x.name === p.name && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase() && (x.dex || '') === (p.dex || ''));   /* T6.8: by gauge first */ return m ? (m.votion_now_vp || 0) : (p.votion_now_vp || 0); };
-        const live = store.livePots && Number(store.livePots.period) === Number(store.votionOptPeriod || store.epoch) ? store.livePots : null;
-        const liveKey = (p) => String(p.bucket || '').toLowerCase() + '|' + String(p.gauge_pool_id || '').replace(/^(cw20|native):/, '');
-        // LIVE MODE: the pot for the period being voted, read from the manager minutes ago, wins over the capture.
-        // Pools with a live pot but no captured bribe are added; pools whose captured bribe is not funded for
-        // the voted period show $0 live (and the not-funded note).
-        const universe = live ? (store.data?.vote?.pools || []).filter(p => (p.bribes?.total || 0) > 0.005 || (live.pots[liveKey(p)] && live.pots[liveKey(p)].usd > 0)) : bribed;
-        const rows = universe.map(p => { const vp = p.vp || 0; const lp = live ? live.pots[liveKey(p)] : null; const usd = live ? (lp ? lp.usd : 0) : p.bribes.total; return { p, vp, usd, liveTokens: lp ? lp.tokens : null, liveUnpriced: lp ? lp.unpriced : null, per1m: (vp > 50000 && usd > 0) ? usd / (vp / 1e6) : null, votionVp: _vot(p), livePot: lp, liveMode: !!live }; });
-        // v2 (owner test-drive 2026-08-24): the market is set by the votes that MOVE for money — Votion's.
-        // Rate = median $/1M VP across the pools Votion currently votes (its equalisation set). Pools
-        // Votion is not in (bluechips voted by LPs protecting their own emissions) sit below it by
-        // design and do not set it. v1 weighted every bribed pool by VP and read $4.58 — 5× too low.
-        const votionTotal = store.data?.vote?.summary?.total_votion_current_vp || 0;
-        const vset = rows.filter(r => r.per1m !== null && r.votionVp > 50000).map(r => r.per1m).sort((a, b) => a - b);
-        const setRates = vset.length ? vset : rows.filter(r => r.per1m !== null).map(r => r.per1m).sort((a, b) => a - b);
-        const q = (arr, f) => arr.length ? arr[Math.min(arr.length - 1, Math.floor((arr.length - 1) * f))] : null;
-        const market = q(setRates, 0.5), lo = q(setRates, 0.25), hi = q(setRates, 0.75);
-        const totalPot = rows.reduce((s, r) => s + r.usd, 0);
-        store.voteMarketRate = market;   // $ per 1M VP — shared with Threshold Watch ("what would keep it above the line")
-        // T6.6 (step 5, the owner's HAR audit): what the "+$X" column can and cannot claim. (a) BACK-TEST: our exact solve with $0
-        // added vs Votion's published plan, per bucket, as Σ|Δ share| in pp — the objective is flat, so this is large (30-40 pp)
-        // even when both are near-optimal; the column predicts how much your $ moves, not which pools Votion pulls from. (b)
-        // THRESHOLD: Votion moves a bucket only when its own re-solve gains > $0 (diff.isWorthChanging in its API); the flags
-        // and gains it published for this period are shown so a small add is read for what it is.
-        store.votionBacktest = (() => { try {
-            const raw = store.votionOptRaw; if (!raw || !raw.vaults) return null; const res = votionSimulate({}, live ? Object.fromEntries(Object.entries(live.pots).map(([k, v]) => [k.split('|')[1], v.usd])) : null, []); if (!res) return null;
-            const by = {}; for (const [k, v] of Object.entries(res)) { const b = k.split('|')[0]; const o = by[b] || (by[b] = { base: 0, plan: 0, keys: [] }); o.base += v.base; o.plan += v.plan; o.keys.push(v); }
-            const out = { buckets: {}, mean_pp: null, flags: {} };
-            for (const [b, o] of Object.entries(by)) { if (!(o.base > 0 && o.plan > 0)) continue; out.buckets[b] = +o.keys.reduce((s, v) => s + Math.abs(v.base / o.base - v.plan / o.plan) * 100, 0).toFixed(1); }
-            const pps = Object.values(out.buckets); out.mean_pp = pps.length ? +(pps.reduce((a, c) => a + c, 0) / pps.length).toFixed(1) : null;
-            for (const [vk, v] of Object.entries(raw.vaults)) for (const o of (v.optimizations || [])) { const d = o.diff || {}; (out.flags[o.id] || (out.flags[o.id] = [])).push({ vault: vk, worth: d.isWorthChanging === true, gain: d.rewardLoss != null ? Number(d.rewardLoss) : null }); }
-            return out; } catch (e) { return null; } })();
-        const _vp2 = store.votionOptPeriod; const _fundedN = live ? rows.filter(r => r.usd > 0).length : (_vp2 ? rows.filter(r => { const f = bribeFundedFor(r.p.gauge_pool_id, _vp2); return f && f.funded; }).length : null);
-        const _deadline = store.votionOptRaw && store.votionOptRaw.voteBefore ? Date.parse(store.votionOptRaw.voteBefore) : null; const _left = _deadline ? Math.max(0, _deadline - Date.now()) : null;
-        const _leftTxt = _left != null ? (_left > 864e5 ? Math.floor(_left / 864e5) + 'd ' + Math.floor((_left % 864e5) / 36e5) + 'h' : Math.floor(_left / 36e5) + 'h ' + Math.floor((_left % 36e5) / 6e4) + 'm') : null;
-        // Header: three tiles, one line each — not a mono run-on
-        if (summary) summary.innerHTML = `<div class="flex items-center gap-2 flex-wrap text-[11px] font-sans">
-            <span class="px-2 py-1 rounded-lg bg-white/[0.04]"><span class="text-gray-500">Votion's rate</span> <span class="mono text-amber-300 font-semibold">${market != null ? fmt$(market) : '—'}</span><span class="text-gray-600">/1M VP</span></span>
-            ${store.votionBacktest && store.votionBacktest.mean_pp != null ? `<span class="px-2 py-1 rounded-lg bg-white/[0.04]" title="Back-test: our exact solve of Votion's objective with $0 added vs the plan Votion published this period — the average Σ|Δ share| per bucket. Large because the objective is flat: many splits are near-optimal, so the +$X column predicts how much your $ moves, not which pools Votion pulls from."><span class="text-gray-500">model vs Votion's plan</span> <span class="mono text-gray-300">±${store.votionBacktest.mean_pp} pp</span></span>` : ''}
-            <span class="px-2 py-1 rounded-lg bg-white/[0.04]"><span class="text-gray-500">funded for p${_vp2 || '?'}</span> <span class="mono text-gray-200">${fmt$(totalPot)}</span>${_fundedN != null ? `<span class="text-gray-600"> · ${_fundedN}/${rows.length} pots</span>` : ''}</span>
-            ${_leftTxt ? `<span class="px-2 py-1 rounded-lg bg-cyan-500/10 text-cyan-300" title="Votion's own cast deadline (its voteBefore). It re-optimizes about every 15 minutes until then.">casts in ${_leftTxt}</span>` : ''}
-            ${live ? `<span class="text-emerald-400/90" title="pots read from the incentive manager — the live auction">● live ${new Date(live.at).toISOString().slice(11, 16)}Z</span><button type="button" onclick="refreshLivePots()" class="text-gray-500 hover:text-cyan-300" title="re-read the pots now">↻</button>` : `<span class="text-gray-500">captured</span>`}
-        </div>`;
-        const X = 0;   // T6.12 (owner 2026-09-27: the $X view "really changes it in a negative way"): the tile shows Votion's next move only — every $ simulation lives in the planner (/vote-market.html)
-        const emissionsPerVp = (p) => { const lp = (store.tlaPools || []).find(x => x.name === p.name && (x.dex || '') === (p.dex || '')); const wk = lp && lp.rewards_per_year ? lp.rewards_per_year / 52.18 : null; return wk && p.vp > 0 ? wk / p.vp : null; };
-        const dexTag = (dex) => dex?.includes('Astro') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400">Astro</span>' : dex?.includes('Skeleton') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Skeleton</span>' : '';
-        const _isUnfundedWarn = (r) => { if (r.votionVp <= 50000) return false; if (r.liveMode) return r.usd <= 0 && !(r.liveTokens && r.liveTokens.length); const f = bribeFundedFor(r.p.gauge_pool_id, store.votionOptPeriod); return f ? !f.funded : false; };   // T6.5: unpriced ≠ unfunded
-        // Precompute every row's projection once (sorting needs it): what Votion's optimizer does with +$X here.
-        const liveOverrideAll = live ? Object.fromEntries(Object.entries(live.pots).map(([k, v]) => [k.split('|')[1], v.usd])) : null;
-        const grades = {}; const galerts = {}; for (const gp of (store.lpGrades?.pools || [])) if (gp.gauge_pool_id) { grades[gp.gauge_pool_id] = gp.grade || null; if (gp.alerts && gp.alerts.length) galerts[gp.gauge_pool_id] = gp.alerts; }
-        const selM = (typeof getSelectedMember === 'function') ? getSelectedMember() : null;
-        const myPools = new Set((selM && selM.lp_positions || []).map(lp => `${lp.pool_name}|${String(lp.bucket || '').toUpperCase()}`));
-        for (const r of rows) {
-            const gid = String(r.p.gauge_pool_id || '').replace(/^(cw20|native):/, ''); r.gid = gid; r.simKey = String(r.p.bucket || '').toLowerCase() + '|' + gid;
-            const _fund = r.liveMode ? { funded: r.usd > 0 || !!(r.liveTokens && r.liveTokens.length), unpriced: r.liveUnpriced || [] } : (bribeFundedFor(r.p.gauge_pool_id, store.votionOptPeriod) || { funded: true });   // T6.5
-            r.fundedNow = !!_fund.funded; r.fund = _fund; r.basePotUsd = r.fundedNow ? r.usd : 0;
-            const extra = gid ? { [String(r.p.bucket || '').toLowerCase()]: [{ id: gid, usdIncentives: r.basePotUsd, votingPower: Math.max(0, r.vp - r.votionVp) }] } : null;
-            const override = Object.assign({}, liveOverrideAll || {}, r.fundedNow ? {} : { [gid]: 0 });
-            const probeX = X > 0 ? X : 25;   // at $0 the "move per $" sort still needs a probe size
-            const simRes = gid && (r.basePotUsd + probeX) > 0 ? votionSimulate({ [gid]: probeX }, override, extra) : null; r.sr = simRes && simRes[r.simKey];
-            r.gainProbe = r.sr ? Math.max(0, r.sr.sim - r.sr.base) : null;
-            const vrow = store.votionByPid && store.votionByPid[r.simKey]; r.votionPlanDelta = vrow ? (vrow.planned_vp - vrow.current_vp) : null;   // Votion's own next move if nothing changes
-            r.grade = grades[r.p.gauge_pool_id] || null; r.mine = myPools.has(`${r.p.name}|${String(r.p.bucket || '').toUpperCase()}`);
-        }
-        const GRADE_ORD = { A: 0, B: 1, C: 2, D: 3, F: 4 };
-        const sortMode = store.voteMarketSort || 'pot';
-        const SORTS = {
-            pot:    { label: 'pot', tip: 'Biggest pots first; pools where Votion\'s votes are about to leave (pot not funded) pinned on top', fn: (a, b) => (Number(_isUnfundedWarn(b)) - Number(_isUnfundedWarn(a))) || (b.usd - a.usd) },
-            perdollar: { label: 'move per $', tip: 'Where a dollar moves the most Votion votes — the underdogs', fn: (a, b) => ((b.gainProbe || 0) - (a.gainProbe || 0)) },
-            grade:  { label: 'best grade', tip: 'By LP grade (A first) — good pools to point votes at', fn: (a, b) => ((GRADE_ORD[a.grade] ?? 9) - (GRADE_ORD[b.grade] ?? 9)) || (b.usd - a.usd) },
-            mine:   { label: 'my pools', tip: 'The selected wallet\'s LP positions first', fn: (a, b) => (Number(b.mine) - Number(a.mine)) || (b.usd - a.usd) },
-        };
-        rows.sort(SORTS[sortMode] ? SORTS[sortMode].fn : SORTS.pot.fn);
-        const shown = rows.slice(0, store.bountyExpanded ? rows.length : 8);
-        const GRID = 'grid-template-columns: minmax(130px,1.1fr) minmax(96px,0.9fr) minmax(96px,0.9fr) 70px minmax(150px,1.6fr)';
-        const ctl = `<div class="flex items-center gap-2 flex-wrap mb-1 text-xs"><span class="text-gray-400">Votion's next move if nothing changes.</span><a href="/vote-market.html" class="text-amber-300 hover:text-amber-200">What would my bribe or my votes do? → the planner</a></div>
-            <div class="flex items-center gap-1.5 flex-wrap mb-2 text-[11px]"><span class="text-gray-500">sort</span>${Object.entries(SORTS).filter(([k]) => k !== 'mine' || selM).map(([k, v]) => `<button type="button" onclick="window.setVoteMarketSort('${k}')" title="${v.tip}" class="px-2 py-0.5 rounded-full ${sortMode === k ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/5 text-gray-400 hover:text-cyan-300'}">${v.label}</button>`).join('')}</div>
-            <div class="grid gap-x-3 px-2 pb-1 text-[9px] uppercase tracking-wider text-gray-600" style="${GRID}"><div>pool</div><div class="text-right">pot · p${_vp2 || '?'}</div><div class="text-right">votes now</div><div class="text-right">$ / 1M</div><div class="text-right">${X > 0 ? `+$${X} → Votion votes` : 'Votion\'s next move'}</div></div>`;
-        const cell = (v, cap, cls = 'text-gray-200') => `<div class="text-right"><div class="mono text-xs ${cls}">${v}</div>${cap ? `<div class="text-[9px] text-gray-600 leading-tight">${cap}</div>` : ''}</div>`;
-        el.innerHTML = ctl + shown.map((r) => {
-            const inSet = r.votionVp > 50000;
-            const fundedNow = r.fundedNow, basePotUsd = r.basePotUsd, _fund = r.fund, sr = X > 0 ? r.sr : null;
-            const gain = sr ? Math.max(0, sr.sim - sr.base) : null; const projVp = sr ? r.vp - r.votionVp + sr.sim : null;
-            const bucketVp = Math.max(1, (store.data?.vote?.pools || []).filter(q2 => q2.bucket === r.p.bucket).reduce((s2, q2) => s2 + (q2.vp || 0), 0));
-            const epv = emissionsPerVp(r.p); const gainUsdWk = gain != null && epv != null ? gain * epv : null;
-            const rateAfter = projVp > 0 ? (basePotUsd + X) / (projVp / 1e6) : null;
-            const lastFunded = (r.liveMode ? bribeFundedFor(r.p.gauge_pool_id, store.votionOptPeriod) : _fund) || {};
-            // cells
-            const potCell = fundedNow
-                ? cell(fmt$(r.usd), r.livePot && r.livePot.tokens.length ? r.livePot.tokens.map(t => fmtNum(t.amount) + ' ' + t.sym).join(' · ') + (r.livePot.unpriced.length ? ' <span class="text-amber-400">unpriced</span>' : '') : (r.liveMode ? 'live' : 'captured'))
-                : `<div class="text-right"><span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300" title="Votion only weighs pots funded for the period it votes into. It re-checks about every 15 minutes until it casts.">not funded</span><div class="text-[9px] text-gray-600 leading-tight">${lastFunded.last_funded_period ? 'through p' + lastFunded.last_funded_period : 'no pot'}</div></div>`;
-            const votesCell = cell(fmtNum(r.vp), inSet ? `<span class="text-emerald-300/80">Votion ${fmtNum(r.votionVp)}</span>` : '<span class="text-gray-600">LP-voted</span>');
-            const rateCell = cell(fundedNow && r.per1m != null ? fmt$(r.per1m) : '—', fundedNow && r.per1m != null && market ? `${r.per1m >= market ? '+' : ''}${((r.per1m / market - 1) * 100).toFixed(0)}% vs rate` : '');
-            let projCell;
-            if (X === 0) {   // Votion's own next move (its published plan vs its current votes), if nothing changes
-                const dv = r.votionPlanDelta;
-                projCell = dv == null ? cell('—', 'no plan', 'text-gray-600')
-                    : Math.abs(dv) < 1000 ? cell('holds', `${fmtNum(r.votionVp)} stays`, 'text-gray-500')
-                    : `<div class="text-right" title="Votion's published plan for p${_vp2 || '?'} minus its current votes on this pool"><div class="mono text-xs ${dv > 0 ? 'text-emerald-300' : 'text-red-300'}">${dv > 0 ? '+' : ''}${fmtNum(dv)} VP</div><div class="text-[9px] text-gray-500 leading-tight">${fmtNum(r.votionVp)} → ${fmtNum(r.votionVp + dv)}${epv != null ? ` · <span class="${dv > 0 ? 'text-emerald-300/90' : 'text-red-300/90'}">${dv > 0 ? '+' : ''}${fmt$(dv * epv)}/wk</span>` : ''}</div></div>`;
-            } else if (gain == null) projCell = cell('—', 'no inputs', 'text-gray-600');
-            else if (gain < 1000) projCell = cell('≈ 0', fundedNow ? 'below Votion\'s rate — more needed' : `$${X} alone is under the rate here`, 'text-gray-500');
-            else { const bt = store.votionBacktest; const bk = String(r.p.bucket || '').toLowerCase(); const fl = bt && bt.flags && bt.flags[bk]; const thr = fl && fl.length ? fl.map(f => `${f.vault.replace('-max', ' Max')} ${f.worth ? 'moves' : 'holds'}${f.gain != null ? ' (' + (f.gain >= 0 ? '+' : '') + '$' + Math.abs(f.gain).toFixed(2) + ')' : ''}`).join(' · ') : null;
-            r._thrLine = thr ? `<div class="text-[9px] text-gray-600 leading-tight" title="Votion re-votes a bucket only when its own re-solve gains more than $0 (its isWorthChanging flag). These are the flags it published for p${_vp2 || '?'} with nothing added; your +$${X} has to be enough to flip a 'holds' to a 'moves' before any VP moves.">Votion's rule today: ${thr}${bt && bt.buckets && bt.buckets[bk] != null ? ` · model ±${bt.buckets[bk]} pp` : ''}</div>` : '';
-            projCell = `<div class="text-right" title="Our exact solve of Votion's objective re-run with +$${X} here: its votes ${fmtNum(sr.base)} → ${fmtNum(sr.sim)}. A projection of how much moves, not of which pools Votion pulls from."><div class="mono text-xs text-amber-200">+${fmtNum(gain)} VP</div><div class="text-[9px] text-gray-500 leading-tight">share ${(r.vp / bucketVp * 100).toFixed(0)}→${(projVp / bucketVp * 100).toFixed(0)}%${gainUsdWk != null ? ` · <span class="text-emerald-300/90">+${fmt$(gainUsdWk)}/wk</span>` : ''}${rateAfter ? ` · pays ${fmt$(rateAfter)}/1M` : ''}</div></div>${r._thrLine || ''}`; }
-            const warn = !fundedNow && inSet ? `<div class="col-span-full text-[10px] text-amber-300/80 mt-0.5">Votion's ${fmtNum(r.votionVp)} VP here leaves unless p${_vp2 || '?'} is funded before it casts.</div>` : '';
-            return `<div class="grid gap-x-3 items-center px-2 py-1.5 rounded-lg hover:bg-white/[0.03] border-t border-white/[0.04]" style="${GRID}">
-                <div class="min-w-0"><div class="text-sm font-medium" style="overflow-wrap:anywhere">${r.p.name}${r.mine ? ' <span class="text-[9px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-300 font-normal">yours</span>' : ''}${galerts[r.p.gauge_pool_id] && window.alertPills ? window.alertPills({ alerts: galerts[r.p.gauge_pool_id] }) : ''}</div><div class="flex items-center gap-1">${dexTag(r.p.dex)}<span class="text-[9px] text-gray-600 uppercase">${r.p.bucket || ''}</span>${r.grade ? `<span class="text-[9px] px-1 rounded bg-white/5 text-gray-400" title="LP grade">${r.grade}</span>` : ''}</div></div>
-                ${potCell}${votesCell}${rateCell}${projCell}${warn}
-            </div>`;
-        }).join('') + (rows.length > 8 ? `<div class="text-center pt-1"><button type="button" class="text-[10px] px-3 py-1 rounded-full bg-white/5 text-gray-400 hover:text-amber-300 font-medium" onclick="toggleBountyExpand()">${store.bountyExpanded ? 'show top 8 only' : `show all ${rows.length} bribed pools`} <i class="fas fa-chevron-${store.bountyExpanded ? 'up' : 'down'} text-[8px] ml-1"></i></button></div>` : '');
+        const _vot = (p) => { const m = (p.gauge_pool_id && (store.pools || []).find(x => x.gauge_pool_id === p.gauge_pool_id && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase())); return m ? (m.votion_now_vp || 0) : 0; };
+        const rates = pools.filter(p => (p.bribes?.total || 0) > 0.005 && (p.vp || 0) > 50000 && _vot(p) > 50000).map(p => p.bribes.total / (p.vp / 1e6)).sort((a, b) => a - b);
+        if (store.voteMarketRate == null && rates.length) store.voteMarketRate = rates[Math.floor((rates.length - 1) / 2)];
+        const el = document.getElementById('bounty-board-rows'); if (!el) return;
+        if (store.vmTile) { store.vmTile.refresh(); return; }
+        if (!window.VoteMarketTile || !window.VoteMarket) { el.innerHTML = '<div class="text-sm text-gray-400 py-4">The Vote Market overview did not load. <a href="/vote-market.html" class="text-amber-300 font-semibold">Open the simulator →</a></div>'; return; }
+        store.vmTile = window.VoteMarketTile.mount(el, {
+            planner: '/vote-market.html',
+            getWallet: () => store.selectedMemberWallet || null,
+            onRate: (r) => { if (r != null && store.voteMarketRate !== r) { store.voteMarketRate = r; try { renderThresholdWatch(); } catch (e) { } } },
+        });
     }
-    window.setVoteMarketX = function (v) { store.voteMarketX = v; renderBountyBoard(); };
-    window.setVoteMarketSort = function (k) { store.voteMarketSort = k; renderBountyBoard(); };
-
-    function toggleBountyExpand() {
-        store.bountyExpanded = !store.bountyExpanded;
-        renderBountyBoard();
-    }
+    window.renderBountyBoard = renderBountyBoard;
 
     // ---------------- Epoch Movers ----------------
     // Per-pool live VP vs the locked-in (epoch start) baseline — the same baseline
@@ -7259,6 +7145,7 @@
         store.selectedMemberWallet = wallet;
         // Batch B: the Trade Planner link follows the selected wallet (holdings first, planner-side)
         const _pl = document.getElementById('slip-open-link'); if (_pl) _pl.href = wallet ? 'slippage.html?wallet=' + encodeURIComponent(wallet) : 'slippage.html';
+        try { if (store.vmTile) store.vmTile.refresh(); } catch (err) { console.warn('vote market after member change:', err); }
         // Re-render only the three Overview-tab visuals affected by member selection.
         // Other tabs untouched per design (member overlay is Overview-only).
         try { renderBucketCharts(); } catch (err) { console.warn('renderBucketCharts after member change:', err); }
@@ -13941,7 +13828,7 @@
     <!-- Vercel Web Analytics (auto-enabled for Vercel-hosted sites) -->
     <script defer src="/_vercel/insights/script.js"></script>
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.12', revDate: '2026-09-27', page: 'tla-stats' });   // T6.12: the Vote Market tile shows Votion's next move only (the $X chips and their fine print are gone — the planner does that) + wind-down pills on its pool names · T6.11: the tile opens the planner (/vote-market.html) ·    // T6.10: the Pools tab's bucket charts plot votes — every pool in the bucket, its TLA VP or share of the bucket over the last 13 epochs (a 1% line on the share view; click an epoch for its whole vote); Liquidity & volume is still one pick away.   // T6.9: the Vote Breakdown shows any past epoch (Past epochs… picker, change vs the epoch before); bars never run off the card (the scale covers the locked-in outline; labels sit inside when long); the pool drill-down charts give each epoch's exact number on hover and jump to that epoch's whole vote.   // T6.8: every pool named before anything keys on names (Votion plan title / catalog underlyings for raw-address pools; a dewhitelisted twin gauge is "(old)" instead of hiding the live one)
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.13', revDate: '2026-09-27', page: 'tla-stats' });   // T6.13: the Vote Market tile runs on the simulator's engine (lib/vote-market-tile.js 1.0.0) — Where $ does the most · Votion's next move (real VP) · Pots & rates, one pot total with the planner, the cast time from Votion's timing, a best-split teaser for the selected wallet, and the simulator one click from the header, every row and the footer · T6.12: the Vote Market tile shows Votion's next move only (the $X chips and their fine print are gone — the planner does that) + wind-down pills on its pool names · T6.11: the tile opens the planner (/vote-market.html) ·    // T6.10: the Pools tab's bucket charts plot votes — every pool in the bucket, its TLA VP or share of the bucket over the last 13 epochs (a 1% line on the share view; click an epoch for its whole vote); Liquidity & volume is still one pick away.   // T6.9: the Vote Breakdown shows any past epoch (Past epochs… picker, change vs the epoch before); bars never run off the card (the scale covers the locked-in outline; labels sit inside when long); the pool drill-down charts give each epoch's exact number on hover and jump to that epoch's whole vote.   // T6.8: every pool named before anything keys on names (Votion plan title / catalog underlyings for raw-address pools; a dewhitelisted twin gauge is "(old)" instead of hiding the live one)
     //   // T6.7: pots price off the feed by the catalog symbol (network-and-prices 3.1.0); the T6.5 page bridge is gone · T6.6 (step 5): the Vote Market's +$X cell carries Votion's own threshold flags for the bucket (moves / holds, its published gain) and the per-bucket back-test error; a header chip shows the mean model-vs-plan error. Words + one derived number; no layout change.   // T6.5: live pots price through the catalog's own price when the feed keys a symbol differently (USDC.n vs USDC); a pot with tokens is never 'not funded' — the LUNA-EURe $10 pot for p203 was funded all along.   // T6.4: the Top-by-APR subline names the LUNA price the product is on (live / day price, as-of) and the trading-leg caveat for the four pools that read lower than Eris. Words only.   // T6.3: the Bribes popup reads the rollup too (1.1.0 oracle join); footer says why an epoch can be missing.   // T6.2: hero-tile popups read member-data/tla-snapshot/epoch-history.json (every epoch since E184 for pools / TVL / rewards / voting VP, APR from E196, on the tiles' own basis; bribes keep their live point until the oracle join); the band product is used only for epochs the rollup lacks — no mixed definitions. In place under the freeze.   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
 </body>
 </html>
