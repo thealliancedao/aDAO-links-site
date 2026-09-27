@@ -55,6 +55,15 @@
   .share .line { position: absolute; top: -2px; bottom: -2px; width: 1px; background: #f87171; opacity: .8; }
   .flow { display: grid; grid-template-columns: minmax(0,14rem) minmax(4rem,16rem) 5.5rem; gap: .5rem; align-items: center; font-size: .95rem; padding: .2rem 0; }
   .note { font-size: .9rem; color: var(--ink3); }
+  .est { display: flex; gap: .7rem; align-items: flex-start; border: 1px solid rgba(251,191,36,.35); background: rgba(251,191,36,.06); border-radius: 12px; padding: .7rem .9rem; font-size: 1rem; color: #fde68a; line-height: 1.45; }
+  .est i { margin-top: .2rem; } .est b { color: #fef3c7; }
+  .reset { padding: .3rem .75rem; border-radius: 999px; font-size: .85rem; background: transparent; color: var(--ink2); border: 1px solid var(--line); cursor: pointer; white-space: nowrap; }
+  .reset:hover { color: var(--ink); border-color: rgba(255,255,255,.25); }
+  .bk { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; padding: .3rem 0; font-size: 1rem; }
+  .bk .v { font-family: 'JetBrains Mono', monospace; font-weight: 600; white-space: nowrap; }
+  .bk.back { background: rgba(52,211,153,.10); border: 1px solid rgba(52,211,153,.35); border-radius: 10px; padding: .45rem .6rem; margin: .25rem 0; }
+  .bk.back .v { font-size: 1.6rem; color: var(--up); }
+  .bk.total { border-top: 1px solid var(--line); margin-top: .3rem; padding-top: .5rem; } .bk.total .v { font-size: 1.35rem; }
   .spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
   @media (max-width: 760px) {
     .row { grid-template-columns: 1.5rem minmax(0,1fr) minmax(0,1fr); row-gap: .3rem; } .row .hide-sm, .row.head { display: none; }
@@ -77,6 +86,7 @@
     <span id="vm-round" class="chip"></span>
     <span id="vm-src" class="chip"></span>
     <a href="/tla-stats.html" class="pill ml-auto" style="text-decoration:none"><i class="fas fa-arrow-left mr-1"></i> TLA Stats</a>
+    <button id="vm-reset-all" class="reset" type="button" title="Put every section back to its defaults"><i class="fas fa-rotate-left mr-1"></i> Reset all</button>
     <button id="vm-help-btn" class="pill" type="button"><i class="fas fa-circle-question mr-1"></i> How it works</button>
   </div>
   <div id="vm-help" class="card mb-4 hidden">
@@ -96,10 +106,12 @@
       <span id="vm-amts" class="flex gap-1.5 flex-wrap"></span>
       <input id="vm-amt" class="num" type="number" min="1" step="5" aria-label="bribe amount">
       <span class="h2">do the most?</span>
+      <button id="vm-reset-ov" class="reset ml-auto" type="button"><i class="fas fa-rotate-left mr-1"></i> Reset</button>
     </div>
     <div id="vm-buckets" class="flex gap-1.5 flex-wrap mb-2"></div>
     <div id="vm-lenses" class="flex gap-1.5 flex-wrap mb-1"></div>
     <div id="vm-lens-hint" class="note mb-2"></div>
+    <div class="note mb-2"><i class="fas fa-circle-info text-amber-300 mr-1"></i>Estimates — if every other vote and pot stays exactly as it is now.</div>
     <div id="vm-list"><div class="sub py-6"><i class="fas fa-circle-notch spin mr-2"></i>Loading this round's pots and votes…</div></div>
   </section>
 
@@ -109,6 +121,7 @@
       <span class="h2"><i class="fas fa-flask text-cyan-400 mr-1"></i> Plan a move</span>
       <select id="vm-pool" class="sel ml-1" aria-label="pool"></select>
       <span id="vm-wallet" class="ml-auto"></span>
+      <button id="vm-reset-sim" class="reset" type="button"><i class="fas fa-rotate-left mr-1"></i> Reset</button>
     </div>
     <div class="grid lg:grid-cols-2 gap-5 mb-5">
       <div class="tile">
@@ -122,7 +135,8 @@
         <div class="flex items-center gap-2 flex-wrap text-[0.95rem]"><span class="sub">from</span><select id="vm-from" class="sel" aria-label="move from"></select><span class="sub" id="vm-moved"></span></div>
       </div>
     </div>
-    <div id="vm-answers" class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5"></div>
+    <div class="est mb-4"><i class="fas fa-triangle-exclamation"></i><div><b>An estimate, not a promise.</b> These numbers assume <b>everything else stays exactly as it is right now</b> — every other voter's votes, every pot, Votion's plan. People keep voting and bribing until the round closes, so the real result will differ.</div></div>
+    <div id="vm-answers" class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5 items-start"></div>
     <div id="vm-flows" class="mb-5" style="max-width:44rem"></div>
     <div class="overflow-x-auto"><div id="vm-bucket-table"></div></div>
     <div class="note mt-3" id="vm-sim-note"></div>
@@ -134,7 +148,9 @@
       <span class="h2"><i class="fas fa-wand-magic-sparkles text-amber-400 mr-1"></i> Vote for the best rewards</span>
       <span class="sub">— Votion's method, pointed at your VP</span>
       <button id="vm-best-btn" class="pill on ml-auto" type="button">Find my best split</button>
+      <button id="vm-reset-best" class="reset" type="button"><i class="fas fa-rotate-left mr-1"></i> Reset</button>
     </div>
+    <div class="est mb-4"><i class="fas fa-triangle-exclamation"></i><div><b>An estimate, not a promise.</b> The best split for <b>right now</b> — if nobody else changes their votes or adds to a pot before the round closes. Re-check close to the deadline.</div></div>
     <div id="vm-best"><div class="sub">Pick an address in VIEWING (or enter a VP above) and press the button: it splits your votes in every bucket for the most bribes this round, with Votion's reaction included.</div></div>
   </section>
 </main>
@@ -284,7 +300,13 @@
     const at = tile(`${esc(p.name)} APR · next epoch`, `${pctS(t0.apr)} <span class="text-gray-500 text-xl">→</span> <span class="${cls((t1.apr || 0) - (t0.apr || 0), 0.5)}">${pctS(t1.apr)}</span>`, `${(t0.share * 100).toFixed(1)}% → ${(t1.share * 100).toFixed(1)}% of ${VM.BUCKET_LABEL[b]} votes${!t1.active ? ' · <span class="down">under the 1% line</span>' : !t0.active ? ' · <span class="up">over the 1% line</span>' : ''}`);
     // 4 · the bribe's bill — or what it takes
     let bt;
-    if (ST.bribe > 0) bt = tile('Your bribe really costs', `${fmt$(sc.netCost)}`, `${fmt$(ST.bribe, 0)} paid − ${sgn$(sc.incomeChange)} change in your bribes${sc.bribeBack > 0 ? ` (your votes collect ${fmt$(sc.bribeBack)} of it; Votion's new votes and any votes you moved away take the rest back)` : ''} · its LPs get <b class="up">${sgn$(sc.emissionsBought, 0)}/wk</b> emissions`);
+    if (ST.bribe > 0) { const lost = sc.bribeBack - sc.incomeChange;   // what the move takes away elsewhere: Votion's new votes diluting you + any votes you moved off other pools
+      bt = `<div class="tile" style="border-color:rgba(52,211,153,.35)"><div class="k">Your ${fmt$(ST.bribe, 0)} bribe · estimate</div>
+        <div class="bk"><span>You pay</span><span class="v down">−${fmt$(ST.bribe)}</span></div>
+        <div class="bk back"><span><b>Comes back to your votes</b><br><span class="sub">your share of this pool's pot</span></span><span class="v">+${fmt$(sc.bribeBack)}</span></div>
+        ${lost > 0.005 ? `<div class="bk"><span>Given up elsewhere<br><span class="sub">${sc.moved > 0 ? 'the pool you left + ' : ''}Votion's new votes diluting you</span></span><span class="v down">−${fmt$(lost)}</span></div>` : ''}
+        <div class="bk total"><span><b>Real cost this round</b></span><span class="v">${fmt$(sc.netCost)}</span></div>
+        <div class="sub mt-1">Its LPs get <b class="up">${sgn$(sc.emissionsBought, 0)}/wk</b> in emissions</div></div>`; }
     else { const wt = VM.whatItTakes(m, pk); bt = tile('What it takes', wt.votionExcluded ? '<span class="flat">—</span>' : wt.votionAlready ? '<span class="up">Votion is in</span>' : wt.votionIn != null ? fmt$(wt.votionIn, 0) : '> $5K', wt.votionExcluded ? 'Votion will not vote here this round' : `${wt.votionAlready ? '' : 'to bring Votion in · '}${t0.active ? 'already over the 1% line' : wt.overLine != null ? `${fmt$(wt.overLine, 0)} to cross the 1% line` : 'the 1% line is out of reach under $5K'}`); }
     $('vm-answers').innerHTML = (p.winding ? `<div class="sm:col-span-2 xl:col-span-4 tile" style="border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.07)"><div class="flex items-start gap-3"><i class="fas fa-triangle-exclamation text-amber-300 text-xl mt-1"></i><div><div class="font-semibold text-amber-200 text-lg">${esc(p.name)} holds ${esc(p.winding.symbol || 'an asset')} — it is being wound down</div><div class="sub mt-1">${esc(p.winding.action || p.winding.headline || '')}</div><div class="mt-1"><a class="text-cyan-300" href="${esc(p.winding.source_url || '#')}" target="_blank" rel="noopener">Migration guide ↗</a>${p.winding.replacement && p.winding.replacement.symbol ? ` · <span class="sub">support the ${esc(p.winding.replacement.symbol)} pairs instead</span>` : ''}</div></div></div></div>` : '') + vt + yt + at + bt;
     // flows: where Votion's votes come from
@@ -325,7 +347,14 @@
     const live = await window.VoteMarket.fetchLivePots(ST.m).catch(() => null);
     if (live) { window.VoteMarket.applyLivePots(ST.m, live); ST.live = true; renderHeader(); renderList(); renderSim(); }
   }
+  const DEFAULTS = { amt: 50, bucket: 'all', lens: 'impact', untested: false, bribe: 0, pct: 0, from: 'all', hypoVp: 1000000 };
+  function topPool() { const r = window.VoteMarket.lens(ST.m, { lens: 'impact', usd: DEFAULTS.amt, limit: 1 })[0]; return r ? r.pool.pk : Object.keys(ST.m.pools)[0]; }
+  function resetOverview() { Object.assign(ST, { amt: DEFAULTS.amt, bucket: DEFAULTS.bucket, lens: DEFAULTS.lens, untested: DEFAULTS.untested }); $('vm-amt').value = ''; renderControls(); renderList(); }
+  function resetSim() { Object.assign(ST, { bribe: DEFAULTS.bribe, pct: DEFAULTS.pct, from: DEFAULTS.from }); $('vm-bribe').value = 0; $('vm-pct').value = 0; if (ST.m) pickPool(topPool(), false); }
+  function resetBest() { if (!(ST.wallet && ST.wallet.rec)) { ST.hypoVp = DEFAULTS.hypoVp; renderWallet(); } ST.best = null; renderFrom(); renderSim(); if (ST.m) ST.m.loadVoters().then(renderBestIdle); }
   function bind() {
+    $('vm-reset-ov').onclick = resetOverview; $('vm-reset-sim').onclick = resetSim; $('vm-reset-best').onclick = resetBest;
+    $('vm-reset-all').onclick = () => { resetOverview(); resetSim(); resetBest(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
     $('vm-help-btn').onclick = () => $('vm-help').classList.toggle('hidden');
     $('vm-amt').addEventListener('change', () => { const v = Number($('vm-amt').value); if (v > 0) { ST.amt = Math.round(v); renderControls(); renderList(); } });
     $('vm-bribe').addEventListener('input', () => { ST.bribe = Number($('vm-bribe').value); renderSim(); });
@@ -349,6 +378,6 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 </script>
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'VM1.2', revDate: '2026-09-27', page: 'vote-market' });   // VM1.2: the bribe tile shows the REAL cost (bribe − the change in your bribes, dilution included), the best split runs by default, Best impact ranks pools Votion is offered (+ untested on request), migrate-by dates in UTC ·   // VM1.1: the site header + address picker mount (missing in 1.0); pools whose asset is winding down (USDC.n) carry the pill, never recommended, never in the best split ·   // VM1.0: the Vote Market planner — lenses, the simulator, the best split; engine lib/vote-market.js 1.0.0 (live: /test-2.html redirects to /app.html, so it ships here)</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'VM1.3', revDate: '2026-09-27', page: 'vote-market' });   // VM1.3: the bribe tile is a breakdown — the money coming back to your votes in big green; an "estimate, if everything stays the same" banner on the simulator and the best split; Reset on every section + Reset all ·   // VM1.2: the bribe tile shows the REAL cost (bribe − the change in your bribes, dilution included), the best split runs by default, Best impact ranks pools Votion is offered (+ untested on request), migrate-by dates in UTC ·   // VM1.1: the site header + address picker mount (missing in 1.0); pools whose asset is winding down (USDC.n) carry the pill, never recommended, never in the best split ·   // VM1.0: the Vote Market planner — lenses, the simulator, the best split; engine lib/vote-market.js 1.0.0 (live: /test-2.html redirects to /app.html, so it ships here)</script>
 </body>
 </html>

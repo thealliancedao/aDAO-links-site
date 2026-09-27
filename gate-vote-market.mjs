@@ -103,7 +103,10 @@ if (JSDOM) {
   const apr1 = sc.plan.rows[tgt].apr; const aprS = (x) => x == null ? '—' : (x >= 1000 ? Math.round(x).toLocaleString() : x >= 100 ? x.toFixed(0) : x.toFixed(1)) + '%';
   check(`P2 tile 3 = APR → ${aprS(apr1)}`, tiles[2] && tiles[2].includes(aprS(apr1)), tiles[2]);
   const f$ = (x) => { const a = Math.abs(x); return (x < 0 ? '−$' : '$') + (a >= 1e4 ? Math.round(a).toLocaleString('en-US') : a >= 100 ? a.toFixed(0) : a.toFixed(2)); };   // the page's own money format
-  check(`P2 tile 4 = real cost ${f$(sc.netCost)}`, tiles[3] && tiles[3].includes('really costs' + f$(sc.netCost)), tiles[3]);
+  check(`P2 tile 4 breakdown: pays −${f$(100)} · back +${f$(sc.bribeBack)} · real cost ${f$(sc.netCost)}`, tiles[3] && tiles[3].includes('You pay−' + f$(100)) && tiles[3].includes('+' + f$(sc.bribeBack)) && tiles[3].includes('Real cost this round' + f$(sc.netCost)), tiles[3]);
+  // Reset all: every section back to its defaults
+  d.getElementById('vm-reset-all').click(); await new Promise(r => setTimeout(r, 300));
+  check('P5 Reset all → bribe $0, move 0%, $50, all buckets, Best impact', d.getElementById('vm-bribe').value === '0' && d.getElementById('vm-pct').value === '0' && d.querySelector('#vm-amts .pill.on').textContent === '$50' && d.querySelector('#vm-buckets .pill.on').dataset.b === 'all' && d.querySelector('#vm-lenses .pill.on').dataset.l === 'impact');
   const trs = [...d.querySelectorAll('#vm-bucket-table tbody tr')]; check('P3 the bucket table marks the target row', trs.some(r => r.classList.contains('target')));
   // a wallet from VIEWING: the best split's headline equals the engine's for that wallet
   const cam = 'terra1hr8zsfpch47qygc96c8e6rzkd2t7mafqx77ulw'; if (onSel && m.voters[cam]) { onSel(cam, 'DeFi_Patriot'); await new Promise(r => setTimeout(r, 1500)); d.getElementById('vm-best-btn').click(); await new Promise(r => setTimeout(r, 1500));
