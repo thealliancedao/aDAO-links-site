@@ -68,6 +68,7 @@
 <div id="site-header"></div>
 <script src="/lib/site-header.js"></script>
 <script src="/lib/address-picker.js"></script>
+<script>SiteHeader.mount({ page: 'vote-market' });</script>
 
 <main class="max-w-7xl mx-auto px-4 sm:px-6 pb-16 pt-4">
   <!-- ============ HEADER ============ -->
@@ -141,7 +142,7 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script src="/lib/vote-market.js?v=1.0.0"></script>
+<script src="/lib/vote-market.js?v=1.1.0"></script>
 <script>
 (function () {
   'use strict';
@@ -199,14 +200,18 @@
     $('vm-buckets').querySelectorAll('button').forEach(b => b.onclick = () => { ST.bucket = b.dataset.b; renderControls(); renderList(); });
     $('vm-lenses').innerHTML = window.VoteMarket.LENSES.filter(L => !L.needsWallet || (ST.wallet && ST.wallet.rec)).map(L => `<button type="button" class="pill ${ST.lens === L.key ? 'on' : ''}" data-l="${L.key}" title="${esc(L.hint)}">${L.label}</button>`).join('');
     $('vm-lenses').querySelectorAll('button').forEach(b => b.onclick = () => { ST.lens = b.dataset.l; renderControls(); renderList(); });
-    const L = window.VoteMarket.LENSES.find(x => x.key === ST.lens); $('vm-lens-hint').textContent = L ? L.hint.charAt(0).toUpperCase() + L.hint.slice(1) + ' · click a pool to plan it' : '';
+    const L = window.VoteMarket.LENSES.find(x => x.key === ST.lens); const nW = Object.values(ST.m.pools).filter(p => p.winding).length;
+    $('vm-lens-hint').textContent = L ? L.hint.charAt(0).toUpperCase() + L.hint.slice(1) + ' · click a pool to plan it' + (nW && ['impact', 'underdogs', 'pd'].includes(ST.lens) ? ` · ${nW} winding-down pools left out` : '') : '';
   }
+  // the pair is going away (curated alert, e.g. USDC.n → USDC.inj) — same words as TLA Stats' pills, linked to the migration
+  const windPill = (p, big) => p.winding ? `<a class="tag warn" style="text-decoration:none${big ? ';font-size:.8rem' : ''}" href="${esc(p.winding.source_url || '#')}" target="_blank" rel="noopener" title="${esc(p.winding.headline || '')}${p.winding.action ? ' — ' + esc(p.winding.action) : ''}"><i class="fas fa-triangle-exclamation"></i> ${esc(p.winding.symbol || 'asset')} winding down${p.winding.deadline ? ' · migrate by ' + esc(new Date(p.winding.deadline + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) : ''}</a>` : '';
   function badges(p) {
-    const b = [];
+    const b = []; if (p.winding) b.push(windPill(p));
     if (p.grade) b.push(`<span class="tag" title="LP grade${p.gradeWhy ? ': ' + esc(p.gradeWhy) : ''}">${p.grade}</span>`);
     if (p.votionExcluded) b.push(`<span class="tag no" title="Funded this round but left out of Votion's list — a bribe here pays human voters only">no Votion</span>`);
     else if (p.votionUntested) b.push(`<span class="tag warn" title="Votion has not been offered this pool this round — the projection assumes it would take a new pot">Votion untested</span>`);
     if (ST.wallet && ST.wallet.rec && ST.wallet.rec.lp.some(l => l.pk === p.pk)) b.push(`<span class="tag me">your LP</span>`);
+    if (p.forum) b.push(`<a class="tag" style="text-decoration:none;color:#67e8f9" href="${esc(p.forum.source_url || '#')}" target="_blank" rel="noopener" title="${esc(p.forum.headline || '')}">forum</a>`);
     return b.join(' ');
   }
   function lensMetric(r, max) {
@@ -239,7 +244,7 @@
 
   // ---------------------------------------------------------------- simulator
   function renderPoolSelect() {
-    const m = ST.m; const opts = window.VoteMarket.BUCKETS.map(b => `<optgroup label="${window.VoteMarket.BUCKET_LABEL[b]}">${m.buckets[b].pks.filter(pk => pool(pk).stakedUsd >= 1000 || pool(pk).potUsd > 0 || pool(pk).vp > 1e5).sort((a, c) => pool(c).vp - pool(a).vp).map(pk => `<option value="${esc(pk)}" ${ST.target === pk ? 'selected' : ''}>${esc(pool(pk).name)}</option>`).join('')}</optgroup>`).join('');
+    const m = ST.m; const opts = window.VoteMarket.BUCKETS.map(b => `<optgroup label="${window.VoteMarket.BUCKET_LABEL[b]}">${m.buckets[b].pks.filter(pk => pool(pk).stakedUsd >= 1000 || pool(pk).potUsd > 0 || pool(pk).vp > 1e5).sort((a, c) => pool(c).vp - pool(a).vp).map(pk => `<option value="${esc(pk)}" ${ST.target === pk ? 'selected' : ''}>${esc(pool(pk).name)}${pool(pk).winding ? ' ⚠ winding down' : ''}</option>`).join('')}</optgroup>`).join('');
     $('vm-pool').innerHTML = opts; $('vm-pool').onchange = () => pickPool($('vm-pool').value, false);
   }
   function renderFrom() {
@@ -278,7 +283,7 @@
     let bt;
     if (ST.bribe > 0) bt = tile('Your bribe', `${fmt$(sc.netCost, 0)} <span class="sub text-base">net</span>`, `${fmt$(ST.bribe, 0)} in · ${fmt$(sc.bribeBack)} comes back to your votes · buys <b class="up">${sgn$(sc.emissionsBought, 0)}/wk</b> emissions for its LPs`);
     else { const wt = VM.whatItTakes(m, pk); bt = tile('What it takes', wt.votionExcluded ? '<span class="flat">—</span>' : wt.votionAlready ? '<span class="up">Votion is in</span>' : wt.votionIn != null ? fmt$(wt.votionIn, 0) : '> $5K', wt.votionExcluded ? 'Votion will not vote here this round' : `${wt.votionAlready ? '' : 'to bring Votion in · '}${t0.active ? 'already over the 1% line' : wt.overLine != null ? `${fmt$(wt.overLine, 0)} to cross the 1% line` : 'the 1% line is out of reach under $5K'}`); }
-    $('vm-answers').innerHTML = vt + yt + at + bt;
+    $('vm-answers').innerHTML = (p.winding ? `<div class="sm:col-span-2 xl:col-span-4 tile" style="border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.07)"><div class="flex items-start gap-3"><i class="fas fa-triangle-exclamation text-amber-300 text-xl mt-1"></i><div><div class="font-semibold text-amber-200 text-lg">${esc(p.name)} holds ${esc(p.winding.symbol || 'an asset')} — it is being wound down</div><div class="sub mt-1">${esc(p.winding.action || p.winding.headline || '')}</div><div class="mt-1"><a class="text-cyan-300" href="${esc(p.winding.source_url || '#')}" target="_blank" rel="noopener">Migration guide ↗</a>${p.winding.replacement && p.winding.replacement.symbol ? ` · <span class="sub">support the ${esc(p.winding.replacement.symbol)} pairs instead</span>` : ''}</div></div></div></div>` : '') + vt + yt + at + bt;
     // flows: where Votion's votes come from
     const fl = sc.flows; const mx = Math.max(1, ...fl.map(x => Math.abs(x.d)));
     $('vm-flows').innerHTML = fl.length ? `<div class="k mb-1">Votion's votes move · ${VM.BUCKET_LABEL[b]}</div>` + fl.map(x => `<div class="flow"><span class="truncate ${x.pk === pk ? 'text-amber-200 font-semibold' : ''}">${esc(x.name)}</span><div class="bar" title="${esc(x.name)}: Votion ${sgnVp(x.d)} VP"><i style="width:${Math.max(3, Math.abs(x.d) / mx * 100)}%;background:${x.d > 0 ? 'var(--up)' : 'var(--down)'}"></i></div><span class="mono text-right ${x.d > 0 ? 'up' : 'down'}">${sgnVp(x.d)}</span></div>`).join('') :
@@ -289,7 +294,7 @@
     $('vm-bucket-table').innerHTML = `<div class="k mb-1">${VM.BUCKET_LABEL[b]} bucket at close · <span class="text-gray-400 normal-case">top bar now, bottom bar with your plan · red tick = the 1% line</span></div>
       <table class="btable"><thead><tr><th>Pool</th><th>Votes</th><th class="hide-sm">Share</th><th>APR next epoch</th><th class="hide-sm">Emissions /wk</th><th class="hide-sm">Pot</th></tr></thead><tbody>` +
       rows.map(k => { const r0 = sc.base.rows[k], r1 = sc.plan.rows[k]; const pp = pool(k); const dv = r1.votes - r0.votes;
-        return `<tr class="${k === pk ? 'target' : ''}"><td><span class="${k === pk ? 'text-amber-200 font-semibold' : ''}">${esc(pp.name)}</span>${!r1.active ? ' <span class="tag no">under 1%</span>' : ''}${sc.crossedUp.includes(k) ? ' <span class="tag me">crosses 1%</span>' : ''}</td>
+        return `<tr class="${k === pk ? 'target' : ''}"><td><span class="${k === pk ? 'text-amber-200 font-semibold' : ''}">${esc(pp.name)}</span>${pp.winding ? ' ' + windPill(pp) : ''}${!r1.active ? ' <span class="tag no">under 1%</span>' : ''}${sc.crossedUp.includes(k) ? ' <span class="tag me">crosses 1%</span>' : ''}</td>
           <td class="mono">${fmtVp(r1.votes)}${Math.abs(dv) >= 1000 ? ` <span class="${cls(dv)} text-[0.85rem]">${sgnVp(dv)}</span>` : ''}</td>
           <td class="hide-sm"><span class="share" title="${(r0.share * 100).toFixed(2)}% → ${(r1.share * 100).toFixed(2)}% of the bucket's votes"><i style="width:${r0.share / maxS * 100}%;background:#475569"></i><i class="b" style="width:${r1.share / maxS * 100}%;background:${k === pk ? 'var(--amber)' : 'var(--cyan)'}"></i><span class="line" style="left:${0.01 / maxS * 100}%"></span></span> <span class="mono text-[0.85rem] sub">${(r1.share * 100).toFixed(1)}%</span></td>
           <td class="mono">${pctS(r0.apr)} → <span class="${cls((r1.apr || 0) - (r0.apr || 0), 0.5)}">${pctS(r1.apr)}</span></td>
@@ -306,6 +311,7 @@
     const body = VM.BUCKETS.map(b => { const x = r.buckets[b]; if (!x.split.length) return `<div class="tile"><div class="flex justify-between"><b>${VM.BUCKET_LABEL[b]}</b><span class="sub">no funded pool pays here</span></div></div>`;
       return `<div class="tile"><div class="flex justify-between items-baseline mb-2"><b class="text-lg">${VM.BUCKET_LABEL[b]}</b><span class="mono">${fmt$(x.nowUsd)} → <span class="up">${fmt$(x.usd)}</span></span></div>` +
         x.split.filter(s => s.pct >= 0.005).map(s => `<div class="flow" style="grid-template-columns:minmax(0,1fr) 6rem 4rem 4.5rem"><span class="truncate">${esc(s.name)}${ST.m.pools[s.pk].votionExcluded ? ' <span class="tag no" title="Votion does not vote here — less competition for your votes">no Votion</span>' : ''}</span><div class="bar" title="${(s.pct * 100).toFixed(0)}% of your VP (${fmtVp(s.vp)})"><i style="width:${s.pct * 100}%;background:var(--amber)"></i></div><span class="mono text-right">${(s.pct * 100).toFixed(0)}%</span><span class="mono text-right up">${fmt$(s.usd)}</span></div>`).join('') +
+        (x.skipped && x.skipped.length ? `<div class="note mt-1"><i class="fas fa-triangle-exclamation text-amber-300"></i> skips ${x.skipped.map(esc).join(', ')} — winding down</div>` : '') +
         `<button type="button" class="pill mt-2" data-plan="${esc(x.split[0].pk)}">Plan it →</button></div>`; }).join('');
     $('vm-best').innerHTML = head + `<div class="grid md:grid-cols-2 gap-4">${body}</div><div class="note mt-3">Weights are a starting point: a pool whose pot is small moves a lot when anyone else votes it. Re-check close to the deadline.</div>`;
     $('vm-best').querySelectorAll('[data-plan]').forEach(el => el.onclick = () => { ST.pct = 100; $('vm-pct').value = 100; pickPool(el.dataset.plan, true); });
@@ -340,6 +346,6 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 </script>
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'VM1.0', revDate: '2026-09-27', page: 'vote-market' });   // VM1.0: the Vote Market planner — lenses, the simulator, the best split; engine lib/vote-market.js 1.0.0 (live: /test-2.html redirects to /app.html, so it ships here)</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'VM1.1', revDate: '2026-09-27', page: 'vote-market' });   // VM1.1: the site header + address picker mount (missing in 1.0); pools whose asset is winding down (USDC.n) carry the pill, never recommended, never in the best split ·   // VM1.0: the Vote Market planner — lenses, the simulator, the best split; engine lib/vote-market.js 1.0.0 (live: /test-2.html redirects to /app.html, so it ships here)</script>
 </body>
 </html>

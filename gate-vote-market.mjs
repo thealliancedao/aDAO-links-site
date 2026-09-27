@@ -65,13 +65,23 @@ const pools = Object.values(m.pools);
 // E10 names: no pool the page shows is a raw address
 check('E10 every pool with a pot or TVL has a readable name', pools.filter(p => p.potUsd > 0 || p.stakedUsd >= 1000).every(p => !/^(cw20|native):|^terra1[0-9a-z]{30,}/.test(p.name)), pools.filter(p => /^(cw20|native):|^terra1/.test(p.name)).map(p => p.name));
 
+// E11 wind-down (curated alert, e.g. USDC.n): every pool holding the asset is flagged — graded or not — and never recommended
+{ const alert = (IN.grades.pools.flatMap(g => g.alerts || []).find(a => a.kind === 'asset' && a.status === 'migrating'));
+  if (alert) { const cat = {}; (IN.catalog.pools || []).forEach(c => cat[c.gauge_pool_id] = c);
+    const holders = pools.filter(p => ((cat[p.gid] || {}).underlyings || []).some(d => String(d).replace(/^(native|cw20):/, '') === alert.denom || m._P.symOf(String(d).replace(/^(native|cw20):/, '')) === alert.symbol));
+    check(`E11 all ${holders.length} pools holding ${alert.symbol} are flagged`, holders.length > 0 && holders.every(p => p.winding), holders.filter(p => !p.winding).map(p => p.name));
+    const rec = ['impact', 'underdogs', 'pd'].flatMap(L => VM.lens(m, { lens: L, usd: 50, limit: 50 })).filter(r => r.pool.winding);
+    check('E11 no winding-down pool in the Best impact / Underdogs / PD lenses', rec.length === 0, rec.map(r => r.pool.name));
+    const w = Object.values(m.voters).sort((a, c) => c.vp - a.vp)[0]; const bs = VM.bestSplitAll(m, w);
+    check('E11 no winding-down pool in the best split', VM.BUCKETS.every(b => bs.buckets[b].split.every(x => !m.pools[x.pk].winding))); } }
+
 console.log('P. the page (vote-market.html in jsdom, captured pots — the LCD is not reachable)');
 let JSDOM; try { ({ JSDOM } = require('jsdom')); } catch (e) { console.log('  (jsdom not installed — page checks skipped)'); }
 if (JSDOM) {
   const html = fs.readFileSync(path.join(here, 'vote-market.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '').replace('<script>if (window.SiteFooter)', '<script>if (false)');
   let onSel = null;
   const dom = new JSDOM(html, { url: 'https://thealliancedao.com/vote-market.html', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
-    w.AddressPicker = { mount(o) { onSel = o.onSelect; }, get() { return null; } }; w.scrollTo = () => {}; w.HTMLElement.prototype.scrollIntoView = function () {};
+    w.SiteHeader = { mount() {} }; w.AddressPicker = { mount(o) { onSel = o.onSelect; }, get() { return null; } }; w.scrollTo = () => {}; w.HTMLElement.prototype.scrollIntoView = function () {};
     w.fetch = async (u) => { const mm = /tla-core\/main\/(.+)$/.exec(String(u).split('?')[0]); if (mm && fs.existsSync(path.join(CORE, mm[1]))) { const t = fs.readFileSync(path.join(CORE, mm[1]), 'utf8'); return { ok: true, status: 200, json: async () => JSON.parse(t) }; } return { ok: false, status: 404, json: async () => ({}) }; };
   } });
   const w = dom.window; w.eval(fs.readFileSync(path.join(here, 'lib/vote-market.js'), 'utf8'));   // the lib inside the page's window — its fetch is the stub, never the network
