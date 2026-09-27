@@ -1,3 +1,12 @@
+// 2026-09-26 (explorer 4.55, owner: "the Burning Lions section is hard to find — bring it into the explorer with PL"): on a
+//   tenant's FIRST collection the tenant's other collections ride along as COMPANIONS — their records join the grid keyed
+//   <PREFIX>-<id> (Burning Lions → BL-6) so ids never collide; a status toggle per companion (on by default; off is kept in the
+//   URL as <key>=false) shows or hides them, with the count of how many the current filters would show; their traits (Name,
+//   Animated) get their own dropdowns; a companion card reads "1 of 1" with its own traits and an orange border; the sheet shows
+//   its own traits, its own marketplace links and its own collection's journey; the Wallet tab and the holder board count them;
+//   Analytics keeps the first collection's numbers on its own records (a companion never enters its tiers, floor or market cap)
+//   and adds a section per companion read from the live inventory. The ?collection= switcher still opens a companion alone.
+//   Marketplace token links now use the token's own collection contract (the showcase linked aDAO's contract on every tenant).
 // 2026-09-26 (explorer 4.54, owner: Burning Lions into the explorer): a tenant's second collection opens with ?collection=<slug> and a
 //   switcher in the collection hero; a collection with no rarity file (Burning Lions — 1/1s) loads no rank file (it used to borrow
 //   aDAO's), shows "1 of 1" instead of a rank and hides the rank sorts; per-token media (7.gif, 1.png …) comes from the collection's
@@ -178,6 +187,7 @@ const getActiveRank = (nft) => rankMode === 'bbl' ? (nft.bbl_rank ?? null) : (nf
 // 4.46: a collection without a grade column (Pixel Lions: BBL's statistical rank is the whole system) reads "Rank N · top X%"
 // — no "Rarity —" for a grade it never had. aDAO keeps "Rarity G, Rank N".
 const rankDisplay = (nft) => {
+    if (nft && nft._cslug) return '1 of 1';   // 4.55: a companion token (Burning Lions — 1/1s) has no rank in the first collection's system
     const r = getActiveRank(nft);
     if (NO_RARITY) return '1 of 1';   // 4.54
     if (!traitOrder.includes('Rarity')) { const pct = nft.intended_pct != null ? ` · top ${Number(nft.intended_pct).toFixed(1)}%` : ''; return r == null ? 'Unranked' : `Rank ${r}${pct}`; }
@@ -308,6 +318,7 @@ const hasMatchingTraits = (nft, strictLevel = 0) => {
 // --- State ---
 let allNfts = [];
 let filteredNfts = [];
+let _companionCounts = {};   // 4.55: companion key → how many the current filters would show
 let currentPage = 1;
 let traitCounts = {};
 let inhabitantCounts = {};
@@ -354,9 +365,34 @@ const showError = (container, message) => { if(container) container.innerHTML = 
 const CLOUDFLARE_CDN_BASE = 'https://imagedelivery.net/v_zOWVQCPb7Xpcbu-gQC1A/alliance_dao';
 const IPFS_GATEWAY = 'https://ipfs.io/ipfs'; // cloudflare-ipfs.com retired 2024 — ipfs.io primary, dweb.link manual fallback
 
+// 4.55 — COMPANION COLLECTIONS. On a tenant's first collection, its other collections load as extra records keyed
+// <PREFIX>-<id> (a string — the first collection's ids stay numbers, so nothing about them changes). A record carries
+// _cslug (its collection) and _tid (its own token id); every id-based call routes through the helpers below.
+let COMPANIONS = [];         // [{ slug, label, prefix, key, idx, ctx, traits, recs }]
+let COMPANION_RECS = [];
+const COMPANION_PREFIXES = { 'burning-lions': 'BL' };   // display prefixes; any other companion gets its slug's initials
+const companionPrefixOf = (slug) => COMPANION_PREFIXES[slug] || String(slug).split('-').map(w => w[0] || '').join('').toUpperCase();
+const compOf = (nftOrId) => {
+    if (!COMPANIONS.length || nftOrId == null) return null;
+    if (typeof nftOrId === 'object') return nftOrId._cslug ? COMPANIONS.find(c => c.slug === nftOrId._cslug) || null : null;
+    const m = /^([A-Za-z]+)-(\d+)$/.exec(String(nftOrId)); if (!m) return null;
+    return COMPANIONS.find(c => c.prefix === m[1].toUpperCase()) || null;
+};
+const tidOf = (nftOrId) => { if (nftOrId && typeof nftOrId === 'object') return nftOrId._tid != null ? nftOrId._tid : nftOrId.id; const m = /^[A-Za-z]+-(\d+)$/.exec(String(nftOrId)); return m ? Number(m[1]) : nftOrId; };
+const sortIdOf = (n) => n && n._cslug ? ((n._cidx || 0) + 1) * 1e7 + (n._tid || 0) : ((n && n.id) ?? 0);   // the first collection's ids, then each companion's
+const normId = (s) => String(s == null ? '' : s).trim().toUpperCase().replace(/^([A-Z]+)[\s#-]*(\d+)$/, '$1-$2');
+const primaryNfts = () => allNfts.filter(n => !n._cslug);
+// 4.55: "(5 pixeLions · 1 Burning Lions)" after a count that mixes collections — nothing when it does not
+const companionSplit = (list) => { if (!COMPANIONS.length || !list || !list.some(n => n._cslug)) return ''; const p = list.filter(n => !n._cslug).length; const pl = (TENANT_CTX && TENANT_CTX.primary && TENANT_CTX.primary.label) || 'main';
+    return ` <span class="text-xs text-gray-400">(${[`${p} ${pl}`, ...COMPANIONS.map(c => { const k = list.filter(n => n._cslug === c.slug).length; return k ? `<span style="color:#fb923c">${k} ${c.label}</span>` : ''; })].filter(Boolean).join(' · ')})</span>`; };
+const companionTraitOwner = (traitType) => COMPANIONS.find(c => c.traits.includes(traitType)) || null;
+const shortTitleOf = (nft) => { const c = compOf(nft); return c ? c.ctx.token_name(tidOf(nft)) : SHORT_TITLE(nft.id || '?'); };
+const tokenNameOf = (nft) => { const c = compOf(nft); return c ? (nft.name && nft.name !== c.ctx.token_name(tidOf(nft)) ? `${nft.name} · ${c.ctx.token_name(tidOf(nft))}` : c.ctx.token_name(tidOf(nft))) : TOKEN_NAME(nft.id); };
+
 let IMAGE_URL = null;   // 4.41: the collection's image rule from the context (aDAO → the Cloudflare literal below, byte for byte; others → the manifest's cdn_pattern)
 function getImageUrl(nftId, variant = 'public') {
     if (!nftId) return '';
+    { const c = compOf(nftId); if (c) return (c.ctx.assets.image && c.ctx.assets.image(tidOf(nftId), variant)) || ''; }   // 4.55: a companion token's own media
     if (IMAGE_URL) { const u = IMAGE_URL(nftId, variant); if (u) return u; if (TENANT_CTX && TENANT_CTX.primary && TENANT_CTX.primary.slug !== 'adao') return ''; }   // 4.54: a tenant token with no file → the caller's placeholder, never aDAO's image
     return `${CLOUDFLARE_CDN_BASE}/${nftId}.png/${variant}`;
 }
@@ -371,6 +407,7 @@ function convertIpfsUrl(ipfsUrl) {
 let NO_RARITY = false;   // 4.54: a collection with no rarity file (1/1s) — no ranks anywhere, no borrowed file
 let IMAGE_FALLBACK = null;   // 4.44: the manifest's cdn_fallback (a second host for the same file), when it names one
 function getImageFallbackUrl(nftId) {
+    { const c = compOf(nftId); if (c) return (c.ctx.assets.image_fallback && c.ctx.assets.image_fallback(tidOf(nftId))) || null; }   // 4.55
     if (IMAGE_FALLBACK) { const f = IMAGE_FALLBACK(nftId); if (f) return f; }
     const u = IMAGE_URL ? IMAGE_URL(nftId) : null; if (!u) return null;
     const m = String(u).match(/^https:\/\/ipfs\.io\/ipfs\/([a-z0-9]+)\/(.+)$/i); if (!m) return null;
@@ -611,7 +648,41 @@ async function loadFullData() {
         if (resolvedCount < EXPECTED_TOTAL_NFTS) {
             throw new Error(`Status merge incomplete: only ${resolvedCount}/${EXPECTED_TOTAL_NFTS} NFTs resolved to an owner.`);
         }
+        attachCompanions();   // 4.55: the companions join AFTER every gate above ran on the first collection's own records
         ownerAddresses = [...new Set(allNfts.map(nft => nft.owner).filter(Boolean))]; // Populate master list
+}
+
+// 4.55: the tenant's other collections, read once (their own metadata + inventory, the same merge as the first collection's).
+// A companion that fails to load is left out with a console note — the first collection never waits on it or fails with it.
+async function loadCompanions() {
+    const ctx = TENANT_CTX; const c = ctx && ctx.primary;
+    if (!c || !ctx.first || c.slug !== ctx.first.slug) return;   // only the first collection's view carries companions
+    const others = (ctx.collections || []).filter(x => x && x.slug !== c.slug && x.features && x.features.explorer !== false);
+    if (!others.length) return;
+    const loaded = await Promise.all(others.map(async (cc, i) => {
+        try {
+            const [mr, sr] = await Promise.all([fetch(cc.assets.metadata), fetch(cc.url('snapshots/nfts.json'))]);
+            if (!mr.ok) throw new Error(`metadata HTTP ${mr.status}`); if (!sr.ok) throw new Error(`nfts.json HTTP ${sr.status}`);
+            let meta = await mr.json(); if (!Array.isArray(meta) && typeof cc.normalizeMetadata === 'function') meta = cc.normalizeMetadata(meta);
+            const st = await sr.json();
+            const minted = new Set((st.records || []).filter(r => r.minted !== false && (r.owner || r.real_owner)).map(r => String(r.id)));
+            const prefix = companionPrefixOf(cc.slug);
+            const comp = { slug: cc.slug, label: cc.label, prefix, key: 'col_' + prefix.toLowerCase(), idx: i, ctx: cc, traits: (cc.trait_defs || []).map(t => t.name).filter(Boolean), recs: [] };
+            comp.recs = mergeNftData(meta.filter(m => minted.has(String(m.id))), st).map(n => {
+                const tid = Number(n.id);
+                return Object.assign(n, { id: `${prefix}-${tid}`, _tid: tid, _cslug: cc.slug, _cidx: i, name: n.name || cc.token_name(tid),
+                    intended_rank: null, intended_grade: null, intended_pct: null, bbl_rank: null, bbl_top_percent: null });
+            });
+            return comp;
+        } catch (e) { console.warn(`companion ${cc.slug} unavailable — the ${c.label} view continues without it:`, e.message); return null; }
+    }));
+    COMPANIONS = loaded.filter(Boolean);
+    COMPANION_RECS = COMPANIONS.flatMap(x => x.recs);
+    if (COMPANIONS.length) console.log(`companions: ${COMPANIONS.map(x => `${x.label} ${x.recs.length} (${x.prefix}-n)`).join(' · ')}`);
+}
+function attachCompanions() {
+    if (!COMPANION_RECS.length) return;
+    allNfts = allNfts.filter(n => !n._cslug).concat(COMPANION_RECS);
 }
 
 // Decode the 442KB explorer-bundle into records shaped exactly like
@@ -707,7 +778,7 @@ function renderCollectionHero(summary) {
     let el = document.getElementById('collection-hero');
     if (!el) { el = document.createElement('section'); el.id = 'collection-hero'; el.className = 'ch-hero'; host.parentNode.insertBefore(el, host); }
     const S = summary || {}; _heroSummary = summary;   // 4.49: kept so the hero re-renders once the full records (listings) arrive
-    const fl = (() => { let best = null; for (const n of (typeof allNfts !== 'undefined' ? allNfts : [])) { const l = n.listing; if (l && l.price_usd != null && (!best || l.price_usd < best.price_usd)) best = l; } return best; })();
+    const fl = (() => { let best = null; for (const n of (typeof allNfts !== 'undefined' ? allNfts : [])) { if (n._cslug) continue; /* 4.55: the hero is this collection's — a companion's ask is not its floor */ const l = n.listing; if (l && l.price_usd != null && (!best || l.price_usd < best.price_usd)) best = l; } return best; })();
     const floor = fl ? fl.price_usd : null;
     const listed = ['bbl', 'atrium', 'boost'].reduce((n, k) => n + (Number(S[k + '_listed_count']) || 0), 0);
     const tag = (ctx.tenant.hero && ctx.tenant.hero.tagline) || '';
@@ -781,6 +852,7 @@ function applyCollectionContext(ctx) {
 }
 const initializeExplorer = async () => {
     try { if (typeof CollectionContext !== 'undefined') applyCollectionContext(await CollectionContext.load()); } catch (e) { console.warn('tenant context unavailable — aDAO literals in force:', e.message); }
+    const companionsReady = loadCompanions().catch(e => console.warn('companions:', e.message));   // 4.55: in parallel with the boot
     showLoading(gallery, 'Loading collection metadata...');
     showLoading(leaderboardTable, 'Loading holder data...');
     showLoading(walletGallery, 'Search for or select a wallet to see owned NFTs.');
@@ -811,6 +883,8 @@ const initializeExplorer = async () => {
             await loadFullData();
             if (_heroSummary) renderCollectionHero(_heroSummary);   // 4.54: a full boot (no bundle — Burning Lions) re-paints the hero's floor from the live listings
         }
+        await companionsReady; attachCompanions();   // 4.55
+        if (COMPANIONS.length && searchInput) { searchInput.type = 'text'; searchInput.placeholder = `NFT ID, or ${COMPANIONS.map(x => `${x.prefix}-6`).join(' / ')}…`; searchInput.title = COMPANIONS.map(x => `${x.prefix}-6 = ${x.ctx.token_name(6)}`).join(' · '); }
 
         calculateRanks();
         populateTraitFilters();
@@ -921,7 +995,9 @@ const getTraitRarityRank = (traitType, traitValue) => {
     const rank = traitValues.findIndex(t => t.value === traitValue) + 1;
     const total = traitValues.length;
     const count = traitCounts[traitType][traitValue];
-    const percentage = ((count / allNfts.length) * 100).toFixed(1);
+    const tOwner = companionTraitOwner(traitType);   // 4.55: a trait's share is of its own collection (a companion's 7, the first collection's 5,000)
+    const denom = tOwner ? tOwner.recs.length : (COMPANIONS.length ? allNfts.length - COMPANION_RECS.length : allNfts.length);
+    const percentage = ((count / denom) * 100).toFixed(1);
     
     return { rank, total, count, percentage };
 };
@@ -1171,16 +1247,17 @@ const populatePlanetFilters = () => {
 const populateTraitFilters = () => {
     traitFiltersContainer.innerHTML = '';
 
-    const createMultiSelect = (traitType, values) => {
+    const createMultiSelect = (traitType, values, labelOverride) => {
         const container = document.createElement('div');
         container.className = 'multi-select-container';
+        if (labelOverride) container.dataset.label = labelOverride;   // 4.55: a companion trait says whose it is
         let optionsHtml = '';
         values.forEach(value => {
             const style = value === 'Phoenix Rising' ? 'style="color: #f97316; font-weight: bold;"' : '';
             optionsHtml += `<label ${style}><input type="checkbox" class="multi-select-checkbox" data-trait="${traitType}" value="${value}"> <span class="trait-value">${value}</span> (<span class="trait-count">0</span>)</label>`;
         });
-        const displayLabel = traitType === 'Rarity' ? 'Rank' : traitType; // grade dropdown shown as "Rank" (filters by 1-40 grade)
-        container.innerHTML = `<label class="block text-sm font-medium text-gray-300 mb-1">${displayLabel}</label><button type="button" class="multi-select-button"><span>All ${displayLabel}s</span><svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button><div class="multi-select-dropdown hidden">${optionsHtml}</div>`;
+        const displayLabel = labelOverride || (traitType === 'Rarity' ? 'Rank' : traitType); // grade dropdown shown as "Rank" (filters by 1-40 grade)
+        container.innerHTML = `<label class="block text-sm font-medium text-gray-300 mb-1"${labelOverride ? ' style="color:#fb923c"' : ''}>${displayLabel}</label><button type="button" class="multi-select-button"><span>${labelOverride ? 'All' : `All ${displayLabel}s`}</span><svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button><div class="multi-select-dropdown hidden">${optionsHtml}</div>`;
         const button = container.querySelector('.multi-select-button');
         const dropdown = container.querySelector('.multi-select-dropdown');
         button.addEventListener('click', (e) => { e.stopPropagation(); closeAllDropdowns(dropdown); dropdown.classList.toggle('hidden'); });
@@ -1215,6 +1292,12 @@ const populateTraitFilters = () => {
         }
         traitFiltersContainer.appendChild(createMultiSelect(traitType, values));
     });
+    // 4.55: each companion's traits (Burning Lions: Name · Animated) — picking one shows only that collection's tokens
+    COMPANIONS.forEach(c => c.traits.forEach(traitType => {
+        if (filterLayoutOrder.includes(traitType)) return;
+        const values = Object.keys(traitCounts[traitType] || {}).sort((a, b) => a.localeCompare(b));
+        if (values.length) traitFiltersContainer.appendChild(createMultiSelect(traitType, values, `${c.label} · ${traitType}`));
+    }));
 };
 
 const populateStatusFilters = () => {
@@ -1227,14 +1310,15 @@ const populateStatusFilters = () => {
         ...(FEATURES.break_mechanism ? [{ key: 'rewards', label: 'Rewards', left: 'Broken', right: 'Unbroken' }] : []),   // 4.40: only a collection with a break mechanism
         ...(LABELS.unminted === 'Unminted' ? [{ key: 'mint_status', label: 'Mint Status', left: 'Un-Minted', right: 'Minted' }] : []),
         ...(RANK_TIES ? [{ key: 'rank1', label: 'Rank 1', plain: true, tooltip: "The rank oracle shares a rank across ties, so rank 1 is a set of tokens — the count is the true number of them in the current filters." }] : []),   // 4.50   // 4.48: only a collection with an unminted reserve (a custody block); "DAO held" is a badge, not a filter (owner 2026-09-19)
+        ...COMPANIONS.map(c => ({ key: c.key, label: c.label, plain: true, companion: true, tooltip: `${c.label} (${c.recs.length}) shown with the ${TENANT_CTX && TENANT_CTX.primary ? TENANT_CTX.primary.label : 'collection'} — on by default. The count is how many the current filters would show. Search ${c.prefix}-6 for ${c.ctx.token_name(6)}.` })),   // 4.55
         ...(SPLIT_TRAITS.Planet && SPLIT_TRAITS.Inhabitant ? [{ key: 'matching_traits', label: 'Matching', left: 'P+I', right: 'P+I+O', tooltip: 'Home-system trait match \u2014 P+I: the Inhabitant is standing on its home planet (e.g. a Lusan on Lusa). P+I+O: planet + inhabitant + a native object of that world (e.g. Lusan Water Staff). Slide to choose which match the count shows.' }] : []),
         { key: 'liquid_status', label: 'Liquid', left: 'Liquid', right: 'Not Liq' }
     ];
 
     statusFilterConfig.forEach(filter => {
         const container = createFilterItem({
-            toggleClass: 'status-toggle-cb', 
-            key: filter.key, 
+            toggleClass: filter.companion ? 'companion-toggle-cb' : 'status-toggle-cb',   // 4.55: a companion toggle INCLUDES (on by default) — not a narrowing status filter
+            key: filter.key,
             label: filter.label,
             countClass: 'status-count',
             sliderClass: 'status-slider', 
@@ -1249,6 +1333,7 @@ const populateStatusFilters = () => {
             plain: filter.plain,   // 4.50: a yes/no toggle with a count and no slider
             tooltip: filter.tooltip
         });
+        if (filter.companion) { const cb = container.querySelector('.companion-toggle-cb'); if (cb) cb.checked = true; const cs = container.querySelector('[data-count-key]'); if (cs) { cs.classList.add('status-count'); cs.style.color = '#fb923c'; } }
         statusFiltersGrid.appendChild(container);
     });
 
@@ -2133,6 +2218,35 @@ function liteAnalyticsHtml() {
       <div class="bg-gray-800/60 border border-gray-700 rounded-lg p-4"><div class="text-sm font-semibold text-white">Every token</div>${traitRows}</div>
       <div class="bg-gray-800/40 border border-dashed border-gray-600 rounded-lg p-4 text-sm text-gray-400"><b class="text-gray-200">Sales analytics are on their way.</b> Volume, sales by month, holders' profit and loss and the leaderboards are built from the collection's sales ledger — the same one the other collections have. It is not built for ${c ? c.label : 'this collection'} yet; everything above is read from the live inventory.</div></div>`;
 }
+// 4.55: run fn with allNfts = the page collection's own records (synchronous only — never across an await)
+function withPrimaryOnly(fn) {
+    if (!COMPANIONS.length) return fn();
+    const all = allNfts; allNfts = primaryNfts();
+    try { return fn(); } finally { allNfts = all; }
+}
+// 4.55: a section per companion in the first collection's Analytics tab — read from the live inventory (the same facts the
+// companion's own tab shows), with what it adds to the whole view and what is not counted, said plainly.
+function companionAnalyticsHtml() {
+    if (!COMPANIONS.length) return '';
+    const usd = (v) => v == null ? '—' : '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: v < 10 ? 2 : 0 });
+    const primary = allNfts.filter(n => !n._cslug); const pOwners = new Set(primary.map(n => n.owner).filter(Boolean));
+    const pLabel = (TENANT_CTX && TENANT_CTX.primary && TENANT_CTX.primary.label) || 'this collection';
+    return COMPANIONS.map(c => {
+        const recs = c.recs; const owners = new Set(recs.map(n => n.owner).filter(Boolean));
+        const both = [...owners].filter(a => pOwners.has(a)).length;
+        const listed = recs.filter(n => n.listing && n.listing.price_usd != null).sort((a, b) => a.listing.price_usd - b.listing.price_usd);
+        const venues = {}; listed.forEach(n => { const v = n.listing.marketplace || 'venue'; venues[v] = (venues[v] || 0) + 1; });
+        const stated = c.ctx.manifest && c.ctx.manifest.stated_supply;
+        const anim = recs.filter(n => (n.attributes || []).some(a => a.trait_type === 'Animated' && a.value === 'Yes')).length;
+        const stat = (k, v, sub) => `<div class="av2-stat"><div class="av2-stat-k">${k}</div><div class="av2-stat-v">${v}</div>${sub ? `<div class="av2-stat-s">${sub}</div>` : ''}</div>`;
+        const tiles = recs.slice().sort((a, b) => a._tid - b._tid).map(n => { const img = getImageUrl(n.id); const l = n.listing;
+            return `<a href="#${n.id}" style="display:block;text-decoration:none;border:1px solid #7c2d12;background:rgba(0,0,0,.25)"><div style="aspect-ratio:1;background:#111827">${img ? `<img src="${img}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">` : ''}</div><div style="padding:.35rem .45rem;font-size:.72rem;color:#e5e7eb;line-height:1.3"><b>${n.name || shortTitleOf(n)}</b><br><span style="color:#9ca3af">#${n._tid}${l && l.price_usd != null ? ` · <span style="color:#fb923c">${l.price_display || usd(l.price_usd)}</span>` : ' · not listed'}</span></div></a>`; }).join('');
+        return `<div class="av2-card" style="border-color:#9a3412"><div class="av2-h"><h3 style="color:#fb923c">${c.label} <span style="font-weight:400;font-size:.8rem;color:#9ca3af">in this view · ${c.prefix}-n</span></h3><span>live inventory · no sales ledger yet</span></div>
+          <div class="av2-strip" style="margin-bottom:.75rem">${stat('Minted', recs.length.toLocaleString(), stated ? `of ${stated} stated` : '')}${stat('Holders', owners.size.toLocaleString(), `${both} also hold a ${pLabel.replace(/s$/, '')}`)}${stat('Listed', listed.length.toLocaleString(), Object.entries(venues).map(([v, k]) => `${v} ${k}`).join(' · ') || 'none listed')}${stat('Cheapest ask', usd(listed[0] && listed[0].listing.price_usd), listed[0] ? `${listed[0].name || shortTitleOf(listed[0])}${listed[0].listing.price_display ? ' · ' + listed[0].listing.price_display : ''}` : 'no live ask')}${stat('Animated', `${anim} of ${recs.length}`, '')}</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:.5rem">${tiles}</div>
+          <p class="text-xs text-gray-500 mt-3">Not in ${pLabel}${/s$/.test(pLabel) ? "'" : "'s"} numbers above: the ${c.label} are 1 of 1s with no sales ledger yet, so they have no sales floor or mark and are left out of the tiers, market cap, volume and supply — never priced by guess. Their last sale, volume and holders' P&amp;L arrive with the ledger. Holders and listings here are live.</p></div>`;
+    }).join('');
+}
 async function renderAnalytics() {
     const root = document.getElementById("analytics-view");
     if (!root || analyticsLoaded) return;
@@ -2163,7 +2277,7 @@ async function renderAnalytics() {
             const lj = (lr && lr.ok) ? await lr.json() : null;
             const lo = (our && our.ok) ? await our.json() : null;
             const bo = (obr && obr.ok) ? await obr.json() : null;
-            _fpBand = (lj && lj.records && lo && bo) ? buildListingFloorBand(lj.records, lo, bo) : null;
+            _fpBand = (lj && lj.records && lo && bo) ? withPrimaryOnly(() => buildListingFloorBand(lj.records, lo, bo)) : null;   // 4.55
             _fpLuna = lo ? (lo.prices || lo.daily || lo.data || null) : null;
         } catch (e) { _fpBand = null; }
     } catch (e) {
@@ -2177,9 +2291,9 @@ async function renderAnalytics() {
     analyticsLoaded = true;
     _avMonths = A.monthly || [];
     av2Css();   // 4.51
-    root.innerHTML = buildAnalyticsHtml(A, S, E);
-    renderVolChart();
-    renderFpChart();
+    // 4.55: this collection's analytics are built on ITS records only (a companion never enters its tiers, floor, supply or
+    // market cap — no sales ledger, and a 1/1 is not a Base token); each companion gets its own section after them.
+    withPrimaryOnly(() => { root.innerHTML = buildAnalyticsHtml(A, S, E) + companionAnalyticsHtml(); renderVolChart(); renderFpChart(); });
     const lin = document.getElementById("av-scale-lin"), log = document.getElementById("av-scale-log");
     if (lin) lin.onclick = () => { _avScale = "linear"; renderVolChart(); };
     if (log) log.onclick = () => { _avScale = "log"; renderVolChart(); };
@@ -2876,7 +2990,7 @@ const applyFiltersAndSort = () => {
     }
     
     const searchTerm = searchInput.value;
-    if (searchTerm) tempNfts = tempNfts.filter(nft => nft.id.toString() === searchTerm);
+    if (searchTerm) { const want = normId(searchTerm); tempNfts = tempNfts.filter(nft => nft.id.toString() === searchTerm || (nft._cslug && normId(nft.id) === want)); }   // 4.55: BL-6 · bl6 · BL #6 find a companion token
     
     document.querySelectorAll('.multi-select-container').forEach(container => {
         const traitElement = container.querySelector('[data-trait]');
@@ -2888,11 +3002,21 @@ const applyFiltersAndSort = () => {
         tempNfts = tempNfts.filter(nft => nft.attributes?.some(attr => attr.trait_type === trait && selectedValues.includes(attr.value.toString())));
     });
 
+    // 4.55: companion toggles — the count is how many of that collection the filters above would show; off leaves them out
+    if (COMPANIONS.length) {
+        _companionCounts = {};
+        for (const c of COMPANIONS) {
+            _companionCounts[c.key] = tempNfts.filter(n => n._cslug === c.slug).length;
+            const cb = document.querySelector(`.companion-toggle-cb[data-key="${c.key}"]`);
+            if (cb && !cb.checked) tempNfts = tempNfts.filter(n => n._cslug !== c.slug);
+        }
+    }
+
     const sortValue = sortSelect.value;
     // Active-rank comparator: rank 1 = best; unranked (BBL null) always sorts to the end.
     const rankAsc = (a, b) => {
         const ra = getActiveRank(a), rb = getActiveRank(b);
-        if (ra == null && rb == null) return (a.id ?? 0) - (b.id ?? 0);
+        if (ra == null && rb == null) return sortIdOf(a) - sortIdOf(b);
         if (ra == null) return 1;
         if (rb == null) return -1;
         return ra - rb;
@@ -2904,7 +3028,7 @@ const applyFiltersAndSort = () => {
         // Ranking: worst first — unranked still last (they're unranked, not worst).
         tempNfts.sort((a, b) => {
             const ra = getActiveRank(a), rb = getActiveRank(b);
-            if (ra == null && rb == null) return (a.id ?? 0) - (b.id ?? 0);
+            if (ra == null && rb == null) return sortIdOf(a) - sortIdOf(b);
             if (ra == null) return 1;
             if (rb == null) return -1;
             return rb - ra;
@@ -2923,10 +3047,10 @@ const applyFiltersAndSort = () => {
         });
     } else if (sortValue === 'id-asc') {
         // ID Low to High
-        tempNfts.sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
+        tempNfts.sort((a, b) => sortIdOf(a) - sortIdOf(b));
     } else if (sortValue === 'id-desc') {
         // ID High to Low
-        tempNfts.sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+        tempNfts.sort((a, b) => sortIdOf(b) - sortIdOf(a));
     } else if (sortValue === 'price-asc' || sortValue === 'price-desc') {
         // PRICE (2026-08-12). Sort on price_usd, NOT the raw amount: listings
         // are denominated in bLUNA / SOLID / LUNA, so 125 SOLID vs 2,500 bLUNA
@@ -2940,7 +3064,7 @@ const applyFiltersAndSort = () => {
         const dir = sortValue === 'price-asc' ? 1 : -1;
         tempNfts.sort((a, b) => {
             const pa = px(a), pb = px(b);
-            if (pa == null && pb == null) return (a.id ?? 0) - (b.id ?? 0);
+            if (pa == null && pb == null) return sortIdOf(a) - sortIdOf(b);
             if (pa == null) return 1;
             if (pb == null) return -1;
             return (pa - pb) * dir;
@@ -3026,7 +3150,8 @@ const updateUrlState = () => {
             }
         }
     });
-    
+    document.querySelectorAll('.companion-toggle-cb').forEach(cb => { if (!cb.checked) params.set(cb.dataset.key, 'false'); });   // 4.55: on is the default — only "off" is written
+
     try {
         // Use replaceState to avoid cluttering browser history
         const newUrl = `${window.location.pathname}?${params.toString()}${window.location.hash}`; // Keep hash
@@ -3073,6 +3198,7 @@ const applyStateFromUrl = () => {
             }
         }
     });
+    document.querySelectorAll('.companion-toggle-cb').forEach(cb => { cb.checked = params.get(cb.dataset.key) !== 'false'; });   // 4.55
 };
 
 const updateMultiSelectButtonText = (container) => {
@@ -3086,9 +3212,9 @@ const updateMultiSelectButtonText = (container) => {
     const totalCount = container.querySelectorAll('.multi-select-checkbox').length;
     
     if (checkedCount === 0 || checkedCount === totalCount) {
-        buttonSpan.textContent = `All ${displayLabel}s`;
+        buttonSpan.textContent = container.dataset.label ? 'All' : `All ${displayLabel}s`;   // 4.55
     } else {
-        buttonSpan.textContent = `${checkedCount} ${displayLabel}(s) selected`;
+        buttonSpan.textContent = container.dataset.label ? `${checkedCount} selected` : `${checkedCount} ${displayLabel}(s) selected`;
     }
 };
 
@@ -3136,14 +3262,16 @@ const createNftCard = (nft, toggleSelector) => {
     const fallbackUrl = getImageFallbackUrl(nft.id) || getIpfsFallbackUrl(nft.id, nft.thumbnail_image || nft.image);   // 4.42: second gateway for manifest-pattern images
     
     // Use shorter title format: "aDAO #XXXX" (4.42: the collection's own short title — aDAO's literal stays for aDAO)
-    const shortTitle = SHORT_TITLE(nft.id || '?');
-    const fullTitle = (nft.name || `NFT #${nft.id || '?'}`).replace('The AllianceDAO NFT', 'AllianceDAO NFT');
+    const cmp = compOf(nft);   // 4.55: a companion token (Burning Lions) — its own title, its own traits, an orange frame
+    const shortTitle = cmp ? shortTitleOf(nft) : SHORT_TITLE(nft.id || '?');
+    const fullTitle = cmp ? tokenNameOf(nft) : (nft.name || `NFT #${nft.id || '?'}`).replace('The AllianceDAO NFT', 'AllianceDAO NFT');
 
     let traitsHtml = '';
-    const visibleTraits = traitOrder.filter(t => {
+    const visibleTraits = cmp ? [...(document.querySelector(`${toggleSelector}[data-trait="Rank"]`)?.checked === false ? [] : ['Rank']), ...cmp.traits] : traitOrder.filter(t => {
         const toggle = document.querySelector(`${toggleSelector}[data-trait="${t}"]`);
         return toggle && toggle.checked;
     });
+    if (cmp) { card.style.setProperty('border-color', '#f97316', 'important'); card.style.setProperty('box-shadow', '6px 6px 0 #f97316'); card.dataset.collection = cmp.slug; }   // the tenant theme's card shape (site-header), in the companion's orange
     
     visibleTraits.forEach(traitType => {
         let value = 'N/A';
@@ -3352,7 +3480,8 @@ const resetAll = () => {
         container.querySelectorAll('.multi-select-checkbox').forEach(cb => cb.checked = false);
         updateMultiSelectButtonText(container);
     });
-    
+    document.querySelectorAll('.companion-toggle-cb').forEach(cb => { cb.checked = true; });   // 4.55: reset = companions shown (their default)
+
     document.querySelectorAll('.trait-toggle').forEach(toggle => { toggle.checked = defaultTraitsOn.includes(toggle.dataset.trait); });
     
     handleFilterChange();
@@ -3439,6 +3568,7 @@ const updateFilterCounts = (currentNfts) => { // Pass in the list to count
     document.querySelectorAll('.status-count').forEach(countSpan => {
         const key = countSpan.dataset.countKey;
         if (key === 'rank1') { countSpan.textContent = currentNfts.filter(n => getActiveRank(n) === 1).length; return; }   // 4.50: the true rank-1 count
+        if (COMPANIONS.some(c => c.key === key)) { const v = _companionCounts[key]; countSpan.textContent = v != null ? v : currentNfts.filter(n => n._cslug && COMPANIONS.find(c => c.key === key).slug === n._cslug).length; return; }   // 4.55
         const slider = document.querySelector(`.direction-slider[data-slider-key="${key}"]`);
         if (!slider) return;
 
@@ -3934,7 +4064,8 @@ const showNftDetails = (nft) => {
             this.src = 'https://placehold.co/400x400/1f2937/e5e7eb?text=Image+Error';
         }
     };
-    titleEl.textContent = (nft.name || `NFT #${nft.id || '?'}`).replace('The AllianceDAO NFT', 'AllianceDAO NFT');
+    const cmpD = compOf(nft);   // 4.55
+    titleEl.textContent = cmpD ? tokenNameOf(nft) : (nft.name || `NFT #${nft.id || '?'}`).replace('The AllianceDAO NFT', 'AllianceDAO NFT');
     
     // Helper function to get medal emoji based on rank
     const getMedalBadge = (rank) => {
@@ -3950,12 +4081,13 @@ const showNftDetails = (nft) => {
     // Canonical rank line, honoring the Intended/BBL toggle (e.g. "Rarity 40, Rank 24")
     const rarityDisplay = rankDisplay(nft);
     let traitsHtml = `<div class="flex justify-between text-sm"><span class="text-gray-400">Rank:</span><span class="font-semibold text-cyan-400 text-lg">${rarityDisplay}</span></div>`;
+    if (cmpD) traitsHtml += `<div class="flex justify-between text-sm"><span class="text-gray-400">Collection:</span><span class="font-semibold" style="color:#fb923c">${cmpD.label} · #${tidOf(nft)} of ${cmpD.recs.length} minted</span></div>`;   // 4.55
     
     // Separator
     traitsHtml += `<div class="pt-2 mt-2 border-t border-gray-600"></div>`;
     
     // Traits with rarity info and medals
-    const traitsToShow = COLLECTION_TRAITS;   // 4.40: the manifest's columns
+    const traitsToShow = cmpD ? cmpD.traits : COLLECTION_TRAITS;   // 4.40: the manifest's columns · 4.55: a companion's own
     traitsToShow.forEach(traitType => {
         const attr = nft.attributes?.find(a => a.trait_type === traitType);
         if (!attr) return;
@@ -4030,6 +4162,8 @@ const showNftDetails = (nft) => {
 
     // Update image link and Download button
     linkEl.href = getImageUrl(nft.id) || convertIpfsUrl(nft.image) || '#';
+    if (linkEl.dataset.orig == null) linkEl.dataset.orig = linkEl.innerHTML;   // 4.55: a companion's file is our mirror, not IPFS — say so
+    linkEl.innerHTML = cmpD ? linkEl.dataset.orig.replace('View on IPFS', 'View image') : linkEl.dataset.orig;
     dlBtn.textContent = 'Download Post';
     dlBtn.disabled = false;
     dlBtn.onclick = () => generateShareImage(nft, dlBtn); 
@@ -4049,20 +4183,22 @@ const JOURNEY = {
     slug: 'adao',                                                               // the collection this page is on (registry-driven switch comes with the tenant work)
     base: 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/',
     core: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/',
-    index: null, shards: {}, manifest: null, series: {}, seq: 0
+    index: null, shards: {}, manifest: null, series: {}, seq: 0,
+    other: {}   // 4.55: companion collections' ledgers, by slug
 };
 const journeyJson = async (url) => { const r = await fetch(url, { cache: 'no-cache' }); if (!r.ok) throw new Error(`HTTP ${r.status} ${url.split('/').slice(-2).join('/')}`); return r.json(); };
 const journeyShardOf = (id, shardSize) => (typeof NftHistory !== 'undefined' ? NftHistory.shardOf(id, shardSize) : null);
-async function journeyLoad(id) {
-    const slug = JOURNEY.slug;
-    if (!JOURNEY.index) JOURNEY.index = journeyJson(`${JOURNEY.base}${slug}/ledger/by-token/index.json`).catch(e => { JOURNEY.index = null; throw e; });
-    const index = await JOURNEY.index; const sh = journeyShardOf(id, index.shard_size);
+async function journeyLoad(id, slugArg) {
+    const slug = slugArg || JOURNEY.slug;
+    const K = slug === JOURNEY.slug ? JOURNEY : (JOURNEY.other[slug] = JOURNEY.other[slug] || { index: null, shards: {}, manifest: null });   // 4.55: each collection's ledger cached on its own
+    if (!K.index) K.index = journeyJson(`${JOURNEY.base}${slug}/ledger/by-token/index.json`).catch(e => { K.index = null; throw e; });
+    const index = await K.index; const sh = journeyShardOf(id, index.shard_size);
     if (!index.shards || !index.shards[sh]) return { recs: [], manifest: null, nowMap: {}, index };   // the index lists every shard that has records: absent = no ledger row for this token, no fetch
-    if (!JOURNEY.shards[sh]) JOURNEY.shards[sh] = journeyJson(`${JOURNEY.base}${slug}/ledger/by-token/${sh}.json`).catch(e => { delete JOURNEY.shards[sh]; throw e; });
-    if (!JOURNEY.manifest) JOURNEY.manifest = journeyJson(`${JOURNEY.base}${slug}/collection.json`).catch(() => null);
+    if (!K.shards[sh]) K.shards[sh] = journeyJson(`${JOURNEY.base}${slug}/ledger/by-token/${sh}.json`).catch(e => { delete K.shards[sh]; throw e; });
+    if (!K.manifest) K.manifest = journeyJson(`${JOURNEY.base}${slug}/collection.json`).catch(() => null);
     const seriesOf = (sym) => { if (!JOURNEY.series[sym]) JOURNEY.series[sym] = journeyJson(`${JOURNEY.core}price-history/series/${sym}.json`).then(d => { const daily = d.daily || {}; const ks = Object.keys(daily).sort(); const day = ks[ks.length - 1]; return { daily, now: day ? { usd: daily[day], day } : null }; }).catch(() => null); return JOURNEY.series[sym]; };
     const nowOf = async (sym) => { const s = await seriesOf(sym); return s ? s.now : null; };
-    const [shard, manifest] = await Promise.all([JOURNEY.shards[sh], JOURNEY.manifest]);
+    const [shard, manifest] = await Promise.all([K.shards[sh], K.manifest]);
     const recs = (shard.tokens && shard.tokens[String(id)]) || [];
     // "now" prices for every symbol the token's records carry (LUNA, bLUNA … whatever the oracle series folder has)
     const syms = [...new Set(recs.filter(r => r.price && r.denom_symbol).map(r => r.denom_symbol))]; const nowMap = {};
@@ -4136,7 +4272,7 @@ function journeyRender(el, id, data) {
       return tileHtml(g) + `<section class="jr-seg${g.admin ? ' jr-seg-admin' : ''}${g.current ? ' jr-seg-now' : ''}"><header class="jr-seg-head"><span class="jr-seg-n">${g.admin ? 'Treasury' : 'Holder ' + n}</span> ${journeyWho(g.owner)}<span class="jr-seg-meta">${when}${stats}${ended ? ' · ' + ended : ''}</span></header>${body ? `<ol>${body}</ol>` : `<div class="jr-empty">held quietly — no stake, listing or move on their watch${g.current ? ' yet' : ''}</div>`}</section>`; };
     const li = (S.segments && S.segments.length) ? S.segments.map(segHtml).join('') : `<ol>${rows.map(rowLi).join('')}</ol>`;
     const nowDay = Object.values(data.nowMap).map(n => n && n.day).filter(Boolean).sort().pop();
-    el.innerHTML = `<div class="jr-head"><span class="jr-title">On-chain journey · ${rows.length} event${rows.length === 1 ? '' : 's'} · ${S.segments.filter(g => !g.admin).length} holder${S.segments.filter(g => !g.admin).length === 1 ? '' : 's'}</span><span class="jr-src" title="nft-collections/${journeyEsc(JOURNEY.slug)}/ledger/by-token · superseded rows excluded · USD then = the record's own oracle price${nowDay ? ` · USD now = oracle day ${journeyEsc(nowDay)}` : ''} · holdings = now (nfts.json), not at the time of the buy">ledger${nowDay ? ` · now as of ${journeyEsc(nowDay)}` : ''}</span></div>` +
+    el.innerHTML = `<div class="jr-head"><span class="jr-title">On-chain journey · ${rows.length} event${rows.length === 1 ? '' : 's'} · ${S.segments.filter(g => !g.admin).length} holder${S.segments.filter(g => !g.admin).length === 1 ? '' : 's'}</span><span class="jr-src" title="nft-collections/${journeyEsc(data.slug || JOURNEY.slug)}/ledger/by-token · superseded rows excluded · USD then = the record's own oracle price${nowDay ? ` · USD now = oracle day ${journeyEsc(nowDay)}` : ''} · holdings = now (nfts.json), not at the time of the buy">ledger${nowDay ? ` · now as of ${journeyEsc(nowDay)}` : ''}</span></div>` +
         `<div class="jr-sum">${chips.join('')}</div><div class="jr-segs">${li}</div>` +
         (quiet ? `<button type="button" class="jr-toggle" data-quiet="${quiet}">${el.classList.contains('jr-collapsed') ? `Show ${quiet} treasury / admin row${quiet === 1 ? '' : 's'}` : `Hide ${quiet} treasury / admin row${quiet === 1 ? '' : 's'}`}</button>` : '');
     const tg = el.querySelector('.jr-toggle'); if (tg) tg.addEventListener('click', () => { el.classList.toggle('jr-collapsed'); tg.textContent = (el.classList.contains('jr-collapsed') ? 'Show ' : 'Hide ') + quiet + ' treasury / admin row' + (quiet === 1 ? '' : 's'); });
@@ -4144,10 +4280,12 @@ function journeyRender(el, id, data) {
 }
 async function journeyInto(nft) {
     const el = document.getElementById('modal-journey'); if (!el || typeof NftHistory === 'undefined') return;
-    const id = nft && nft.id; const seq = ++JOURNEY.seq;
+    const cmpJ = compOf(nft); const id = cmpJ ? tidOf(nft) : (nft && nft.id); const seq = ++JOURNEY.seq;   // 4.55: a companion reads its own collection's ledger by its own id
     el.classList.add('jr-collapsed'); el.dataset.state = 'loading'; el.innerHTML = `<div class="jr-head"><span class="jr-title">On-chain journey</span></div><div class="jr-loading">Reading the ledger…</div>`;
-    try { const data = await journeyLoad(id); if (seq !== JOURNEY.seq) return; journeyRender(el, id, data); }
-    catch (e) { if (seq !== JOURNEY.seq) return; el.dataset.state = 'error'; el.innerHTML = `<div class="jr-head"><span class="jr-title">On-chain journey</span></div><div class="jr-error">Ledger unavailable right now (${journeyEsc(e.message)}). Nothing is assumed — try again in a moment.</div>`; }
+    try { const data = await journeyLoad(id, cmpJ ? cmpJ.slug : null); if (seq !== JOURNEY.seq) return; data.slug = cmpJ ? cmpJ.slug : JOURNEY.slug; journeyRender(el, cmpJ ? nft.id : id, data); }
+    catch (e) { if (seq !== JOURNEY.seq) return;
+        if (cmpJ && /HTTP 404/.test(e.message)) { el.dataset.state = 'empty'; el.innerHTML = `<div class="jr-head"><span class="jr-title">On-chain journey</span></div><div class="jr-empty">${journeyEsc(cmpJ.label)} has no sales ledger yet — the journey (mint, sales, holders) arrives with it. The owner and listing above are read live.</div>`; return; }
+        el.dataset.state = 'error'; el.innerHTML = `<div class="jr-head"><span class="jr-title">On-chain journey</span></div><div class="jr-error">Ledger unavailable right now (${journeyEsc(e.message)}). Nothing is assumed — try again in a moment.</div>`; }
 }
 
 const hideNftDetails = () => {
@@ -4327,13 +4465,16 @@ const marketplaceFloors = () => {
 // no per-token public page we can link, so it is deliberately absent rather
 // than guessed.
 const ADAO_NFT_CONTRACT_ADDR = 'terra1phr9fngjv7a8an4dhmhd0u0f98wazxfnzccqtyheq4zqrrp4fpuqw3apw9';
+// 4.55: the token's OWN collection contract (the page's collection, or a companion's) — the showcase used to print aDAO's
+// contract on every tenant. aDAO's link is unchanged (its collection contract is this literal).
+const contractOfNft = (nftOrId) => { const c = compOf(nftOrId); return c ? c.ctx.contract : ((TENANT_CTX && TENANT_CTX.primary && TENANT_CTX.primary.contract) || ADAO_NFT_CONTRACT_ADDR); };
 const MARKETPLACE_URL = {
-    BBL: (id) => `https://app.backbonelabs.io/nfts/marketplace/collections/${ADAO_NFT_CONTRACT_ADDR}/${id}`,
+    BBL: (id) => `https://app.backbonelabs.io/nfts/marketplace/collections/${contractOfNft(id)}/${tidOf(id)}`,
     // Corrected 2026-08-12 from the real Atrium URLs (the previous
     // previous atrium.market/... form was a guess and 404s):
     //   collection → https://atrium.markets/atrium/collection/<contract>?tab=listings
     //   token      → https://atrium.markets/atrium/<contract>/<id>
-    Atrium: (id) => `https://atrium.markets/atrium/${ADAO_NFT_CONTRACT_ADDR}/${id}`,
+    Atrium: (id) => `https://atrium.markets/atrium/${contractOfNft(id)}/${tidOf(id)}`,
 };
 const MARKETPLACE_COLLECTION_URL = {
     BBL: `https://app.backbonelabs.io/nfts/marketplace/collections/${ADAO_NFT_CONTRACT_ADDR}`,
@@ -4505,7 +4646,7 @@ const generateShowcaseImage = async (button) => {
             ctx.textAlign = 'left';
             ctx.fillStyle = '#e5e7eb';
             ctx.font = 'bold 22px ui-monospace, SFMono-Regular, Menlo, monospace';
-            ctx.fillText(`#${nft.id}`, x + 12, y + TILE + 28);
+            ctx.fillText(nft._cslug ? shortTitleOf(nft) : `#${nft.id}`, x + 12, y + TILE + 28);   // 4.55: a companion says which collection
             if (mk && showcaseOpts.marketplace) {
                 ctx.fillStyle = '#64748b';
                 ctx.font = '14px system-ui, sans-serif';
@@ -4736,7 +4877,7 @@ const drawPostImage = (canvas, ctx, img, logo, nft, button) => {
     // gone. A broken aDAO NFT keeps its red BROKEN band with the name line above it.
     const bandHeight = 190;
     const bannerY = imageTop + 1080 - bandHeight;
-    const nameLine = `${(typeof TOKEN_NAME === 'function' ? TOKEN_NAME(nft.id) : `NFT #${nft.id || '?'}`)}  ·  ${rankDisplay(nft)}`;
+    const nameLine = `${nft._cslug ? tokenNameOf(nft) : (typeof TOKEN_NAME === 'function' ? TOKEN_NAME(nft.id) : `NFT #${nft.id || '?'}`)}  ·  ${rankDisplay(nft)}`;   // 4.55
     ctx.fillStyle = nft.broken ? 'rgba(220, 38, 38, 0.85)' : 'rgba(0, 0, 0, 0.72)';
     ctx.fillRect(0, bannerY, canvas.width, bandHeight);
     ctx.fillStyle = 'white';
@@ -4747,7 +4888,7 @@ const drawPostImage = (canvas, ctx, img, logo, nft, button) => {
         drawText('BROKEN', canvas.width / 2, bannerY + 150, 'center');
     } else {
         const strength = findRarestTrait(nft);
-        const total = (typeof allNfts !== 'undefined' && allNfts.length) ? allNfts.length : (EXPECTED_TOTAL_NFTS || null);   // 4.52: of max supply (117 of 5,000)
+        const cmpP = compOf(nft); const total = cmpP ? cmpP.recs.length : ((typeof allNfts !== 'undefined' && allNfts.length) ? allNfts.length - (COMPANIONS.length ? COMPANION_RECS.length : 0) : (EXPECTED_TOTAL_NFTS || null));   // 4.52: of max supply (117 of 5,000) · 4.55: of its own collection
         ctx.font = 'bold 36px Inter, sans-serif';
         const share = (strength.count != null && total) ? `  —  ${strength.count.toLocaleString()} of ${total.toLocaleString()} have it` : '';
         drawText(`Rarest trait: ${strength.value || 'N/A'}${share}`, canvas.width / 2, bannerY + 140, 'center');
@@ -6310,7 +6451,7 @@ const searchWallet = () => {
             const memberName = getMemberName(address);
             const shortAddr = `terra...${address.slice(-4)}`;
             const displayName = memberName ? `${memberName} (${shortAddr})` : shortAddr;
-            walletGalleryTitle.innerHTML = `Showing ${walletNfts.length} of ${totalForWallet} NFTs for: ${memberName ? `<span class="text-yellow-400">${memberName}</span> <span class="text-gray-400">(${shortAddr})</span>` : shortAddr}${walletBackingLine(walletNfts)}`;
+            walletGalleryTitle.innerHTML = `Showing ${walletNfts.length} of ${totalForWallet} NFTs${companionSplit(walletNfts)} for: ${memberName ? `<span class="text-yellow-400">${memberName}</span> <span class="text-gray-400">(${shortAddr})</span>` : shortAddr}${walletBackingLine(walletNfts)}`;
         } else {
             const memberName = getMemberName(address);
             const sysLabel = getSystemWalletLabel(address) || (isSystemAddress(address) ? 'DAO / system wallet' : null);
@@ -6318,7 +6459,7 @@ const searchWallet = () => {
             if (sysLabel) {
                 walletGalleryTitle.innerHTML = `<span class="text-amber-400">${sysLabel}</span> <span class="text-gray-400">(${shortAddr})</span> — ${walletNfts.length} NFTs <span class="text-xs text-gray-500">(not an individual holder)</span>`;
             } else {
-                walletGalleryTitle.innerHTML = `Found ${walletNfts.length} NFTs for: ${memberName ? `<span class="text-yellow-400">${memberName}</span> <span class="text-gray-400">(${shortAddr})</span>` : shortAddr}${walletBackingLine(walletNfts)}`;
+                walletGalleryTitle.innerHTML = `Found ${walletNfts.length} NFTs${companionSplit(walletNfts)} for: ${memberName ? `<span class="text-yellow-400">${memberName}</span> <span class="text-gray-400">(${shortAddr})</span>` : shortAddr}${walletBackingLine(walletNfts)}`;
             }
         }
         
@@ -6366,8 +6507,8 @@ const searchWallet = () => {
 const handleHashChange = () => {
     console.log("Hash changed:", window.location.hash);
     const hash = window.location.hash.substring(1);
-    if (hash && /^\d+$/.test(hash)) {
-        const nftId = parseInt(hash, 10);
+    if (hash && (/^\d+$/.test(hash) || (COMPANIONS.length && /^[A-Za-z]+-\d+$/.test(hash)))) {   // 4.55: #BL-6 opens a companion token
+        const nftId = /^\d+$/.test(hash) ? parseInt(hash, 10) : normId(hash);
         if (allNfts.length > 0) {
             const nftToShow = allNfts.find(nft => nft.id === nftId);
             if (nftToShow) {
