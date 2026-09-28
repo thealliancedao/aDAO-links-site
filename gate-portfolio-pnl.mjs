@@ -7,7 +7,8 @@
 //   P2 owner page: hero net == ledger totals.net_usd; the four bars == market / lp / claims+bribes / unrealized; the bars add to net
 //   P3 LUNA lens: the hero switches to totals.net_luna; the positions table and the curve follow the lens
 //   P4 value curve: one point per epoch + "now", the "now" label present
-//   P5 positions: one row per position with activity; the top row is the largest open value; a row opens its trips
+//   P5 positions (3.5): one row per position with activity, grouped by bucket, open rows largest first, closed folded; a row opens its trips
+//   P15 (3.5) LP columns: take-rate drag + top-up on open non-amp, compounding on amp, APR earned with P&L incl. rewards, bucket subtotals add up
 //   P6 wind-down: a wallet holding USDC.n LP shows the "USDC.n ending" pill on that pool's row
 //   P7 disputed: a wallet with a disputed position shows it flagged and the hero says it was left out
 //   P12 (3.3) wallet balances: tickers not hashes, the catalog's real decimals (PAXG 18), rows under $2 folded
@@ -68,9 +69,13 @@ console.log('— P2–P5 the owner\'s page —');
   ok(`value curve drawn: ${nPts} points (E${L0.v3.value_curve[0].e} → now), "now" labelled`, !!curve && /now/.test(T(curve)) && !d.getElementById('pp-curve').hidden);
   const rows = [...d.querySelectorAll('[data-pp="positions"] tbody tr[data-pp-row]')]; const expected = D0.positions.filter(p => p.deposits || p.withdraws);
   ok(`positions table: ${expected.length} rows (every position with activity)`, rows.length === expected.length, rows.length);
-  const top = expected.slice().sort((a, b) => (b.open_value_usd || 0) - (a.open_value_usd || 0) || (b.realized.trips - a.realized.trips))[0];
-  ok(`top row is the largest open position (${money(top.open_value_usd).replace('+', '')})`, rows[0] && T(rows[0]).includes(PPL.fmt.usd(top.open_value_usd)), T(rows[0]));
-  const withTrips = rows.find((r, i) => expected.slice().sort((a, b) => (b.open_value_usd || 0) - (a.open_value_usd || 0) || (b.realized.trips - a.realized.trips))[i].realized.trips > 0);
+  // 3.5: grouped by bucket — inside each bucket the open rows run largest first; closed rows fold (hidden until the toggle)
+  const byRow = (r) => expected[Number(r.getAttribute('data-pp-row'))];
+  const bucketRows = [...d.querySelectorAll('[data-pp="positions"] tbody tr')]; let cur = null, prev = null, sorted = true;
+  for (const r of bucketRows) { if (r.hasAttribute('data-pp-bucket')) { cur = r.getAttribute('data-pp-bucket'); prev = null; continue; } if (!r.hasAttribute('data-pp-row') || r.hasAttribute('data-pp-closed')) continue; const p = byRow(r); if (prev != null && (p.open_value_usd || 0) > prev + 1e-9) sorted = false; prev = p.open_value_usd || 0; }
+  ok(`bucket groups (${[...d.querySelectorAll('[data-pp-bucket]')].map(x => x.getAttribute('data-pp-bucket')).join(', ')}); open rows largest first inside each; closed folded`, d.querySelectorAll('[data-pp-bucket]').length >= 2 && sorted && [...d.querySelectorAll('[data-pp-closed]')].every(r => r.hidden));
+  const withTrips = rows.find(r => byRow(r).realized.trips > 0 && !r.hasAttribute('data-pp-closed')) || rows.find(r => byRow(r).realized.trips > 0);
+  if (withTrips && withTrips.hidden) d.querySelector('[data-pp-closed-toggle="' + withTrips.getAttribute('data-pp-closed') + '"]').click();
   const tr = withTrips && d.querySelector('[data-pp-trips="' + withTrips.getAttribute('data-pp-row') + '"]'); withTrips && withTrips.click();
   ok('a row with closed trips opens its trip table (opened → closed, in, out, Δ, prices/pool, tx link)', tr && !tr.hidden && tr.querySelectorAll('tbody tr').length > 0 && /→/.test(T(tr)) && !!tr.querySelector('a[href^="https://chainsco.pe/terra2/tx/"]'));
   // P3 lens
@@ -162,4 +167,18 @@ console.log('— P14 vote allocations (3.4): will earn vs could earn — one eng
   const links = [...d.querySelectorAll('#votes-grid a[href^="vote-market.html?pool="]')].map(a => decodeURIComponent(a.getAttribute('href').split('pool=')[1]));
   ok(`every vote has a simulate → link keyed bucket|gauge (${links.length}) that the Vote Market knows`, links.length >= 4 && links.every(l => m.pools[l]), links);
   ok('card links the Vote Market simulator', !!d.querySelector('#votes-summary a[href="vote-market.html"]')); }
+console.log('— P15 LP positions (3.5): P&L incl. rewards, APR earned, LP since entry (take-rate top-up / amplifier compounding) —');
+{ const RYAN = 'terra1ksk66lcvzwaanc47nvn3athj4yzcpay8z8ru04'; const Lr = ledgerOf(RYAN);
+  if (!Lr || !Lr.v3) console.log('  (no v3 ledger for the Lion DAO ops wallet in PNL_OUT — P15 skipped)');
+  else { const Dr = PPL.decode(Lr.v3); const exp = Dr.positions.filter(p => p.deposits || p.withdraws);
+    const w = await run(RYAN); const d = w.document; const rows = [...d.querySelectorAll('[data-pp="positions"] tbody tr[data-pp-row]')]; const byRow = (r) => exp[Number(r.getAttribute('data-pp-row'))];
+    const drag = rows.map(r => [r, byRow(r)]).filter(([, p]) => p.units_open > 0 && p.open_lp && p.open_lp.take_rate && p.open_lp.take_rate.usd > 1);
+    ok(`non-amplified open positions show the take rate's drag and the top-up (${drag.length}): ${drag.map(([, p]) => p.name + ' −' + (p.open_lp.take_rate.pct * 100).toFixed(1) + '% · top up ' + PPL.fmt.usd(p.open_lp.take_rate.usd)).join(' · ')}`, drag.length > 0 && drag.every(([r, p]) => T(r).includes('top up ' + PPL.fmt.usd(p.open_lp.take_rate.usd)) && T(r).includes('−' + (p.open_lp.take_rate.pct * 100).toFixed(1) + '% LP')));
+    const amp = rows.map(r => [r, byRow(r)]).filter(([, p]) => p.units_open > 0 && p.open_lp && p.open_lp.amp_growth);
+    ok(`amplified open positions show what compounding added (${amp.length})`, amp.length > 0 && amp.every(([r, p]) => T(r).includes('+' + (p.open_lp.amp_growth.pct * 100).toFixed(1) + '% LP')));
+    let aprOk = 0, aprN = 0; for (const r of rows) { const p = byRow(r); const S = PPL.posStats(p, false); if (S.apr == null) continue; aprN++; if (T(r).includes((S.apr * 100).toFixed(1) + '%') && T(r).includes(PPL.fmt.usd(S.pnl, true))) aprOk++; }
+    ok(`every row with a measurable APR shows it with its P&L incl. rewards (${aprOk}/${aprN})`, aprN > 5 && aprOk === aprN);
+    const S0 = exp.filter(p => !p.disputed).map(p => PPL.posStats(p, false)); const pnlAll = S0.reduce((a, x) => a + (x.pnl || 0), 0);
+    const bucketSum = [...d.querySelectorAll('[data-pp-bucket]')].map(r => Number(T(r.children[4]).replace(/[^0-9.\-−]/g, '').replace('−', '-'))).reduce((a, b) => a + b, 0);
+    ok(`bucket P&L subtotals add to the positions' P&L (${bucketSum.toFixed(0)} vs ${pnlAll.toFixed(0)})`, Math.abs(bucketSum - pnlAll) <= Math.max(2, Math.abs(pnlAll) * 0.002)); } }
 console.log(`\n${pass}/${pass + fail} passed`); process.exit(fail ? 1 : 0);

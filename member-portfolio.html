@@ -38,7 +38,7 @@
 <div id="site-header"></div>
 <script src="/lib/site-header.js"></script>
 <script src="/lib/address-picker.js"></script>
-<script src="/lib/portfolio-pnl.js?v=1.2.0"></script>   <!-- 3.0: the v3 P&L (story, value curve, positions + trips) -->
+<script src="/lib/portfolio-pnl.js?v=1.3.0"></script>   <!-- 3.0: the v3 P&L (story, value curve, positions + trips) -->
 <script src="/lib/winddown.js?v=1.0.0"></script>
 <script src="/lib/denoms.js?v=1.0.0"></script>
 <script src="/lib/vote-market.js?v=1.3.0"></script>   <!-- 3.4: THE vote-market engine — "your votes now earn" and "the best split earns" on the vote card, same model as the Vote Market page -->   <!-- 3.3: THE denom → symbol/decimals rule (the catalog's effective → discovered layer) -->   <!-- 3.0: winding-down assets (USDC.n) flagged on positions -->
@@ -1469,6 +1469,8 @@
     // ---------- "how you've done" — the honest bottom line ----------
     // 3.0 (2026-09-27): build-pnl v3 — the ledger now carries the whole P&L (round trips, attribution, value curve, rewards, both
     // lenses). lib/portfolio-pnl.js draws it; the Phase A story below stays as the fallback for a wallet the v3 build has not reached.
+    // 3.5: a pool's bucket for the positions table — the live snapshot's gauge list first, then any member feed that named it (retired pools fall to "Other")
+    const poolBucket = (pool) => { const snap = (store.feeds?.snap?.pools || []).find(p => p.gauge_pool_id === pool); if (snap && snap.bucket) return String(snap.bucket).toLowerCase(); for (const mm of (store.members?.values ? store.members.values() : [])) for (const l of (mm.lp_positions || [])) if (l.pool_gauge_id === pool && l.bucket) return String(l.bucket).toLowerCase(); return null; };
     const poolName = (k) => { const sp = (store.feeds?.snap?.pools || []).find(p => p.gauge_pool_id === k); if (sp && sp.name) return sp.name; const t = String(k || '').split('/').pop(); return /^terra1/.test(t) ? t.slice(0, 10) + '…' : t.replace(/^(cw20|native):/, ''); };
     async function renderStoryV3(wallet) {
         if (!window.PortfolioPnl) return false;
@@ -1481,7 +1483,7 @@
         const draw = () => { const L = store._ppLens || 'usd';
             window.PortfolioPnl.renderStory($('story-card'), D, { lens: L, onLens: setLens });
             const c = $('pp-curve'); c.hidden = false; window.PortfolioPnl.renderCurve(c, D, { lens: L, onLens: setLens });
-            const pc = $('pp-positions-card'); pc.hidden = false; window.PortfolioPnl.renderPositions($('pp-positions'), D, { lens: L, onLens: setLens, nameOf: poolName, pill }); };
+            const pc = $('pp-positions-card'); pc.hidden = false; window.PortfolioPnl.renderPositions($('pp-positions'), D, { lens: L, onLens: setLens, nameOf: poolName, pill, bucketOf: poolBucket }); };
         store._ppLens = lens; draw(); return true;
     }
     // 3.1 (2026-09-27): the NFT leg. Per collection: the wallet's by-wallet shard (nft-collections/<slug>/ledger/by-wallet/<last char>.json),
@@ -2279,6 +2281,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '3.4', revDate: '2026-09-28', page: 'member-portfolio' });   // 3.4: vote card — what the votes WILL earn at the close vs what the best split COULD (lib/vote-market.js, the Vote Market page's model with Votion's move solved in), per bucket and in total · 3.3: vote allocations — expected bribes at the epoch close (per vote + total), pools with no bribes flagged, a simulate → link per vote and to the Vote Market; each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
+<script>SiteFooter.mount({ rev: '3.5', revDate: '2026-09-28', page: 'member-portfolio' });   // 3.5: LP positions by bucket — in / out / open / P&L incl. rewards / APR earned / LP since entry (take-rate drag + top-up, amplifier compounding; tla-flows pnl-positions 1.1.0), closed folded · 3.4: vote card — what the votes WILL earn at the close vs what the best split COULD (lib/vote-market.js, the Vote Market page's model with Votion's move solved in), per bucket and in total · 3.3: vote allocations — expected bribes at the epoch close (per vote + total), pools with no bribes flagged, a simulate → link per vote and to the Vote Market; each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
 </body>
 </html>
