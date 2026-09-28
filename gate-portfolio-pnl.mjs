@@ -41,9 +41,13 @@ const L0 = ledgerOf(OWNER); const D0 = PPL.decode(L0.v3);
   ok(`decode(): ${D0.positions.length} positions, ${n} valued trips rebuilt from trip_cols; out − in = market + lp on each`, n > 50 && bad === 0, bad); }
 // 3.7: the page reconciles the ledger's open lots with the hourly chain read (participants) — the gate does the same from the same file
 const PART = J(path.join(CORE, 'member-data/participants/current.json'));
-const liveFor = (wallet, custody) => { const m = PART.members.find(x => x.wallet === wallet); return { read: !!(m && Array.isArray(m.lp_positions)), held: (pool, mech) => ((m && m.lp_positions) || []).filter(l => l.pool_gauge_id === pool && (l.is_amplified ? 'amplified' : 'non_amplified') === mech).reduce((x, l) => x + (Number(l.estimated_position_usd) || 0), 0), custody: custody || [] }; };
+const liveFor = (wallet, custody) => { const m = PART.members.find(x => x.wallet === wallet);
+  /* 3.8: like the page — the feed's custody (capture-engine 1.2) unless a test hands a live read */
+  const feedCu = ((m && m.custody) || []).filter(c => c.usd > 0 && c.pool).map(c => ({ pool: c.pool, mech: c.mechanism || 'amplified', usd: c.usd, luna: null, where: c.where }));
+  return { read: !!(m && Array.isArray(m.lp_positions)), held: (pool, mech) => ((m && m.lp_positions) || []).filter(l => l.pool_gauge_id === pool && (l.is_amplified ? 'amplified' : 'non_amplified') === mech).reduce((x, l) => x + (Number(l.estimated_position_usd) || 0), 0), custody: custody || feedCu }; };
 const recOf = (L, wallet, custody) => PPL.reconcile(PPL.decode(L.v3), liveFor(wallet, custody));
 const R0 = recOf(L0, OWNER);
+const RB = PPL.reconcile(PPL.decode(L0.v3), Object.assign(liveFor(OWNER), { custody: [] }));   /* the same reconcile with no custody — the base the arithmetic identities start from */
 { const S = PPL.story(D0, 'usd'), SL = PPL.story(D0, 'luna'); const t = L0.v3.totals;
   ok('story(usd): net == totals.net_usd, market/lp/rewards/unrealized from the ledger', S.net === t.net_usd && S.market === t.realized.market_usd && S.lp === t.realized.lp_usd && Math.abs(S.rewards - (t.rewards.claims_usd + t.rewards.bribes_usd)) < 1e-9 && S.unrealized === t.open.unrealized_usd);
   ok('story(luna): net == totals.net_luna', SL.net === t.net_luna);
@@ -233,8 +237,8 @@ console.log('— P18 trust (3.7): the ledger\'s open lots checked against the ch
 { const moved = R0.positions.filter(p => p.moved); const byName = (n, mech) => moved.find(p => p.name === n && p.mechanism === mech);
   const ampHeld = R0.positions.find(p => p.name === 'ampCAPA' && p.mechanism === 'amplified' && p.held_in);   /* pnl 1.2.4 builds follow the receipt into the DAO */
   ok(`owner: wBTC.osmo-wBTC.axl (amp, receipt sent to another address 2026-03-06) is no longer in the wallet per the chain read; ampCAPA (receipt staked in the DAO) ${ampHeld ? 'is held in ' + ampHeld.held_in.where + ' (the build followed it)' : 'too'} — ${moved.length} flagged (${moved.map(p => p.name + ' ' + PPL.fmt.usd(p.moved.ledger_usd)).join(', ')})`, !!byName('wBTC.osmo-wBTC.axl', 'amplified') && (ampHeld ? !byName('ampCAPA', 'amplified') : !!byName('ampCAPA', 'amplified')) && moved.every(p => p.moved.ledger_usd >= 1));
-  const t0 = L0.v3.totals.open, t1 = R0.totals.open; const mv = moved.filter(p => !p.moved.built_out).reduce((a, p) => a + p.open_value_usd, 0);   /* a build with not_held (pnl 1.2.3) already left them out */
-  ok(`Open now drops by exactly what moved out: ${PPL.fmt.usd(t0.value_usd)} − ${PPL.fmt.usd(mv)} = ${PPL.fmt.usd(t1.value_usd)}; net moves by the same lots' unrealized`, Math.abs(t0.value_usd - mv - t1.value_usd) < 0.01 && Math.abs((L0.v3.totals.net_usd - R0.totals.net_usd) - moved.filter(p => !p.moved.built_out).reduce((a, p) => a + (p.open_value_usd - (p.open_cost_usd || 0)), 0)) < 0.01);
+  const t0 = L0.v3.totals.open, t1 = RB.totals.open; const mv = moved.filter(p => !p.moved.built_out).reduce((a, p) => a + p.open_value_usd, 0);   /* a build with not_held (pnl 1.2.3) already left them out */
+  ok(`Open now drops by exactly what moved out: ${PPL.fmt.usd(t0.value_usd)} − ${PPL.fmt.usd(mv)} = ${PPL.fmt.usd(t1.value_usd)}; net moves by the same lots' unrealized`, Math.abs(t0.value_usd - mv - t1.value_usd) < 0.01 && Math.abs((L0.v3.totals.net_usd - RB.totals.net_usd) - moved.filter(p => !p.moved.built_out).reduce((a, p) => a + (p.open_value_usd - (p.open_cost_usd || 0)), 0)) < 0.01);
   const w = await run(OWNER); const d = w.document; const tab = T(d.getElementById('pp-positions'));
   const rowOf = (n) => [...d.querySelectorAll('[data-pp="positions"] tbody tr[data-pp-row]')].find(r => T(r).startsWith(n) && /amp /.test(T(r)));
   const movedNames = moved.map(p => p.name);
@@ -260,7 +264,7 @@ console.log('— P19 custody (3.7): the ampCAPA receipt staked in the DAO counts
   ok(`DAO stake ${power.toLocaleString('en-US')} receipts × ${rate.toFixed(4)} ampCAPA × $${px.toPrecision(3)} = ${PPL.fmt.usd(liveUsd)} (the capa-supply product reads ${PPL.fmt.usd(me.capa_equiv.receipt_dao * cat.tokens.find(x => x.denom === 'terra1t4p3u8khpd7f8qzurwyafxt648dya6mp6vur3vaapswt6m24gkuqrfdhar').prices.tla.usd)}) — the ampCAPA row: "in the ampCAPA DAO", Open now at the live value, not "moved"`, row && T(row).includes(PPL.fmt.usd(liveUsd)) && !/moved out/.test(T(row)), row ? T(row).slice(0, 200) : 'no custody row');
   const info = T(d.querySelector('[data-pp="custody"]'));
   ok(`the hero explains it: staked in the ampCAPA DAO, ${PPL.fmt.usd(pc.custody.untracked_usd)} of it with no cost basis kept out of the P&L`, /ampCAPA DAO/.test(info) && info.includes(PPL.fmt.usd(pc.custody.untracked_usd)) && /no cost basis/.test(info), info);
-  ok(`net = ${money(Rc.totals.net_usd)}: the ledger's own lots stay in the P&L, the untracked part does not`, T(d.querySelector('[data-pp="net"]')) === money(Rc.totals.net_usd) && Math.abs(Rc.totals.open.value_usd - (R0.totals.open.value_usd - (pc.moved || !pc.held_in ? 0 : (pc.open_value_usd || 0)) + liveUsd)) < 0.02,   /* a held_in build already counts the ledger's lots: the live value replaces them */ [T(d.querySelector('[data-pp="net"]')), Rc.totals.open.value_usd]); }
+  ok(`net = ${money(Rc.totals.net_usd)}: the ledger's own lots stay in the P&L, the untracked part does not`, T(d.querySelector('[data-pp="net"]')) === money(Rc.totals.net_usd) && Math.abs(Rc.totals.open.value_usd - (RB.totals.open.value_usd - (pc.moved || !pc.held_in ? 0 : (pc.open_value_usd || 0)) + liveUsd)) < 0.02,   /* a held_in build already counts the ledger's lots: the live value replaces them */ [T(d.querySelector('[data-pp="net"]')), Rc.totals.open.value_usd]); }
 
 console.log('— P20 idle LP (3.7): LP tokens in the wallet, not staked in TLA — warned and valued —');
 { const snap = J(path.join(CORE, 'member-data/tla-snapshot/current.json'));
