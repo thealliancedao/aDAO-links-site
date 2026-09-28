@@ -38,7 +38,7 @@
 <div id="site-header"></div>
 <script src="/lib/site-header.js"></script>
 <script src="/lib/address-picker.js"></script>
-<script src="/lib/portfolio-pnl.js?v=1.4.0"></script>   <!-- 3.0: the v3 P&L (story, value curve, positions + trips) -->
+<script src="/lib/portfolio-pnl.js?v=1.5.0"></script>   <!-- 3.0: the v3 P&L (story, value curve, positions + trips) -->
 <script src="/lib/winddown.js?v=1.0.0"></script>
 <script src="/lib/denoms.js?v=1.0.0"></script>
 <script src="/lib/vote-market.js?v=1.3.0"></script>   <!-- 3.4: THE vote-market engine — "your votes now earn" and "the best split earns" on the vote card, same model as the Vote Market page -->   <!-- 3.3: THE denom → symbol/decimals rule (the catalog's effective → discovered layer) -->   <!-- 3.0: winding-down assets (USDC.n) flagged on positions -->
@@ -729,7 +729,7 @@
 
         // banner + trend + income (P1)
         try { renderBanner(m); } catch (e) { console.warn('banner:', e); }
-        store._trendDeep = false; store._deepOffset = 0; store._ampcapaGovUsd = 0; store._ppRedraw = null;
+        store._trendDeep = false; store._deepOffset = 0; store._ampcapaGovUsd = 0; store._ppRedraw = null; store._custodyLive = null;
         // P1.6 live claimable: fetch once per wallet per load (completion re-renders;
         // the wallet check below is the loop guard). 60s freshness window.
         if (!(store._liveClaim && store._liveClaim.wallet === wallet && (Date.now() - store._liveClaim.at) < 60000)) {
@@ -856,7 +856,10 @@
                     <td class="text-right mono ${thr != null && thr < 0.5 ? 'text-amber-300' : 'text-gray-500'}" title="Distance above the 1% bucket-vote threshold the pool needs to keep earning">${thr != null ? (thr >= 0 ? '+' : '') + thr.toFixed(1) + 'pp' : '—'}</td>
                 </tr>`;
             }).join('')}
-            </tbody></table>` : '<div class="text-gray-600 text-sm py-2">No LP positions.</div>';
+            </tbody></table>` : ((m.custody || []).length ? '' : '<div class="text-gray-600 text-sm py-2">No LP positions.</div>');
+        // 3.8 (owner: "show my ampCAPA here so it's clear on my open positions — and differently from normal LPs, it's staked in a DAO"):
+        // receipts a custodian holds render in their own panel under the table, from the feed at once, live once the chain read lands
+        $('lp-table').insertAdjacentHTML('beforeend', '<div id="lp-custody"></div>'); renderCustody(m); paintLpTile(m);
         // P1: per-pool 30d sparklines from the daily archive (async fill;
         // cells left as a quiet dot when this wallet has no daily history).
         (async () => {
@@ -1028,6 +1031,7 @@
         }
         return {
             p: s.total_portfolio_value_usd ?? null,
+            ci: s.total_includes_custody ? 1 : 0,   // 3.8: the day's total already holds the DAO-staked receipts
             v: s.voting_power_human ?? null,
             lp: s.total_lp_position_usd ?? null,
             lk: s.total_locked_usd ?? null,
@@ -1037,8 +1041,26 @@
         };
     }
     const _dayMem = new Map();   // date -> full file promise (memory only, per session)
+    // 3.8 (owner: "did the ampCAPA get added into past balances so it powers the trends and totals?"): archive days captured before
+    // capture-engine 1.2 hold no custody. For those days the DAO stake is added from the CAPA supply history
+    // (token-catalog/supply/capa/wallets-daily: receipt_dao CAPA per wallet per day — daily since 2026-08-24, weekly before) × CAPA's
+    // price that day (price-history/series/CAPA.json). The nearest capture up to 7 days back; none → nothing added (never guessed).
+    const CAPA_DAILY = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/token-catalog/supply/capa/wallets-daily';
+    const _cuMem = new Map(); let _cuIdx = null, _capaPx = null;
+    const _j = (u) => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
+    async function custodyBackfill(wallet, date) {
+        _cuIdx = _cuIdx || _j(CAPA_DAILY + '/index.json'); _capaPx = _capaPx || _j('https://raw.githubusercontent.com/thealliancedao/tla-core/main/price-history/series/CAPA.json');
+        const [ix, px] = await Promise.all([_cuIdx, _capaPx]); if (!ix || !px || !px.daily) return null;
+        const t = Date.parse(date + 'T00:00:00Z'); const src = (ix.days || []).map(d => d.date).filter(d => d <= date && Date.parse(d + 'T00:00:00Z') >= t - 7 * _dayMs).sort().pop();
+        if (!src) return null;
+        if (!_cuMem.has(src)) _cuMem.set(src, _j(`${CAPA_DAILY}/${src}.json`));
+        const f = await _cuMem.get(src); const row = f && f.rows && f.rows[wallet]; const capa = row ? Number(row[1]) : 0;
+        if (!(capa > 0)) return { usd: 0, capa: 0, src };
+        let price = null; for (let i = 0; i <= 3 && price == null; i++) price = px.daily[dstr(new Date(t - i * _dayMs))] ?? null;
+        return price != null ? { usd: capa * price, capa, src } : null;
+    }
     async function fetchDayFor(wallet, date) {
-        const ck = `mp_d:${wallet}:${date}`;
+        const ck = `mp_d2:${wallet}:${date}`;   // 3.8: new key — records cached before the custody backfill are not reused
         try { const c = sessionStorage.getItem(ck); if (c) return c === '!' ? null : JSON.parse(c); } catch (e) {}
         if (!_dayMem.has(date)) {
             _dayMem.set(date, fetch(`${CONFIG.dailyBaseUrl}/${date}.json`).then(r => r.ok ? r.json() : null).catch(() => null));
@@ -1046,6 +1068,7 @@
         const day = await _dayMem.get(date);
         const mm = day && (day.members || []).find(x => x.wallet === wallet);
         const slim = _slimRec(mm);
+        if (slim && !slim.ci && slim.p != null) { const cb = await custodyBackfill(wallet, date); if (cb && cb.usd > 0) { slim.p += cb.usd; slim.cu = cb.usd; slim.cuSrc = cb.src; } }
         try { sessionStorage.setItem(ck, slim ? JSON.stringify(slim) : '!'); } catch (e) {}
         return slim;
     }
@@ -1278,7 +1301,7 @@
     function renderBanner(m) {
         const el = $('networth-banner'); if (!el || !m) return;
         const s = m.summary || {};
-        const gov = store._ampcapaGovUsd || 0;   // ampCAPA gov (live read) — folded into LP + grand
+        const gov = custodyUsd(m);   // 3.8: receipts staked in a DAO (feed, live when read) — folded into LP + grand
         const rp = repriceSummary(m);            // P1.7: live prices × daily quantities
         const lk = rp.lk, lp = rp.lp + gov, wb = rp.wb;
         const tla = lk + rp.lp + wb + gov;
@@ -1320,7 +1343,7 @@
     async function renderBannerChips(m) {
         const el = $('banner-chips'); if (!el) return;
         const wallet = m.wallet;
-        const nowV = m.summary?.total_portfolio_value_usd || 0;
+        const nowV = holdingUsd(m);   // 3.8: the DAO stake is in "now" as it is in every archived day
         const days = [1, 7, 30];
         const chips = await Promise.all(days.map(async (d) => {
             const rec = await fetchDayFor(wallet, dstr(new Date(Date.now() - (d + 0) * _dayMs)));
@@ -1422,7 +1445,7 @@
 
     // ---------- trend chart card ----------
     const TREND_METRICS = {
-        p:  { label: 'Portfolio $', color: '#22d3ee', fmt: (v) => fmt$(v), tip: 'TLA position value (locks + LP + wallet) from each day\u2019s archive.' },
+        p:  { label: 'Portfolio $', color: '#22d3ee', fmt: (v) => fmt$(v), tip: 'TLA position value (locks + LP + wallet + receipts staked in a DAO) from each day\u2019s archive. Days captured before the archive carried DAO-staked receipts have them added from the CAPA supply history \u00d7 CAPA\u2019s price that day.' },
         v:  { label: 'Voting power', color: '#a78bfa', fmt: (v) => fmtNum(v), tip: 'Display VP (with reclaimable) from each day\u2019s archive.' },
         lp: { label: 'LP value', color: '#34d399', fmt: (v) => fmt$(v), tip: 'Total staked LP value.' },
         lk: { label: 'Locked value', color: '#c084fc', fmt: (v) => fmt$(v), tip: 'Total vAMP-locked value.' },
@@ -1493,8 +1516,8 @@
             const read = !!(m && Array.isArray(m.lp_positions));
             const held = (pool, mech) => (m?.lp_positions || []).filter(l => l.pool_gauge_id === pool && (l.is_amplified ? 'amplified' : 'non_amplified') === mech).reduce((x, l) => x + (Number(l.estimated_position_usd) || 0), 0);
             const custody = [];
-            const gu = store._ampcapaGovUsd || 0, lu = store.symPrice?.get('LUNA') || null;
-            if (gu > 0) custody.push({ pool: 'native:' + AMPCAPA_GOV.denom, mech: 'amplified', usd: gu, luna: lu ? gu / lu : null, where: 'the ampCAPA DAO' });
+            const lu = store.symPrice?.get('LUNA') || null;
+            for (const c of custodyList(m)) if (c.usd > 0 && c.pool) custody.push({ pool: c.pool, mech: c.mech || 'amplified', usd: c.usd, luna: lu ? c.usd / lu : null, where: c.where });   /* 3.8: feed or live */
             return { read, held, custody };
         };
         const draw = () => { const L = store._ppLens || 'usd';
@@ -1537,7 +1560,7 @@
         const earned = yieldUsd + bribeUsd;
         const inUsd = w.zap_input_usd_at_event || 0;
         const measuredDeps = Object.values(w.zap_inputs || {}).reduce((x, t) => x + (t.valued_legs || 0), 0);
-        const holding = (m.summary?.total_portfolio_value_usd || 0) + (store._ampcapaGovUsd || 0);
+        const holding = holdingUsd(m);   // 3.8: the feed total with its custody swapped for the current figure (never added twice)
         const firstE = led?.epoch_span?.[0] ?? null;
         const firstD = firstE != null && cal ? cal.get(firstE) : (w.first_event || '').slice(0, 10);
         const epochsIn = led ? (led.epoch_span[1] - led.epoch_span[0] + 1) : null;
@@ -1563,7 +1586,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
             ${st('What went in (measured)', `<span class="text-gray-500 text-sm align-top mr-0.5">\u2265</span>${fmt$(inUsd)} <span class="text-[9px] font-normal text-amber-300/80 align-middle">${covPct.toFixed(0)}% priced</span>`, `${measuredDeps} of ${depCount} deposits carry cost data — the true figure is higher`, 'text-gray-100', 'Zap-entry cost valued at each entry day. Direct (non-zap) deposits leave no measurable cost trail, so the true figure is HIGHER than this — stated, not hidden. Full entry costs land with the historical walk + cost-basis engine.')}
             ${st('What you\u2019ve earned (measured)', fmt$(earned), `${fmt$(yieldUsd)} LP yield + ${fmt$(bribeUsd)} bribes · at claim-day value`, 'text-emerald-300', 'Every LP reward claim and every gauge-bribe claim, valued the day it happened. Lower bound: some claims carry no attributable user and newer claims settle after the next re-derive.')}
-            ${st('What you hold now', fmt$(holding), 'live TLA position (locks + LP + wallet' + (store._ampcapaGovUsd ? ' + gov' : '') + ')', 'text-cyan-300', 'Live positions feed plus the ampCAPA governance read. Votion and NFTs are on their own cards — this is the TLA slice the flow history describes.')}
+            ${st('What you hold now', fmt$(holding), 'live TLA position (locks + LP + wallet' + (custodyUsd(m) ? ' + staked in a DAO' : '') + ')', 'text-cyan-300', 'Live positions feed plus the ampCAPA governance read. Votion and NFTs are on their own cards — this is the TLA slice the flow history describes.')}
           </div>
           <div class="text-[11px] text-gray-500 mb-1">Measured flows (<span class="mono">${covPct.toFixed(0)}%</span> of deposits priced): <span class="mono text-gray-300">${fmtNum(lunaIn)}</span> LUNA in via zaps · <span class="mono text-emerald-300">${fmtNum(lunaOut)}</span> LUNA claimed back.</div>
           <div class="text-[11px] text-gray-500 mb-2">Chain-complete: <span class="mono text-purple-300">${fmtNum(lockedStamped)}</span> LUNA underlying locked today${relockGain > 1 ? ` · re-locking at today\u2019s LST rates would add <span class="mono text-purple-300/80">+${fmtNum(relockGain)}</span> underlying (<span class="mono text-purple-300/80">+${fmtNum(relockVp)}</span> VP)` : ''}. <span class="text-gray-600">These rows measure different things — locked is complete chain truth; flows are partial until the historical walk lands.</span></div>
@@ -1731,6 +1754,38 @@
         ve3Contract:  'terra1zly98gvcec54m3caxlqexce7rus6rzgplz7eketsdz7nh750h2rqvu8uzx',
         denom: 'factory/terra186rpfczl7l2kugdsqqedegl4es4hp624phfc7ddy8my02a4e8lgq5rlx7y/ampCAPA',
     };
+    // ---------- 3.8 custody: receipts a custodian (the ampCAPA DAO) holds for this wallet ----------
+    // ONE list for every reader (LP card, LP tile, banner, "what you hold", the P&L): the feed's portfolio.custody (capture-engine 1.2,
+    // priced at capture) with the live chain read replacing its row when it lands. custodyUsd() is the only sum anyone adds.
+    function custodyList(m) {
+        const feed = (m && m.custody) || []; const live = store._custodyLive && store._custodyLive.wallet === store.wallet ? store._custodyLive : null;
+        const rows = feed.map(c => ({ key: c.key, where: c.where, pool: c.pool, mech: c.mechanism, usd: c.usd, capa: c.unit === 'CAPA' ? c.amount : null, live: false, as_of: c.as_of }));
+        if (live) { const r = rows.find(x => x.key === live.key); if (r) Object.assign(r, live, { live: true }); else rows.push(Object.assign({}, live, { live: true })); }
+        return rows.filter(r => r.usd != null || r.capa != null || r.ampCapa != null);
+    }
+    const custodyUsd = (m) => custodyList(m).reduce((x, r) => x + (r.usd || 0), 0);
+    // the feed total already holds the feed's custody (summary.total_includes_custody) — swap it for the current figure, never add twice
+    const holdingUsd = (m) => { const s = m?.summary || {}; return (s.total_portfolio_value_usd || 0) - (s.total_includes_custody ? (s.custody_usd || 0) : 0) + custodyUsd(m); };
+    function renderCustody(m) {
+        const el = $('lp-custody'); if (!el) return; const rows = custodyList(m);
+        if (!rows.length) { el.innerHTML = ''; return; }
+        el.innerHTML = `<div class="mt-3 rounded-xl border border-cyan-400/40 bg-cyan-500/[0.06] px-3 py-2.5" data-custody-panel>
+            <div class="flex items-center gap-2 text-[11px] font-semibold text-cyan-300"><span class="text-[9px] px-1.5 py-px rounded bg-cyan-500/25 text-cyan-200 tracking-wide">STAKED IN A DAO</span> Your TLA position, held by a governance DAO</div>
+            <div class="text-[10px] text-gray-400 mt-0.5">Not in your wallet and not in the table above — the amplified receipt is staked for voting power. It is still yours and still earns the pool's amplified rewards; it counts in your totals.</div>
+            ${rows.map(r => `<div class="mt-2 flex items-start justify-between gap-3" data-custody="${esc(r.key)}">
+                <div><div class="font-medium text-gray-100">ampCAPA <span class="text-[10px] text-orange-300">amp</span> <span class="text-[10px] text-cyan-300">in ${esc(r.where)}</span>${r.live ? ' <span class="text-[8px] px-1 py-px rounded bg-emerald-500/20 text-emerald-300" title="Read live from the DAO voting module and the compounder rate, this load">live</span>' : ` <span class="text-[8px] px-1 py-px rounded bg-white/10 text-gray-400" title="From the CAPA supply product${r.as_of ? ' @ ' + esc(r.as_of) : ''}, priced at the positions capture — the live read replaces it when it answers">snapshot</span>`}</div>
+                    <div class="text-[10px] text-gray-500 mono">${r.amplp != null ? fmtNum(r.amplp) + ' receipts · ' : ''}${r.ampCapa != null ? fmtNum(r.ampCapa) + ' ampCAPA' : ''}${r.capa != null ? (r.ampCapa != null ? ' · ' : '') + fmtNum(r.capa) + ' CAPA' : ''}</div>
+                    ${r.base != null ? `<div class="text-[10px] text-gray-500">TLA reward APR <span class="text-emerald-400">${r.base.toFixed(0)}%</span> base · <span class="text-purple-300">≈${r.amp.toFixed(0)}%</span> amplified${r.share != null ? ' · ' + r.share.toFixed(2) + '% of the pool' : ''}</div>` : ''}</div>
+                <div class="text-right mono text-cyan-200 text-base font-bold">${r.usd != null ? fmt$(r.usd) : '<span class="text-gray-500 text-xs">unpriced</span>'}</div></div>`).join('')}
+        </div>`;
+    }
+    function paintLpTile(m) {
+        const tl = $('tile-lp'); if (!tl || !m) return; const cu = custodyUsd(m); if (!(cu > 0)) return;
+        const base = m.summary?.total_lp_position_usd || 0;
+        tl.innerHTML = `<span title="LP in TLA ${fmt$(base)} + staked in a DAO ${fmt$(cu)}">${fmt$(base + cu)}</span>`;
+        const sub = $('tile-lp-sub'); if (sub && !/in a DAO/.test(sub.innerHTML)) sub.innerHTML += ' · <span class="text-cyan-300/80">+ in a DAO</span>';
+    }
+
     async function renderAmpCapaGov(wallet) {
         try {
             let balRaw = null;
@@ -1760,34 +1815,16 @@
             // the ve3 amplified total, so the pool's staked figure IS the whole).
             const share = (usd != null && pool?.staked_in_tla_usd > 0) ? usd / pool.staked_in_tla_usd * 100 : null;
             const thr = pool?.voting_power?.pct_of_bucket != null ? pool.voting_power.pct_of_bucket - 1.0 : null;
-            // fold into totals (DeFi_Patriot 2026-08-03): LP tile + banner carry it,
-            // marked as live-read. Only when priced — never a guessed dollar.
+            // 3.8: the live read replaces the feed's custody row (one list: custodyList) — the LP card's DAO panel, the LP tile, the banner and
+            // the P&L all redraw from it. Only when priced — never a guessed dollar.
             if (usd != null) {
                 store._ampcapaGovUsd = usd;
-                try { store._ppRedraw && store._ppRedraw(); } catch (e) {}   // 3.7: the P&L reads the DAO stake as custody — redraw once it lands
+                store._custodyLive = { wallet, key: 'ampcapa-dao', where: 'the ampCAPA DAO', pool: 'native:' + AMPCAPA_GOV.denom, mech: 'amplified', usd, amplp: balRaw / 1e6, ampCapa, share, base, amp, thr };
                 const m = store.members.get(store.wallet);
-                const tl = $('tile-lp');
-                if (tl && m) {
-                    tl.innerHTML = `<span title="Positions-feed LP ${fmt$(m.summary?.total_lp_position_usd || 0)} + ampCAPA gov ${fmt$(usd)} (live chain read)">${fmt$((m.summary?.total_lp_position_usd || 0) + usd)}<span class="text-[8px] text-gray-500 align-super">*</span></span>`;
-                    const sub = $('tile-lp-sub'); if (sub) sub.innerHTML += ' · + gov';
-                }
+                try { renderCustody(m); paintLpTile(m); } catch (e) {}
+                try { store._ppRedraw && store._ppRedraw(); } catch (e) {}
                 try { renderBanner(m); } catch (e) {}
             }
-            // 3.7: the value is recorded (tile, banner, P&L custody) BEFORE the table row — a wallet whose LP table is empty or not drawn
-            // (every receipt in the DAO, nothing else in TLA) used to lose the whole stake here
-            const tbody = $('lp-table') && $('lp-table').querySelector('tbody');
-            if (tbody && !tbody.querySelector('[data-ampcapa-gov]')) {
-            const tr = document.createElement('tr');
-            tr.setAttribute('data-ampcapa-gov', '1');
-            tr.innerHTML = `
-                <td><div class="font-medium">ampCAPA <span class="text-[8px] px-1 py-px rounded bg-cyan-500/20 text-cyan-300" title="Read live from the ampCAPA governance DAO on chain — your staked receipt converted at the ve3 exchange rate. Included in the LP tile and the banner (marked live-read).">gov · live</span></div>
-                    <div class="text-[9px] text-gray-600">Single · staked in governance DAO</div></td>
-                <td class="text-right mono text-cyan-300">${usd != null ? `<span title="${fmtNum(ampCapa)} ampCAPA × org-catalog price — live chain read.">${fmt$(usd)}<span class="text-[8px] text-gray-500 align-super">*</span></span>` : `<span class="text-gray-500" title="${fmtNum(ampCapa)} ampCAPA — no catalog price this load; amount shown, value honestly blank.">${fmtNum(ampCapa)} ampCAPA</span>`}</td>
-                <td class="hidden sm:table-cell text-center"><span class="text-gray-800 text-[9px]" title="Live chain read — no daily archive for governance staking yet, so no trend.">·</span></td>
-                <td class="text-right mono text-gray-400">${share != null ? `<span title="Your ampCAPA value over ALL ampCAPA staked in TLA (${fmt$(pool.staked_in_tla_usd)}) — non-amplified + amplified; gov-staked receipts remain inside the amplified total, so this denominator is the whole pool.">${share.toFixed(2)}%</span>` : '—'}</td>
-                <td class="text-right mono ${base != null ? 'text-emerald-400' : 'text-gray-500'}">${base != null ? `<span title="TLA amplified ampCAPA reward APR — the same chain-distributions figure the other rows use (${base.toFixed(2)}% base; ≈${amp.toFixed(1)}% amplified auto-compound estimate). Your gov-staked receipt is an amplified position, so the amplified figure applies."><span class="text-gray-500">${base.toFixed(0)}%</span><span class="text-gray-600">/</span><span class="text-purple-300">≈${amp.toFixed(0)}%</span></span>` : '—'}</td>
-                <td class="text-right mono ${thr != null && thr < 0.5 ? 'text-amber-300' : 'text-gray-500'}" title="Pool-level distance above the 1% bucket-vote threshold (this is the whole pool's vote position, not just yours).">${thr != null ? (thr >= 0 ? '+' : '') + thr.toFixed(1) + 'pp' : '—'}</td>`;
-            tbody.appendChild(tr); }
         } catch (e) { console.warn('ampCAPA gov read:', e.message); /* unknown ≠ zero — show nothing */ }
     }
 
@@ -1884,8 +1921,34 @@
         try { v ? localStorage.setItem(linkKey(prefix), v) : localStorage.removeItem(linkKey(prefix)); } catch (e) {}
         renderSiblingChains(store.wallet).catch(() => {});
     };
+    // 3.8 (owner: "in a wallet app you see your address on each chain — can we find this user's other Cosmos addresses?"): a Terra address
+    // cannot be turned into your Cosmos / Osmosis / Injective address (wallets derive a separate key per chain: coin type 330 vs 118 vs 60),
+    // so instead the page reads your own IBC history on Terra — the receiver of every IBC transfer you SENT and the sender of every one you
+    // RECEIVED — and offers each personal account it finds (contracts dropped) as a one-tap link. Never linked automatically: an address
+    // you sent to can be an exchange deposit or someone else's.
+    const ACCOUNT_LEN = 38;   // bech32 data+checksum of a 20-byte account; contracts (32 bytes) are longer
+    async function discoverIbcAddrs(wallet) {
+        const ck = 'mp_ibc:' + wallet; try { const c = sessionStorage.getItem(ck); if (c) return JSON.parse(c); } catch (e) {}
+        const enc = encodeURIComponent; const found = new Map(); let read = 0, failed = 0;
+        const add = (addr, dir, ts) => { const m = /^([a-z]+)1([02-9ac-hj-np-z]+)$/.exec(String(addr || '')); if (!m || m[1] === 'terra' || m[2].length !== ACCOUNT_LEN) return; const x = found.get(addr) || { addr, prefix: m[1], sent: 0, received: 0, last: '' }; x[dir]++; if (ts && ts > x.last) x.last = ts.slice(0, 10); found.set(addr, x); };
+        const search = async (conds) => {   // SDK ≤ 0.47 takes repeated events=; 0.50 takes one query= — try both
+            try { return await lcdGet('/cosmos/tx/v1beta1/txs?' + conds.map(c => 'events=' + enc(c)).join('&') + '&pagination.limit=100&order_by=2'); }
+            catch (e) { return await lcdGet('/cosmos/tx/v1beta1/txs?query=' + enc(conds.join(' AND ')) + '&limit=100&order_by=2'); } };
+        try { const j = await search([`message.sender='${wallet}'`, `message.action='/ibc.applications.transfer.v1.MsgTransfer'`]); read++;
+            (j.txs || []).forEach((tx, i) => { const ts = j.tx_responses?.[i]?.timestamp; for (const msg of (tx.body?.messages || [])) if (/MsgTransfer$/.test(msg['@type'] || '') && msg.sender === wallet) add(msg.receiver, 'sent', ts); }); } catch (e) { failed++; }
+        try { const j = await search([`fungible_token_packet.receiver='${wallet}'`]); read++;
+            for (const r of (j.tx_responses || [])) { const evs = [...(r.events || []), ...((r.logs || []).flatMap(l => l.events || []))];
+                for (const ev of evs) if (ev.type === 'recv_packet' || ev.type === 'fungible_token_packet') for (const a of (ev.attributes || [])) {
+                    if (a.key === 'packet_data') { try { const d = JSON.parse(a.value); if (d.receiver === wallet) add(d.sender, 'received', r.timestamp); } catch (e) {} }
+                    else if (ev.type === 'fungible_token_packet' && a.key === 'sender') { const recv = (ev.attributes || []).find(x => x.key === 'receiver'); if (recv && recv.value === wallet) add(a.value, 'received', r.timestamp); } } } } catch (e) { failed++; }
+        const out = { list: [...found.values()].sort((a, b) => (b.sent + b.received) - (a.sent + a.received)), read, failed };
+        try { if (read) sessionStorage.setItem(ck, JSON.stringify(out)); } catch (e) {}
+        return out;
+    }
+    window.mpUseIbcAddr = (prefix, addr) => { try { localStorage.setItem(linkKey(prefix), addr); } catch (e) {} renderSiblingChains(store.wallet).catch(() => {}); };
     async function renderSiblingChains(wallet) {
         const host = $('sibling-chains'); if (!host) return;
+        const ibcP = discoverIbcAddrs(wallet).catch(() => ({ list: [], read: 0, failed: 2 }));
         const rows = await Promise.all(SIBLING_CHAINS.map(async (ch) => {
             if (ch.linkOnly && !getLink(ch.prefix)) return null;
             const linked = getLink(ch.prefix);
@@ -1907,7 +1970,16 @@
                 return { ch, addr, linked: !!linked, liquid, staked, vals, pending, others, px, usd: px != null ? (liquid + staked + pending) * px : null };
             } catch (e) { return { ch, addr, linked: !!linked, empty: true }; }
         }));
+        const ibc = await ibcP;
         if (store.wallet !== wallet) return;
+        const known = new Set(SIBLING_CHAINS.map(c => c.prefix));
+        const sugg = ibc.list.filter(x => known.has(x.prefix) && getLink(x.prefix) !== x.addr && !(rows.find(r => r && r.ch.prefix === x.prefix && r.addr === x.addr && !r.empty)));
+        const otherChains = [...new Set(ibc.list.filter(x => !known.has(x.prefix)).map(x => x.prefix))];
+        const suggHtml = (sugg.length || otherChains.length) ? `<div class="mt-1.5 rounded-lg border border-cyan-500/20 bg-cyan-500/[0.04] px-2 py-1.5 text-[10.5px]" data-ibc-suggest>
+            <div class="text-cyan-300 font-semibold">Found in your IBC transfers</div>
+            ${sugg.map(x => { const ch = SIBLING_CHAINS.find(c => c.prefix === x.prefix); return `<div class="flex items-center justify-between gap-2 mt-0.5"><span class="mono text-gray-300" title="${esc(x.addr)}">${esc(ch.sym)} · ${esc(x.addr.slice(0, 12))}…${esc(x.addr.slice(-5))} <span class="text-gray-500">${x.sent ? 'you sent to it ' + x.sent + '×' : ''}${x.sent && x.received ? ' · ' : ''}${x.received ? 'it sent to you ' + x.received + '×' : ''}${x.last ? ' · last ' + esc(x.last) : ''}</span></span><button onclick="mpUseIbcAddr('${x.prefix}','${x.addr}')" class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30">use this</button></div>`; }).join('')}
+            ${otherChains.length ? `<div class="text-gray-500 mt-0.5">also on ${otherChains.map(esc).join(', ')} — not read here yet</div>` : ''}
+            <div class="text-gray-600 mt-0.5">Only use an address that is yours — one you sent to could be an exchange or another person.</div></div>` : '';
         const found = rows.filter(r => r && !r.empty);
         const anyLinked = rows.some(r => r && r.linked);
         if (!found.length && !anyLinked) {
@@ -1916,6 +1988,7 @@
                 Other Cosmos chains: nothing at the derived sibling addresses — which proves nothing if your wallet derives chains differently (coin type 330 vs 118).
                 ${SIBLING_CHAINS.map(ch => `<span id="sib-link-${ch.prefix}" class="ml-1"><button onclick="mpLinkChain('${ch.prefix}')" class="text-cyan-400/80 hover:text-cyan-300">link ${ch.sym} address</button></span>`).join(' · ')}
                 <div class="mt-1 text-gray-500">Link your address on a chain and this card reads its tokens, staked amount and the staking rewards you can claim there — saved in this browser, for this wallet only.</div>
+                ${suggHtml}
             </div>`;
             return;
         }
@@ -1931,6 +2004,7 @@
                     <span class="mono text-gray-300">${r.usd != null ? `<span class="text-amber-300/90 mr-1" title="${fmtNum(r.liquid + r.staked + r.pending)} ${r.ch.sym} × ${fmt$(r.px)} (the catalog's ${r.ch.sym} price)">${fmt$(r.usd)}</span> · ` : `<span class="text-gray-600 mr-1" title="${r.ch.sym} has no price in our catalog — amounts only">unpriced</span> · `}${r.liquid > 0.000001 ? fmtNum(r.liquid) + ' liquid' : ''}${r.liquid > 0.000001 && r.staked > 0.000001 ? ' · ' : ''}${r.staked > 0.000001 ? `<span class="text-amber-300/90">${fmtNum(r.staked)} staked</span> <span class="text-[9px] text-gray-600">${r.vals} val${r.vals === 1 ? '' : 's'}</span>` : ''}${r.pending > 0.000001 ? ` · <span class="text-emerald-400/90" title="Staking rewards you can claim now, live from the distribution module">+${fmtNum(r.pending)} to claim</span>` : ''}${r.others && r.others.length ? ` · <span class="text-gray-500" title="${esc(r.others.join(' · '))}">+${r.others.length} other token${r.others.length === 1 ? '' : 's'}</span>` : ''}</span>
                 </div>`).join('')}
                 <div class="text-[10px] text-gray-600 mt-1">${SIBLING_CHAINS.map(ch => `<span id="sib-link-${ch.prefix}"><button onclick="mpLinkChain('${ch.prefix}')" class="text-cyan-400/70 hover:text-cyan-300">${getLink(ch.prefix) ? 're-link ' + ch.sym : 'link ' + ch.sym}</button></span>`).join(' · ')} <span class="text-gray-700">— paste your real address if your wallet derives differently</span></div>
+                ${suggHtml}
             </div>`;
     }
 
@@ -2366,6 +2440,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '3.7', revDate: '2026-09-28', page: 'member-portfolio' });   // 3.7: trust pass — the P&L's open lots checked against the hourly chain read: a receipt staked in the ampCAPA DAO counts at its live value (P&L only on the part with a known cost), one sent to another address is flagged "not in this wallet" and left out of Open now; APR left blank where a trip had no price (never inflated); LP tokens idle in the wallet (no TLA rewards) warned and valued; illiquid tokens (pyROAR) shown with what they would actually fetch and kept out of the new liquid total · 3.6: wallet balances read every cw20 live (catalog + the registry's known_cw20s — pyROAR priced from its pair × ROAR, labelled); tokens with no price listed, not just counted; other Cosmos chains priced where the catalog knows the token, every token counted, Injective (link your inj1…), links kept per wallet · 3.5.1: all-LPs total under the positions table; dust (< $1) folds with the closed · 3.5: LP positions by bucket — in / out / open / P&L incl. rewards / APR earned / LP since entry (take-rate drag + top-up, amplifier compounding; tla-flows pnl-positions 1.1.0), closed folded · 3.4: vote card — what the votes WILL earn at the close vs what the best split COULD (lib/vote-market.js, the Vote Market page's model with Votion's move solved in), per bucket and in total · 3.3: vote allocations — expected bribes at the epoch close (per vote + total), pools with no bribes flagged, a simulate → link per vote and to the Vote Market; each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
+<script>SiteFooter.mount({ rev: '3.8', revDate: '2026-09-28', page: 'member-portfolio' });   // 3.8: receipts staked in a DAO (the ampCAPA DAO) are a position — their own cyan panel in LP positions (feed at once, live when read), in the LP tile, the banner, "what you hold" and every trend day (days before the capture carried them are filled from the CAPA supply history × CAPA's price that day; never added twice); a moved-out LP row says where the receipt went — the registry's name, the address, the day (tla-flows pnl 1.2.4); other Cosmos addresses found in your own IBC transfers, one tap to link · 3.7: trust pass — the P&L's open lots checked against the hourly chain read: a receipt staked in the ampCAPA DAO counts at its live value (P&L only on the part with a known cost), one sent to another address is flagged "not in this wallet" and left out of Open now; APR left blank where a trip had no price (never inflated); LP tokens idle in the wallet (no TLA rewards) warned and valued; illiquid tokens (pyROAR) shown with what they would actually fetch and kept out of the new liquid total · 3.6: wallet balances read every cw20 live (catalog + the registry's known_cw20s — pyROAR priced from its pair × ROAR, labelled); tokens with no price listed, not just counted; other Cosmos chains priced where the catalog knows the token, every token counted, Injective (link your inj1…), links kept per wallet · 3.5.1: all-LPs total under the positions table; dust (< $1) folds with the closed · 3.5: LP positions by bucket — in / out / open / P&L incl. rewards / APR earned / LP since entry (take-rate drag + top-up, amplifier compounding; tla-flows pnl-positions 1.1.0), closed folded · 3.4: vote card — what the votes WILL earn at the close vs what the best split COULD (lib/vote-market.js, the Vote Market page's model with Votion's move solved in), per bucket and in total · 3.3: vote allocations — expected bribes at the epoch close (per vote + total), pools with no bribes flagged, a simulate → link per vote and to the Vote Market; each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
 </body>
 </html>

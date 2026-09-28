@@ -11,6 +11,7 @@
 //   P15 (3.5) LP columns: take-rate drag + top-up on open non-amp, compounding on amp, APR earned with P&L incl. rewards, bucket subtotals add up
 //   P6 wind-down: a wallet holding USDC.n LP shows the "USDC.n ending" pill on that pool's row
 //   P7 disputed: a wallet with a disputed position shows it flagged and the hero says it was left out
+//   P22–P25 (3.8) DAO-staked receipts: own LP-card panel, tile/banner once, trend days backfilled from the CAPA supply history; other-chain addresses from IBC history
 //   P18 (3.7) trust: open lots whose receipt left the wallet (chain read says none) flagged "not in this wallet", out of Open now; hero says so
 //   P19 (3.7) custody: the ampCAPA receipt staked in the DAO counts at its live value, P&L only on the part with a cost
 //   P20 (3.7) idle LP: bank uLP + cw20 LP tokens of TLA pools in the wallet warned and valued; an amplified receipt is not idle
@@ -46,7 +47,7 @@ const R0 = recOf(L0, OWNER);
 { const S = PPL.story(D0, 'usd'), SL = PPL.story(D0, 'luna'); const t = L0.v3.totals;
   ok('story(usd): net == totals.net_usd, market/lp/rewards/unrealized from the ledger', S.net === t.net_usd && S.market === t.realized.market_usd && S.lp === t.realized.lp_usd && Math.abs(S.rewards - (t.rewards.claims_usd + t.rewards.bribes_usd)) < 1e-9 && S.unrealized === t.open.unrealized_usd);
   ok('story(luna): net == totals.net_luna', SL.net === t.net_luna);
-  ok('the parts add to the net (usd): market + lp + rewards + unrealized == net (± $0.05)', Math.abs(S.market + S.lp + S.rewards + S.unrealized - S.net) < 0.05, [S.market, S.lp, S.rewards, S.unrealized, S.net]); }
+  ok('the parts add to the net (usd): market + lp + rewards + unrealized == net (± $0.10 — the build rounds each part to the cent; the net is summed before rounding)', Math.abs(S.market + S.lp + S.rewards + S.unrealized - S.net) <= 0.10, [S.market, S.lp, S.rewards, S.unrealized, S.net]); }
 
 async function run(wallet, opts = {}) {
   const pageUrl = 'https://thealliancedao.com/member-portfolio.html' + (wallet ? '?wallet=' + wallet : '');
@@ -63,7 +64,10 @@ async function run(wallet, opts = {}) {
       if (opts.cw20 && /\/cosmwasm\/wasm\/v1\/contract\/terra1[0-9a-z]+\/smart\//.test(url)) { const m = url.match(/contract\/(terra1[0-9a-z]+)\/smart\/([^/?]+)/); let q = null; try { q = JSON.parse(Buffer.from(decodeURIComponent(m[2]), 'base64').toString()); } catch (e) {} if (q && q.balance) return Promise.resolve({ ok: true, status: 200, json: async () => ({ data: { balance: String(opts.cw20[m[1]] || 0) } }) }); }   // 3.6: the live cw20 reads   // 3.3: the live bank scan, as the owner's screenshot showed it
       if (url.startsWith(CORE_U + 'tla-flows/pnl/')) { const rel = url.slice(CORE_U.length); f = path.join(OUT, rel); if (opts.noV3 && /ledger\/terra1/.test(rel) && fs.existsSync(f)) { const d = J(f); delete d.v3; return Promise.resolve({ ok: true, status: 200, json: async () => d }); } }
       else if (url.startsWith(CORE_U)) f = path.join(CORE, url.slice(CORE_U.length)); else if (NFTC && url.startsWith(NFTC_U)) f = path.join(NFTC, url.slice(NFTC_U.length)); else if (DAOO && url.startsWith(DAOO_U)) f = path.join(DAOO, url.slice(DAOO_U.length));
-      if (f && fs.existsSync(f) && fs.statSync(f).isFile()) { const t = fs.readFileSync(f, 'utf8'); return Promise.resolve({ ok: true, status: 200, json: async () => JSON.parse(t), text: async () => t }); }
+      if (opts.txs && /\/cosmos\/tx\/v1beta1\/txs\?/.test(String(u))) { const ans = opts.txs(decodeURIComponent(String(u))); if (ans) return Promise.resolve({ ok: true, status: 200, json: async () => ans }); }   /* 3.8: the IBC history search */
+      if (f && fs.existsSync(f) && fs.statSync(f).isFile()) { const t = fs.readFileSync(f, 'utf8');
+        if (opts.patchMember && /member-data\/(participants|positions)\/current\.json$/.test(f)) { const d = JSON.parse(t); for (const m of (d.members || [])) if (m.wallet === opts.patchMember.wallet) opts.patchMember.fn(m); return Promise.resolve({ ok: true, status: 200, json: async () => d }); }   /* 3.8: a feed as capture-engine 1.2 writes it */
+        return Promise.resolve({ ok: true, status: 200, json: async () => JSON.parse(t), text: async () => t }); }
       return Promise.resolve({ ok: false, status: 404, json: async () => ({}), text: async () => '' }); };
     for (const lib of ['lib/portfolio-pnl.js', 'lib/winddown.js', 'lib/denoms.js', 'lib/vote-market.js']) if (!(opts.noLib && lib.includes('portfolio'))) win.eval(fs.readFileSync(path.join(SITE, lib), 'utf8'));
   } });
@@ -227,12 +231,17 @@ console.log('— P17 other Cosmos chains (3.6): linked address per wallet, token
   ok('links are per wallet: another wallet does not inherit this wallet\'s cosmos1… link', !/13 liquid/.test(T(w2.document.getElementById('sibling-chains')))); }
 console.log('— P18 trust (3.7): the ledger\'s open lots checked against the chain read — receipts that left the wallet —');
 { const moved = R0.positions.filter(p => p.moved); const byName = (n, mech) => moved.find(p => p.name === n && p.mechanism === mech);
-  ok(`owner: wBTC.osmo-wBTC.axl (amp, receipt sent to another address 2026-03-06) and ampCAPA (amp, receipt staked in the DAO) are no longer in the wallet per the chain read — ${moved.length} flagged (${moved.map(p => p.name + ' ' + PPL.fmt.usd(p.moved.ledger_usd)).join(', ')})`, !!byName('wBTC.osmo-wBTC.axl', 'amplified') && !!byName('ampCAPA', 'amplified') && moved.every(p => p.moved.ledger_usd >= 1));
+  const ampHeld = R0.positions.find(p => p.name === 'ampCAPA' && p.mechanism === 'amplified' && p.held_in);   /* pnl 1.2.4 builds follow the receipt into the DAO */
+  ok(`owner: wBTC.osmo-wBTC.axl (amp, receipt sent to another address 2026-03-06) is no longer in the wallet per the chain read; ampCAPA (receipt staked in the DAO) ${ampHeld ? 'is held in ' + ampHeld.held_in.where + ' (the build followed it)' : 'too'} — ${moved.length} flagged (${moved.map(p => p.name + ' ' + PPL.fmt.usd(p.moved.ledger_usd)).join(', ')})`, !!byName('wBTC.osmo-wBTC.axl', 'amplified') && (ampHeld ? !byName('ampCAPA', 'amplified') : !!byName('ampCAPA', 'amplified')) && moved.every(p => p.moved.ledger_usd >= 1));
   const t0 = L0.v3.totals.open, t1 = R0.totals.open; const mv = moved.filter(p => !p.moved.built_out).reduce((a, p) => a + p.open_value_usd, 0);   /* a build with not_held (pnl 1.2.3) already left them out */
   ok(`Open now drops by exactly what moved out: ${PPL.fmt.usd(t0.value_usd)} − ${PPL.fmt.usd(mv)} = ${PPL.fmt.usd(t1.value_usd)}; net moves by the same lots' unrealized`, Math.abs(t0.value_usd - mv - t1.value_usd) < 0.01 && Math.abs((L0.v3.totals.net_usd - R0.totals.net_usd) - moved.filter(p => !p.moved.built_out).reduce((a, p) => a + (p.open_value_usd - (p.open_cost_usd || 0)), 0)) < 0.01);
   const w = await run(OWNER); const d = w.document; const tab = T(d.getElementById('pp-positions'));
   const rowOf = (n) => [...d.querySelectorAll('[data-pp="positions"] tbody tr[data-pp-row]')].find(r => T(r).startsWith(n) && /amp /.test(T(r)));
-  ok('the two rows say "⚠ not in this wallet" and "moved out · not counted"', ['wBTC.osmo-wBTC.axl', 'ampCAPA'].every(n => { const r = rowOf(n); return r && /not in this wallet/.test(T(r)) && /moved out/.test(T(r)) && /not counted/.test(T(r)); }), ['wBTC.osmo-wBTC.axl', 'ampCAPA'].map(n => T(rowOf(n)).slice(0, 160)));
+  const movedNames = moved.map(p => p.name);
+  ok(`the moved row${movedNames.length === 1 ? '' : 's'} say "⚠ not in this wallet" and "moved out · not counted"${ampHeld ? '; ampCAPA reads "in the ampCAPA DAO", never moved' : ''}`, movedNames.every(n => { const r = rowOf(n); return r && /not in this wallet/.test(T(r)) && /moved out/.test(T(r)) && /not counted/.test(T(r)); }) && (!ampHeld || (/in the ampCAPA DAO/.test(T(rowOf('ampCAPA'))) && !/moved out/.test(T(rowOf('ampCAPA'))))), movedNames.concat(['ampCAPA']).map(n => T(rowOf(n)).slice(0, 160)));
+  const wbRow = rowOf('wBTC.osmo-wBTC.axl'); const wbPos = R0.positions.find(p => p.name === 'wBTC.osmo-wBTC.axl' && p.mechanism === 'amplified');
+  if (wbPos.moves) ok(`3.8 the moved row says where: "sent to …${wbPos.moves[0].to.slice(-4)} on ${wbPos.moves[0].last_day}" with an address link and the tx`, /sent to/.test(T(wbRow)) && T(wbRow).includes(wbPos.moves[0].last_day) && !!wbRow.querySelector('a[href="https://chainsco.pe/terra2/address/' + wbPos.moves[0].to + '"]') && !!wbRow.querySelector('a[href^="https://chainsco.pe/terra2/tx/"]'), T(wbRow).slice(0, 300));
+  else console.log('  (this build predates pnl 1.2.4 — no moves[]; the "sent to" check runs on the new build)');
   const flag = T(d.querySelector('[data-pp="flags"]'));
   ok(`the hero says ${moved.length} position(s) are no longer in this wallet (${PPL.fmt.usd(R0.reconciled.moved_usd)} left out of Open now)`, flag.includes(moved.length + ' position') && /no longer in this wallet/.test(flag) && flag.includes(PPL.fmt.usd(R0.reconciled.moved_usd)), flag);
   const tot = T(d.querySelector('[data-pp="positions-total"]')); const openNow = R0.positions.filter(p => !p.disputed).map(p => PPL.posStats(p, false)).reduce((a, S) => a + (S.open ? S.openV : 0), 0);
@@ -251,7 +260,7 @@ console.log('— P19 custody (3.7): the ampCAPA receipt staked in the DAO counts
   ok(`DAO stake ${power.toLocaleString('en-US')} receipts × ${rate.toFixed(4)} ampCAPA × $${px.toPrecision(3)} = ${PPL.fmt.usd(liveUsd)} (the capa-supply product reads ${PPL.fmt.usd(me.capa_equiv.receipt_dao * cat.tokens.find(x => x.denom === 'terra1t4p3u8khpd7f8qzurwyafxt648dya6mp6vur3vaapswt6m24gkuqrfdhar').prices.tla.usd)}) — the ampCAPA row: "in the ampCAPA DAO", Open now at the live value, not "moved"`, row && T(row).includes(PPL.fmt.usd(liveUsd)) && !/moved out/.test(T(row)), row ? T(row).slice(0, 200) : 'no custody row');
   const info = T(d.querySelector('[data-pp="custody"]'));
   ok(`the hero explains it: staked in the ampCAPA DAO, ${PPL.fmt.usd(pc.custody.untracked_usd)} of it with no cost basis kept out of the P&L`, /ampCAPA DAO/.test(info) && info.includes(PPL.fmt.usd(pc.custody.untracked_usd)) && /no cost basis/.test(info), info);
-  ok(`net = ${money(Rc.totals.net_usd)}: the ledger's own lots stay in the P&L, the untracked part does not`, T(d.querySelector('[data-pp="net"]')) === money(Rc.totals.net_usd) && Math.abs(Rc.totals.open.value_usd - (R0.totals.open.value_usd + liveUsd)) < 0.02, [T(d.querySelector('[data-pp="net"]')), Rc.totals.open.value_usd]); }
+  ok(`net = ${money(Rc.totals.net_usd)}: the ledger's own lots stay in the P&L, the untracked part does not`, T(d.querySelector('[data-pp="net"]')) === money(Rc.totals.net_usd) && Math.abs(Rc.totals.open.value_usd - (R0.totals.open.value_usd - (pc.moved || !pc.held_in ? 0 : (pc.open_value_usd || 0)) + liveUsd)) < 0.02,   /* a held_in build already counts the ledger's lots: the live value replaces them */ [T(d.querySelector('[data-pp="net"]')), Rc.totals.open.value_usd]); }
 
 console.log('— P20 idle LP (3.7): LP tokens in the wallet, not staked in TLA — warned and valued —');
 { const snap = J(path.join(CORE, 'member-data/tla-snapshot/current.json'));
@@ -271,4 +280,47 @@ console.log('— P21 APR honesty (3.7): no APR where a trip had no price —');
   const all = R0.positions.filter(p => (p.deposits || p.withdraws) && !p.disputed).map(p => PPL.posStats(p, false)); const n = all.filter(x => x.apr != null).length;
   const w = await run(OWNER); const tot = T(w.document.querySelector('[data-pp="positions-total"]'));
   ok(`the all-LPs APR says how many positions it covers (${n} of ${all.length} fully priced)`, tot.includes(n + ' of ' + all.length + ' positions fully priced'), tot); }
+console.log('— P22 staked in a DAO (3.8): its own panel in LP positions, from the feed at once — never "No LP positions" —');
+const CAPA_PX = J(path.join(CORE, 'network-and-prices/current.json')).token_prices.CAPA.final_price_usd;
+const CS = J(path.join(CORE, 'token-catalog/supply/capa/wallets.json')); const OWN_CS = CS.rows.find(r => r.address === OWNER);
+const FEED_CU = { key: 'ampcapa-dao', where: 'the ampCAPA DAO', custodian: 'terra1juj3ymejnug9p92upphcq0prq4e0hpw6rcu20njf8tk7n9sl2wxqldr0mt', pool: 'native:factory/terra186rpfczl7l2kugdsqqedegl4es4hp624phfc7ddy8my02a4e8lgq5rlx7y/ampCAPA', mechanism: 'amplified', amount: OWN_CS.capa_equiv.receipt_dao, unit: 'CAPA', usd: OWN_CS.capa_equiv.receipt_dao * CAPA_PX, as_of: CS.capturedAt };
+const asEngine12 = { wallet: OWNER, fn: (m) => { m.custody = [FEED_CU]; m.summary.custody_usd = FEED_CU.usd; m.summary.total_includes_custody = true; m.summary.total_portfolio_value_usd += FEED_CU.usd; } };
+{ const w = await run(OWNER, { patchMember: asEngine12 }); const d = w.document; await new Promise(r => setTimeout(r, 600)); const lp = d.getElementById('lp-table'); const panel = lp.querySelector('[data-custody-panel]');
+  ok(`the owner has no wallet LPs, yet the card shows the DAO panel: ampCAPA in the ampCAPA DAO ${f$(FEED_CU.usd)} (${Math.round(FEED_CU.amount).toLocaleString('en-US')} CAPA, snapshot until the live read) — no "No LP positions"`, panel && /STAKED IN A DAO/.test(T(panel)) && /ampCAPA/.test(T(panel)) && T(panel).includes(f$(FEED_CU.usd)) && /snapshot/.test(T(panel)) && !/No LP positions/.test(T(lp)), T(lp).slice(0, 300));
+  ok('the panel is apart from wallet LPs: not a table row', !lp.querySelector('tr [data-custody]') && !lp.querySelector('[data-ampcapa-gov]'));
+  const tile = T(d.getElementById('tile-lp')); const lpBase = PART.members.find(x => x.wallet === OWNER).summary.total_lp_position_usd || 0;
+  ok(`the LP tile carries it: ${f$(lpBase + FEED_CU.usd)} ("+ in a DAO")`, tile.includes(f$(lpBase + FEED_CU.usd)) && /in a DAO/.test(T(d.getElementById('tile-lp-sub'))), [tile, T(d.getElementById('tile-lp-sub'))]); }
+
+console.log('— P23 never added twice (3.8): feed total already holds custody + the live read lands with a newer figure —');
+{ const cs = CS; const power = OWN_CS.raw.dao_power, rate = cs.rates.compounder_ampcapa_per_receipt; const cat = J(path.join(CORE, 'token-catalog/snapshots/current.json'));
+  const AD = 'factory/terra186rpfczl7l2kugdsqqedegl4es4hp624phfc7ddy8my02a4e8lgq5rlx7y/ampCAPA'; const tk = cat.tokens.find(x => x.denom === AD); const px = tk.prices.tla && tk.prices.tla.usd || tk.prices.coingecko.usd; const liveUsd = power * rate * px;
+  const smart = { terra1juj3ymejnug9p92upphcq0prq4e0hpw6rcu20njf8tk7n9sl2wxqldr0mt: (q) => q.staked_balance_at_height ? { balance: String(Math.round(power * 1e6)), height: 1 } : undefined,
+    terra1zly98gvcec54m3caxlqexce7rus6rzgplz7eketsdz7nh750h2rqvu8uzx: (q) => q.exchange_rates ? [{ exchange_rates: [[205, { exchange_rate: String(rate) }]] }] : undefined };
+  const w = await run(OWNER, { patchMember: asEngine12, smart }); const d = w.document; for (let i = 0; i < 20 && !/live/.test(T(d.querySelector('[data-custody-panel]'))); i++) await new Promise(r => setTimeout(r, 250));
+  const panel = T(d.querySelector('[data-custody-panel]'));
+  ok(`the live read replaces the snapshot row: ${f$(liveUsd)} live (was ${f$(FEED_CU.usd)}), one row`, panel.includes(f$(liveUsd)) && /live/.test(panel) && d.querySelectorAll('[data-custody]').length === 1, panel.slice(0, 300));
+  const m = PART.members.find(x => x.wallet === OWNER); const feedTotal = m.summary.total_portfolio_value_usd + FEED_CU.usd; const want = feedTotal - FEED_CU.usd + liveUsd;
+  const story = T(d.getElementById('story-card')); const tile = T(d.getElementById('tile-lp'));
+  ok(`LP tile = LP + the live DAO stake once (${f$((m.summary.total_lp_position_usd || 0) + liveUsd)}), not + snapshot + live`, tile.includes(f$((m.summary.total_lp_position_usd || 0) + liveUsd)), tile); }
+
+console.log('— P24 past days carry the DAO stake (3.8): archive days before capture-engine 1.2 get it from the CAPA supply history × CAPA that day —');
+{ const days = fs.readdirSync(path.join(CORE, 'member-data/positions/daily')).filter(f => /^\d{4}-\d\d-\d\d\.json$/.test(f)).sort(); const day = days[days.length - 2].slice(0, 10);
+  const arch = J(path.join(CORE, 'member-data/positions/daily', day + '.json')).members.find(x => x.wallet === OWNER);
+  const ix = J(path.join(CORE, 'token-catalog/supply/capa/wallets-daily/index.json')); const src = ix.days.map(x => x.date).filter(x => x <= day).sort().pop();
+  const capa = J(path.join(CORE, 'token-catalog/supply/capa/wallets-daily', src + '.json')).rows[OWNER][1]; const cpx = J(path.join(CORE, 'price-history/series/CAPA.json')).daily[day];
+  const want = arch.summary.total_portfolio_value_usd + capa * cpx;
+  const w = await run(OWNER); const d = w.document; for (let i = 0; i < 30 && !d.querySelector('#trend-card-body circle'); i++) await new Promise(r => setTimeout(r, 250));
+  const dot = [...d.querySelectorAll('#trend-card-body circle title')].map(t => t.textContent).find(t => t.startsWith(day));
+  ok(`${day}: archive ${f$(arch.summary.total_portfolio_value_usd)} + ${Math.round(capa).toLocaleString('en-US')} CAPA in the DAO (supply history ${src}) × $${cpx.toPrecision(4)} = ${f$(want)} on the trend`, dot && dot.includes(f$(want)), dot);
+  const chips = T(d.getElementById('banner-chips'));
+  ok(`the 1d / 7d / 30d change chips compare like with like (no ≈${f$(capa * cpx)} jump from the DAO stake appearing)`, !chips.includes('+' + f$(capa * cpx).slice(0, 4)), chips); }
+
+console.log('— P25 other Cosmos addresses from the wallet\'s own IBC transfers (3.8) —');
+{ const OS = 'osmo1' + 'q'.repeat(33) + 'xyz2s', CO = 'cosmos1' + 'p'.repeat(33) + 'ac34x', CT = 'osmo1' + 'z'.repeat(54) + 'cntrs';   /* valid bech32 characters only (no 1 b i o) */
+  const txs = (u) => { if (/MsgTransfer/.test(u)) return { txs: [{ body: { messages: [{ '@type': '/ibc.applications.transfer.v1.MsgTransfer', sender: OWNER, receiver: OS }, { '@type': '/ibc.applications.transfer.v1.MsgTransfer', sender: OWNER, receiver: CT }] } }, { body: { messages: [{ '@type': '/ibc.applications.transfer.v1.MsgTransfer', sender: OWNER, receiver: OS }] } }], tx_responses: [{ timestamp: '2026-05-01T00:00:00Z' }, { timestamp: '2026-06-02T00:00:00Z' }] };
+    if (/fungible_token_packet\.receiver/.test(u)) return { tx_responses: [{ timestamp: '2026-04-01T00:00:00Z', events: [{ type: 'recv_packet', attributes: [{ key: 'packet_data', value: JSON.stringify({ sender: CO, receiver: OWNER, denom: 'uatom', amount: '1' }) }] }] }] }; return null; };
+  const w = await run(OWNER, { txs }); const d = w.document; for (let i = 0; i < 20 && !d.querySelector('[data-ibc-suggest]'); i++) await new Promise(r => setTimeout(r, 250)); const sg = d.querySelector('[data-ibc-suggest]'); const t = T(sg);
+  ok(`suggests OSMO ${OS.slice(0, 10)}… (you sent to it 2×, last 2026-06-02) and ATOM ${CO.slice(0, 10)}… (it sent to you 1×); the osmo contract address is dropped`, sg && /OSMO/.test(t) && /you sent to it 2×/.test(t) && /last 2026-06-02/.test(t) && /ATOM/.test(t) && /it sent to you 1×/.test(t) && !t.includes('zzzzz'), t);
+  sg.querySelectorAll('button')[0].click(); await new Promise(r => setTimeout(r, 400));
+  ok('"use this" links it for this wallet (the card then reads that address)', w.localStorage.getItem('mp_link:' + OWNER + ':osmo') === OS); }
 console.log(`\n${pass}/${pass + fail} passed`); process.exit(fail ? 1 : 0);
