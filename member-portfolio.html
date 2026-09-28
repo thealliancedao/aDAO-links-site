@@ -38,7 +38,7 @@
 <div id="site-header"></div>
 <script src="/lib/site-header.js"></script>
 <script src="/lib/address-picker.js"></script>
-<script src="/lib/portfolio-pnl.js?v=1.3.0"></script>   <!-- 3.0: the v3 P&L (story, value curve, positions + trips) -->
+<script src="/lib/portfolio-pnl.js?v=1.3.1"></script>   <!-- 3.0: the v3 P&L (story, value curve, positions + trips) -->
 <script src="/lib/winddown.js?v=1.0.0"></script>
 <script src="/lib/denoms.js?v=1.0.0"></script>
 <script src="/lib/vote-market.js?v=1.3.0"></script>   <!-- 3.4: THE vote-market engine — "your votes now earn" and "the best split earns" on the vote card, same model as the Vote Market page -->   <!-- 3.3: THE denom → symbol/decimals rule (the catalog's effective → discovered layer) -->   <!-- 3.0: winding-down assets (USDC.n) flagged on positions -->
@@ -310,6 +310,8 @@
         participantsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/current.json',
         votionPositionsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/snapshots/current.json',      // ORG feed (org-votion) — personal votion-positions repo retired from this page 2026-08-03
         votionDailyBaseUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/snapshots/daily',
+        tenantsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/curated/tenants.json',   // 3.6: known_cw20s the catalog does not carry (pyROAR, DROGO …)
+        lionMarketsUrl: 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/lion-dao/history/markets.json',   // 3.6: pyROAR's price (its pair × ROAR, the Lion DAO markets product)
         votionPnlUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/holder-pnl/current.json',   // 3.3: org-votion 1.5.0 Branch E — each position's story              // org daily archive, since 2026-07-16
         votionTrackStart: '2026-07-16',
         pnlUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-flows/pnl/rollup.json',
@@ -356,6 +358,7 @@
     const fmtNum = (v) => {
         if (v == null || isNaN(v)) return '—';
         const a = Math.abs(v);
+        if (a >= 1e9) return (v / 1e9).toFixed(2) + 'B';   // 3.6: 7.15B pyROAR, not 7150.00M
         if (a >= 1e6) return (v / 1e6).toFixed(2) + 'M';
         if (a >= 1e3) return (v / 1e3).toFixed(1) + 'K';
         if (a > 0 && a < 0.01) return v.toPrecision(2);   // 3.3: 0.00061 WBTC read as "0.00"
@@ -409,6 +412,7 @@
         // layer through lib/denoms.js (the ONE rule; it is what the crons use). Was t.symbol / t.decimals — fields the catalog
         // does not have — so every ibc token showed its hash and read at 6 decimals (PAXG has 18: 0.75 PAXG → $3.19B).
         if (window.Denoms && cat) Denoms._ingest(cat);
+        store.catalog = cat || null;   // 3.6: the live cw20 balance read walks every cw20 the catalog knows
         for (const t of (cat?.tokens || [])) {
             const p = t.prices?.tla?.usd ?? t.prices?.coingecko?.usd ?? null;
             const dec = window.Denoms ? Denoms.decimals(t.denom) : null;
@@ -1835,7 +1839,14 @@
         { prefix: 'cosmos', name: 'Cosmos Hub', denom: 'uatom', sym: 'ATOM', rests: ['https://rest.cosmos.directory/cosmoshub', 'https://cosmos-rest.publicnode.com'] },
         { prefix: 'osmo', name: 'Osmosis', denom: 'uosmo', sym: 'OSMO', rests: ['https://rest.cosmos.directory/osmosis', 'https://osmosis-rest.publicnode.com'] },
         { prefix: 'neutron', name: 'Neutron', denom: 'untrn', sym: 'NTRN', rests: ['https://rest.cosmos.directory/neutron', 'https://neutron-rest.publicnode.com'] },
+        // 3.6: Injective — a different key scheme (coin type 60), so never derived: link your inj1… address and it reads like the rest
+        { prefix: 'inj', name: 'Injective', denom: 'inj', sym: 'INJ', dec: 18, linkOnly: true, rests: ['https://rest.cosmos.directory/injective', 'https://injective-rest.publicnode.com'] },
     ];
+    // 3.6: a chain's native token priced by its catalog SYMBOL (ATOM, INJ are carried as ibc tokens on Terra) — no catalog price, no dollar
+    const chainUsd = (sym) => { for (const [, p] of (store.catalogPrices || new Map())) if (p.symbol === sym && p.usd > 0) return p.usd; return null; };
+    // 3.6: links are per Terra wallet (a linked cosmos1… belongs to the wallet you linked it for, not to every wallet you view)
+    const linkKey = (prefix) => 'mp_link:' + (store.wallet || '') + ':' + prefix;
+    const getLink = (prefix) => { try { return localStorage.getItem(linkKey(prefix)) || null; } catch (e) { return null; } };
     async function chainGet(ch, p) {
         let last = null;
         for (const rest of ch.rests) {
@@ -1853,15 +1864,15 @@
     window.mpLinkSave = (prefix) => {
         const v = (document.getElementById('sib-in-' + prefix)?.value || '').trim();
         if (v && !v.startsWith(prefix + '1')) { alert('That is not a ' + prefix + '1… address.'); return; }
-        try { v ? localStorage.setItem('mp_link:' + prefix, v) : localStorage.removeItem('mp_link:' + prefix); } catch (e) {}
+        try { v ? localStorage.setItem(linkKey(prefix), v) : localStorage.removeItem(linkKey(prefix)); } catch (e) {}
         renderSiblingChains(store.wallet).catch(() => {});
     };
     async function renderSiblingChains(wallet) {
         const host = $('sibling-chains'); if (!host) return;
         const rows = await Promise.all(SIBLING_CHAINS.map(async (ch) => {
-            let linked = null;
-            try { linked = localStorage.getItem('mp_link:' + ch.prefix) || null; } catch (e) {}
-            const addr = linked || siblingAddress(wallet, ch.prefix);
+            if (ch.linkOnly && !getLink(ch.prefix)) return null;
+            const linked = getLink(ch.prefix);
+            const addr = linked || (ch.linkOnly ? null : siblingAddress(wallet, ch.prefix));
             if (!addr) return null;
             try {
                 const [bal, del, rew] = await Promise.all([
@@ -1870,12 +1881,13 @@
                     chainGet(ch, `/cosmos/distribution/v1beta1/delegators/${addr}/rewards`).catch(() => null),
                 ]);
                 if (!bal && !del) return { ch, addr, linked: !!linked, empty: true };
-                let liquid = 0, staked = 0, vals = 0, pending = 0;
-                for (const b of (bal?.balances || [])) if (b.denom === ch.denom) liquid += Number(b.amount) / 1e6;
-                for (const d of (del?.delegation_responses || [])) if (d.balance?.denom === ch.denom) { staked += Number(d.balance.amount) / 1e6; vals++; }
-                for (const t of (rew?.total || [])) if (t.denom === ch.denom) pending += Number(t.amount) / 1e6;
-                if (!(liquid > 0.000001 || staked > 0.000001)) return { ch, addr, linked: !!linked, empty: true };
-                return { ch, addr, linked: !!linked, liquid, staked, vals, pending };
+                let liquid = 0, staked = 0, vals = 0, pending = 0; const U = Math.pow(10, ch.dec || 6); const others = [];
+                for (const b of (bal?.balances || [])) { if (b.denom === ch.denom) liquid += Number(b.amount) / U; else if (Number(b.amount) > 0) others.push(b.denom); }
+                for (const d of (del?.delegation_responses || [])) if (d.balance?.denom === ch.denom) { staked += Number(d.balance.amount) / U; vals++; }
+                for (const t of (rew?.total || [])) if (t.denom === ch.denom) pending += Number(t.amount) / U;
+                if (!(liquid > 0.000001 || staked > 0.000001 || others.length)) return { ch, addr, linked: !!linked, empty: true };
+                const px = chainUsd(ch.sym);
+                return { ch, addr, linked: !!linked, liquid, staked, vals, pending, others, px, usd: px != null ? (liquid + staked + pending) * px : null };
             } catch (e) { return { ch, addr, linked: !!linked, empty: true }; }
         }));
         if (store.wallet !== wallet) return;
@@ -1886,6 +1898,7 @@
             host.innerHTML = `<div class="mt-2 pt-2 border-t border-white/5 text-[10px] text-gray-600">
                 Other Cosmos chains: nothing at the derived sibling addresses — which proves nothing if your wallet derives chains differently (coin type 330 vs 118).
                 ${SIBLING_CHAINS.map(ch => `<span id="sib-link-${ch.prefix}" class="ml-1"><button onclick="mpLinkChain('${ch.prefix}')" class="text-cyan-400/80 hover:text-cyan-300">link ${ch.sym} address</button></span>`).join(' · ')}
+                <div class="mt-1 text-gray-500">Link your address on a chain and this card reads its tokens, staked amount and the staking rewards you can claim there — saved in this browser, for this wallet only.</div>
             </div>`;
             return;
         }
@@ -1898,9 +1911,9 @@
                 ${found.map(r => `
                 <div class="flex items-center justify-between text-[12px] py-1" title="${r.addr}${r.linked ? ' (manually linked)' : ' (derived sibling)'}">
                     <span class="font-medium">${r.ch.sym} <span class="text-[9px] text-gray-600">${r.ch.name}${r.linked ? ' · linked' : ''}</span></span>
-                    <span class="mono text-gray-300">${r.liquid > 0.000001 ? fmtNum(r.liquid) + ' liquid' : ''}${r.liquid > 0.000001 && r.staked > 0.000001 ? ' · ' : ''}${r.staked > 0.000001 ? `<span class="text-amber-300/90">${fmtNum(r.staked)} staked</span> <span class="text-[9px] text-gray-600">${r.vals} val${r.vals === 1 ? '' : 's'}</span>` : ''}${r.pending > 0.000001 ? ` · <span class="text-emerald-400/90" title="Pending staking rewards, live from the distribution module">+${fmtNum(r.pending)} pending</span>` : ''}</span>
+                    <span class="mono text-gray-300">${r.usd != null ? `<span class="text-amber-300/90 mr-1" title="${fmtNum(r.liquid + r.staked + r.pending)} ${r.ch.sym} × ${fmt$(r.px)} (the catalog's ${r.ch.sym} price)">${fmt$(r.usd)}</span> · ` : `<span class="text-gray-600 mr-1" title="${r.ch.sym} has no price in our catalog — amounts only">unpriced</span> · `}${r.liquid > 0.000001 ? fmtNum(r.liquid) + ' liquid' : ''}${r.liquid > 0.000001 && r.staked > 0.000001 ? ' · ' : ''}${r.staked > 0.000001 ? `<span class="text-amber-300/90">${fmtNum(r.staked)} staked</span> <span class="text-[9px] text-gray-600">${r.vals} val${r.vals === 1 ? '' : 's'}</span>` : ''}${r.pending > 0.000001 ? ` · <span class="text-emerald-400/90" title="Staking rewards you can claim now, live from the distribution module">+${fmtNum(r.pending)} to claim</span>` : ''}${r.others && r.others.length ? ` · <span class="text-gray-500" title="${esc(r.others.join(' · '))}">+${r.others.length} other token${r.others.length === 1 ? '' : 's'}</span>` : ''}</span>
                 </div>`).join('')}
-                <div class="text-[10px] text-gray-600 mt-1">${SIBLING_CHAINS.map(ch => `<span id="sib-link-${ch.prefix}"><button onclick="mpLinkChain('${ch.prefix}')" class="text-cyan-400/70 hover:text-cyan-300">${(() => { try { return localStorage.getItem('mp_link:' + ch.prefix) ? 're-link ' + ch.sym : 'link ' + ch.sym; } catch (e) { return 'link ' + ch.sym; } })()}</button></span>`).join(' · ')} <span class="text-gray-700">— paste your real address if your wallet derives differently</span></div>
+                <div class="text-[10px] text-gray-600 mt-1">${SIBLING_CHAINS.map(ch => `<span id="sib-link-${ch.prefix}"><button onclick="mpLinkChain('${ch.prefix}')" class="text-cyan-400/70 hover:text-cyan-300">${getLink(ch.prefix) ? 're-link ' + ch.sym : 'link ' + ch.sym}</button></span>`).join(' · ')} <span class="text-gray-700">— paste your real address if your wallet derives differently</span></div>
             </div>`;
     }
 
@@ -1915,6 +1928,21 @@
             const j = await lcdGet(`/cosmos/bank/v1beta1/balances/${wallet}?pagination.limit=500`);
             live = j.balances || [];
         } catch (e) { console.warn('bank scan:', e.message); }
+        // 3.6 (owner: "I should have more tokens — and 7.15B pyROAR"): cw20s never show in a bank scan. Read the wallet's balance of EVERY
+        // cw20 the token catalog carries + the registry's known_cw20s (tenants.json: pyROAR, DROGO …), live, 4 at a time. pyROAR is
+        // priced from the Lion DAO markets product (its pair × ROAR — labelled); any other cw20 without a catalog price shows unpriced.
+        const cw20 = [];
+        try {
+            const seen = new Set();
+            for (const t of (store.catalog?.tokens || [])) { const a = String(t.denom || '').replace(/^cw20:/, ''); if (/^terra1[0-9a-z]{58}$/.test(a) && !seen.has(a)) { seen.add(a); cw20.push({ addr: a, sym: (window.Denoms && Denoms.symbol(a)) || null, dec: (window.Denoms && Denoms.decimals(a)) ?? 6 }); } }
+            const ten = await fetch(CONFIG.tenantsUrl + '?t=' + Math.floor(Date.now() / 36e5)).then(r => r.ok ? r.json() : null).catch(() => null);
+            for (const tn of Object.values(ten?.tenants || {})) for (const k of (tn.known_cw20s || [])) { const a = String(k.denom || '').replace(/^cw20:/, ''); if (/^terra1[0-9a-z]{58}$/.test(a) && !seen.has(a)) { seen.add(a); cw20.push({ addr: a, sym: k.symbol || null, dec: k.decimals ?? 6, registry: true }); } }
+        } catch (e) {}
+        let pyroarUsd = null;
+        if (cw20.some(c => c.sym === 'pyROAR')) { try { const mk = await fetch(CONFIG.lionMarketsUrl + '?t=' + Math.floor(Date.now() / 36e5)).then(r => r.ok ? r.json() : null); const days = mk?.days || {}; const last = Object.keys(days).sort().pop(); pyroarUsd = last ? (days[last].pyroar_usd ?? null) : null; } catch (e) {} }
+        const b64q = (q) => btoa(JSON.stringify(q));
+        const cwBal = new Map(); let cwFailed = 0;
+        for (let i = 0; i < cw20.length; i += 4) await Promise.all(cw20.slice(i, i + 4).map(async (c) => { try { const j = await lcdGet(`/cosmwasm/wasm/v1/contract/${c.addr}/smart/${b64q({ balance: { address: wallet } })}`); const raw = Number(j?.data?.balance || 0); if (raw > 0) cwBal.set(c.addr, raw); } catch (e) { cwFailed++; } }));
         if (store.wallet !== wallet) return;
         const rows = new Map();   // symbol -> {sym, amount, usd, srcs:Set}
         const add = (sym, amount, usd, src) => {
@@ -1923,7 +1951,7 @@
             cur.amount += amount; if (usd != null) cur.usd += usd; cur.srcs.add(src);
             rows.set(sym, cur);
         };
-        let unpricedLive = 0;
+        let unpricedLive = 0; const unpricedList = [];   // 3.6: listed, not just counted
         if (live) {
             for (const b of live) {
                 const cp = store.catalogPrices.get(b.denom) || store.catalogPrices.get('native:' + b.denom);
@@ -1936,17 +1964,21 @@
                 if (cp && dec == null) { unpricedLive++; continue; }   // 3.3: a price with no known decimals is not a value — never assume 6
                 const amt = Number(b.amount) / Math.pow(10, dec ?? 6);
                 if (cp) add(sym || b.denom.slice(0, 10), amt, amt * cp.usd, 'live');
-                else if (b.denom.startsWith('ibc/') || b.denom.startsWith('factory/')) unpricedLive++;
-                else if (sym) add(sym, amt, null, 'live');
+                else { const s2 = (window.Denoms && Denoms.symbol(b.denom)) || null; const d2 = (window.Denoms && Denoms.decimals(b.denom)) ?? 6; unpricedList.push({ sym: s2 || (b.denom.startsWith('factory/') ? b.denom.split('/').pop() : b.denom.slice(0, 14) + '…'), full: b.denom, amount: Number(b.amount) / Math.pow(10, d2), known: !!s2 }); unpricedLive++; }
             }
         }
+        // 3.6: the live cw20 reads (the feed's two cw20s are the same balance — the live read wins, as for bank tokens)
+        for (const c of cw20) { const raw = cwBal.get(c.addr); if (!raw) continue; const amt = raw / Math.pow(10, c.dec); const cp = store.catalogPrices.get(c.addr) || store.catalogPrices.get('cw20:' + c.addr);
+            const usd = cp ? amt * cp.usd : (c.sym === 'pyROAR' && pyroarUsd != null ? amt * pyroarUsd : null); const sym = c.sym || (cp && cp.symbol) || c.addr.slice(0, 12) + '…';
+            if (usd == null) { unpricedList.push({ sym, full: c.addr, amount: amt, known: !!c.sym }); continue; }
+            add(sym, amt, usd, c.sym === 'pyROAR' && !cp ? 'cw20-lion' : 'cw20'); }
         // feed rows (covers cw20s + engine symbols) — merged, feed wins nothing:
         // where both saw a token, keep the larger amount (they're the same
         // balance read at different times, never additive).
         for (const b of (m.wallet_balances || [])) {
             const sym = b.symbol || b.denom?.split('/').pop() || '?';
             const cur = rows.get(sym);
-            if (cur && cur.srcs.has('live')) { if ((b.amount_human || 0) > cur.amount) { cur.amount = b.amount_human; cur.usd = b.usd_value || cur.usd; } cur.srcs.add('feed'); }
+            if (cur && (cur.srcs.has('live') || cur.srcs.has('cw20') || cur.srcs.has('cw20-lion'))) { /* 3.6: a live cw20 read is the same balance as the feed's, never added twice */ if ((b.amount_human || 0) > cur.amount) { cur.amount = b.amount_human; cur.usd = b.usd_value || cur.usd; } cur.srcs.add('feed'); }
             else add(sym, b.amount_human || 0, b.usd_value ?? null, 'feed');
         }
         const all = [...rows.values()].sort((a, b) => (b.usd || 0) - (a.usd || 0));
@@ -1957,10 +1989,12 @@
         const dustUsd = dust.reduce((x, r) => x + (r.usd || 0), 0);
         el.innerHTML = (main.length || dust.length) ? `
             <table class="data-table"><thead><tr><th>Token</th><th class="text-right">Amount</th><th class="text-right">Value</th></tr></thead><tbody>
-            ${main.map(r => `<tr><td class="font-medium">${esc(r.sym)}${r.srcs.has('live') && !r.srcs.has('feed') ? ' <span class="text-[8px] px-1 py-px rounded bg-cyan-500/20 text-cyan-300" title="Found by the live bank scan — not in the positions feed\u2019s token set.">live</span>' : ''}</td><td class="text-right mono text-gray-300">${fmtNum(r.amount)}</td><td class="text-right mono ${r.usd != null ? 'text-amber-300/90' : 'text-gray-600'}">${r.usd != null ? fmt$(r.usd) : 'unpriced'}</td></tr>`).join('')}
+            ${main.map(r => `<tr><td class="font-medium">${esc(r.sym)}${r.srcs.has('cw20-lion') ? ' <span class="text-[8px] px-1 py-px rounded bg-amber-500/20 text-amber-300" title="Not in the token catalog — priced from the Lion DAO markets product: the pyROAR pair × ROAR, today">pair price</span>' : ''}${(r.srcs.has('live') || r.srcs.has('cw20') || r.srcs.has('cw20-lion')) && !r.srcs.has('feed') ? ' <span class="text-[8px] px-1 py-px rounded bg-cyan-500/20 text-cyan-300" title="Found by the live bank scan — not in the positions feed\u2019s token set.">live</span>' : ''}</td><td class="text-right mono text-gray-300">${fmtNum(r.amount)}</td><td class="text-right mono ${r.usd != null ? 'text-amber-300/90' : 'text-gray-600'}">${r.usd != null ? fmt$(r.usd) : 'unpriced'}</td></tr>`).join('')}
             </tbody></table>
             ${dust.length ? `<div class="text-[10px] text-gray-600 mt-1.5" title="${esc(dust.map(r => `${fmtNum(r.amount)} ${r.sym}`).join(' · '))}">+ ${dust.length} balance${dust.length === 1 ? '' : 's'} under $2 (dust &amp; zLUNA receipts) · ${fmt$(dustUsd)} — hover to see them</div>` : ''}
-            ${unpricedLive ? `<div class="text-[10px] text-gray-600 mt-0.5">${unpricedLive} on-chain denom${unpricedLive === 1 ? '' : 's'} with no catalog price — uncounted, not guessed.</div>` : ''}
+            ${unpricedList.length ? `<details class="mt-1"><summary class="text-[10px] text-gray-500 cursor-pointer">${unpricedList.length} token${unpricedList.length === 1 ? '' : 's'} with no price in our catalog — held, just not valued (not guessed) ▸</summary>
+                <div class="mt-1 grid grid-cols-2 gap-x-4 text-[10.5px]">${unpricedList.sort((a, b) => (b.known - a.known) || (b.amount - a.amount)).map(u => `<div class="flex justify-between gap-2" title="${esc(u.full)}"><span class="${u.known ? 'text-gray-300' : 'text-gray-500'} truncate">${esc(u.sym)}</span><span class="mono text-gray-400">${fmtNum(u.amount)}</span></div>`).join('')}</div></details>` : ''}
+            ${cwFailed ? `<div class="text-[10px] text-amber-300/70 mt-0.5">${cwFailed} cw20 balance read${cwFailed === 1 ? '' : 's'} failed this load — those tokens are missing, not zero.</div>` : ''}
             <div id="native-staking-row"></div><div id="sibling-chains"></div>`
             : '<div class="text-gray-600 text-sm py-2">No meaningful liquid balances.</div><div id="native-staking-row"></div><div id="sibling-chains"></div>';
         renderNativeStaking(wallet).catch(() => {});
@@ -2281,6 +2315,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '3.5', revDate: '2026-09-28', page: 'member-portfolio' });   // 3.5: LP positions by bucket — in / out / open / P&L incl. rewards / APR earned / LP since entry (take-rate drag + top-up, amplifier compounding; tla-flows pnl-positions 1.1.0), closed folded · 3.4: vote card — what the votes WILL earn at the close vs what the best split COULD (lib/vote-market.js, the Vote Market page's model with Votion's move solved in), per bucket and in total · 3.3: vote allocations — expected bribes at the epoch close (per vote + total), pools with no bribes flagged, a simulate → link per vote and to the Vote Market; each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
+<script>SiteFooter.mount({ rev: '3.6', revDate: '2026-09-28', page: 'member-portfolio' });   // 3.6: wallet balances read every cw20 live (catalog + the registry's known_cw20s — pyROAR priced from its pair × ROAR, labelled); tokens with no price listed, not just counted; other Cosmos chains priced where the catalog knows the token, every token counted, Injective (link your inj1…), links kept per wallet · 3.5.1: all-LPs total under the positions table; dust (< $1) folds with the closed · 3.5: LP positions by bucket — in / out / open / P&L incl. rewards / APR earned / LP since entry (take-rate drag + top-up, amplifier compounding; tla-flows pnl-positions 1.1.0), closed folded · 3.4: vote card — what the votes WILL earn at the close vs what the best split COULD (lib/vote-market.js, the Vote Market page's model with Votion's move solved in), per bucket and in total · 3.3: vote allocations — expected bribes at the epoch close (per vote + total), pools with no bribes flagged, a simulate → link per vote and to the Vote Market; each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
 </body>
 </html>
