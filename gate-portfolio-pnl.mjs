@@ -12,6 +12,7 @@
 //   P7 disputed: a wallet with a disputed position shows it flagged and the hero says it was left out
 //   P12 (3.3) wallet balances: tickers not hashes, the catalog's real decimals (PAXG 18), rows under $2 folded
 //   P13 (3.3) Votion: one story per position with the product's in / now / three legs, the why-sentence, real vs advertised APR
+//   P14 (3.3) vote allocations: expected-at-close total = Σ per-vote expectations; a simulate → link per vote (bucket|gauge); the Vote Market linked
 //   P8 fallback: with no v3 block in the ledger the page renders the Phase A story (no crash, no v3 cards)
 // Usage: TLA_CORE_DIR=<tla-core> PNL_OUT=<dir holding tla-flows/pnl> NFTC_DIR=<nft-collections> DAOO_DIR=<dao-originations> node gate-portfolio-pnl.mjs
 import { JSDOM, VirtualConsole } from 'jsdom'; import fs from 'fs'; import path from 'path'; import { createRequire } from 'module';
@@ -146,4 +147,12 @@ console.log('— P13 the Votion story (3.3, org-votion 1.5.0 holder-pnl) —');
       ok(`${h.lst_symbol}: says why (LUNA's move over the same time) and real vs advertised APR`, /LUNA fell|LUNA moved/.test(t) && /real APR/.test(t) && (h.advertised ? /advertised/.test(t) : true), t.slice(0, 300)); }
     const w2 = await run(OWNER, {}); }
 }
+console.log('— P14 vote allocations (3.3): expected bribes at the close + the simulator —');
+{ const w = await run(OWNER); await new Promise(r => setTimeout(r, 500)); const d = w.document;
+  const per = [...d.querySelectorAll('#votes-grid .text-emerald-400\\/80')].map(e => Number(T(e).replace(/[^0-9.]/g, ''))).filter(x => isFinite(x));
+  const tot = Number(T(d.querySelector('[data-votes="expected"]')).replace(/[^0-9.]/g, ''));
+  ok(`expected total ≈ ${tot} = the per-vote expectations summed (${per.join(' + ')})`, per.length > 0 && Math.abs(per.reduce((a, b) => a + b, 0) - tot) <= 0.01 * per.length + 0.01, { per, tot });
+  const links = [...d.querySelectorAll('#votes-grid a[href^="vote-market.html?pool="]')].map(a => decodeURIComponent(a.getAttribute('href').split('pool=')[1]));
+  ok(`every vote has a simulate → link keyed bucket|gauge (${links.length}: ${links.map(l => l.split('|')[0]).join(', ')})`, links.length >= 4 && links.every(l => /^(bluechip|stable|project|single)\|terra1[0-9a-z]+$/.test(l)), links);
+  ok('card links the Vote Market simulator', !!d.querySelector('#votes-summary a[href="vote-market.html"]')); }
 console.log(`\n${pass}/${pass + fail} passed`); process.exit(fail ? 1 : 0);
