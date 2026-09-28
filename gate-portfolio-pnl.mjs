@@ -12,7 +12,7 @@
 //   P7 disputed: a wallet with a disputed position shows it flagged and the hero says it was left out
 //   P12 (3.3) wallet balances: tickers not hashes, the catalog's real decimals (PAXG 18), rows under $2 folded
 //   P13 (3.3) Votion: one story per position with the product's in / now / three legs, the why-sentence, real vs advertised APR
-//   P14 (3.3) vote allocations: expected-at-close total = Σ per-vote expectations; a simulate → link per vote (bucket|gauge); the Vote Market linked
+//   P14 (3.4) vote allocations: will-earn total = the engine's now = Σ per vote; could-earn = bestSplitAll; per-bucket best; simulate links the Vote Market knows
 //   P8 fallback: with no v3 block in the ledger the page renders the Phase A story (no crash, no v3 cards)
 // Usage: TLA_CORE_DIR=<tla-core> PNL_OUT=<dir holding tla-flows/pnl> NFTC_DIR=<nft-collections> DAOO_DIR=<dao-originations> node gate-portfolio-pnl.mjs
 import { JSDOM, VirtualConsole } from 'jsdom'; import fs from 'fs'; import path from 'path'; import { createRequire } from 'module';
@@ -50,7 +50,7 @@ async function run(wallet, opts = {}) {
       else if (url.startsWith(CORE_U)) f = path.join(CORE, url.slice(CORE_U.length)); else if (NFTC && url.startsWith(NFTC_U)) f = path.join(NFTC, url.slice(NFTC_U.length)); else if (DAOO && url.startsWith(DAOO_U)) f = path.join(DAOO, url.slice(DAOO_U.length));
       if (f && fs.existsSync(f) && fs.statSync(f).isFile()) { const t = fs.readFileSync(f, 'utf8'); return Promise.resolve({ ok: true, status: 200, json: async () => JSON.parse(t), text: async () => t }); }
       return Promise.resolve({ ok: false, status: 404, json: async () => ({}), text: async () => '' }); };
-    for (const lib of ['lib/portfolio-pnl.js', 'lib/winddown.js', 'lib/denoms.js']) if (!(opts.noLib && lib.includes('portfolio'))) win.eval(fs.readFileSync(path.join(SITE, lib), 'utf8'));
+    for (const lib of ['lib/portfolio-pnl.js', 'lib/winddown.js', 'lib/denoms.js', 'lib/vote-market.js']) if (!(opts.noLib && lib.includes('portfolio'))) win.eval(fs.readFileSync(path.join(SITE, lib), 'utf8'));
   } });
   const w = dom.window; w.document.dispatchEvent(new w.Event('DOMContentLoaded', { bubbles: true }));
   for (let i = 0; i < 60; i++) { await new Promise(r => setTimeout(r, 250)); const sc = w.document.getElementById('story-card'); if (!wallet && !w.document.getElementById('state-welcome').classList.contains('hidden')) break; if (sc && !/Adding up/.test(sc.textContent) && (opts.noV3 || opts.noLib || w.document.querySelector('[data-pp="net"]'))) break; }
@@ -147,12 +147,19 @@ console.log('— P13 the Votion story (3.3, org-votion 1.5.0 holder-pnl) —');
       ok(`${h.lst_symbol}: says why (LUNA's move over the same time) and real vs advertised APR`, /LUNA fell|LUNA moved/.test(t) && /real APR/.test(t) && (h.advertised ? /advertised/.test(t) : true), t.slice(0, 300)); }
     const w2 = await run(OWNER, {}); }
 }
-console.log('— P14 vote allocations (3.3): expected bribes at the close + the simulator —');
-{ const w = await run(OWNER); await new Promise(r => setTimeout(r, 500)); const d = w.document;
-  const per = [...d.querySelectorAll('#votes-grid .text-emerald-400\\/80')].map(e => Number(T(e).replace(/[^0-9.]/g, ''))).filter(x => isFinite(x));
+console.log('— P14 vote allocations (3.4): will earn vs could earn — one engine (lib/vote-market.js) —');
+{ const VM = require(path.join(SITE, 'lib/vote-market.js'));
+  const fetchLocal = (u) => { const f = path.join(CORE, String(u).split('?')[0].slice(CORE_U.length)); return Promise.resolve(fs.existsSync(f) ? { ok: true, json: async () => J(f) } : { ok: false, status: 404, json: async () => null }); };
+  const m = await VM.load({ fetch: fetchLocal }); await m.loadVoters(); const wv = m.voters[OWNER]; const R = VM.bestSplitAll(m, wv);
+  const w = await run(OWNER); await new Promise(r => setTimeout(r, 1500)); const d = w.document;
+  const per = [...d.querySelectorAll('#votes-grid [data-vpk]')].map(e => Number(T(e).replace(/[^0-9.]/g, ''))).filter(x => isFinite(x));
   const tot = Number(T(d.querySelector('[data-votes="expected"]')).replace(/[^0-9.]/g, ''));
-  ok(`expected total ≈ ${tot} = the per-vote expectations summed (${per.join(' + ')})`, per.length > 0 && Math.abs(per.reduce((a, b) => a + b, 0) - tot) <= 0.01 * per.length + 0.01, { per, tot });
+  ok(`will earn ≈ ${tot} = the engine's now ${R.nowUsd.toFixed(2)} = Σ per vote (${per.join(' + ')})`, Math.abs(tot - Math.round(R.nowUsd * 100) / 100) < 0.011 && Math.abs(per.reduce((a, b) => a + b, 0) - tot) <= 0.011 * per.length + 0.01, { per, tot, now: R.nowUsd });
+  const best = T(d.querySelector('[data-votes="best"]'));
+  ok(`could earn (optimized) ≈ ${R.usd.toFixed(2)} (+${R.gain.toFixed(2)}) shown with a link to the split`, best.includes(PPL.fmt.usd(R.usd).replace('$', '')) && !!d.querySelector('[data-votes="best"] a[href="vote-market.html?view=best"]'), best);
+  const bb = [...d.querySelectorAll('[data-best-bucket]')];
+  ok(`each bucket card says its best split (${bb.length}): ${bb.map(e => e.getAttribute('data-best-bucket') + ' ' + T(e).slice(0, 40)).join(' | ')}`, bb.length === 4 && VM.BUCKETS.every(b => T(d.querySelector(`[data-best-bucket="${b}"]`)).includes(PPL.fmt.usd(R.buckets[b].usd).replace('$', ''))));
   const links = [...d.querySelectorAll('#votes-grid a[href^="vote-market.html?pool="]')].map(a => decodeURIComponent(a.getAttribute('href').split('pool=')[1]));
-  ok(`every vote has a simulate → link keyed bucket|gauge (${links.length}: ${links.map(l => l.split('|')[0]).join(', ')})`, links.length >= 4 && links.every(l => /^(bluechip|stable|project|single)\|terra1[0-9a-z]+$/.test(l)), links);
+  ok(`every vote has a simulate → link keyed bucket|gauge (${links.length}) that the Vote Market knows`, links.length >= 4 && links.every(l => m.pools[l]), links);
   ok('card links the Vote Market simulator', !!d.querySelector('#votes-summary a[href="vote-market.html"]')); }
 console.log(`\n${pass}/${pass + fail} passed`); process.exit(fail ? 1 : 0);

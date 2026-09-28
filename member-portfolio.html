@@ -40,7 +40,8 @@
 <script src="/lib/address-picker.js"></script>
 <script src="/lib/portfolio-pnl.js?v=1.2.0"></script>   <!-- 3.0: the v3 P&L (story, value curve, positions + trips) -->
 <script src="/lib/winddown.js?v=1.0.0"></script>
-<script src="/lib/denoms.js?v=1.0.0"></script>   <!-- 3.3: THE denom → symbol/decimals rule (the catalog's effective → discovered layer) -->   <!-- 3.0: winding-down assets (USDC.n) flagged on positions -->
+<script src="/lib/denoms.js?v=1.0.0"></script>
+<script src="/lib/vote-market.js?v=1.3.0"></script>   <!-- 3.4: THE vote-market engine — "your votes now earn" and "the best split earns" on the vote card, same model as the Vote Market page -->   <!-- 3.3: THE denom → symbol/decimals rule (the catalog's effective → discovered layer) -->   <!-- 3.0: winding-down assets (USDC.n) flagged on positions -->
 <script>SiteHeader.mount({ page: 'member-portfolio' });
 (function () {
   SiteHeader.subnav([
@@ -930,7 +931,7 @@
             const votes = bv?.votes || [];
             const stale = cur && bv?.period && (cur - bv.period) >= 4;
             return `
-            <div class="rounded-lg bg-white/[0.02] border border-white/5 p-3">
+            <div class="rounded-lg bg-white/[0.02] border border-white/5 p-3" data-bucket="${b}">
                 <div class="flex items-center justify-between mb-1.5">
                     <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">${bucketNames[b]}</span>
                     ${bv?.period ? `<span class="text-[9px] mono ${stale ? 'text-amber-300' : 'text-gray-600'}" title="${stale ? 'This allocation hasn\u2019t been touched in ' + (cur - bv.period) + ' epochs — it\u2019s coasting.' : 'Last touched period'}">${stale ? '<i class=\"fas fa-clock mr-0.5\"></i>' : ''}p${bv.period}</span>` : ''}
@@ -941,7 +942,7 @@
                     if (pool && pool.voting_power?.vp_human > 0 && userVpForVotes > 0) {
                         const share = (userVpForVotes * (v.weight_bps || 0) / 10000) / pool.voting_power.vp_human;
                         const pot = potUsdOf(pool);
-                        if (pot.usd > 0) { expTotal += share * pot.usd; expPools++; earn = `<div class="text-[9px] text-emerald-400/80 mono" title="Your ${(share * 100).toFixed(3)}% share of this pool's bribe pot for the epoch (${fmt$(pot.usd)})${pot.unpriced ? ' — ' + pot.unpriced + ' pot token(s) unpriced, not counted' : ''}. The share moves as others vote until the close.">expected ≈ ${fmt$(share * pot.usd)} at close</div>`; }
+                        if (pot.usd > 0) { expTotal += share * pot.usd; expPools++; earn = `<div class="text-[9px] text-emerald-400/80 mono" data-vpk="${esc(b + '|' + bareGid(v.pool_gauge_id))}" title="Simple estimate: your ${(share * 100).toFixed(3)}% share of today's votes × the pot (${fmt$(pot.usd)}). Replaced by the Vote Market model (votes at close, Votion's move included) once it loads.">expected ≈ ${fmt$(share * pot.usd)} at close</div>`; }
                         else if (pot.unpriced) { unpricedPots++; earn = `<div class="text-[9px] text-gray-600">pot unpriced — not counted</div>`; }
                         else { noPot++; earn = `<div class="text-[9px] text-amber-300/80" title="Nobody bribed this pool this epoch: the VP here earns only the pool's emissions for LPs, nothing for you as a voter.">no bribes this epoch</div>`; }
                     }
@@ -955,9 +956,10 @@
             </div>`;
         }).join('');
         $('votes-summary').innerHTML = `<div class="flex items-center justify-between flex-wrap gap-2 rounded-lg bg-emerald-500/5 border border-emerald-500/15 px-3 py-2">
-            <div class="text-[12px]"><span class="text-gray-400">Expected bribes at this epoch\u2019s close</span> <span class="mono font-semibold text-emerald-300" data-votes="expected">${expPools ? '≈ ' + fmt$(expTotal) : '—'}</span>
+            <div class="text-[12px]"><span class="text-gray-400">Expected bribes at this epoch\u2019s close</span> <span class="mono font-semibold text-emerald-300" data-votes="expected">${expPools ? '≈ ' + fmt$(expTotal) : '—'}</span> <span data-votes="best"></span>
                 <span class="text-[10px] text-gray-500">${expPools ? `from ${expPools} voted pool${expPools === 1 ? '' : 's'}` : 'no priced bribe pot on the voted pools'}${noPot ? ` · ${noPot} voted pool${noPot === 1 ? ' has' : 's have'} no bribes` : ''}${unpricedPots ? ` · ${unpricedPots} pot${unpricedPots === 1 ? '' : 's'} unpriced (not counted)` : ''} · your share moves as others vote until the close</span></div>
             <a href="vote-market.html" class="text-[11px] px-2.5 py-1 rounded-md bg-purple-500/15 text-purple-200 hover:bg-purple-500/25" title="Same header wallet: see what other splits would earn">Open the Vote Market simulator →</a></div>`;
+        renderVoteOutlook(wallet).catch(e => console.warn('vote outlook:', e));
 
         // balances
         const bals = (m.wallet_balances || []).filter(b => (b.usd_value || 0) > 0.01).sort((a, b) => (b.usd_value || 0) - (a.usd_value || 0));
@@ -2012,6 +2014,28 @@
           ${chartSvg(ser.map(r => ({ x: r.date, y: r.u })), { color: '#c084fc', fmt: (v) => fmt$(v), h: 220, startNote: 'org archive began ' + CONFIG.votionTrackStart })}
           <div class="text-[10px] text-gray-600 mt-2">Your summed vault-position value from the org Votion daily archive (hub-rate LST pricing). Every earlier day is a permanently missing point.</div>`;
     };
+    // ---------- 3.4 vote outlook: what the votes WILL earn vs what they COULD (lib/vote-market.js — the Vote Market page's model) ----------
+    // Now = your current votes at the close, with Votion's re-vote solved in (outcome()); best = bestSplitAll() — Votion's own method
+    // pointed at this wallet, iterated with Votion's reaction. Both from ONE engine, so the two numbers compare like with like.
+    async function renderVoteOutlook(wallet) {
+        const VM = window.VoteMarket; if (!VM) return;
+        store._vm = store._vm || VM.load({}).then(m => m.loadVoters());
+        let m; try { m = await store._vm; } catch (e) { const el = document.querySelector('[data-votes="best"]'); if (el) el.innerHTML = '<span class="text-[10px] text-gray-500">(simple estimate — the Vote Market data is unavailable right now)</span>'; return; }
+        if (store.wallet !== wallet) return;
+        const w = m.voters && m.voters[wallet]; if (!w || !(w.vp > 0)) return;
+        const r = VM.bestSplitAll(m, w);
+        for (const b of VM.BUCKETS) { const o = VM.outcome(m, b, { mine: VM.walletVotes(m, w, b), mineNow: VM.walletVotes(m, w, b) }); if (!o) continue;
+            for (const el of document.querySelectorAll(`#votes-grid [data-vpk^="${b}|"]`)) { const row = o.rows[el.getAttribute('data-vpk')]; if (!row) continue;
+                el.textContent = `expected ≈ ${fmt$(row.myUsd)} at close`; el.title = `Vote Market model: the pool's votes at the close (${fmtNum(row.votes)} VP, Votion's move included) — you get pot ${fmt$(row.pot)} × your ${fmtNum(row.mine)} VP ÷ the close total.${row.active ? '' : ' The pool is under the 1% line at the close — it would pay nothing.'}`; }
+            const x = r.buckets[b]; const card = document.querySelector(`#votes-grid [data-bucket="${b}"]`);
+            if (card) card.querySelectorAll('[data-best-bucket]').forEach(e => e.remove());   // idempotent: the page re-renders on every feed refresh
+            if (card && x) { const top = x.split.filter(s => s.pct >= 0.005).slice(0, 3); const better = x.usd - x.nowUsd > 0.01;
+                card.insertAdjacentHTML('beforeend', `<div class="mt-2 pt-2 border-t border-white/5 text-[10px]" data-best-bucket="${b}"><span class="text-gray-500">best split:</span> <span class="mono ${better ? 'text-purple-200' : 'text-gray-400'}">${fmt$(x.usd)}</span>${better ? ` <span class="mono text-emerald-300">(+${fmt$(x.usd - x.nowUsd)})</span>` : ' <span class="text-gray-500">— already there</span>'}${better && top.length ? `<div class="text-gray-500 truncate" title="${esc(top.map(s => `${s.name} ${(s.pct * 100).toFixed(0)}%`).join(' · '))}">${esc(top.map(s => `${s.name} ${(s.pct * 100).toFixed(0)}%`).join(' · '))}</div>` : ''}</div>`); } }
+        const tot = document.querySelector('[data-votes="expected"]'); if (tot) { tot.textContent = '≈ ' + fmt$(r.nowUsd); tot.title = 'Your current votes at the close — Vote Market model (Votion\u2019s re-vote solved in)'; }
+        const best = document.querySelector('[data-votes="best"]');
+        if (best) best.innerHTML = r.gain > 0.01 ? `<span class="text-gray-500">·</span> <span class="text-gray-400">optimized</span> <span class="mono font-semibold text-purple-200">≈ ${fmt$(r.usd)}</span> <span class="mono text-emerald-300">(+${fmt$(r.gain)})</span> <a href="vote-market.html?view=best" class="text-[10px] text-purple-300 hover:text-purple-200 ml-1">see the split →</a>` : `<span class="text-[10px] text-gray-500">· already the best split for bribes</span>`;
+    }
+
     async function renderVotion(wallet) {
         const el = $('votion-table');
         if (!el) return;
@@ -2255,6 +2279,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '3.3', revDate: '2026-09-28', page: 'member-portfolio' });   // 3.3: vote allocations — expected bribes at the epoch close (per vote + total), pools with no bribes flagged, a simulate → link per vote and to the Vote Market; each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
+<script>SiteFooter.mount({ rev: '3.4', revDate: '2026-09-28', page: 'member-portfolio' });   // 3.4: vote card — what the votes WILL earn at the close vs what the best split COULD (lib/vote-market.js, the Vote Market page's model with Votion's move solved in), per bucket and in total · 3.3: vote allocations — expected bribes at the epoch close (per vote + total), pools with no bribes flagged, a simulate → link per vote and to the Vote Market; each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
 </body>
 </html>
