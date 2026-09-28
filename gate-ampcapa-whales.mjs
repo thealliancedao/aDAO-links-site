@@ -92,7 +92,7 @@ console.log('=== ampcapa-tool Rev 2.1 — whale tab from the product ===');
 {
   const w = await boot(wallets);
   const d = w.document;
-  check('P1 footer rev reads 2.3', /Rev 2\.3/.test(d.querySelector('#changelog-trigger').textContent));
+  check('P1 footer rev reads 2.4', /Rev 2\.4/.test(d.querySelector('#changelog-trigger').textContent));
   check('P2 source line: cron product · status ok · 13/13 guards green', /cron product/.test(d.getElementById('whale-source').textContent) && /status ok/.test(d.getElementById('whale-source').textContent) && /13\/13 green/.test(d.getElementById('whale-source').textContent), d.getElementById('whale-source').textContent);
   check('P3 table visible, placeholder hidden', d.getElementById('whale-table').style.display !== 'none' && d.getElementById('whale-placeholder').style.display === 'none');
   const heads = [...d.querySelectorAll('#whale-table thead th')].map(th => th.textContent.trim());
@@ -153,13 +153,13 @@ console.log('\n=== Rev 2.2: members tab change periods from wallets-daily (dead 
   const d = w.document;
   await w.switchTab('members'); await new Promise(r => setTimeout(r, 250));
   const memberRow = () => [...d.querySelectorAll('#members-body tr')].find(tr => tr.textContent.includes(G.OWNER.slice(0, 10)));
-  const deltaOf = () => memberRow().querySelectorAll('td')[5].textContent.trim();
+  const deltaOf = () => memberRow().querySelectorAll('td')[6].textContent.trim();   /* Rev 2.4: USD column after CAPA */
   check('M1 members tab rendered from the live DAO enumeration (owner row present)', !!memberRow());
   check('M2 24H: badge names the comparison day (captured), delta = +1,000', /vs / .test(d.getElementById('snap-badge').textContent) && !/legacy/.test(d.getElementById('snap-badge').textContent) && deltaOf() === '+1,000', [d.getElementById('snap-badge').textContent, deltaOf()]);
   await w.setPeriod('7d'); await new Promise(r => setTimeout(r, 150));
   check('M3 7D: picks the legacy weekly day, badge says (legacy weekly), delta = +25,000', /legacy weekly/.test(d.getElementById('snap-badge').textContent) && deltaOf() === '+25,000', [d.getElementById('snap-badge').textContent, deltaOf()]);
   const w9row = [...d.querySelectorAll('#members-body tr')].find(tr => tr.textContent.includes(G.W(9).slice(0, 10)));
-  check('M4 7D: W9 had null that day → NEW/no delta, never a fabricated number', w9row && /NEW|—/.test(w9row.querySelectorAll('td')[5].textContent), w9row && w9row.querySelectorAll('td')[5].textContent);
+  check('M4 7D: W9 had null that day → NEW/no delta, never a fabricated number', w9row && /NEW|—/.test(w9row.querySelectorAll('td')[6].textContent), w9row && w9row.querySelectorAll('td')[6].textContent);
   await w.setPeriod('30d'); await new Promise(r => setTimeout(r, 150));
   check('M5 30D: delta = −40,000 against the 31-days-ago legacy monthly', deltaOf() === '-40,000', deltaOf());
   check('M6 no fetch ever hit the dead ampcapa-data_2026 feed (would have thrown)', true);
@@ -168,7 +168,9 @@ console.log('\n=== Rev 2.2: members tab change periods from wallets-daily (dead 
   d.getElementById('whale-threshold').value = '10000'; d.getElementById('whale-threshold').dispatchEvent(new w.Event('change'));
   const w2 = d.querySelector(`#whale-body tr[data-addr="${G.W(2)}"]`);
   check('M7 whale row shows the VERIFIED trust-register label (W2), unlabeled rows stay bare', w2 && /Gov Whale Two/.test(w2.textContent) && !/verified\)/.test(d.querySelector(`#whale-body tr[data-addr="${G.W(1)}"]`).textContent), w2 && w2.textContent.slice(0, 80));
-  check('M8 footer rev reads 2.3', /Rev 2\.3/.test(d.querySelector('#changelog-trigger').textContent));
+  { const r = memberRow(); const cells = [...r.querySelectorAll('td')].map(t => t.textContent.trim()); const capa = Number(cells[4].replace(/,/g, '')); const pr = d.getElementById('rate3').textContent;
+    check(`M9 (Rev 2.4) USD column beside CAPA: ${cells[5]} for ${cells[4]} CAPA at ${pr} (the catalog's CAPA price) — or "—" with no price, never guessed`, /^\$0\.\d+$/.test(pr) ? Math.abs(Number(cells[5].replace(/[$,]/g, '')) - capa * Number(pr.slice(1))) <= Math.max(0.02, capa * Number(pr.slice(1)) * 0.001) : cells[5] === '—', [cells, pr]); }
+  check('M8 footer rev reads 2.4', /Rev 2\.4/.test(d.querySelector('#changelog-trigger').textContent));
 }
 
 console.log('\n=== Rev 2.3: CAPA in TLA LP tab — five TLA-side forms from the product ===');
@@ -197,7 +199,7 @@ console.log('\n=== Rev 2.3: CAPA in TLA LP tab — five TLA-side forms from the 
   let href = null; w.HTMLAnchorElement.prototype.click = function () { href = this.href; };
   w.unifiedLpExportCSV();
   check('T11 CSV header carries the five forms + kind/label', /LP TLA amplified,LP TLA plain,ampCAPA TLA plain,ampCAPA amplified not in DAO/.test(decodeURIComponent(href.split(',')[1]).split('\n')[0]));
-  check('T12 footer rev reads 2.3', /Rev 2\.3/.test(d.querySelector('#changelog-trigger').textContent));
+  check('T12 footer rev reads 2.4', /Rev 2\.4/.test(d.querySelector('#changelog-trigger').textContent));
 }
 
 console.log('\n=== scenario B: enumeration incomplete → "?" cells, never 0 ===');

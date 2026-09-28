@@ -26,7 +26,7 @@
   .tab.active { background: #1a0d2e; border-color: #a855f7; color: #a855f7; }
   .panel { display: none; }
   .panel.active { display: block; }
-  .rates-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .rates-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
   .rate-card { background: #111318; border: 1px solid #1e2028; border-radius: 10px; padding: 14px 16px; }
   .rate-card-label { font-size: 9px; color: #6b6557; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
   .rate-value { font-size: 15px; color: #a855f7; font-weight: 700; }
@@ -331,6 +331,13 @@
       <div class="rate-value" id="rate2">fetching…</div>
       <div class="rate-sub" id="rate2-sub">ve3 compounding ratio</div>
     </div>
+    <!-- Rev 2.4 (owner 2026-09-28: "add price to the ampCAPA tool based on what CAPA price is currently"): CAPA in USD from the org
+         token catalog (the TLA price, CoinGecko as fallback) — and every CAPA figure below gets its USD beside it -->
+    <div class="rate-card">
+      <div class="rate-card-label"><span class="status-dot dot-loading" id="dot3"></span>CAPA price</div>
+      <div class="rate-value" id="rate3">fetching…</div>
+      <div class="rate-sub" id="rate3-sub">org token catalog</div>
+    </div>
   </div>
 
   <div class="nav-btns" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
@@ -424,6 +431,7 @@
             <th onclick="sortBy('amplp')">ampLP</th>
             <th onclick="sortBy('ampcapa')">ampCAPA</th>
             <th onclick="sortBy('capa')">CAPA</th>
+            <th onclick="sortBy('capa')" title="CAPA × the catalog's CAPA price (Rev 2.4)">USD</th>
             <th onclick="sortBy('delta')" id="delta-header">Δ CAPA <span class="snap-badge" id="snap-badge">24H</span></th>
             <th onclick="sortBy('vp')">VP %</th>
           </tr>
@@ -776,7 +784,31 @@
     }
   }
 
+  // ── Rev 2.4: CAPA → USD (token-catalog/snapshots/current.json — the price every org page uses) ──
+  const CAPA_CW20 = 'terra1t4p3u8khpd7f8qzurwyafxt648dya6mp6vur3vaapswt6m24gkuqrfdhar';
+  let capaUsd = null, capaUsdAt = null, capaUsdSrc = null;
+  const usdOf = (capa) => capaUsd != null && capa != null ? capa * capaUsd : null;
+  const fmtUsd = (v) => { if (v == null || !isFinite(v)) return '—'; const a = Math.abs(v); return '$' + (a >= 1e6 ? (v / 1e6).toFixed(2) + 'M' : a >= 1e4 ? Math.round(v).toLocaleString('en-US') : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })); };
+  async function fetchCapaPrice() {
+    try {
+      const cat = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/token-catalog/snapshots/current.json?t=' + Math.floor(Date.now() / 6e5)).then(r => r.ok ? r.json() : null);
+      const t = (cat?.tokens || []).find(x => x.denom === CAPA_CW20 || x.denom === 'cw20:' + CAPA_CW20);
+      const p = t?.prices?.tla?.usd ?? t?.prices?.coingecko?.usd ?? null;
+      if (!(p > 0)) throw new Error('no CAPA price in the catalog');
+      capaUsd = p; capaUsdSrc = t.prices?.tla?.usd ? 'TLA' : 'CoinGecko'; capaUsdAt = t.prices?.tla?.captured_at || t.prices?.coingecko?.captured_at || null;
+      document.getElementById('rate3').textContent = '$' + p.toPrecision(4);
+      document.getElementById('dot3').className = 'status-dot dot-live';
+    } catch (e) { if (capaUsd == null) { document.getElementById('rate3').textContent = '—'; document.getElementById('rate3-sub').textContent = 'no catalog price this load — USD left blank, not guessed'; document.getElementById('dot3').className = 'status-dot dot-error'; } }
+    paintCapaSub();
+  }
+  function paintCapaSub() {
+    if (capaUsd == null) return;
+    const amp = rateStaking ? capaUsd * rateStaking : null, lp = amp != null && rateVe3 ? amp * rateVe3 : null;
+    document.getElementById('rate3-sub').textContent = (amp != null ? 'ampCAPA $' + amp.toPrecision(4) : '') + (lp != null ? ' · ampLP $' + lp.toPrecision(4) : '') + ' · ' + capaUsdSrc + (capaUsdAt ? ' ' + capaUsdAt.slice(11, 16) + 'Z' : '');
+  }
+
   async function fetchRates() {
+    fetchCapaPrice();
     try {
       const d = await tryAll(STAKING_CONTRACT, { state: {} });
       rateStaking = parseFloat(d.exchange_rate);
@@ -797,6 +829,7 @@
       document.getElementById('dot2').className = 'status-dot dot-live';
     } catch(e) { document.getElementById('rate2').textContent = 'ERROR'; document.getElementById('dot2').className = 'status-dot dot-error'; }
 
+    paintCapaSub();
     const host = activeLCD ? activeLCD.replace('https://','') : '—';
     document.getElementById('footer-note').innerHTML = `Live rates · ${host} · refreshes every 60s<br>ampLP ÷ 1,000,000 × LP→ampCAPA × ampCAPA→CAPA`;
   }
@@ -812,7 +845,7 @@
     if (!rateStaking || !rateVe3) { err.textContent = 'Rates still loading — try again in a moment.'; err.classList.add('visible'); return; }
     const { micro, ampCapa, capa } = lpToCapa(lp);
     document.getElementById('result-capa').textContent = fmt(capa, 2) + ' CAPA';
-    document.getElementById('result-sub').textContent = '≈ ' + fmt(ampCapa, 4) + ' ampCAPA underlying';
+    document.getElementById('result-sub').textContent = '≈ ' + fmt(ampCapa, 4) + ' ampCAPA underlying' + (capaUsd != null ? ' · ≈ ' + fmtUsd(usdOf(capa)) + ' at $' + capaUsd.toPrecision(4) + ' per CAPA' : '');
     document.getElementById('calc-steps').innerHTML = `
       <span style="color:#6b6557">① Micro → ampLP</span><br>
       ${fmt(lp,0)} ÷ 1,000,000 = <span class="calc-step-val">${fmt(micro,4)} ampLP</span><br><br>
@@ -954,7 +987,7 @@
     const totalCapa = active.reduce((s, m) => s + m.capa, 0);
     document.getElementById('sum-members').textContent = allMembers.length;
     document.getElementById('sum-active').textContent  = active.length;
-    document.getElementById('sum-capa').textContent    = fmt(totalCapa, 0);
+    document.getElementById('sum-capa').textContent    = fmt(totalCapa, 0) + (capaUsd != null ? ' ≈ ' + fmtUsd(usdOf(totalCapa)) : '');
     document.getElementById('members-summary').classList.add('visible');
 
     const tbody = document.getElementById('members-body');
@@ -983,6 +1016,7 @@
         <td class="${z?'zero':''}">${z ? '—' : fmt(m.micro,2)}</td>
         <td class="${z?'zero':''}">${z ? '—' : fmt(m.ampCapa,2)}</td>
         <td class="${z?'zero':'capa-val'}">${z ? '—' : fmt(m.capa,2)}</td>
+        <td class="${z?'zero':''}" style="color:${z?'':'#fbbf24'}">${z ? '—' : fmtUsd(usdOf(m.capa))}</td>
         ${deltaCell}
         <td class="${z?'zero':''}" style="color:${z?'':'#ec4899'}">${z ? '—' : m.vpPct.toFixed(2) + '%'}</td>
       `;
@@ -1003,8 +1037,8 @@
   }
 
   function exportCSV() {
-    const rows = [['Rank','Address','ampLP','ampCAPA','CAPA',`Δ CAPA (${snapLabel})`,'VP%']];
-    allMembers.forEach((m, i) => rows.push([i+1, m.address, m.micro.toFixed(6), m.ampCapa.toFixed(6), m.capa.toFixed(6), '', m.vpPct.toFixed(4)]));
+    const rows = [['Rank','Address','ampLP','ampCAPA','CAPA','USD',`Δ CAPA (${snapLabel})`,'VP%']];
+    allMembers.forEach((m, i) => rows.push([i+1, m.address, m.micro.toFixed(6), m.ampCapa.toFixed(6), m.capa.toFixed(6), usdOf(m.capa) != null ? usdOf(m.capa).toFixed(2) : '', '', m.vpPct.toFixed(4)]));
     const a = document.createElement('a');
     a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows.map(r => r.join(',')).join('\n'));
     a.download = `ampcapa-dao-members-${new Date().toISOString().slice(0,10)}.csv`;
@@ -2747,7 +2781,7 @@
             </div>
             <div class="mt-4 text-xs text-gray-500">
                 <button id="changelog-trigger" class="hover:text-cyan-400 transition-colors cursor-pointer">
-                    <span class="font-mono">Rev 2.3</span>
+                    <span class="font-mono">Rev 2.4</span>
                     <span class="opacity-60 mx-1">·</span>
                     <span>Changelog</span>
                 </button>

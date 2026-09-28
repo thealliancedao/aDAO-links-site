@@ -11,6 +11,10 @@
 //   P15 (3.5) LP columns: take-rate drag + top-up on open non-amp, compounding on amp, APR earned with P&L incl. rewards, bucket subtotals add up
 //   P6 wind-down: a wallet holding USDC.n LP shows the "USDC.n ending" pill on that pool's row
 //   P7 disputed: a wallet with a disputed position shows it flagged and the hero says it was left out
+//   P18 (3.7) trust: open lots whose receipt left the wallet (chain read says none) flagged "not in this wallet", out of Open now; hero says so
+//   P19 (3.7) custody: the ampCAPA receipt staked in the DAO counts at its live value, P&L only on the part with a cost
+//   P20 (3.7) idle LP: bank uLP + cw20 LP tokens of TLA pools in the wallet warned and valued; an amplified receipt is not idle
+//   P21 (3.7) APR blank where a trip had no price; the total says how many positions it covers
 //   P12 (3.3) wallet balances: tickers not hashes, the catalog's real decimals (PAXG 18), rows under $2 folded
 //   P13 (3.3) Votion: one story per position with the product's in / now / three legs, the why-sentence, real vs advertised APR
 //   P14 (3.4) vote allocations: will-earn total = the engine's now = Σ per vote; could-earn = bestSplitAll; per-bucket best; simulate links the Vote Market knows
@@ -28,11 +32,17 @@ const ledgerOf = (a) => { const f = path.join(OUT, 'tla-flows/pnl/ledger', a + '
 const CORE_U = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/', NFTC_U = 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/', DAOO_U = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main/';
 const T = (el) => (el ? el.textContent : '').replace(/\s+/g, ' ').trim();
 const money = (v) => PPL.fmt.usd(v, true), lun = (v) => PPL.fmt.luna(v, true);
+const f$ = (v) => { const a = Math.abs(v); return a >= 1e6 ? '$' + (v / 1e6).toFixed(1) + 'M' : a >= 1e3 ? '$' + (v / 1e3).toFixed(1) + 'K' : '$' + v.toFixed(2); };   /* the page's own fmt$ (balances card) */
 
 console.log('— P1 lib on the owner\'s ledger —');
 const L0 = ledgerOf(OWNER); const D0 = PPL.decode(L0.v3);
 { let n = 0, bad = 0; for (const p of D0.positions) for (const t of p.trips) { if (t.in_usd == null || t.out_usd == null || t.market_usd == null) continue; n++; if (Math.abs(t.delta_usd - (t.market_usd + t.lp_usd)) > 0.021) bad++; }
   ok(`decode(): ${D0.positions.length} positions, ${n} valued trips rebuilt from trip_cols; out − in = market + lp on each`, n > 50 && bad === 0, bad); }
+// 3.7: the page reconciles the ledger's open lots with the hourly chain read (participants) — the gate does the same from the same file
+const PART = J(path.join(CORE, 'member-data/participants/current.json'));
+const liveFor = (wallet, custody) => { const m = PART.members.find(x => x.wallet === wallet); return { read: !!(m && Array.isArray(m.lp_positions)), held: (pool, mech) => ((m && m.lp_positions) || []).filter(l => l.pool_gauge_id === pool && (l.is_amplified ? 'amplified' : 'non_amplified') === mech).reduce((x, l) => x + (Number(l.estimated_position_usd) || 0), 0), custody: custody || [] }; };
+const recOf = (L, wallet, custody) => PPL.reconcile(PPL.decode(L.v3), liveFor(wallet, custody));
+const R0 = recOf(L0, OWNER);
 { const S = PPL.story(D0, 'usd'), SL = PPL.story(D0, 'luna'); const t = L0.v3.totals;
   ok('story(usd): net == totals.net_usd, market/lp/rewards/unrealized from the ledger', S.net === t.net_usd && S.market === t.realized.market_usd && S.lp === t.realized.lp_usd && Math.abs(S.rewards - (t.rewards.claims_usd + t.rewards.bribes_usd)) < 1e-9 && S.unrealized === t.open.unrealized_usd);
   ok('story(luna): net == totals.net_luna', SL.net === t.net_luna);
@@ -49,6 +59,7 @@ async function run(wallet, opts = {}) {
     win.fetch = (u) => { const url = String(u).split('?')[0]; let f = null;
       if (opts.chain) { for (const [host, ans] of Object.entries(opts.chain)) if (url.includes(host) && (!ans.addr || url.includes(ans.addr))) { const k = /\/bank\//.test(url) ? 'bank' : /\/staking\//.test(url) ? 'staking' : /\/distribution\//.test(url) ? 'rewards' : null; if (k && ans[k]) return Promise.resolve({ ok: true, status: 200, json: async () => ans[k] }); } }
       if (opts.bank && /\/cosmos\/bank\/v1beta1\/balances\//.test(url) && url.includes(wallet)) return Promise.resolve({ ok: true, status: 200, json: async () => ({ balances: opts.bank }) });
+      if (opts.smart && /\/cosmwasm\/wasm\/v1\/contract\/terra1[0-9a-z]+\/smart\//.test(url)) { const m = url.match(/contract\/(terra1[0-9a-z]+)\/smart\/([^/?]+)/); const fn = opts.smart[m[1]]; if (fn) { let q = null; try { q = JSON.parse(Buffer.from(decodeURIComponent(m[2]), 'base64').toString()); } catch (e) {} const ans = q ? fn(q) : undefined; if (ans !== undefined) return Promise.resolve({ ok: true, status: 200, json: async () => ({ data: ans }) }); } }   // 3.7: contract queries (the ampCAPA DAO)
       if (opts.cw20 && /\/cosmwasm\/wasm\/v1\/contract\/terra1[0-9a-z]+\/smart\//.test(url)) { const m = url.match(/contract\/(terra1[0-9a-z]+)\/smart\/([^/?]+)/); let q = null; try { q = JSON.parse(Buffer.from(decodeURIComponent(m[2]), 'base64').toString()); } catch (e) {} if (q && q.balance) return Promise.resolve({ ok: true, status: 200, json: async () => ({ data: { balance: String(opts.cw20[m[1]] || 0) } }) }); }   // 3.6: the live cw20 reads   // 3.3: the live bank scan, as the owner's screenshot showed it
       if (url.startsWith(CORE_U + 'tla-flows/pnl/')) { const rel = url.slice(CORE_U.length); f = path.join(OUT, rel); if (opts.noV3 && /ledger\/terra1/.test(rel) && fs.existsSync(f)) { const d = J(f); delete d.v3; return Promise.resolve({ ok: true, status: 200, json: async () => d }); } }
       else if (url.startsWith(CORE_U)) f = path.join(CORE, url.slice(CORE_U.length)); else if (NFTC && url.startsWith(NFTC_U)) f = path.join(NFTC, url.slice(NFTC_U.length)); else if (DAOO && url.startsWith(DAOO_U)) f = path.join(DAOO, url.slice(DAOO_U.length));
@@ -62,9 +73,9 @@ async function run(wallet, opts = {}) {
 }
 
 console.log('— P2–P5 the owner\'s page —');
-{ const w = await run(OWNER); const d = w.document; const t = L0.v3.totals;
+{ const w = await run(OWNER); const d = w.document; const t = R0.totals;   // 3.7: the reconciled totals (the ledger's, less lots no longer in the wallet)
   const net = T(d.querySelector('[data-pp="net"]'));
-  ok(`hero net = ${money(t.net_usd)} (ledger totals.net_usd)`, net === money(t.net_usd), net);
+  ok(`hero net = ${money(t.net_usd)} (ledger net reconciled with the chain read: ${R0.reconciled.moved} moved out)`, net === money(t.net_usd), net);
   const bars = [...d.querySelectorAll('[data-pp="bars"] > div')].map(b => T(b.lastElementChild));
   ok(`four bars = prices ${money(t.realized.market_usd)} · pool ${money(t.realized.lp_usd)} · rewards ${money(t.rewards.claims_usd + t.rewards.bribes_usd)} · open ${money(t.open.unrealized_usd)}`, bars.length === 4 && bars[0] === money(t.realized.market_usd) && bars[1] === money(t.realized.lp_usd) && bars[2] === money(t.rewards.claims_usd + t.rewards.bribes_usd) && bars[3] === money(t.open.unrealized_usd), bars);
   ok('the sentence says what prices, the pools and TLA did, and the net', /prices moved/.test(T(d.querySelector('[data-pp="sentence"]'))) && T(d.querySelector('[data-pp="sentence"]')).includes('Net: ' + money(t.net_usd)));
@@ -144,8 +155,10 @@ console.log('— P12 wallet balances (3.3): named, scaled by the catalog\'s real
   ok('PAXG is valued at 18 decimals (≈ $0.003, dust) — not $3,188.5M', !/3,?188|3\.19B|M$/.test(rows.map(r => r[2]).join(' ')) && !rows.some(r => /PAXG/.test(r[0])), rows);
   ok('ASTRO shown by name (≈ $10–12 at the catalog price); LUNA kept; the WBTCs ($0.50 / $0.01 at 8 decimals) fold into dust', rows.some(r => /^ASTRO/.test(r[0]) && /\$1[01]\.\d\d/.test(r[2])) && !rows.some(r => /WBTC/.test(r[0])) && rows.some(r => /^LUNA/.test(r[0])), rows);
   { const mk = J(path.join(DAOO, 'lion-dao/history/markets.json')); const last = Object.keys(mk.days).sort().pop(); const px = mk.days[last].pyroar_usd; const want = 7150000000 * px;
-    const r = rows.find(x => /^pyROAR/.test(x[0]));
-    ok(`pyROAR (a cw20 the catalog does not carry — the registry's known_cw20s) read live: 7.15B × $${px} ≈ ${PPL.fmt.usd(want)}, labelled "pair price"`, r && /7\.15B|7,150/.test(r[1]) && (() => { const t = String(r[2]); const n = Number(t.replace(/[^0-9.]/g, '')) * (/K$/.test(t) ? 1e3 : /M$/.test(t) ? 1e6 : 1); return Math.abs(n - want) <= Math.max(1, want * 0.02); })() && /pair price/.test(r[0]), rows); }
+    const il = T(el.querySelector('[data-illiquid]')); const dep = mk.days[last].pyroar_pair_depth_usd; const sv = PPL.sellable(want, dep);
+    ok(`pyROAR (a cw20 the catalog does not carry) read live: 7.15B × $${px} = ${PPL.fmt.usd(want)} on paper — but its pair holds ${PPL.fmt.usd(dep)}: shown as ILLIQUID, would fetch ≈ ${PPL.fmt.usd(sv.fetch_usd)}, not a table row`, !rows.some(x => /^pyROAR/.test(x[0])) && /Illiquid/.test(il) && /7\.15B|7,150/.test(il) && il.includes('≈ ' + f$(sv.fetch_usd)) && il.includes(f$(want)) && sv.illiquid, il || rows);
+    const liq = T(el.querySelector('tfoot')); const liqN = Number(liq.replace(/[^0-9.]/g, ''));
+    ok(`the liquid total (${liq}) leaves the illiquid pyROAR out`, /Liquid total/.test(liq) && liqN > 0 && liqN < want, liq); }
   ok('a cw20 held in the catalog (ampLUNA) is read live and not double-counted with the feed', rows.filter(x => /^ampLUNA/.test(x[0])).length <= 1);
   ok('tokens with no price are LISTED by name / denom with their amount (not just counted)', /with no price in our catalog/.test(txt) && /uWHATEVER/.test(txt), txt.slice(-400));
   ok('every row shown is ≥ $2; the rest folds into one "under $2" line', rows.every(r => { const v = Number(String(r[2]).replace(/[^0-9.]/g, '')); return !(v < 2); }) && /under \$2/.test(txt), txt.slice(0, 300)); }
@@ -180,12 +193,12 @@ console.log('— P14 vote allocations (3.4): will earn vs could earn — one eng
 console.log('— P15 LP positions (3.5): P&L incl. rewards, APR earned, LP since entry (take-rate top-up / amplifier compounding) —');
 { const RYAN = 'terra1ksk66lcvzwaanc47nvn3athj4yzcpay8z8ru04'; const Lr = ledgerOf(RYAN);
   if (!Lr || !Lr.v3) console.log('  (no v3 ledger for the Lion DAO ops wallet in PNL_OUT — P15 skipped)');
-  else { const Dr = PPL.decode(Lr.v3); const exp = Dr.positions.filter(p => p.deposits || p.withdraws);
+  else { const Dr = recOf(Lr, RYAN); const exp = Dr.positions.filter(p => p.deposits || p.withdraws);
     const w = await run(RYAN); const d = w.document; const rows = [...d.querySelectorAll('[data-pp="positions"] tbody tr[data-pp-row]')]; const byRow = (r) => exp[Number(r.getAttribute('data-pp-row'))];
     if (!exp.some(p => p.open_lp)) console.log('  (these ledgers predate pnl-positions 1.1.0 — no open_lp yet; the drag / compounding checks run after the PNL=force build)');
     else { const drag = rows.map(r => [r, byRow(r)]).filter(([, p]) => p.units_open > 0 && p.open_lp && p.open_lp.take_rate && p.open_lp.take_rate.usd > 1);
     ok(`non-amplified open positions show the take rate's drag and the top-up (${drag.length}): ${drag.map(([, p]) => p.name + ' −' + (p.open_lp.take_rate.pct * 100).toFixed(1) + '% · top up ' + PPL.fmt.usd(p.open_lp.take_rate.usd)).join(' · ')}`, drag.length > 0 && drag.every(([r, p]) => T(r).includes('top up ' + PPL.fmt.usd(p.open_lp.take_rate.usd)) && T(r).includes('−' + (p.open_lp.take_rate.pct * 100).toFixed(1) + '% LP')));
-    const amp = rows.map(r => [r, byRow(r)]).filter(([, p]) => p.units_open > 0 && p.open_lp && p.open_lp.amp_growth);
+    const amp = rows.map(r => [r, byRow(r)]).filter(([, p]) => p.units_open > 0 && !p.moved && p.open_lp && p.open_lp.amp_growth);   /* 3.7: a receipt that left the wallet shows no LP cell */
     ok(`amplified open positions show what compounding added (${amp.length})`, amp.length > 0 && amp.every(([r, p]) => T(r).includes('+' + (p.open_lp.amp_growth.pct * 100).toFixed(1) + '% LP'))); }
     let aprOk = 0, aprN = 0; for (const r of rows) { const p = byRow(r); const S = PPL.posStats(p, false); if (S.apr == null) continue; aprN++; if (T(r).includes((S.apr * 100).toFixed(1) + '%') && T(r).includes(PPL.fmt.usd(S.pnl, true))) aprOk++; }
     ok(`every row with a measurable APR shows it with its P&L incl. rewards (${aprOk}/${aprN})`, aprN > 5 && aprOk === aprN);
@@ -194,11 +207,11 @@ console.log('— P15 LP positions (3.5): P&L incl. rewards, APR earned, LP since
     ok(`bucket P&L subtotals add to the positions' P&L (${bucketSum.toFixed(0)} vs ${pnlAll.toFixed(0)})`, Math.abs(bucketSum - pnlAll) <= Math.max(2, Math.abs(pnlAll) * 0.002)); } }
 console.log('— P16 the all-LPs total (3.5.1) and dust —');
 { const w = await run(OWNER); const d = w.document; const tot = d.querySelector('[data-pp="positions-total"]');
-  const exp = D0.positions.filter(p => (p.deposits || p.withdraws) && !p.disputed).map(p => PPL.posStats(p, false));
+  const exp = R0.positions.filter(p => (p.deposits || p.withdraws) && !p.disputed).map(p => PPL.posStats(p, false));
   const pnl = exp.reduce((a, S) => a + (S.pnl || 0), 0), inn = exp.reduce((a, S) => a + S.inV, 0);
   ok(`a large total under the table: P&L ${PPL.fmt.usd(pnl, true)} · put in ${PPL.fmt.usd(inn)} — the positions summed`, !!tot && T(tot).includes(PPL.fmt.usd(pnl, true)) && T(tot).includes(PPL.fmt.usd(inn)), T(tot));
-  const rows = [...d.querySelectorAll('[data-pp="positions"] tbody tr[data-pp-row]')]; const exp2 = D0.positions.filter(p => p.deposits || p.withdraws);
-  const dustOpen = rows.filter(r => { const p = exp2[Number(r.getAttribute('data-pp-row'))]; return !r.hasAttribute('data-pp-closed') && p.units_open > 0 && p.open_value_usd != null && p.open_value_usd < 1; });
+  const rows = [...d.querySelectorAll('[data-pp="positions"] tbody tr[data-pp-row]')]; const exp2 = R0.positions.filter(p => p.deposits || p.withdraws);
+  const dustOpen = rows.filter(r => { const p = exp2[Number(r.getAttribute('data-pp-row'))]; return !r.hasAttribute('data-pp-closed') && p.units_open > 0 && !p.custody && p.open_value_usd != null && p.open_value_usd < 1; });
   ok('no position worth under $1 sits in the open book', dustOpen.length === 0, dustOpen.map(r => T(r).slice(0, 40))); }
 console.log('— P17 other Cosmos chains (3.6): linked address per wallet, tokens + staked + rewards to claim, priced by the catalog —');
 { const CA = 'cosmos1examplexxxxxxxxxxxxxxxxxxxxxxxxxxxxx', IA = 'inj1examplexxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
@@ -212,4 +225,50 @@ console.log('— P17 other Cosmos chains (3.6): linked address per wallet, token
   ok('Injective (link-only, 18 decimals): 3 INJ read and priced', /INJ/.test(t) && /3\.00 liquid/.test(t), t.slice(0, 400));
   const w2 = await run('terra1ksk66lcvzwaanc47nvn3athj4yzcpay8z8ru04', { chain }); await new Promise(r => setTimeout(r, 1200));
   ok('links are per wallet: another wallet does not inherit this wallet\'s cosmos1… link', !/13 liquid/.test(T(w2.document.getElementById('sibling-chains')))); }
+console.log('— P18 trust (3.7): the ledger\'s open lots checked against the chain read — receipts that left the wallet —');
+{ const moved = R0.positions.filter(p => p.moved); const byName = (n, mech) => moved.find(p => p.name === n && p.mechanism === mech);
+  ok(`owner: wBTC.osmo-wBTC.axl (amp, receipt sent to another address 2026-03-06) and ampCAPA (amp, receipt staked in the DAO) are no longer in the wallet per the chain read — ${moved.length} flagged (${moved.map(p => p.name + ' ' + PPL.fmt.usd(p.moved.ledger_usd)).join(', ')})`, !!byName('wBTC.osmo-wBTC.axl', 'amplified') && !!byName('ampCAPA', 'amplified') && moved.every(p => p.moved.ledger_usd >= 1));
+  const t0 = L0.v3.totals.open, t1 = R0.totals.open; const mv = moved.filter(p => !p.moved.built_out).reduce((a, p) => a + p.open_value_usd, 0);   /* a build with not_held (pnl 1.2.3) already left them out */
+  ok(`Open now drops by exactly what moved out: ${PPL.fmt.usd(t0.value_usd)} − ${PPL.fmt.usd(mv)} = ${PPL.fmt.usd(t1.value_usd)}; net moves by the same lots' unrealized`, Math.abs(t0.value_usd - mv - t1.value_usd) < 0.01 && Math.abs((L0.v3.totals.net_usd - R0.totals.net_usd) - moved.filter(p => !p.moved.built_out).reduce((a, p) => a + (p.open_value_usd - (p.open_cost_usd || 0)), 0)) < 0.01);
+  const w = await run(OWNER); const d = w.document; const tab = T(d.getElementById('pp-positions'));
+  const rowOf = (n) => [...d.querySelectorAll('[data-pp="positions"] tbody tr[data-pp-row]')].find(r => T(r).startsWith(n) && /amp /.test(T(r)));
+  ok('the two rows say "⚠ not in this wallet" and "moved out · not counted"', ['wBTC.osmo-wBTC.axl', 'ampCAPA'].every(n => { const r = rowOf(n); return r && /not in this wallet/.test(T(r)) && /moved out/.test(T(r)) && /not counted/.test(T(r)); }), ['wBTC.osmo-wBTC.axl', 'ampCAPA'].map(n => T(rowOf(n)).slice(0, 160)));
+  const flag = T(d.querySelector('[data-pp="flags"]'));
+  ok(`the hero says ${moved.length} position(s) are no longer in this wallet (${PPL.fmt.usd(R0.reconciled.moved_usd)} left out of Open now)`, flag.includes(moved.length + ' position') && /no longer in this wallet/.test(flag) && flag.includes(PPL.fmt.usd(R0.reconciled.moved_usd)), flag);
+  const tot = T(d.querySelector('[data-pp="positions-total"]')); const openNow = R0.positions.filter(p => !p.disputed).map(p => PPL.posStats(p, false)).reduce((a, S) => a + (S.open ? S.openV : 0), 0);
+  ok(`the all-LPs "Open now" = ${PPL.fmt.usd(openNow)} (nothing moved out counted)`, tot.includes(PPL.fmt.usd(openNow)), tot); }
+
+console.log('— P19 custody (3.7): the ampCAPA receipt staked in the DAO counts at its live value —');
+{ const cs = J(path.join(CORE, 'token-catalog/supply/capa/wallets.json')); const me = (cs.wallets || cs.rows || Object.values(cs).find(Array.isArray) || []).find(x => x.address === OWNER);
+  const power = me.raw.dao_power, rate = cs.rates.compounder_ampcapa_per_receipt; const cat = J(path.join(CORE, 'token-catalog/snapshots/current.json'));
+  const AD = 'factory/terra186rpfczl7l2kugdsqqedegl4es4hp624phfc7ddy8my02a4e8lgq5rlx7y/ampCAPA'; const tk = cat.tokens.find(x => x.denom === AD); const px = tk.prices.tla && tk.prices.tla.usd || tk.prices.coingecko.usd;
+  const liveUsd = power * rate * px;
+  const smart = { terra1juj3ymejnug9p92upphcq0prq4e0hpw6rcu20njf8tk7n9sl2wxqldr0mt: (q) => q.staked_balance_at_height ? { balance: String(Math.round(power * 1e6)), height: 1 } : undefined,
+    terra1zly98gvcec54m3caxlqexce7rus6rzgplz7eketsdz7nh750h2rqvu8uzx: (q) => q.exchange_rates ? [{ exchange_rates: [[205, { exchange_rate: String(rate) }]] }] : undefined };
+  const w = await run(OWNER, { smart }); const d = w.document; for (let i = 0; i < 20 && !d.querySelector('[data-pp="custody"]'); i++) await new Promise(r => setTimeout(r, 250));
+  const lu = null; const Rc = recOf(L0, OWNER, [{ pool: 'native:' + AD, mech: 'amplified', usd: liveUsd, luna: null, where: 'the ampCAPA DAO' }]);
+  const pc = Rc.positions.find(p => p.custody); const row = [...d.querySelectorAll('[data-pp="positions"] tbody tr[data-pp-row]')].find(r => /^ampCAPA/.test(T(r)) && /in the ampCAPA DAO/.test(T(r)));
+  ok(`DAO stake ${power.toLocaleString('en-US')} receipts × ${rate.toFixed(4)} ampCAPA × $${px.toPrecision(3)} = ${PPL.fmt.usd(liveUsd)} (the capa-supply product reads ${PPL.fmt.usd(me.capa_equiv.receipt_dao * cat.tokens.find(x => x.denom === 'terra1t4p3u8khpd7f8qzurwyafxt648dya6mp6vur3vaapswt6m24gkuqrfdhar').prices.tla.usd)}) — the ampCAPA row: "in the ampCAPA DAO", Open now at the live value, not "moved"`, row && T(row).includes(PPL.fmt.usd(liveUsd)) && !/moved out/.test(T(row)), row ? T(row).slice(0, 200) : 'no custody row');
+  const info = T(d.querySelector('[data-pp="custody"]'));
+  ok(`the hero explains it: staked in the ampCAPA DAO, ${PPL.fmt.usd(pc.custody.untracked_usd)} of it with no cost basis kept out of the P&L`, /ampCAPA DAO/.test(info) && info.includes(PPL.fmt.usd(pc.custody.untracked_usd)) && /no cost basis/.test(info), info);
+  ok(`net = ${money(Rc.totals.net_usd)}: the ledger's own lots stay in the P&L, the untracked part does not`, T(d.querySelector('[data-pp="net"]')) === money(Rc.totals.net_usd) && Math.abs(Rc.totals.open.value_usd - (R0.totals.open.value_usd + liveUsd)) < 0.02, [T(d.querySelector('[data-pp="net"]')), Rc.totals.open.value_usd]); }
+
+console.log('— P20 idle LP (3.7): LP tokens in the wallet, not staked in TLA — warned and valued —');
+{ const snap = J(path.join(CORE, 'member-data/tla-snapshot/current.json'));
+  const nat = snap.pools.find(p => !p.is_single && /^native:.*\/uLP$/.test(p.gauge_pool_id) && p.lp_health && Number(p.lp_health.total_share) > 0);
+  const cw = snap.pools.find(p => !p.is_single && /^cw20:/.test(p.gauge_pool_id) && p.lp_health && Number(p.lp_health.total_share) > 0);
+  const per = (p) => Number(p.lp_health.total_pool_usd) / Number(p.lp_health.total_share); const natRaw = 5e6, cwRaw = 2e6;
+  const bank = [{ denom: 'uluna', amount: '186000000' }, { denom: nat.gauge_pool_id.slice(7), amount: String(natRaw) }, { denom: 'factory/terra1zly98gvcec54m3caxlqexce7rus6rzgplz7eketsdz7nh750h2rqvu8uzx/44/single/amplp', amount: '1000000' }];
+  const w = await run(OWNER, { bank, cw20: { [cw.gauge_pool_id.slice(5)]: String(cwRaw) } }); await new Promise(r => setTimeout(r, 2500)); const el = w.document.getElementById('balances-table'); const idle = T(el.querySelector('[data-idle-lp]'));
+  const want = natRaw * per(nat) + cwRaw * per(cw);
+  ok(`${nat.name} (bank uLP) and ${cw.name} (cw20 LP) sitting in the wallet → the warning names both, says no TLA rewards, values them at the pool's USD per share (${PPL.fmt.usd(want)})`, idle.includes(nat.name) && idle.includes(cw.name) && /no TLA rewards/.test(idle) && /not staked in TLA/.test(idle) && idle.includes(f$(want)), idle.slice(0, 400));
+  const txt = T(el);
+  ok('an amplified receipt in the wallet is NOT idle: noted as in TLA, not listed as an unpriced token', /amplified receipt/.test(txt) && !/\bamplp\b/.test(T(el.querySelector('details') || { textContent: '' })), txt.slice(-300)); }
+
+console.log('— P21 APR honesty (3.7): no APR where a trip had no price —');
+{ const amp = R0.positions.find(p => p.name === 'ampCAPA' && p.mechanism === 'amplified'); const S = PPL.posStats(amp, false);
+  ok(`ampCAPA amp: ${amp.trips.filter(t => t.in_usd == null).length} of ${amp.trips.length} trips unpriced → APR blank (was inflated: rewards over part of the capital)`, amp.trips.some(t => t.in_usd == null) && S.apr == null);
+  const all = R0.positions.filter(p => (p.deposits || p.withdraws) && !p.disputed).map(p => PPL.posStats(p, false)); const n = all.filter(x => x.apr != null).length;
+  const w = await run(OWNER); const tot = T(w.document.querySelector('[data-pp="positions-total"]'));
+  ok(`the all-LPs APR says how many positions it covers (${n} of ${all.length} fully priced)`, tot.includes(n + ' of ' + all.length + ' positions fully priced'), tot); }
 console.log(`\n${pass}/${pass + fail} passed`); process.exit(fail ? 1 : 0);

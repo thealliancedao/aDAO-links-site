@@ -38,7 +38,7 @@
 <div id="site-header"></div>
 <script src="/lib/site-header.js"></script>
 <script src="/lib/address-picker.js"></script>
-<script src="/lib/portfolio-pnl.js?v=1.3.1"></script>   <!-- 3.0: the v3 P&L (story, value curve, positions + trips) -->
+<script src="/lib/portfolio-pnl.js?v=1.4.0"></script>   <!-- 3.0: the v3 P&L (story, value curve, positions + trips) -->
 <script src="/lib/winddown.js?v=1.0.0"></script>
 <script src="/lib/denoms.js?v=1.0.0"></script>
 <script src="/lib/vote-market.js?v=1.3.0"></script>   <!-- 3.4: THE vote-market engine — "your votes now earn" and "the best split earns" on the vote card, same model as the Vote Market page -->   <!-- 3.3: THE denom → symbol/decimals rule (the catalog's effective → discovered layer) -->   <!-- 3.0: winding-down assets (USDC.n) flagged on positions -->
@@ -729,7 +729,7 @@
 
         // banner + trend + income (P1)
         try { renderBanner(m); } catch (e) { console.warn('banner:', e); }
-        store._trendDeep = false; store._deepOffset = 0; store._ampcapaGovUsd = 0;
+        store._trendDeep = false; store._deepOffset = 0; store._ampcapaGovUsd = 0; store._ppRedraw = null;
         // P1.6 live claimable: fetch once per wallet per load (completion re-renders;
         // the wallet check below is the loop guard). 60s freshness window.
         if (!(store._liveClaim && store._liveClaim.wallet === wallet && (Date.now() - store._liveClaim.at) < 60000)) {
@@ -1484,11 +1484,25 @@
         if (store.wallet !== wallet) return true;
         const lens = store._ppLens || 'usd'; const setLens = (l) => { store._ppLens = l; draw(); };
         const pill = (pool) => { const a = wd && wd.forPool(pool); return a ? window.Winddown.pill(a, { short: true }) : ''; };
+        // 3.7 (owner 2026-09-28: ampCAPA + wBTC.osmo-wBTC.axl showed "open" — receipts that left the wallet by transfer): the ledger's
+        // open lots are reconciled with the hourly chain read (participants lp_positions = what is in this wallet now) and the live
+        // ampCAPA governance read (receipt staked in the DAO — still yours, counted at the live value). lib reconcile() does the math.
+        const D0 = JSON.stringify(D);
+        const liveNow = () => {
+            const m = store.members?.get ? store.members.get(wallet) : null;
+            const read = !!(m && Array.isArray(m.lp_positions));
+            const held = (pool, mech) => (m?.lp_positions || []).filter(l => l.pool_gauge_id === pool && (l.is_amplified ? 'amplified' : 'non_amplified') === mech).reduce((x, l) => x + (Number(l.estimated_position_usd) || 0), 0);
+            const custody = [];
+            const gu = store._ampcapaGovUsd || 0, lu = store.symPrice?.get('LUNA') || null;
+            if (gu > 0) custody.push({ pool: 'native:' + AMPCAPA_GOV.denom, mech: 'amplified', usd: gu, luna: lu ? gu / lu : null, where: 'the ampCAPA DAO' });
+            return { read, held, custody };
+        };
         const draw = () => { const L = store._ppLens || 'usd';
+            const D = window.PortfolioPnl.reconcile ? window.PortfolioPnl.reconcile(JSON.parse(D0), liveNow()) : JSON.parse(D0);
             window.PortfolioPnl.renderStory($('story-card'), D, { lens: L, onLens: setLens });
             const c = $('pp-curve'); c.hidden = false; window.PortfolioPnl.renderCurve(c, D, { lens: L, onLens: setLens });
             const pc = $('pp-positions-card'); pc.hidden = false; window.PortfolioPnl.renderPositions($('pp-positions'), D, { lens: L, onLens: setLens, nameOf: poolName, pill, bucketOf: poolBucket }); };
-        store._ppLens = lens; draw(); return true;
+        store._ppLens = lens; store._ppRedraw = () => { if (store.wallet === wallet) draw(); }; draw(); return true;
     }
     // 3.1 (2026-09-27): the NFT leg. Per collection: the wallet's by-wallet shard (nft-collections/<slug>/ledger/by-wallet/<last char>.json),
     // the latest floor row, the Phoenix tier from the registry (adao/collection.json tiers.phoenix — the page keeps no list of its own).
@@ -1746,8 +1760,23 @@
             // the ve3 amplified total, so the pool's staked figure IS the whole).
             const share = (usd != null && pool?.staked_in_tla_usd > 0) ? usd / pool.staked_in_tla_usd * 100 : null;
             const thr = pool?.voting_power?.pct_of_bucket != null ? pool.voting_power.pct_of_bucket - 1.0 : null;
+            // fold into totals (DeFi_Patriot 2026-08-03): LP tile + banner carry it,
+            // marked as live-read. Only when priced — never a guessed dollar.
+            if (usd != null) {
+                store._ampcapaGovUsd = usd;
+                try { store._ppRedraw && store._ppRedraw(); } catch (e) {}   // 3.7: the P&L reads the DAO stake as custody — redraw once it lands
+                const m = store.members.get(store.wallet);
+                const tl = $('tile-lp');
+                if (tl && m) {
+                    tl.innerHTML = `<span title="Positions-feed LP ${fmt$(m.summary?.total_lp_position_usd || 0)} + ampCAPA gov ${fmt$(usd)} (live chain read)">${fmt$((m.summary?.total_lp_position_usd || 0) + usd)}<span class="text-[8px] text-gray-500 align-super">*</span></span>`;
+                    const sub = $('tile-lp-sub'); if (sub) sub.innerHTML += ' · + gov';
+                }
+                try { renderBanner(m); } catch (e) {}
+            }
+            // 3.7: the value is recorded (tile, banner, P&L custody) BEFORE the table row — a wallet whose LP table is empty or not drawn
+            // (every receipt in the DAO, nothing else in TLA) used to lose the whole stake here
             const tbody = $('lp-table') && $('lp-table').querySelector('tbody');
-            if (!tbody || tbody.querySelector('[data-ampcapa-gov]')) return;
+            if (tbody && !tbody.querySelector('[data-ampcapa-gov]')) {
             const tr = document.createElement('tr');
             tr.setAttribute('data-ampcapa-gov', '1');
             tr.innerHTML = `
@@ -1758,19 +1787,7 @@
                 <td class="text-right mono text-gray-400">${share != null ? `<span title="Your ampCAPA value over ALL ampCAPA staked in TLA (${fmt$(pool.staked_in_tla_usd)}) — non-amplified + amplified; gov-staked receipts remain inside the amplified total, so this denominator is the whole pool.">${share.toFixed(2)}%</span>` : '—'}</td>
                 <td class="text-right mono ${base != null ? 'text-emerald-400' : 'text-gray-500'}">${base != null ? `<span title="TLA amplified ampCAPA reward APR — the same chain-distributions figure the other rows use (${base.toFixed(2)}% base; ≈${amp.toFixed(1)}% amplified auto-compound estimate). Your gov-staked receipt is an amplified position, so the amplified figure applies."><span class="text-gray-500">${base.toFixed(0)}%</span><span class="text-gray-600">/</span><span class="text-purple-300">≈${amp.toFixed(0)}%</span></span>` : '—'}</td>
                 <td class="text-right mono ${thr != null && thr < 0.5 ? 'text-amber-300' : 'text-gray-500'}" title="Pool-level distance above the 1% bucket-vote threshold (this is the whole pool's vote position, not just yours).">${thr != null ? (thr >= 0 ? '+' : '') + thr.toFixed(1) + 'pp' : '—'}</td>`;
-            tbody.appendChild(tr);
-            // fold into totals (DeFi_Patriot 2026-08-03): LP tile + banner carry it,
-            // marked as live-read. Only when priced — never a guessed dollar.
-            if (usd != null) {
-                store._ampcapaGovUsd = usd;
-                const m = store.members.get(store.wallet);
-                const tl = $('tile-lp');
-                if (tl && m) {
-                    tl.innerHTML = `<span title="Positions-feed LP ${fmt$(m.summary?.total_lp_position_usd || 0)} + ampCAPA gov ${fmt$(usd)} (live chain read)">${fmt$((m.summary?.total_lp_position_usd || 0) + usd)}<span class="text-[8px] text-gray-500 align-super">*</span></span>`;
-                    const sub = $('tile-lp-sub'); if (sub) sub.innerHTML += ' · + gov';
-                }
-                try { renderBanner(m); } catch (e) {}
-            }
+            tbody.appendChild(tr); }
         } catch (e) { console.warn('ampCAPA gov read:', e.message); /* unknown ≠ zero — show nothing */ }
     }
 
@@ -1938,8 +1955,17 @@
             const ten = await fetch(CONFIG.tenantsUrl + '?t=' + Math.floor(Date.now() / 36e5)).then(r => r.ok ? r.json() : null).catch(() => null);
             for (const tn of Object.values(ten?.tenants || {})) for (const k of (tn.known_cw20s || [])) { const a = String(k.denom || '').replace(/^cw20:/, ''); if (/^terra1[0-9a-z]{58}$/.test(a) && !seen.has(a)) { seen.add(a); cw20.push({ addr: a, sym: k.symbol || null, dec: k.decimals ?? 6, registry: true }); } }
         } catch (e) {}
-        let pyroarUsd = null;
-        if (cw20.some(c => c.sym === 'pyROAR')) { try { const mk = await fetch(CONFIG.lionMarketsUrl + '?t=' + Math.floor(Date.now() / 36e5)).then(r => r.ok ? r.json() : null); const days = mk?.days || {}; const last = Object.keys(days).sort().pop(); pyroarUsd = last ? (days[last].pyroar_usd ?? null) : null; } catch (e) {} }
+        // 3.7 (owner: "warn people they have LP that isn't in TLA — just liquid liquidity"): every TLA pool's LP token, from the live snapshot.
+        // An LP token sitting in the wallet earns the pool's swap fees but NO TLA rewards or bribes. Valued at the pool's own USD per share.
+        const lpTok = new Map();   // denom or cw20 addr → { name, usdPerRaw, bucket }
+        for (const pl of (store.feeds?.snap?.pools || [])) {
+            if (pl.is_single) continue; const g = String(pl.gauge_pool_id || ''); const key = g.startsWith('native:') ? g.slice(7) : g.startsWith('cw20:') ? g.slice(5) : null; if (!key) continue;
+            const h = pl.lp_health || {}; const per = Number(h.total_pool_usd) > 0 && Number(h.total_share) > 0 ? Number(h.total_pool_usd) / Number(h.total_share) : null;
+            lpTok.set(key, { name: pl.name || key.slice(0, 12), usdPerRaw: per, bucket: pl.bucket || null });
+            if (g.startsWith('cw20:') && /^terra1[0-9a-z]{58}$/.test(key) && !cw20.some(c => c.addr === key)) cw20.push({ addr: key, sym: null, dec: 6, lp: true });
+        }
+        let pyroarUsd = null, pyroarDepth = null;
+        if (cw20.some(c => c.sym === 'pyROAR')) { try { const mk = await fetch(CONFIG.lionMarketsUrl + '?t=' + Math.floor(Date.now() / 36e5)).then(r => r.ok ? r.json() : null); const days = mk?.days || {}; const last = Object.keys(days).sort().pop(); pyroarUsd = last ? (days[last].pyroar_usd ?? null) : null; pyroarDepth = last ? (days[last].pyroar_pair_depth_usd ?? null) : null; } catch (e) {} }
         const b64q = (q) => btoa(JSON.stringify(q));
         const cwBal = new Map(); let cwFailed = 0;
         for (let i = 0; i < cw20.length; i += 4) await Promise.all(cw20.slice(i, i + 4).map(async (c) => { try { const j = await lcdGet(`/cosmwasm/wasm/v1/contract/${c.addr}/smart/${b64q({ balance: { address: wallet } })}`); const raw = Number(j?.data?.balance || 0); if (raw > 0) cwBal.set(c.addr, raw); } catch (e) { cwFailed++; } }));
@@ -1952,8 +1978,13 @@
             rows.set(sym, cur);
         };
         let unpricedLive = 0; const unpricedList = [];   // 3.6: listed, not just counted
+        const idleLp = [], receipts = [];   // 3.7
         if (live) {
             for (const b of live) {
+                const lt = lpTok.get(b.denom);
+                if (lt) { idleLp.push({ name: lt.name, bucket: lt.bucket, amount: Number(b.amount) / 1e6, usd: lt.usdPerRaw != null ? Number(b.amount) * lt.usdPerRaw : null, full: b.denom, tla: true }); continue; }
+                if (/\/uLP$/.test(b.denom)) { idleLp.push({ name: 'LP of a pool that is not a TLA gauge', amount: Number(b.amount) / 1e6, usd: null, full: b.denom, tla: false }); continue; }
+                if (/\/amplp$/.test(b.denom)) { receipts.push({ full: b.denom, amount: Number(b.amount) / 1e6 }); continue; }   // amplified receipts ARE in TLA (the compounder stakes the LP) — shown in LP positions
                 const cp = store.catalogPrices.get(b.denom) || store.catalogPrices.get('native:' + b.denom);
                 const sym = (() => {
                     const t = String(b.denom).split('/').pop();
@@ -1968,7 +1999,8 @@
             }
         }
         // 3.6: the live cw20 reads (the feed's two cw20s are the same balance — the live read wins, as for bank tokens)
-        for (const c of cw20) { const raw = cwBal.get(c.addr); if (!raw) continue; const amt = raw / Math.pow(10, c.dec); const cp = store.catalogPrices.get(c.addr) || store.catalogPrices.get('cw20:' + c.addr);
+        for (const c of cw20) { const raw = cwBal.get(c.addr); if (!raw) continue; const amt = raw / Math.pow(10, c.dec);
+            if (c.lp) { const lt = lpTok.get(c.addr); idleLp.push({ name: lt?.name || c.addr.slice(0, 12), bucket: lt?.bucket || null, amount: amt, usd: lt?.usdPerRaw != null ? raw * lt.usdPerRaw : null, full: c.addr, tla: true }); continue; } const cp = store.catalogPrices.get(c.addr) || store.catalogPrices.get('cw20:' + c.addr);
             const usd = cp ? amt * cp.usd : (c.sym === 'pyROAR' && pyroarUsd != null ? amt * pyroarUsd : null); const sym = c.sym || (cp && cp.symbol) || c.addr.slice(0, 12) + '…';
             if (usd == null) { unpricedList.push({ sym, full: c.addr, amount: amt, known: !!c.sym }); continue; }
             add(sym, amt, usd, c.sym === 'pyROAR' && !cp ? 'cw20-lion' : 'cw20'); }
@@ -1981,16 +2013,35 @@
             if (cur && (cur.srcs.has('live') || cur.srcs.has('cw20') || cur.srcs.has('cw20-lion'))) { /* 3.6: a live cw20 read is the same balance as the feed's, never added twice */ if ((b.amount_human || 0) > cur.amount) { cur.amount = b.amount_human; cur.usd = b.usd_value || cur.usd; } cur.srcs.add('feed'); }
             else add(sym, b.amount_human || 0, b.usd_value ?? null, 'feed');
         }
+        // 3.7 (owner: "pyROAR — no way you could sell that much and not destroy the price … warn, and keep it out of the totals"):
+        // a token with no outside market (no CoinGecko price in the catalog) whose holding is large against its deepest known pool is
+        // ILLIQUID: shown with what it would actually fetch sold into that pool (constant product, lib sellable()), kept out of the total.
+        const cgSyms = new Set(); for (const t of (store.catalog?.tokens || [])) if (t?.prices?.coingecko?.usd > 0) { const sy = (window.Denoms && Denoms.symbol(t.denom)) || t.discovered?.symbol; if (sy) cgSyms.add(sy); }
+        const depthBy = new Map(); for (const pl of (store.feeds?.snap?.pools || [])) { const h = pl.lp_health || {}; const d = Number(h.total_pool_usd); if (!(d > 0)) continue; for (const a of [h.asset_0, h.asset_1]) if (a?.symbol) depthBy.set(a.symbol, Math.max(depthBy.get(a.symbol) || 0, d)); }
+        if (pyroarDepth > 0) depthBy.set('pyROAR', pyroarDepth);
+        const illiquid = [];
+        for (const r of [...rows.values()]) { if (!(r.usd > 0) || cgSyms.has(r.sym) || r.sym === 'LUNA') continue; const d = depthBy.get(r.sym); const sv = d && window.PortfolioPnl?.sellable ? window.PortfolioPnl.sellable(r.usd, d) : null; if (sv && sv.illiquid) { illiquid.push(Object.assign({}, r, { sell: sv })); rows.delete(r.sym); } }
         const all = [...rows.values()].sort((a, b) => (b.usd || 0) - (a.usd || 0));
         const DUST_USD = 2;   // 3.3 (owner): balances under $2 fold into one line
         const isDust = (r) => (r.usd != null && r.usd < DUST_USD) || /^zluna/i.test(r.sym);
+        const liquidTotal = all.reduce((x, r) => x + (r.usd || 0), 0);
+        const idleUsd = idleLp.reduce((x, l) => x + (l.usd || 0), 0);
         const main = all.filter(r => !isDust(r));
         const dust = all.filter(isDust);
         const dustUsd = dust.reduce((x, r) => x + (r.usd || 0), 0);
-        el.innerHTML = (main.length || dust.length) ? `
+        el.innerHTML = (main.length || dust.length || idleLp.length || illiquid.length) ? `
             <table class="data-table"><thead><tr><th>Token</th><th class="text-right">Amount</th><th class="text-right">Value</th></tr></thead><tbody>
             ${main.map(r => `<tr><td class="font-medium">${esc(r.sym)}${r.srcs.has('cw20-lion') ? ' <span class="text-[8px] px-1 py-px rounded bg-amber-500/20 text-amber-300" title="Not in the token catalog — priced from the Lion DAO markets product: the pyROAR pair × ROAR, today">pair price</span>' : ''}${(r.srcs.has('live') || r.srcs.has('cw20') || r.srcs.has('cw20-lion')) && !r.srcs.has('feed') ? ' <span class="text-[8px] px-1 py-px rounded bg-cyan-500/20 text-cyan-300" title="Found by the live bank scan — not in the positions feed\u2019s token set.">live</span>' : ''}</td><td class="text-right mono text-gray-300">${fmtNum(r.amount)}</td><td class="text-right mono ${r.usd != null ? 'text-amber-300/90' : 'text-gray-600'}">${r.usd != null ? fmt$(r.usd) : 'unpriced'}</td></tr>`).join('')}
-            </tbody></table>
+            </tbody><tfoot><tr><td class="font-semibold text-gray-300 pt-2">Liquid total</td><td></td><td class="text-right mono font-semibold text-amber-200 pt-2" title="Every priced balance above, dust included. Illiquid tokens and LP tokens are NOT in this figure — see below.">${fmt$(liquidTotal)}</td></tr></tfoot></table>
+            ${idleLp.length ? `<div data-idle-lp class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2">
+                <div class="text-[11px] font-semibold text-amber-300">⚠ LP tokens sitting in your wallet — not staked in TLA${idleUsd > 0 ? ' · ' + fmt$(idleUsd) : ''}</div>
+                <div class="text-[10.5px] text-gray-400 mt-0.5">These still earn the pool's swap fees, but <b>no TLA rewards and no bribes</b> — the liquidity is idle as far as TLA goes. Stake them in TLA (or withdraw them from the pool) to put them to work.</div>
+                <div class="mt-1 grid grid-cols-[1fr_auto_auto] gap-x-3 text-[10.5px]">${idleLp.sort((a, b) => (b.usd || 0) - (a.usd || 0)).map(l => `<span class="text-gray-200 truncate" title="${esc(l.full)}">${esc(l.name)}${l.bucket ? ` <span class="text-gray-500">${esc(l.bucket)}</span>` : ''}${l.tla ? '' : ' <span class="text-gray-500">(not a TLA gauge)</span>'}</span><span class="mono text-gray-400">${fmtNum(l.amount)} LP</span><span class="mono text-amber-300/90">${l.usd != null ? fmt$(l.usd) : '—'}</span>`).join('')}</div></div>` : ''}
+            ${illiquid.length ? `<div data-illiquid class="mt-2 rounded-lg border border-rose-500/25 bg-rose-500/[0.05] px-3 py-2">
+                <div class="text-[11px] font-semibold text-rose-300">Illiquid — not counted in your totals</div>
+                <div class="text-[10.5px] text-gray-400 mt-0.5">The pool is too shallow to sell this much: the price on paper is not money you could take out. "Would fetch" = selling all of it into its deepest known pool at once (constant-product estimate, before fees).</div>
+                <div class="mt-1 grid grid-cols-[1fr_auto_auto_auto] gap-x-3 text-[10.5px]"><span class="text-gray-500">Token</span><span class="text-gray-500 text-right">On paper</span><span class="text-gray-500 text-right">Pool depth</span><span class="text-gray-500 text-right">Would fetch</span>${illiquid.map(r => `<span class="text-gray-200">${fmtNum(r.amount)} ${esc(r.sym)}</span><span class="mono text-gray-500 text-right line-through">${fmt$(r.usd)}</span><span class="mono text-gray-400 text-right">${fmt$(r.sell.depth_usd)}</span><span class="mono text-rose-200 text-right" title="${(r.sell.impact * 100).toFixed(0)}% price impact">≈ ${fmt$(r.sell.fetch_usd)}</span>`).join('')}</div></div>` : ''}
+            ${receipts.length ? `<div class="text-[10px] text-gray-500 mt-1.5" title="${esc(receipts.map(r => r.full).join(' · '))}">${receipts.length} TLA amplified receipt${receipts.length === 1 ? '' : 's'} in the wallet — these are in TLA (the amplifier stakes the LP) and are valued in LP positions, not here.</div>` : ''}
             ${dust.length ? `<div class="text-[10px] text-gray-600 mt-1.5" title="${esc(dust.map(r => `${fmtNum(r.amount)} ${r.sym}`).join(' · '))}">+ ${dust.length} balance${dust.length === 1 ? '' : 's'} under $2 (dust &amp; zLUNA receipts) · ${fmt$(dustUsd)} — hover to see them</div>` : ''}
             ${unpricedList.length ? `<details class="mt-1"><summary class="text-[10px] text-gray-500 cursor-pointer">${unpricedList.length} token${unpricedList.length === 1 ? '' : 's'} with no price in our catalog — held, just not valued (not guessed) ▸</summary>
                 <div class="mt-1 grid grid-cols-2 gap-x-4 text-[10.5px]">${unpricedList.sort((a, b) => (b.known - a.known) || (b.amount - a.amount)).map(u => `<div class="flex justify-between gap-2" title="${esc(u.full)}"><span class="${u.known ? 'text-gray-300' : 'text-gray-500'} truncate">${esc(u.sym)}</span><span class="mono text-gray-400">${fmtNum(u.amount)}</span></div>`).join('')}</div></details>` : ''}
@@ -2315,6 +2366,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '3.6', revDate: '2026-09-28', page: 'member-portfolio' });   // 3.6: wallet balances read every cw20 live (catalog + the registry's known_cw20s — pyROAR priced from its pair × ROAR, labelled); tokens with no price listed, not just counted; other Cosmos chains priced where the catalog knows the token, every token counted, Injective (link your inj1…), links kept per wallet · 3.5.1: all-LPs total under the positions table; dust (< $1) folds with the closed · 3.5: LP positions by bucket — in / out / open / P&L incl. rewards / APR earned / LP since entry (take-rate drag + top-up, amplifier compounding; tla-flows pnl-positions 1.1.0), closed folded · 3.4: vote card — what the votes WILL earn at the close vs what the best split COULD (lib/vote-market.js, the Vote Market page's model with Votion's move solved in), per bucket and in total · 3.3: vote allocations — expected bribes at the epoch close (per vote + total), pools with no bribes flagged, a simulate → link per vote and to the Vote Market; each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
+<script>SiteFooter.mount({ rev: '3.7', revDate: '2026-09-28', page: 'member-portfolio' });   // 3.7: trust pass — the P&L's open lots checked against the hourly chain read: a receipt staked in the ampCAPA DAO counts at its live value (P&L only on the part with a known cost), one sent to another address is flagged "not in this wallet" and left out of Open now; APR left blank where a trip had no price (never inflated); LP tokens idle in the wallet (no TLA rewards) warned and valued; illiquid tokens (pyROAR) shown with what they would actually fetch and kept out of the new liquid total · 3.6: wallet balances read every cw20 live (catalog + the registry's known_cw20s — pyROAR priced from its pair × ROAR, labelled); tokens with no price listed, not just counted; other Cosmos chains priced where the catalog knows the token, every token counted, Injective (link your inj1…), links kept per wallet · 3.5.1: all-LPs total under the positions table; dust (< $1) folds with the closed · 3.5: LP positions by bucket — in / out / open / P&L incl. rewards / APR earned / LP since entry (take-rate drag + top-up, amplifier compounding; tla-flows pnl-positions 1.1.0), closed folded · 3.4: vote card — what the votes WILL earn at the close vs what the best split COULD (lib/vote-market.js, the Vote Market page's model with Votion's move solved in), per bucket and in total · 3.3: vote allocations — expected bribes at the epoch close (per vote + total), pools with no bribes flagged, a simulate → link per vote and to the Vote Market; each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
 </body>
 </html>
