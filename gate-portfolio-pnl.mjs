@@ -2,7 +2,7 @@
 // gate-portfolio-pnl.mjs — member-portfolio 4.0 + lib/portfolio-pnl.js 2.0.0 + lib/portfolio-chart.js + lib/token-logos.js on REAL data (jsdom, the page's own script).
 //   4.0: P2 the combined P&L (sources, drivers add to the net) · P26 the chart (history series) · P27 net worth (backing vs floor, liquid, staked, claimable everywhere)
 //   · P28 locks (lock history P&L conserves every dollar; age / LUNA / decay) · P29 sources switch off · P30 alerts (decay, unstaking, authz, unbonding, pfp)
-//   · P31 Tokens lens + unpriced + logos · P32 income = the P&L's bribes, Credia card. OVERLAY_DIR serves products not on main yet (the history series).
+//   · P31 Tokens lens + unpriced + logos · P32 income = the P&L's bribes, Credia card · P33 Solid card / net worth / alert / chart (PCRONS_DIR). OVERLAY_DIR serves products not on main yet (the history series).
 // Inputs: a tla-core checkout (every feed the page reads) and a build-pnl v3 output dir (tla-flows/pnl/…) — until the weekly
 // build has published v3 on main, the gate points the page's ledger/rollup fetches at a local build of the same code (tla-flows 3.5.0).
 // Expected values are read from the ledger file itself — the page must show THE ledger's numbers, not recompute them.
@@ -260,7 +260,8 @@ console.log('— P18 trust (3.7): the ledger\'s open lots checked against the ch
   const w = await run(OWNER); const d = w.document; const tab = T(d.getElementById('pp-positions'));
   const rowOf = (n) => [...d.querySelectorAll('[data-pp="positions"] tbody tr[data-pp-row]')].find(r => T(r).startsWith(n) && /amp /.test(T(r)));
   const movedNames = moved.map(p => p.name);
-  ok(`the moved row${movedNames.length === 1 ? '' : 's'} say "⚠ not in this wallet" and "moved out · not counted"${ampHeld ? '; ampCAPA reads "in the ampCAPA DAO", never moved' : ''}`, movedNames.every(n => { const r = rowOf(n); return r && /not in this wallet/.test(T(r)) && /moved out/.test(T(r)) && /not counted/.test(T(r)); }) && (!ampHeld || (/in the ampCAPA DAO/.test(T(rowOf('ampCAPA'))) && !/moved out/.test(T(rowOf('ampCAPA'))))), movedNames.concat(['ampCAPA']).map(n => T(rowOf(n)).slice(0, 160)));
+  ok(`the moved row${movedNames.length === 1 ? '' : 's'} say "⚠ not in this wallet" and "sent away · not counted", folded out of sight in its bucket's "sent to another address" group (owner: "not my position any more")${ampHeld ? '; ampCAPA reads "in the ampCAPA DAO", never moved' : ''}`, movedNames.every(n => { const r = rowOf(n); return r && /not in this wallet/.test(T(r)) && /sent away/.test(T(r)) && /not counted/.test(T(r)) && r.hidden && /-moved$/.test(r.getAttribute('data-pp-closed') || ''); }) && !!d.querySelector('[data-pp-closed-toggle$="-moved"]') && /sent to another address/.test(T(d.querySelector('[data-pp-closed-toggle$="-moved"]'))) && (!ampHeld || (/in the ampCAPA DAO/.test(T(rowOf('ampCAPA'))) && !/sent away/.test(T(rowOf('ampCAPA'))))), movedNames.concat(['ampCAPA']).map(n => T(rowOf(n)).slice(0, 160)));
+  ok('a transfer out months ago is history, not an alert (only one in the last 14 days alerts — owner: "the alert board is for things that are pressing")', !/sent to another address/.test(T(d.getElementById('alerts'))), T(d.getElementById('alerts')).slice(0, 300));
   const wbRow = rowOf('wBTC.osmo-wBTC.axl'); const wbPos = R0.positions.find(p => p.name === 'wBTC.osmo-wBTC.axl' && p.mechanism === 'amplified');
   if (wbPos.moves) ok(`3.8 the moved row says where: "sent to …${wbPos.moves[0].to.slice(-4)} on ${wbPos.moves[0].last_day}" with an address link and the tx`, /sent to/.test(T(wbRow)) && T(wbRow).includes(wbPos.moves[0].last_day) && !!wbRow.querySelector('a[href="https://chainsco.pe/terra2/address/' + wbPos.moves[0].to + '"]') && !!wbRow.querySelector('a[href^="https://chainsco.pe/terra2/tx/"]'), T(wbRow).slice(0, 300));
   else console.log('  (this build predates pnl 1.2.4 — no moves[]; the "sent to" check runs on the new build)');
@@ -442,4 +443,34 @@ console.log('— P32 income (4.0): bribes = the P&L build\'s (one number, one co
   if (cm) { const w2 = await run(cm.wallet); const c = T(w2.document.getElementById('credia-card')); const hf = cm.credia.health.lt_health_factor;
     ok(`${cm.wallet.slice(-6)}: the Credia card shows supplied ${f$(cm.credia.supplied_usd)}, borrowed ${f$(cm.credia.debt_usd)}, health ${hf.toFixed(2)}; net worth carries Credia net`, c.includes(f$(cm.credia.supplied_usd)) && c.includes(f$(cm.credia.debt_usd)) && c.includes(hf.toFixed(2)) && /Credia/.test(T(w2.document.getElementById('networth-banner'))), c.slice(0, 200)); }
   else ok('a participant with a Credia loan exists', false); }
+
+console.log('— P33 Solid (4.1, member-data 1.6.0 · lib/solid-reader.js 1.0.0) on the chain\'s recorded answers (solid-probe 1.3) —');
+{ const PC = process.env.PCRONS_DIR, FX = path.join(CORE, 'docs/fixtures/2026-09-28/solid-probe.json');
+  if (!PC || !fs.existsSync(FX)) console.log('  (PCRONS_DIR or the solid-probe fixture missing — P33 skipped)');
+  else { const SR = require(path.join(PC, 'lib/solid-reader.js')), CC = require(path.join(PC, 'config/contracts.js')), { buildResolver } = require(path.join(PC, 'lib/denom-symbol.js'));
+    const F = J(FX), RES = buildResolver(J(path.join(CORE, 'token-catalog/snapshots/current.json')));
+    // the same recorded-answer query platform-crons' mock-run-solid.js uses (the owner's own answers join the first census page)
+    const query = async (addr, msg) => { const c = F.contracts[addr]; if (!c) return null; const k = Object.keys(msg)[0];
+      const exact = c.answers[k + ' ' + JSON.stringify(msg[k])]; const key = exact ? null : Object.keys(c.answers).find(x => x.startsWith(k + ' '));
+      let a = exact || (key ? c.answers[key] : null); if (!a) return null; a = JSON.parse(JSON.stringify(a));
+      if (msg[k] && msg[k].start_after) { for (const v of Object.values(a)) if (Array.isArray(v)) v.length = 0; return a; }
+      if (k === 'all_collaterals') { const o = c.answers['collaterals ' + JSON.stringify({ borrower: OWNER })]; if (o) a.all_collaterals.push({ borrower: o.borrower, collaterals: o.collaterals }); }
+      if (k === 'borrower_infos') { const o = c.answers['borrower_info ' + JSON.stringify({ borrower: OWNER })]; if (o) a.borrower_infos.push(o); }
+      if (k === 'borrowers') { const o = c.answers['borrower ' + JSON.stringify({ address: OWNER })]; if (o) a.borrowers.push(o); }
+      return a; };
+    const cen = await SR.loadCensus(query, CC.SOLID, { decimalsOf: (d) => { const x = RES(d); return x && x.decimals != null ? x.decimals : null; } });
+    await SR.loadLimits(query, CC.SOLID, cen, [OWNER]); const S = SR.positionOf(OWNER, cen);
+    const patch = { wallet: OWNER, fn: (m) => { m.solid = S; if (m.summary) Object.assign(m.summary, { solid_collateral_usd: S.collateral_usd, solid_idle_usd: S.idle_usd, solid_debt_usd: S.debt_usd, solid_health: S.health }); } };
+    const w = await run(OWNER, { patchMember: patch }); const d = w.document; for (let i = 0; i < 20 && !d.querySelector('[data-solid-health]'); i++) await new Promise(r => setTimeout(r, 250));
+    const card = T(d.querySelector('[data-solid]')); const fS = (v) => Math.abs(v) > 0 && Math.abs(v) < 1 ? String(+Number(v).toPrecision(3)) : fmtN(v);   /* the page's fmtSol */
+    ok(`the Solid card: health ${S.health.toFixed(2)} (at risk), ${fS(S.debt_solid)} SOLID owed against a ${fS(S.borrow_limit_solid)} limit, collateral ${f$(S.collateral_usd + (S.idle_usd || 0))}`, T(d.querySelector('[data-solid-health]')) === S.health.toFixed(2) && /at risk/.test(card) && T(d.querySelector('[data-solid-debt]')) === fS(S.debt_solid) && T(d.querySelector('[data-solid-limit]')).includes(fS(S.borrow_limit_solid)) && card.includes(f$(S.collateral_usd + (S.idle_usd || 0))), card.slice(0, 300));
+    ok(`a two-collateral loan reads as a basket fall of ${(S.liquidation.drop_pct * 100).toFixed(1)}% — no single liquidation price is invented`, T(d.querySelector('[data-solid-liq]')).includes((S.liquidation.drop_pct * 100).toFixed(1) + '%'), T(d.querySelector('[data-solid-liq]')));
+    ok('each locked collateral is a row (ampLUNA, bLUNA)', /ampLUNA/.test(card) && /bLUNA/.test(card));
+    const nw = T(d.getElementById('networth-banner')); const NWI = (w.__mpStore._nwAll || []).find(g => g.key === 'so') || null;
+    ok(`net worth counts Solid as collateral − debt (${f$(S.net_usd)}); the banner folds it away under $0.50 like every other piece`, !!NWI && Math.abs(NWI.usd - S.net_usd) < 1e-9 && (Math.abs(S.net_usd) >= 0.5 ? /Solid/.test(nw) : !/Solid \(collateral/.test(nw)), { NWI, nw: nw.slice(0, 200) });
+    const al = T(d.getElementById('alerts')); ok('an at-risk Solid loan raises a red alert with what to do', /Solid health 1\.01/.test(al) && /Repay some SOLID/.test(al), al.slice(0, 300));
+    const w2 = await run(OWNER); const d2 = w2.document; for (let i = 0; i < 20 && !d2.querySelector('[data-solid]'); i++) await new Promise(r => setTimeout(r, 250));
+    ok('before member-data 1.6.0 has run: the card says Solid appears after that run — never "$0", no net-worth line, no alert', /appears here after that run/.test(T(d2.querySelector('[data-solid]'))) && !/Solid \(collateral/.test(T(d2.getElementById('networth-banner'))) && !/Solid health/.test(T(d2.getElementById('alerts'))));
+    const PCH = require(path.join(SITE, 'lib/portfolio-chart.js')); const sf = PCH.seriesFor ? PCH.seriesFor({ rows: [{ d: '2026-09-28', ss: S.collateral_usd, sb: S.debt_usd, cs: 0, cb: 0 }] }, { view: 'credia', range: 0, lens: 'usd' }) : null;
+    ok('the chart\'s Lending view carries Solid collateral and debt as their own series', !!sf && JSON.stringify(sf).includes('Solid'), sf && JSON.stringify(sf).slice(0, 300)); } }
 console.log(`\n${pass}/${pass + fail} passed`); process.exit(fail ? 1 : 0);
