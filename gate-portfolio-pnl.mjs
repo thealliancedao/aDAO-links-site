@@ -10,6 +10,8 @@
 //   P5 positions: one row per position with activity; the top row is the largest open value; a row opens its trips
 //   P6 wind-down: a wallet holding USDC.n LP shows the "USDC.n ending" pill on that pool's row
 //   P7 disputed: a wallet with a disputed position shows it flagged and the hero says it was left out
+//   P12 (3.3) wallet balances: tickers not hashes, the catalog's real decimals (PAXG 18), rows under $2 folded
+//   P13 (3.3) Votion: one story per position with the product's in / now / three legs, the why-sentence, real vs advertised APR
 //   P8 fallback: with no v3 block in the ledger the page renders the Phase A story (no crash, no v3 cards)
 // Usage: TLA_CORE_DIR=<tla-core> PNL_OUT=<dir holding tla-flows/pnl> NFTC_DIR=<nft-collections> DAOO_DIR=<dao-originations> node gate-portfolio-pnl.mjs
 import { JSDOM, VirtualConsole } from 'jsdom'; import fs from 'fs'; import path from 'path'; import { createRequire } from 'module';
@@ -42,11 +44,12 @@ async function run(wallet, opts = {}) {
     win.matchMedia = () => ({ matches: false, addListener() {}, addEventListener() {} }); win.scrollTo = () => {}; win.requestAnimationFrame = (f) => setTimeout(f, 0); win.Element.prototype.scrollIntoView = () => {};
     win.HTMLCanvasElement.prototype.getContext = () => null; win.SiteHeader = { mount() {}, subnav() {} }; win.SiteFooter = { mount() {} };
     win.fetch = (u) => { const url = String(u).split('?')[0]; let f = null;
+      if (opts.bank && /\/cosmos\/bank\/v1beta1\/balances\//.test(url) && url.includes(wallet)) return Promise.resolve({ ok: true, status: 200, json: async () => ({ balances: opts.bank }) });   // 3.3: the live bank scan, as the owner's screenshot showed it
       if (url.startsWith(CORE_U + 'tla-flows/pnl/')) { const rel = url.slice(CORE_U.length); f = path.join(OUT, rel); if (opts.noV3 && /ledger\/terra1/.test(rel) && fs.existsSync(f)) { const d = J(f); delete d.v3; return Promise.resolve({ ok: true, status: 200, json: async () => d }); } }
       else if (url.startsWith(CORE_U)) f = path.join(CORE, url.slice(CORE_U.length)); else if (NFTC && url.startsWith(NFTC_U)) f = path.join(NFTC, url.slice(NFTC_U.length)); else if (DAOO && url.startsWith(DAOO_U)) f = path.join(DAOO, url.slice(DAOO_U.length));
       if (f && fs.existsSync(f) && fs.statSync(f).isFile()) { const t = fs.readFileSync(f, 'utf8'); return Promise.resolve({ ok: true, status: 200, json: async () => JSON.parse(t), text: async () => t }); }
       return Promise.resolve({ ok: false, status: 404, json: async () => ({}), text: async () => '' }); };
-    for (const lib of ['lib/portfolio-pnl.js', 'lib/winddown.js']) if (!(opts.noLib && lib.includes('portfolio'))) win.eval(fs.readFileSync(path.join(SITE, lib), 'utf8'));
+    for (const lib of ['lib/portfolio-pnl.js', 'lib/winddown.js', 'lib/denoms.js']) if (!(opts.noLib && lib.includes('portfolio'))) win.eval(fs.readFileSync(path.join(SITE, lib), 'utf8'));
   } });
   const w = dom.window; w.document.dispatchEvent(new w.Event('DOMContentLoaded', { bubbles: true }));
   for (let i = 0; i < 60; i++) { await new Promise(r => setTimeout(r, 250)); const sc = w.document.getElementById('story-card'); if (!wallet && !w.document.getElementById('state-welcome').classList.contains('hidden')) break; if (sc && !/Adding up/.test(sc.textContent) && (opts.noV3 || opts.noLib || w.document.querySelector('[data-pp="net"]'))) break; }
@@ -120,4 +123,27 @@ console.log('— P9 the picker\'s "View portfolio →" —');
   const w3 = mk('https://thealliancedao.com/member-portfolio.html?wallet=' + OWNER);
   ok('on the portfolio itself: hidden', w3.document.querySelector('.ap-port').style.display === 'none'); }
 
+console.log('— P12 wallet balances (3.3): named, scaled by the catalog\'s real decimals, dust under $2 folded —');
+{ const cat = J(path.join(CORE, 'token-catalog/snapshots/current.json')); const den = (pre) => cat.tokens.find(t => t.denom.startsWith(pre)).denom;
+  // the owner's screenshot, raw: PAXG (18 dec) read at 6 showed $3,188.5M; WBTC (8 dec) $50.05 / $1.02; ASTRO 20.2K; USDC.n 1.32; LUNA 186
+  const bank = [{ denom: den('ibc/0EF563'), amount: '745200000000' }, { denom: den('ibc/05D299'), amount: '827' }, { denom: den('ibc/8D8A7F'), amount: '20200000000' }, { denom: 'uluna', amount: '186000000' }, { denom: den('ibc/2C962D'), amount: '1320000' }, { denom: den('ibc/CF57A8'), amount: '12' }];
+  const w = await run(OWNER, { bank }); await new Promise(r => setTimeout(r, 800)); const el = w.document.getElementById('balances-table'); const txt = T(el);
+  const rows = [...el.querySelectorAll('tbody tr')].map(tr => [...tr.querySelectorAll('td')].map(T));
+  ok('no row shows an ibc/ hash — every token by its catalog ticker', rows.length > 0 && rows.every(r => !/^ibc\//.test(r[0])), rows.map(r => r[0]));
+  ok('PAXG is valued at 18 decimals (≈ $0.003, dust) — not $3,188.5M', !/3,?188|3\.19B|M$/.test(rows.map(r => r[2]).join(' ')) && !rows.some(r => /PAXG/.test(r[0])), rows);
+  ok('ASTRO shown by name (≈ $10–12 at the catalog price); LUNA kept; the WBTCs ($0.50 / $0.01 at 8 decimals) fold into dust', rows.some(r => /^ASTRO/.test(r[0]) && /\$1[01]\.\d\d/.test(r[2])) && !rows.some(r => /WBTC/.test(r[0])) && rows.some(r => /^LUNA/.test(r[0])), rows);
+  ok('every row shown is ≥ $2; the rest folds into one "under $2" line', rows.every(r => { const v = Number(String(r[2]).replace(/[^0-9.]/g, '')); return !(v < 2); }) && /under \$2/.test(txt), txt.slice(0, 300)); }
+console.log('— P13 the Votion story (3.3, org-votion 1.5.0 holder-pnl) —');
+{ const pf = path.join(CORE, 'votion/holder-pnl/current.json');
+  if (!fs.existsSync(pf)) console.log('  (votion/holder-pnl/current.json not on disk — run platform-crons votion/mock-run-holder-pnl.js with OUT_FILE first; P13 skipped)');
+  else { const hp = J(pf); const mine = Object.values(hp.holders).filter(h => h.wallet === OWNER && h.totals);
+    const w = await run(OWNER); await new Promise(r => setTimeout(r, 800)); const d = w.document;
+    const cards = [...d.querySelectorAll('[data-votion-story]')];
+    ok(`one story per Votion position (${mine.length} in the product, ${cards.length} on the page)`, mine.length > 0 && cards.length === mine.length);
+    for (const h of mine) { const c = cards.find(x => x.getAttribute('data-votion-story') === h.vault); const t = T(c); const L = h.totals.legs;
+      const has = (v) => t.includes(PPL.fmt.usd(v, true));
+      ok(`${h.lst_symbol}: in ${PPL.fmt.usd(h.totals.cost_usd)} → now ${PPL.fmt.usd(h.totals.usd_now)}; legs LUNA price ${PPL.fmt.usd(L.luna_price, true)} · staking ${PPL.fmt.usd(L.lst_stake, true)} · Votion ${PPL.fmt.usd(L.votion, true)} — the product's numbers, not recomputed`, c && t.includes(PPL.fmt.usd(h.totals.cost_usd)) && t.includes(PPL.fmt.usd(h.totals.usd_now)) && has(L.luna_price) && has(L.lst_stake) && has(L.votion) && has(h.totals.delta_usd), t.slice(0, 400));
+      ok(`${h.lst_symbol}: says why (LUNA's move over the same time) and real vs advertised APR`, /LUNA fell|LUNA moved/.test(t) && /real APR/.test(t) && (h.advertised ? /advertised/.test(t) : true), t.slice(0, 300)); }
+    const w2 = await run(OWNER, {}); }
+}
 console.log(`\n${pass}/${pass + fail} passed`); process.exit(fail ? 1 : 0);

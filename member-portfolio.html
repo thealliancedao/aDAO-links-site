@@ -38,8 +38,9 @@
 <div id="site-header"></div>
 <script src="/lib/site-header.js"></script>
 <script src="/lib/address-picker.js"></script>
-<script src="/lib/portfolio-pnl.js?v=1.1.0"></script>   <!-- 3.0: the v3 P&L (story, value curve, positions + trips) -->
-<script src="/lib/winddown.js?v=1.0.0"></script>   <!-- 3.0: winding-down assets (USDC.n) flagged on positions -->
+<script src="/lib/portfolio-pnl.js?v=1.2.0"></script>   <!-- 3.0: the v3 P&L (story, value curve, positions + trips) -->
+<script src="/lib/winddown.js?v=1.0.0"></script>
+<script src="/lib/denoms.js?v=1.0.0"></script>   <!-- 3.3: THE denom → symbol/decimals rule (the catalog's effective → discovered layer) -->   <!-- 3.0: winding-down assets (USDC.n) flagged on positions -->
 <script>SiteHeader.mount({ page: 'member-portfolio' });
 (function () {
   SiteHeader.subnav([
@@ -306,7 +307,8 @@
     const CONFIG = {
         participantsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/current.json',
         votionPositionsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/snapshots/current.json',      // ORG feed (org-votion) — personal votion-positions repo retired from this page 2026-08-03
-        votionDailyBaseUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/snapshots/daily',              // org daily archive, since 2026-07-16
+        votionDailyBaseUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/snapshots/daily',
+        votionPnlUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/holder-pnl/current.json',   // 3.3: org-votion 1.5.0 Branch E — each position's story              // org daily archive, since 2026-07-16
         votionTrackStart: '2026-07-16',
         pnlUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-flows/pnl/rollup.json',
         adaoPositionsUrl: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/current.json',
@@ -354,6 +356,7 @@
         const a = Math.abs(v);
         if (a >= 1e6) return (v / 1e6).toFixed(2) + 'M';
         if (a >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+        if (a > 0 && a < 0.01) return v.toPrecision(2);   // 3.3: 0.00061 WBTC read as "0.00"
         return v.toFixed(a < 10 && a > 0 ? 2 : 0);
     };
     const shortAddr = (w) => w ? w.slice(0, 10) + '…' + w.slice(-6) : '—';
@@ -400,9 +403,14 @@
         // org token-catalog prices — render-time fallback for assets the
         // positions feed couldn't price (e.g. single-side xASTRO)
         store.catalogPrices = new Map();
+        // 3.3 (owner 2026-09-28: "$3188.5M — wish this was true"): symbol + decimals from the catalog's effective → discovered
+        // layer through lib/denoms.js (the ONE rule; it is what the crons use). Was t.symbol / t.decimals — fields the catalog
+        // does not have — so every ibc token showed its hash and read at 6 decimals (PAXG has 18: 0.75 PAXG → $3.19B).
+        if (window.Denoms && cat) Denoms._ingest(cat);
         for (const t of (cat?.tokens || [])) {
             const p = t.prices?.tla?.usd ?? t.prices?.coingecko?.usd ?? null;
-            if (t.denom && p > 0) store.catalogPrices.set(t.denom, { usd: p, at: t.prices?.tla?.captured_at || null, decimals: t.decimals ?? 6, symbol: t.symbol || null });
+            const dec = window.Denoms ? Denoms.decimals(t.denom) : null;
+            if (t.denom && p > 0) store.catalogPrices.set(t.denom, { usd: p, at: t.prices?.tla?.captured_at || null, decimals: dec != null ? dec : null, symbol: window.Denoms ? Denoms.symbol(t.denom) : null });
         }
         store.feeds = { parts, adao, allies, orgNft, snap };
         // Epoch arrives as an object ({number, ends_at, progress_pct}) — extract
@@ -1083,8 +1091,8 @@
         for (const b of act) for (const a of (b.assets || [])) {
             const den = a.info?.native ? a.info.native : a.info?.cw20 ? a.info.cw20 : null;
             const cp = den && (store.catalogPrices.get(den) || store.catalogPrices.get('native:' + den) || store.catalogPrices.get('cw20:' + den));
-            const dec = (cp && cp.decimals) || 6;
-            if (cp && cp.usd > 0) usd += (Number(a.amount || 0) / Math.pow(10, dec)) * cp.usd;
+            const dec = cp ? cp.decimals : null;   // 3.3: the catalog's real decimals (a PAXG / WBTC bribe was read at 6)
+            if (cp && cp.usd > 0 && dec != null) usd += (Number(a.amount || 0) / Math.pow(10, dec)) * cp.usd;
             else unpriced++;
         }
         return { usd, unpriced };
@@ -1909,8 +1917,9 @@
                     if (b.denom === 'uluna') return 'LUNA';
                     return cp && cp.symbol ? cp.symbol : (t.length <= 12 ? t : null);
                 })();
-                const dec = (cp && cp.decimals) || 6;
-                const amt = Number(b.amount) / Math.pow(10, dec);
+                const dec = cp ? cp.decimals : null;
+                if (cp && dec == null) { unpricedLive++; continue; }   // 3.3: a price with no known decimals is not a value — never assume 6
+                const amt = Number(b.amount) / Math.pow(10, dec ?? 6);
                 if (cp) add(sym || b.denom.slice(0, 10), amt, amt * cp.usd, 'live');
                 else if (b.denom.startsWith('ibc/') || b.denom.startsWith('factory/')) unpricedLive++;
                 else if (sym) add(sym, amt, null, 'live');
@@ -1926,7 +1935,8 @@
             else add(sym, b.amount_human || 0, b.usd_value ?? null, 'feed');
         }
         const all = [...rows.values()].sort((a, b) => (b.usd || 0) - (a.usd || 0));
-        const isDust = (r) => (r.usd != null && r.usd < 0.10) || /^zluna/i.test(r.sym);
+        const DUST_USD = 2;   // 3.3 (owner): balances under $2 fold into one line
+        const isDust = (r) => (r.usd != null && r.usd < DUST_USD) || /^zluna/i.test(r.sym);
         const main = all.filter(r => !isDust(r));
         const dust = all.filter(isDust);
         const dustUsd = dust.reduce((x, r) => x + (r.usd || 0), 0);
@@ -1934,7 +1944,7 @@
             <table class="data-table"><thead><tr><th>Token</th><th class="text-right">Amount</th><th class="text-right">Value</th></tr></thead><tbody>
             ${main.map(r => `<tr><td class="font-medium">${esc(r.sym)}${r.srcs.has('live') && !r.srcs.has('feed') ? ' <span class="text-[8px] px-1 py-px rounded bg-cyan-500/20 text-cyan-300" title="Found by the live bank scan — not in the positions feed\u2019s token set.">live</span>' : ''}</td><td class="text-right mono text-gray-300">${fmtNum(r.amount)}</td><td class="text-right mono ${r.usd != null ? 'text-amber-300/90' : 'text-gray-600'}">${r.usd != null ? fmt$(r.usd) : 'unpriced'}</td></tr>`).join('')}
             </tbody></table>
-            ${dust.length ? `<div class="text-[10px] text-gray-600 mt-1.5" title="${esc(dust.map(r => `${fmtNum(r.amount)} ${r.sym}`).join(' · '))}">+ ${dust.length} small balance${dust.length === 1 ? '' : 's'} (zLUNA receipts &amp; dust) · ${fmt$(dustUsd)}</div>` : ''}
+            ${dust.length ? `<div class="text-[10px] text-gray-600 mt-1.5" title="${esc(dust.map(r => `${fmtNum(r.amount)} ${r.sym}`).join(' · '))}">+ ${dust.length} balance${dust.length === 1 ? '' : 's'} under $2 (dust &amp; zLUNA receipts) · ${fmt$(dustUsd)} — hover to see them</div>` : ''}
             ${unpricedLive ? `<div class="text-[10px] text-gray-600 mt-0.5">${unpricedLive} on-chain denom${unpricedLive === 1 ? '' : 's'} with no catalog price — uncounted, not guessed.</div>` : ''}
             <div id="native-staking-row"></div><div id="sibling-chains"></div>`
             : '<div class="text-gray-600 text-sm py-2">No meaningful liquid balances.</div><div id="native-staking-row"></div><div id="sibling-chains"></div>';
@@ -1994,7 +2004,7 @@
     async function renderVotion(wallet) {
         const el = $('votion-table');
         if (!el) return;
-        const d = await fetchVotionPositions();
+        const [d, pnl] = await Promise.all([fetchVotionPositions(), fetch(CONFIG.votionPnlUrl + '?t=' + Math.floor(Date.now() / 6e5)).then(r => r.ok ? r.json() : null).catch(() => null)]);   // 3.3: the story product (absent until org-votion 1.5.0 has run — the card then shows what it did before)
         if (store.wallet !== wallet) return; // user moved on mid-fetch
         if (!d || !Array.isArray(d.vaults)) {
             el.innerHTML = '<div class="text-gray-600 text-sm">Votion feed unavailable right now.</div>';
@@ -2014,7 +2024,7 @@
             for (const h of (v.holders || [])) {
                 if (h.address !== wallet) continue;
                 const lb = votionVaultLabel(v);
-                rows.push({ label: lb.label, lst: lb.sym, vtok: h.vtoken_balance, und: h.underlying_lst, usd: h.underlying_usd, share: h.share_of_vault_pct, vp: h.implied_vp, src: h.underlying_usd_price_source });
+                rows.push({ vault: v.address, story: pnl && pnl.holders ? pnl.holders[v.address + '|' + wallet] || null : null, label: lb.label, lst: lb.sym, vtok: h.vtoken_balance, und: h.underlying_lst, usd: h.underlying_usd, share: h.share_of_vault_pct, vp: h.implied_vp, src: h.underlying_usd_price_source });
             }
         }
         const cap = String(d.meta?.generated_at || '').slice(0, 10);
@@ -2045,7 +2055,7 @@
                         <div class="mono text-sm text-cyan-300 font-semibold" title="Priced ${esc(r.src || 'hub_exchange_rate')} — the LST\u2019s own hub rate × LUNA USD per the pricing audit; catalog price only as a labeled fallback.">${fmtUsd(r.usd)}</div>
                         <div class="text-[9px] text-gray-500 mono" title="VP your vault share implies from the vault\u2019s TLA lock (fixed + boost — the corrected VP definition)">${fmtNum(r.vp)} implied VP</div>
                     </div>
-                </div>`).join('')}
+                </div>${r.story && window.PortfolioPnl && PortfolioPnl.votionStory ? PortfolioPnl.votionStory(r.story) : ''}`).join('')}
             </div>
             <div class="flex justify-between items-center text-[11px] text-gray-400 mt-2 pt-2 border-t border-white/10 flex-wrap gap-1">
                 <span>${rows.length} position${rows.length === 1 ? '' : 's'} · captured ${cap} · ${honesty}</span>
@@ -2234,6 +2244,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '3.2', revDate: '2026-09-27', page: 'member-portfolio' });   // 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
+<script>SiteFooter.mount({ rev: '3.3', revDate: '2026-09-28', page: 'member-portfolio' });   // 3.3: each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
 </body>
 </html>
