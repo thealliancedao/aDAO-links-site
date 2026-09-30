@@ -1,4 +1,5 @@
-// middleware.ts — SITE GATE 1.1 (2026-09-30) — the site is ON HOLD: every page, deep link and /api call answers with the
+// middleware.ts — SITE GATE 1.1.1 (2026-09-30; 1.1.1: runs on the Node.js runtime — the first build ran it on the deprecated edge runtime —
+// and declares `process` so Vercel's TypeScript check is clean) — the site is ON HOLD: every page, deep link and /api call answers with the
 // "on hold" page until the visitor unlocks it. Runs on Vercel (Routing Middleware) before the CDN cache, so no page can be
 // reached around it. NO password is in this file or anywhere in the public repo.
 //
@@ -19,6 +20,9 @@
 // signed with THAT person's password — so it stops working the moment their password changes or they are removed.
 // Lock again: /__lock. The Vercel function log records "gate: unlocked by <name>" (never a password).
 // Plain JavaScript inside a .ts file so the same code runs in the local test.
+
+declare const process: any;   // Node.js runtime (config below); declared here so the type check needs no @types/node
+export const config = { runtime: 'nodejs' };
 
 const COOKIE = 'tla_gate';
 const DAYS = 30;
