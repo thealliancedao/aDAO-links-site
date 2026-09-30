@@ -1,4 +1,4 @@
-// middleware.ts — SITE GATE 1.1.1 (2026-09-30; 1.1.1: runs on the Node.js runtime — the first build ran it on the deprecated edge runtime —
+// middleware.ts — SITE GATE 1.1.2 (2026-09-30; 1.1.2: the page says only that production has been paused; 1.1.1: runs on the Node.js runtime — the first build ran it on the deprecated edge runtime —
 // and declares `process` so Vercel's TypeScript check is clean) — the site is ON HOLD: every page, deep link and /api call answers with the
 // "on hold" page until the visitor unlocks it. Runs on Vercel (Routing Middleware) before the CDN cache, so no page can be
 // reached around it. NO password is in this file or anywhere in the public repo.
@@ -76,7 +76,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 function holdPage(next, wrong) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex"><title>Alliance DAO — on hold</title><link rel="icon" href="/favicon.ico">
+<meta name="robots" content="noindex"><title>Alliance DAO — paused</title><link rel="icon" href="/favicon.ico">
 <style>
 :root{--bg:#0b1220;--card:#111a2e;--line:#1f2a44;--text:#e5e7eb;--muted:#9ca3af;--accent:#22d3ee;--accent2:#2dd4bf;--bad:#f87171}
 *{box-sizing:border-box}html,body{margin:0;height:100%}
@@ -98,9 +98,8 @@ button[type=submit]{background:var(--accent2);color:#04201c;border:0;border-radi
 </style></head><body>
 <main>
 <img src="/assets/app/icon-192.png" alt="">
-<h1>This project is on hold</h1>
-<p>The Alliance DAO dashboard is paused while we rebuild the data behind it.</p>
-<p>Thank you for your patience — check back soon.</p>
+<h1>Production has been paused</h1>
+<p>Thank you to everyone who used these tools.</p>
 <span class="tag">Paused</span>
 </main>
 <button id="k" type="button" aria-label="Access" title=""><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></button>
@@ -117,7 +116,7 @@ if(f.classList.contains('open'))p.focus();
 </body></html>`;
 }
 const noStore = { 'cache-control': 'no-store', 'x-robots-tag': 'noindex' };
-const hold = (next, wrong, status) => new Response(holdPage(next, wrong), { status, headers: { 'content-type': 'text/html; charset=utf-8', 'retry-after': '86400', ...noStore } });
+const hold = (next, wrong, status) => new Response(holdPage(next, wrong), { status, headers: { 'content-type': 'text/html; charset=utf-8', ...noStore } });
 const cookieOut = (v, age) => `${COOKIE}=${v}; Path=/; Max-Age=${age}; HttpOnly; Secure; SameSite=Lax`;
 
 export default async function middleware(request) {
@@ -142,5 +141,5 @@ export default async function middleware(request) {
 
   const wantsPage = request.method === 'GET' && !path.startsWith('/api/') && ((request.headers.get('accept') || '').includes('text/html') || /(\.html?|\/)$/.test(path) || !/\.[a-z0-9]+$/i.test(path));
   if (wantsPage) return hold(path + url.search, false, 503);
-  return new Response('on hold', { status: 401, headers: { 'content-type': 'text/plain', ...noStore } });
+  return new Response('paused', { status: 401, headers: { 'content-type': 'text/plain', ...noStore } });
 }
