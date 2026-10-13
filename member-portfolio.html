@@ -40,7 +40,7 @@
 <script src="/lib/address-picker.js"></script>
 <script src="/lib/portfolio-pnl.js?v=2.0.1"></script>   <!-- 4.0: the combined P&L (LPs + locks & bribes + Votion + NFTs), positions v2 + scorecard · 3.0: the v3 P&L -->
 <script src="/lib/token-logos.js?v=1.0.0"></script>   <!-- 4.0: token + protocol logos (the site's own files) -->
-<script src="/lib/portfolio-chart.js?v=1.1.0"></script>   <!-- 4.0: THE chart (views, ranges, lens, LUNA strip) -->
+<script src="/lib/portfolio-chart.js?v=1.2.0"></script>   <!-- 4.0: THE chart (views, ranges, lens, LUNA strip) -->
 <script>   /* 4.1: the chart engine (ECharts), tried from three CDNs in turn — cdnjs never carried 5.5.1 (the 4.0 chart's "did not load") */
 (function () { var src = ['https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js', 'https://unpkg.com/echarts@5.5.1/dist/echarts.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js'], i = 0;
   window.__echarts = 'loading';
@@ -94,6 +94,9 @@
 
 <main class="max-w-7xl mx-auto px-4 py-6">
     <div id="mp-top-tile" class="glass-card p-3 mb-6"></div>
+    <!-- 4.2 (owner 2026-10-13: "add multiple addresses in the picker and show all the data as combined"): My wallets + the combined view -->
+    <div id="mw-bar" class="mb-4 hidden"></div>
+    <div id="combined" class="hidden"></div>
 
     <!-- ============ ADDRESS BAR — retired 2026-08-21: the header picker is the input.
          Elements kept (hidden) because the page script still references them. ============ -->
@@ -349,9 +352,9 @@
         heartbeats: [
             ['TLA participants', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/heartbeat.json'],
             ['aDAO positions', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/positions/heartbeat.json'],
-            ['aDAO allies', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/participants/heartbeat.json'],
+            ['Wallet holdings (daily)', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/holdings/heartbeat.json', 26 * 60],   // 4.2: the daily holdings record (staking, NFT backing, every token)
             ['NFT tracker (org)', 'https://raw.githubusercontent.com/thealliancedao/nft-collections/main/adao/snapshots/heartbeat.json'],
-            ['P&L rollup (org)', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-flows/pnl/heartbeat.json'],
+            ['P&L rollup (daily)', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-flows/pnl/heartbeat.json', 26 * 60],
         ],
         storageKey: 'tla_portfolio_wallet',
     };
@@ -540,12 +543,12 @@
     async function renderHealth() {
         const el = $('health-rows');
         if (!el) return;
-        const rows = await Promise.all(CONFIG.heartbeats.map(async ([label, url]) => {
+        const rows = await Promise.all(CONFIG.heartbeats.map(async ([label, url, maxM]) => {
             try {
                 const h = await fetch(url).then(r => r.ok ? r.json() : null);
-                const iso = h?.capturedAt || h?.captured_at || h?.last_run || h?.updatedAt || null;
+                const iso = h?.capturedAt || h?.captured_at || h?.builtAt || h?.generated_at || h?.last_run || h?.updatedAt || null;   // 4.2: the P&L build stamps builtAt
                 const ageM = iso ? (Date.now() - new Date(iso).getTime()) / 60000 : null;
-                const cls = ageM == null ? 'bg-gray-600' : ageM < 120 ? 'bg-emerald-400' : ageM < 360 ? 'bg-amber-400' : 'bg-red-400';
+                const ok = maxM || 120; const cls = ageM == null ? 'bg-gray-600' : ageM < ok ? 'bg-emerald-400' : ageM < ok * 3 ? 'bg-amber-400' : 'bg-red-400';   // 4.2: a daily product is fresh for a day
                 return `<div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full ${cls}"></span><span class="text-gray-400">${label}</span><span class="mono text-gray-600 ml-auto">${iso ? timeAgo(iso) : 'no heartbeat'}</span></div>`;
             } catch {
                 return `<div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span><span class="text-gray-400">${label}</span><span class="mono text-gray-600 ml-auto">unreachable</span></div>`;
@@ -674,7 +677,9 @@
         if (hf != null && (crA.debt_usd || 0) > 1 && hf < 1.5) A(hf < 1.15 ? 'danger' : 'warn', 'fa-heart-pulse', `Credia health ${hf.toFixed(2)} — ${hf < 1.15 ? 'close to liquidation' : 'getting thin'}`, `Borrowed ${fmt$(crA.debt_usd)} against ${fmt$(crA.supplied_usd)} supplied. Under 1.00 Credia can liquidate. Repay some or add collateral.`);
         // 4.0.1: Solid — health (the protocol's own view) and collateral deposited but not locked
         const soA = solidOf(m);
-        if (soA && soA.health != null && soA.band && soA.band !== 'safe') A(soA.band === 'watch' ? 'warn' : 'danger', 'fa-heart-crack', `Solid health ${soA.health.toFixed(2)} — ${SOLID_BAND[soA.band][1]}`, `You owe ${fmtSol(soA.debt_solid)} SOLID against a ${fmtSol(soA.borrow_limit_solid)} limit. ${soA.liquidation ? (soA.liquidation.kind === 'single' ? `${esc(soA.liquidation.symbol)} falling ${(soA.liquidation.drop_pct * 100).toFixed(1)}% (to ${fmtPx(soA.liquidation.price_at)}) liquidates it.` : `A ${(soA.liquidation.drop_pct * 100).toFixed(1)}% fall across your collateral liquidates it.`) : ''} Repay some SOLID or lock more collateral.`);
+        const soDust = soA && (soA.debt_usd != null ? soA.debt_usd < 1 : (soA.debt_solid || 0) < 1);   // 4.2: a one-cent loan is a note, not a red alarm
+        if (soA && soDust && soA.health != null && soA.band && soA.band !== 'safe') A('info', 'fa-circle-info', `Solid: ${fmtSol(soA.debt_solid)} SOLID of dust still owed`, `Worth ${fmt$(soA.debt_usd || 0)} — Solid counts it as ${SOLID_BAND[soA.band][1]} (health ${soA.health.toFixed(2)}), but a liquidation of this size changes nothing. Repay it to close the position if you like.`);
+        else if (soA && soA.health != null && soA.band && soA.band !== 'safe') A(soA.band === 'watch' ? 'warn' : 'danger', 'fa-heart-crack', `Solid health ${soA.health.toFixed(2)} — ${SOLID_BAND[soA.band][1]}`, `You owe ${fmtSol(soA.debt_solid)} SOLID against a ${fmtSol(soA.borrow_limit_solid)} limit. ${soA.liquidation ? (soA.liquidation.kind === 'single' ? `${esc(soA.liquidation.symbol)} falling ${(soA.liquidation.drop_pct * 100).toFixed(1)}% (to ${fmtPx(soA.liquidation.price_at)}) liquidates it.` : `A ${(soA.liquidation.drop_pct * 100).toFixed(1)}% fall across your collateral liquidates it.`) : ''} Repay some SOLID or lock more collateral.`);
         if (soA && soA.band === 'debt_no_collateral' && soA.debt_solid > 0.01) A('warn', 'fa-scale-unbalanced', `${fmtSol(soA.debt_solid)} SOLID still owed on Solid with no collateral left`, 'A liquidation took all the collateral; the rest of the loan is still open. Repaying it closes the position.');
         if (soA && soA.idle_usd > 1) A('warn', 'fa-lock-open', `${fmt$(soA.idle_usd)} deposited in Solid but not locked`, 'It backs no loan and earns nothing — lock it (raises your borrow limit) or withdraw it.');
         // 4.0: idle LP tokens and moved receipts (filled in when the wallet read / the P&L land)
@@ -697,7 +702,8 @@
 
     // ---------- render ----------
     function showState(id) {
-        ['state-loading', 'state-welcome', 'state-notfound', 'portfolio'].forEach(x => $(x).classList.toggle('hidden', x !== id));
+        ['state-loading', 'state-welcome', 'state-notfound', 'portfolio', 'combined'].forEach(x => $(x).classList.toggle('hidden', x !== id));
+        if (id !== 'combined') store._combined = false; renderMyBar();
     }
 
     // 4.1 (owner: "if someone pastes an address or types a registered name we don't track, pop up WHY"): the tracking rules, with this wallet's standing
@@ -1281,8 +1287,10 @@
           <div class="flex items-end justify-between flex-wrap gap-3 mb-3">
             <div>
               <div class="text-[11px] uppercase tracking-wider text-gray-500 mb-0.5">Net worth <i class="fas fa-circle-info text-[9px]" title="Everything this wallet holds that we can price: TLA locks, LPs, receipts staked in a DAO, liquid tokens, LUNA staked, other chains, Votion, Credia (net) and the aDAO NFT backing — each at today's price. Illiquid tokens (no pool deep enough to sell into) are left out."></i>${N.loading ? ' <span class="text-[10px] text-gray-600 normal-case loading-pulse">still adding…</span>' : ''}</div>
-              <div class="mono text-4xl md:text-5xl font-bold text-gray-50" id="banner-grand">${fmt$(N.total)}</div>
-              <div class="text-[11px] text-gray-500 mt-0.5" id="banner-luna">${store.symPrice.get('LUNA') ? '≈ ' + fmtNum(N.total / store.symPrice.get('LUNA')) + ' LUNA at $' + store.symPrice.get('LUNA').toFixed(4) : ''}</div>
+              ${(() => { const lu = store.symPrice.get('LUNA'); const L = bannerLens() === 'luna' && lu;   // 4.2 (owner): LUNA first — a LUNA book read in dollars mostly shows LUNA's price
+                return `<div class="mono text-4xl md:text-5xl font-bold text-gray-50" id="banner-grand">${L ? fmtNum(N.total / lu) + ' <span class="text-2xl text-gray-400">LUNA</span>' : fmt$(N.total)}</div>
+              <div class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap" id="banner-luna">${lu ? (L ? '≈ ' + fmt$(N.total) : '≈ ' + fmtNum(N.total / lu) + ' LUNA') + ' at $' + lu.toFixed(4) + ' a LUNA' : ''}
+                <span class="inline-flex rounded-md overflow-hidden border border-white/10"><button type="button" onclick="mpBannerLens('luna')" class="px-2 py-0.5 text-[10.5px] ${L ? 'bg-cyan-500/20 text-cyan-200' : 'text-gray-500 hover:text-gray-300'}">LUNA</button><button type="button" onclick="mpBannerLens('usd')" class="px-2 py-0.5 text-[10.5px] ${!L ? 'bg-cyan-500/20 text-cyan-200' : 'text-gray-500 hover:text-gray-300'}">USD</button></span></div>`; })()}
             </div>
             <div class="flex flex-col items-end gap-2">
               <div class="flex items-center gap-2 flex-wrap justify-end" id="banner-chips"><span class="text-[10px] text-gray-600">computing change…</span></div>
@@ -1294,11 +1302,23 @@
           ${store._liquid && store._liquid.illiquid > 0 ? `<div class="text-[10.5px] text-gray-500 mt-2">Left out: ${fmt$(store._liquid.illiquid)} on paper in illiquid tokens (would fetch ≈ ${fmt$(store._liquid.illiquidFetch)}) — see Wallet balances.</div>` : ''}`;
         renderBannerChips(m);
     }
+    const bannerLens = () => store._bannerLens || 'luna';
+    window.mpBannerLens = (l) => { store._bannerLens = l; const m = store.members.get(store.wallet); if (m) renderBanner(m); };
     window.mpScrollTo = (id) => { const t = id && document.getElementById(id); if (t) (t.closest('.glass-card') || t).scrollIntoView({ behavior: 'smooth', block: 'start' }); };
     // change chips: the history-tracked slice (locks + LPs + DAO stake + TLA tokens + Votion + Credia) now vs 1 / 7 / 30 days ago
     const trackedOf = (r) => r ? (r.lk || 0) + (r.lp || 0) + (r.cu || 0) + (r.wb || 0) + (r.vt || 0) + ((r.cs || 0) - (r.cb || 0)) : null;
     async function renderBannerChips(m) {
         const el = $('banner-chips'); if (!el) return; const wallet = m.wallet;
+        if (bannerLens() === 'luna') {   // 4.2: LUNA held now vs 1 / 7 / 30 days ago — only the places the daily record covered on BOTH days
+            const TK = await loadTokens(wallet); if (store.wallet !== wallet || !el.isConnected) return; const nw = lunaNowOf(m, TK);
+            const P = ['w', 'ls', 'lk', 'lp', 'dao', 'rw', 'vt']; const sum = (o, keys) => keys.reduce((x, k) => x + (Number(o && o[k]) || 0), 0);
+            const chips = nw ? [1, 7, 30].map(d => { const day = dstr(new Date(Date.now() - d * _dayMs)); const r = TK.filter(x => x[0] <= day).pop(); if (!r || (Date.parse(day) - Date.parse(r[0])) > 3 * _dayMs) return null;
+                const L = (r[2] && r[2].LUNA) || {}; const keys = P.filter(k => L[k] != null); const then = sum(L, keys); if (!(then > 0)) return null;
+                const nowKeys = keys.map(k => k === 'ls' ? 'w' : k === 'dao' ? 'lp' : k).filter((k, i, a) => a.indexOf(k) === i); const nowV = sum(nw.places, nowKeys);
+                const delta = nowV - then, pc = delta / then * 100, up = delta >= 0;
+                return `<span class="text-[11px] px-2 py-1 rounded-lg ${up ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'} mono" title="LUNA held now vs ${r[0]} — wallet + LSTs, TLA locks, LPs, rewards, Votion (the places the daily record covered that day; LSTs counted as the LUNA behind them). Validator staking and NFT backing are recorded from 2026-10-13 and join the change once both days have them.">${d}d ${up ? '+' : '−'}${fmtNum(Math.abs(delta))} LUNA (${up ? '+' : ''}${pc.toFixed(1)}%)</span>`; }).filter(Boolean) : [];
+            el.innerHTML = chips.join('') || `<span class="text-[10px] text-gray-600">no daily LUNA record for this wallet yet</span>`; return;
+        }
         const H = await loadHistory(wallet); if (store.wallet !== wallet || !el.isConnected) return;
         const now = nowRow(m); const nowV = trackedOf(now);
         const chips = [1, 7, 30].map(d => { const day = dstr(new Date(Date.now() - d * _dayMs)); const r = (H.rows || []).filter(x => x.d <= day).pop(); if (!r || (Date.parse(day) - Date.parse(r.d)) > 3 * _dayMs) return null;
@@ -1319,6 +1339,29 @@
             const ser = await getSeries(wallet, 9999); return { rows: ser.map(r => ({ d: r.date, p: r.p, lk: r.lk, lp: r.lp, cu: r.cu || null, wb: r.wb, vp: r.v })), src: 'sampled' };
         })().catch(() => ({ rows: [], src: 'none' }));
         _histMem.set(wallet, P); return P;
+    }
+    // 4.2 (2026-10-13): tokens BY PLACE per wallet per day (member-data/history/tokens — member-data 1.7.0) → the LUNA-held view
+    const TOKENS_BASE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/history/tokens';
+    const _tokMem = new Map();
+    function loadTokens(wallet) {
+        if (_tokMem.has(wallet)) return _tokMem.get(wallet);
+        const P = _j(`${TOKENS_BASE}/${wallet.charAt(6)}.json?t=${Math.floor(Date.now() / 36e5)}`).then(sh => (sh && sh.wallets && sh.wallets[wallet]) || []).catch(() => []);
+        _tokMem.set(wallet, P); return P;
+    }
+    // today's LUNA by place, from what this page read live (LST-priced USD ÷ the LUNA price = the LUNA behind it); places it cannot
+    // read live (LP LUNA side, rewards) carry the latest history day — never invented
+    function lunaNowOf(m, tokRows) {
+        const lu = store.symPrice.get('LUNA'); if (!m || !lu) return null;
+        const last = (tokRows || []).length ? tokRows[tokRows.length - 1] : null; const L = (last && last[2] && last[2].LUNA) || {};
+        const pl = {}; const s = m.summary || {};
+        if (s.total_locked_luna_equivalent != null) pl.lk = s.total_locked_luna_equivalent; else if (L.lk != null) pl.lk = L.lk;
+        if (L.lp != null || L.dao != null) pl.lp = (L.lp || 0) + (L.dao || 0);
+        if (L.rw != null) pl.rw = L.rw;
+        if (store._liquid && store._liquid.wallet === m.wallet) pl.w = (store._liquid.lunaFamUsd || 0) / lu; else if (L.w != null || L.ls != null) pl.w = (L.w || 0) + (L.ls || 0);
+        if (store._staked && store._staked.wallet === m.wallet) pl.st = store._staked.luna || 0; else if (L.st != null) pl.st = L.st;
+        if (store._votionUsd != null) pl.vt = store._votionUsd / lu; else if (L.vt != null) pl.vt = L.vt;
+        const nf = store._nft && store._nft.wallet === m.wallet ? store._nft : null; if (nf && !store._nftFloor && nf.backingUsd > 0) pl.nft = nf.backingUsd / lu; else if (L.nft != null) pl.nft = L.nft;
+        return { d: dstr(new Date()), places: pl };
     }
     let _lunaSeriesP = null;
     const lunaSeries = () => (_lunaSeriesP = _lunaSeriesP || _j('https://raw.githubusercontent.com/thealliancedao/tla-core/main/price-history/series/LUNA.json').then(j => (j && j.daily) || {}).catch(() => ({})));
@@ -1501,18 +1544,18 @@
         const wrap = (inner) => `<div class="mt-4 pt-4 border-t border-white/5" data-solid>${inner}</div>`;
         if (!S) { const cap = store.feeds?.parts?.discovery?.solid; return wrap(`${head}<div class="text-[12px] text-gray-500 mt-1">${cap && !cap.error && cap.skipped == null ? 'Nothing supplied or borrowed on Solid.' : 'Solid is read with the hourly capture from member-data 1.6.0 — it appears here after that run.'}</div>`); }
         const B = SOLID_BAND[S.band] || ['text-gray-300', '']; const used = S.borrow_limit_solid > 0 && S.debt_solid != null ? S.debt_solid / S.borrow_limit_solid : null;
-        const liq = S.liquidation ? (S.liquidation.kind === 'single'
+        const liq = S.liquidation && S.liquidation.drop_pct != null && S.liquidation.drop_pct <= 0 ? `Already past the liquidation line — borrowed more than the collateral allows (by ${(-S.liquidation.drop_pct * 100).toFixed(1)}%)` : S.liquidation ? (S.liquidation.kind === 'single'
             ? `Liquidated if <b>${esc(S.liquidation.symbol)}</b> falls <b class="${B[0]}">${(S.liquidation.drop_pct * 100).toFixed(1)}%</b> — from ${fmtPx(S.liquidation.price_now)} to <b>${fmtPx(S.liquidation.price_at)}</b>`
             : `Liquidated if your collateral falls <b class="${B[0]}">${(S.liquidation.drop_pct * 100).toFixed(1)}%</b> together`) : '';
         const rows = S.collateral.map(c => `<tr><td><span class="inline-flex items-center gap-1.5">${TL ? TL.img(c.symbol, 14) : ''}${esc(c.symbol || c.token.slice(0, 10))}</span> <span class="text-[9px] text-gray-500">max LTV ${c.max_ltv != null ? Math.round(c.max_ltv * 100) + '%' : '—'}</span></td>
-            <td class="text-right mono">${c.locked != null ? fmtNum(c.locked) : '—'}${c.idle > 0 ? `<div class="text-[9.5px] text-amber-300">+ ${fmtNum(c.idle)} not locked</div>` : ''}</td><td class="text-right mono text-gray-400">${fmtPx(c.price_usd)}</td><td class="text-right mono text-emerald-300/90">${c.locked_usd != null ? fmt$(c.locked_usd) : 'unpriced'}${c.idle_usd > 0.005 ? `<div class="text-[9.5px] text-amber-300">+ ${fmt$(c.idle_usd)}</div>` : ''}</td></tr>`).join('');
+            <td class="text-right mono">${c.locked != null ? fmtNum(c.locked) : '—'}${c.idle > 0 ? `<div class="text-[9.5px] text-amber-300">+ ${fmtNum(c.idle)} not locked</div>` : ''}</td><td class="text-right mono text-gray-400">${c.price_usd != null ? fmtPx(c.price_usd) : (store.symPrice.get(c.symbol) ? '<span title="Solid’s oracle has no price for this token — our LST price (hub rate × LUNA), not what Solid liquidates on">≈ ' + fmtPx(store.symPrice.get(c.symbol)) + '*</span>' : '—')}</td><td class="text-right mono text-emerald-300/90">${c.locked_usd != null ? fmt$(c.locked_usd) : (c.locked != null && store.symPrice.get(c.symbol) ? '<span class="text-gray-400" title="our LST price — Solid’s oracle has none">≈ ' + fmt$(c.locked * store.symPrice.get(c.symbol)) + '*</span>' : 'unpriced')}${c.idle_usd > 0.005 ? `<div class="text-[9.5px] text-amber-300">+ ${fmt$(c.idle_usd)}</div>` : ''}</td></tr>`).join('');
         return wrap(`<div class="flex items-center justify-between flex-wrap gap-2">${head}${S.band === 'debt_no_collateral' ? '<div class="text-right text-[11px] text-amber-300" data-solid-nocoll>SOLID still owed · no collateral left<div class="text-[10px] text-gray-500">a liquidation took it all — the loan stays open until repaid</div></div>' : S.health != null ? `<div class="text-right"><div class="text-[10px] text-gray-500 uppercase tracking-wider">health</div><div class="mono text-xl font-bold ${B[0]}" data-solid-health title="Solid's own view: borrow limit ÷ what you owe. Under 1.00 the position can be liquidated. Bands: ≥ 1.5 safe · 1.2–1.5 watch · < 1.2 at risk.">${S.health.toFixed(2)}</div><div class="text-[10px] ${B[0]}">${B[1]}</div></div>` : '<span class="text-[11px] text-emerald-300">no loan</span>'}</div>
             <div class="grid grid-cols-3 gap-2 mt-2 text-center"><div class="rounded-lg bg-white/[0.02] p-2"><div class="text-[10px] text-gray-500">Collateral</div><div class="mono text-emerald-300">${fmt$(S.collateral_usd + (S.idle_usd || 0))}</div></div><div class="rounded-lg bg-white/[0.02] p-2"><div class="text-[10px] text-gray-500">SOLID owed</div><div class="mono text-red-300" data-solid-debt>${S.debt_solid != null ? fmtSol(S.debt_solid) : '—'}</div><div class="text-[9.5px] text-gray-500">${S.debt_usd != null ? fmt$(S.debt_usd) : ''}</div></div><div class="rounded-lg bg-white/[0.02] p-2"><div class="text-[10px] text-gray-500">Net</div><div class="mono text-gray-100">${fmt$(S.net_usd)}</div></div></div>
             ${used != null ? `<div class="mt-2"><div class="flex justify-between text-[10.5px] text-gray-500"><span>borrowed ${(used * 100).toFixed(0)}% of the limit</span><span class="mono" data-solid-limit title="${esc(S.borrow_limit_src || '')}">limit ${fmtSol(S.borrow_limit_solid)} SOLID</span></div><div class="h-2 rounded-full bg-white/5 overflow-hidden mt-0.5"><div class="h-full rounded-full ${used > 0.83 ? 'bg-red-400' : used > 0.67 ? 'bg-amber-400' : 'bg-emerald-400'}" style="width:${Math.min(100, used * 100).toFixed(1)}%"></div></div></div>` : ''}
             ${liq ? `<div class="text-[11.5px] text-gray-300 mt-2" data-solid-liq>${liq}</div>` : ''}
             <table class="data-table mt-2"><thead><tr><th>Collateral</th><th class="text-right">Locked</th><th class="text-right">Price</th><th class="text-right">Value</th></tr></thead><tbody>${rows}</tbody></table>
             ${S.idle_usd > 0.005 ? `<div class="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2 text-[11px]" data-solid-idle><b class="text-amber-300">⚠ ${fmt$(S.idle_usd)} deposited in Solid but not locked</b><div class="text-gray-400">It backs no loan and earns nothing. Lock it (it raises your borrow limit) or withdraw it.</div></div>` : ''}
-            <div class="text-[10px] text-gray-600 mt-1.5">Prices are Solid’s own oracle (what the protocol liquidates on) · borrowing adds a 0.5% mint fee to the loan, no interest has been seen · from the hourly census${S.unpriced ? ` · unpriced: ${esc(S.unpriced.join(', '))}` : ''}.</div>`);
+            <div class="text-[10px] text-gray-600 mt-1.5">Prices are Solid’s own oracle (what the protocol liquidates on) · borrowing adds a 0.5% mint fee to the loan, no interest has been seen · from the hourly census${S.unpriced ? ` · Solid’s oracle has no price for ${esc(S.unpriced.join(', '))}${S.unpriced.some(x => store.symPrice.get(x)) ? ' — * our LST price shown instead (hub rate × LUNA)' : ''}` : ''}.</div>`);
     }
     const crediaOf = (m) => m && (m.credia || ((store.feeds?.parts?.members || []).find(x => x.wallet === m.wallet) || {}).credia) || null;
     function renderCredia(m) {
@@ -1608,20 +1651,20 @@
         const el = $('trend-card-body'); if (!el || !wallet) return;
         if (!window.PortfolioChart) { el.innerHTML = '<div class="text-gray-600 text-sm">Chart library unavailable.</div>'; return; }
         el.innerHTML = '<div class="loading-pulse text-gray-500 text-sm py-6 text-center">Reading your history…</div>';
-        const [H, luna, led, cal] = await Promise.all([loadHistory(wallet), lunaSeries(), fetchLedger(wallet), fetchEpochCal()]);
+        const [H, luna, led, cal, TK] = await Promise.all([loadHistory(wallet), lunaSeries(), fetchLedger(wallet), fetchEpochCal(), loadTokens(wallet)]);
         if (store.wallet !== wallet) return;
         const m = store.members.get(wallet);
         // the weekly LP curve (P&L build) + the activity per epoch (flow ledger), dated by the epoch calendar
         const epDay = (e) => cal && cal.get(Number(e)) || null;
         const deep = []; try { const D = led && led.v3 && window.PortfolioPnl ? PortfolioPnl.decode(led.v3) : null; for (const c of (D ? D.curve : [])) if (c.e !== 'now' && epDay(c.e)) deep.push({ d: epDay(c.e), usd: c.usd, luna: c.luna, missing: c.missing }); } catch (e) {}
         const activity = []; for (const [E, b] of Object.entries((led && led.epochs) || {})) { const d = epDay(E); if (d && b && b.c) activity.push({ d, dep: b.c.dep || 0, wdr: b.c.wdr || 0, clm: b.c.clm || 0 }); }
-        const data = { rows: H.rows, now: m ? nowRow(m) : null, deep, luna, activity };
-        store._chart = PortfolioChart.mount(el, data, { state: store._chartState || { view: 'net', range: H.rows.length > 45 ? 90 : 30, lens: 'usd' }, onState: (st) => { store._chartState = Object.assign({}, st); }, height: 380 });
+        const data = { rows: H.rows, now: m ? nowRow(m) : null, deep, luna, activity, tokens: TK, lunaNow: m ? lunaNowOf(m, TK) : null };
+        store._chart = PortfolioChart.mount(el, data, { state: store._chartState || { view: TK.length ? 'luna' : 'net', range: 90, lens: 'luna' } /* 4.2 (owner): LUNA by default — the USD view of a LUNA book mostly shows LUNA's price */, onState: (st) => { store._chartState = Object.assign({}, st); }, height: 380 });
         store._chartData = data;
         if (H.src === 'sampled') el.insertAdjacentHTML('beforeend', '<div class="text-[11px] text-amber-300/80 mt-1">Reading sampled days from the member archive — the full daily history appears after member-data 1.5.0’s first run.</div>');
     }
     // live pieces (Votion, custody, prices) move "now": refresh the last point without refetching
-    function refreshChartNow() { const m = store.members.get(store.wallet); if (store._chart && store._chartData && m) { store._chartData.now = nowRow(m); store._chart.update(store._chartData); } }
+    function refreshChartNow() { const m = store.members.get(store.wallet); if (store._chart && store._chartData && m) { store._chartData.now = nowRow(m); store._chartData.lunaNow = lunaNowOf(m, store._chartData.tokens); store._chart.update(store._chartData); } }
     window.mpChartView = (view) => { store._chartState = Object.assign({}, store._chartState || {}, { view }); if (store._chart) { store._chart.state.view = view; store._chart.redraw(); } mpScrollTo('chart-card'); };
 
     // ---------- "how you've done" — the honest bottom line ----------
@@ -1656,7 +1699,7 @@
         };
         const fees = pnlRoll?._byAddr?.get(wallet)?.fees_usd_at_event ?? null;
         const draw = () => {
-            const PL = store._ppLens || 'usd';
+            const PL = store._ppLens || 'luna';   // 4.2: LUNA by default
             const Dr = window.PortfolioPnl.reconcile ? window.PortfolioPnl.reconcile(JSON.parse(D0), liveNow()) : JSON.parse(D0);
             // moved receipts → the alert list (where they went, named when the registry knows it)
             // 4.1 (owner: "the alert board is meant for things that are pressing, not an LP sent out months ago"): only a transfer in the last 14 days alerts
@@ -1682,7 +1725,7 @@
         if (store._storyPhaseA === wallet && !parts.lp) return;
         const firstDay = [store.members.get(wallet)?.first_participation?.approx_date, leg && leg.first_day, vp && vp.first_day].filter(Boolean).sort()[0] || null;
         lunaSeries().then(luna => { if (store.wallet !== wallet) return; const lp = lunaPxFrom(luna);
-            store._doneTotals = PortfolioPnl.renderDone(el, parts, { lens: store._doneLens || 'usd', off: store._doneOff || {}, onLens: (l) => { store._doneLens = l; }, onOff: (o) => { store._doneOff = o; }, lunaFirst: firstDay ? lp(firstDay) : null, lunaNow: store.symPrice.get('LUNA') || null, firstDay }); });
+            store._doneTotals = PortfolioPnl.renderDone(el, parts, { lens: store._doneLens || 'luna', off: store._doneOff || {}, onLens: (l) => { store._doneLens = l; }, onOff: (o) => { store._doneOff = o; }, lunaFirst: firstDay ? lp(firstDay) : null, lunaNow: store.symPrice.get('LUNA') || null, firstDay }); });
     }
     store._doneRedraw = () => drawDone();
     // 3.1 (2026-09-27): the NFT leg. Per collection: the wallet's by-wallet shard (nft-collections/<slug>/ledger/by-wallet/<last char>.json),
@@ -1702,7 +1745,7 @@
         store._nftLegs = { wallet, legs }; try { drawDone(); } catch (e) {}
         // 4.0: the NFT figures for net worth (backing by default, floor on request) come from the same holdings
         if (!legs.length) return;
-        card.hidden = false; const draw = () => window.PortfolioPnl.renderNfts($('pp-nfts'), legs, { lens: store._ppLens || 'usd', onLens: (l) => { store._ppLens = l; draw(); } });
+        card.hidden = false; const draw = () => window.PortfolioPnl.renderNfts($('pp-nfts'), legs, { lens: store._ppLens || 'luna', onLens: (l) => { store._ppLens = l; draw(); } });
         draw();
     }
     async function renderStory(wallet, m) {
@@ -2273,7 +2316,7 @@
         const main = all.filter(r => !isDust(r));
         const dust = all.filter(isDust);
         const dustUsd = dust.reduce((x, r) => x + (r.usd || 0), 0);
-        store._liquid = { wallet, usd: liquidTotal, idle: idleUsd, idleList: idleLp, illiquid: illiquid.reduce((x, r) => x + (r.usd || 0), 0), illiquidFetch: illiquid.reduce((x, r) => x + (r.sell.fetch_usd || 0), 0), top: all.slice(0, 12) };   // 4.0: in net worth, the tiles, the alerts
+        const LFAM = /^(LUNA|ampLUNA|bLUNA|arbLUNA|stLUNA|zluna.*)$/i; store._liquid = { wallet, lunaFamUsd: all.filter(r => LFAM.test(r.sym) && !/^zluna/i.test(r.sym)).reduce((x, r) => x + (r.usd || 0), 0), usd: liquidTotal, idle: idleUsd, idleList: idleLp, illiquid: illiquid.reduce((x, r) => x + (r.usd || 0), 0), illiquidFetch: illiquid.reduce((x, r) => x + (r.sell.fetch_usd || 0), 0), top: all.slice(0, 12) };   // 4.0: in net worth, the tiles, the alerts
         try { renderBanner(m); renderTiles(m); renderAlerts(m); renderLadderAll(m); } catch (e) {}
         el.innerHTML = (main.length || dust.length || idleLp.length || illiquid.length) ? `
             <table class="data-table"><thead><tr><th>Token</th><th class="text-right">Amount</th><th class="text-right">Value</th></tr></thead><tbody>
@@ -2540,6 +2583,87 @@
             </div>`;
     }
 
+    // ---------- 4.2 My wallets (several addresses, combined) ----------
+    // Saved on this device only (localStorage 'tla:my_wallets'); ?wallets=a,b,c opens the combined view and is shareable.
+    // The combined view adds up what the daily records hold for every wallet (LUNA by place, TLA value by category, VP); today's live
+    // reads stay per wallet — open one for its full detail.
+    const MW_KEY = 'tla:my_wallets', MW_MAX = 12;
+    const myWallets = () => { try { const a = JSON.parse(lsGet(MW_KEY) || '[]'); return Array.isArray(a) ? a.filter(isTerraAddr).slice(0, MW_MAX) : []; } catch { return []; } };
+    const setMyWallets = (a) => { lsSet(MW_KEY, JSON.stringify([...new Set(a.filter(isTerraAddr))].slice(0, MW_MAX))); renderMyBar(); };
+    const nameOfW = (w) => store.names.get(w) || (store.members.get(w) && store.members.get(w).name) || null;
+    function renderMyBar() {
+        const el = $('mw-bar'); if (!el) return; const W = myWallets(); const cur = store.wallet;
+        if (!W.length && !cur) { el.classList.add('hidden'); return; }
+        el.classList.remove('hidden');
+        const chip = (w) => `<span class="inline-flex items-center rounded-lg border ${!store._combined && cur === w ? 'border-cyan-400/50 bg-cyan-500/15 text-cyan-100' : 'border-white/10 bg-white/[0.03] text-gray-300'} text-[12px]">
+            <button type="button" class="px-2.5 py-1 hover:text-white" onclick="mpOpenWallet('${w}')" title="${esc(w)}">${esc(nameOfW(w) || shortAddr(w))}</button>
+            <button type="button" class="pr-2 text-gray-600 hover:text-red-300" onclick="mpRemoveWallet('${w}')" title="Remove from My wallets">×</button></span>`;
+        el.innerHTML = `<div class="glass-card px-3 py-2 flex items-center gap-2 flex-wrap">
+            <span class="text-[11px] uppercase tracking-wider text-gray-500 mr-1"><i class="fas fa-wallet mr-1"></i>My wallets</span>
+            ${W.length > 1 ? `<button type="button" onclick="mpShowCombined()" class="px-2.5 py-1 rounded-lg text-[12px] font-semibold border ${store._combined ? 'border-cyan-400/50 bg-cyan-500/20 text-cyan-100' : 'border-white/10 bg-white/[0.03] text-cyan-300 hover:bg-cyan-500/10'}">All ${W.length} combined</button>` : ''}
+            ${W.map(chip).join('')}
+            ${cur && !W.includes(cur) && !store._combined ? `<button type="button" onclick="mpAddWallet('${cur}')" class="px-2.5 py-1 rounded-lg text-[12px] border border-dashed border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/10"><i class="fas fa-plus mr-1"></i>Add ${esc(nameOfW(cur) || shortAddr(cur))}</button>` : ''}
+            <span class="inline-flex items-center gap-1 ml-auto"><input id="mw-add-in" placeholder="add terra1… or a name" class="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-[11.5px] mono w-52 text-gray-200 placeholder:text-gray-600" onkeydown="if(event.key==='Enter')mpAddFromInput()"><button type="button" onclick="mpAddFromInput()" class="px-2 py-1 rounded-lg text-[12px] bg-white/5 text-gray-300 hover:text-cyan-200">Add</button></span>
+            <span class="w-full text-[10.5px] text-gray-600">Saved on this device only. ${W.length > 1 ? '"All combined" adds them up; tap a wallet for its full detail.' : 'Add a second wallet to see them combined.'}</span></div>`;
+    }
+    window.mpAddWallet = (w) => { setMyWallets(myWallets().concat([w])); };
+    window.mpRemoveWallet = (w) => { setMyWallets(myWallets().filter(x => x !== w)); if (store._combined) { myWallets().length > 1 ? mpShowCombined() : (myWallets()[0] ? mpOpenWallet(myWallets()[0]) : showState('state-welcome')); } };
+    window.mpAddFromInput = () => { const v = ($('mw-add-in') || {}).value || ''; const w = resolveInput(v.trim()); if (!w) { $('mw-add-in').classList.add('border-red-400/60'); return; } setMyWallets(myWallets().concat(store.wallet && !myWallets().length ? [store.wallet, w] : [w])); };
+    window.mpOpenWallet = (w) => { store._combined = false; if (window.AddressPicker && AddressPicker.set) { try { AddressPicker.set(w); } catch (e) {} } $('wallet-input').value = w; renderPortfolio(w); try { history.replaceState(null, '', '?wallet=' + w); } catch {} };
+    // sum the wallets' daily rows: a day counts only when EVERY wallet that has a record had a row that day (no half-days)
+    function sumTokens(lists) {
+        const have = lists.filter(l => l && l.length); if (!have.length) return [];
+        const maps = have.map(l => new Map(l.map(r => [r[0], r]))); const days = [...maps[0].keys()].filter(d => maps.every(m => m.has(d))).sort();
+        return days.map(d => { const rs = maps.map(m => m.get(d)); const cov = [...rs[0][1]].filter(c => rs.every(r => String(r[1]).includes(c))).join('');
+            const out = {}; for (const r of rs) for (const [sym, pl] of Object.entries(r[2] || {})) { const o = out[sym] || (out[sym] = {}); for (const [k, v] of Object.entries(pl || {})) if (typeof v === 'number') o[k] = (o[k] || 0) + v; }
+            return [d, cov, out]; });
+    }
+    function sumSeries(lists) {
+        const have = lists.filter(l => l && l.length); if (!have.length) return [];
+        const maps = have.map(l => new Map(l.map(r => [r.d, r]))); const days = [...maps[0].keys()].filter(d => maps.every(m => m.has(d))).sort();
+        return days.map(d => { const rs = maps.map(m => m.get(d)); const o = { d, px: rs[0].px };
+            for (const k of ['p', 'lk', 'lkL', 'fx', 'lp', 'cu', 'wb', 'vt', 'vtv', 'cs', 'cb', 'ss', 'sb', 'vp', 'pvp']) { const vs = rs.map(r => r[k]).filter(v => typeof v === 'number'); if (vs.length) o[k] = vs.reduce((a, b) => a + b, 0); }
+            return o; });
+    }
+    const lunaOfRow = (r) => { const L = (r && r[2] && r[2].LUNA) || {}; return Object.values(L).reduce((x, v) => x + (Number(v) || 0), 0); };
+    window.mpShowCombined = async () => {
+        const W = myWallets(); if (W.length < 2) return; store._combined = true; store.wallet = null;
+        showState('combined'); store._combined = true; renderMyBar(); try { history.replaceState(null, '', '?wallets=' + W.join(',')); } catch {}
+        const el = $('combined'); el.innerHTML = '<div class="glass-card p-8 text-center loading-pulse text-gray-500">Adding up ' + W.length + ' wallets…</div>';
+        const [TKs, Hs, luna] = await Promise.all([Promise.all(W.map(loadTokens)), Promise.all(W.map(loadHistory)), lunaSeries()]);
+        if (!store._combined) return;
+        const tok = sumTokens(TKs), ser = sumSeries(Hs.map(h => h.rows || [])); const lu = store.symPrice.get('LUNA') || null;
+        const lastT = tok[tok.length - 1] || null, lastS = ser[ser.length - 1] || null;
+        const rows = W.map((w, i) => { const m = store.members.get(w) || null; const t = TKs[i] || [], h = (Hs[i] && Hs[i].rows) || []; const lt = t[t.length - 1], ls = h[h.length - 1];
+            return { w, name: nameOfW(w), luna: lt ? lunaOfRow(lt) : null, lday: lt ? lt[0] : null, tla: ls ? ls.p : null, vp: m && m.summary ? m.summary.voting_power_human : null, locks: m ? (m.locks || []).length : null, nfts: m ? m.nft_count || 0 : null, tracked: !!(t.length || h.length || m) }; });
+        const tot = (k) => rows.reduce((x, r) => x + (Number(r[k]) || 0), 0);
+        const totL = lastT ? lunaOfRow(lastT) : tot('luna');
+        const big = (label, val, sub) => `<div class="rounded-xl bg-white/[0.03] border border-white/5 p-4"><div class="text-[11px] uppercase tracking-wider text-gray-500">${label}</div><div class="mono text-2xl md:text-3xl font-bold text-gray-50 mt-1">${val}</div><div class="text-[11px] text-gray-500 mt-0.5">${sub || ''}</div></div>`;
+        el.innerHTML = `
+          <div class="glass-card p-5 mb-4">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-3"><div class="font-semibold text-lg"><i class="fas fa-layer-group text-cyan-300 mr-2"></i>${W.length} wallets, combined</div>
+              <div class="text-[11px] text-gray-500">From the daily records${lastT ? ' — as of ' + esc(lastT[0]) : ''}. Today's live numbers are per wallet: tap one below.</div></div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              ${big('LUNA you hold', totL ? fmtNum(totL) + ' <span class="text-lg text-gray-400">LUNA</span>' : '—', lu && totL ? '≈ ' + fmt$(totL * lu) + ' at $' + lu.toFixed(4) + ' · wallet, LSTs, locks, LPs, Votion, rewards' + (lastT && String(lastT[1]).includes('h') ? ', staking, NFT backing' : '') : 'no daily LUNA record yet')}
+              ${big('TLA value', lastS ? fmt$(lastS.p) : fmt$(tot('tla')), 'locks + LPs + DAO stake + TLA tokens' + (lastS ? ' · ' + esc(lastS.d) : ''))}
+              ${big('Voting power', fmtNum(tot('vp')) + ' <span class="text-lg text-gray-400">VP</span>', tot('locks') + ' locks · ' + tot('nfts') + ' aDAO NFTs staked')}
+            </div>
+          </div>
+          <div class="glass-card p-5 mb-4"><div class="font-semibold mb-1"><i class="fas fa-chart-area text-cyan-300 mr-2"></i>Combined over time</div>
+            <p class="text-[12px] text-gray-500 mb-3">A day is drawn only when every wallet with a record has that day — so a wallet that joined later starts the combined line on its first day.</p>
+            <div id="combined-chart"></div></div>
+          <div class="glass-card p-5 mb-4"><div class="font-semibold mb-3"><i class="fas fa-list text-cyan-300 mr-2"></i>Each wallet</div>
+            <div class="overflow-x-auto"><table class="w-full text-[12.5px]"><thead><tr class="text-[11px] text-gray-500 text-left"><th class="py-1.5 pr-3">Wallet</th><th class="text-right pr-3">LUNA held</th><th class="text-right pr-3">Share</th><th class="text-right pr-3">TLA value</th><th class="text-right pr-3">VP</th><th class="text-right pr-3">Locks</th><th class="text-right pr-3">NFTs staked</th><th></th></tr></thead><tbody>
+            ${rows.map(r => `<tr class="border-t border-white/5"><td class="py-2 pr-3"><div class="text-gray-200">${esc(r.name || shortAddr(r.w))}</div><div class="mono text-[10.5px] text-gray-600">${esc(r.w)}</div></td>
+              <td class="text-right pr-3 mono">${r.luna != null ? fmtNum(r.luna) : '<span class="text-gray-600">—</span>'}</td><td class="text-right pr-3 mono text-gray-400">${r.luna != null && totL ? (r.luna / totL * 100).toFixed(1) + '%' : ''}</td>
+              <td class="text-right pr-3 mono">${r.tla != null ? fmt$(r.tla) : '<span class="text-gray-600">—</span>'}</td><td class="text-right pr-3 mono">${r.vp != null ? fmtNum(r.vp) : '—'}</td><td class="text-right pr-3 mono">${r.locks ?? '—'}</td><td class="text-right pr-3 mono">${r.nfts ?? '—'}</td>
+              <td class="text-right"><button type="button" onclick="mpOpenWallet('${r.w}')" class="text-cyan-300 hover:text-cyan-100 text-[12px]">Open ›</button></td></tr>${r.tracked ? '' : `<tr><td colspan="8" class="text-[11px] text-amber-300/80 pb-2">Not tracked yet — the daily records cover TLA lock holders, aDAO members and bribe providers.</td></tr>`}`).join('')}
+            </tbody></table></div></div>`;
+        const ch = $('combined-chart');
+        if (window.PortfolioChart && (tok.length || ser.length)) store._cChart = PortfolioChart.mount(ch, { rows: ser, tokens: tok, luna, deep: [], activity: [] }, { state: store._cChartState || { view: tok.length ? 'luna' : 'net', range: 90, lens: 'luna' }, onState: (st) => { store._cChartState = Object.assign({}, st); }, height: 360 });
+        else ch.innerHTML = '<div class="text-gray-600 text-sm py-6 text-center">None of these wallets has a daily record yet.</div>';
+    };
+
     function viewFromInput() {
         const w = resolveInput($('wallet-input').value);
         if (!w) { $('addr-msg').innerHTML = '<span class="text-amber-300">Not a terra1… address or a known registered name.</span>'; return; }
@@ -2574,8 +2698,10 @@
             // old saved key once, then let the picker resolve URL → remembered → saved.
             const legacy = lsGet(CONFIG.storageKey);
             if (legacy && isTerraAddr(legacy)) { try { if (!localStorage.getItem('tla:saved_wallet')) localStorage.setItem('tla:saved_wallet', legacy); } catch {} lsSet(CONFIG.storageKey, null); }
-            let shown = false;
-            const show = (w) => { if (!isTerraAddr(w)) return; $('wallet-input').value = w; shown = true; renderPortfolio(w); };
+            let shown = false; store._bootAt = Date.now();
+            const urlWs = (new URLSearchParams(location.search).get('wallets') || '').split(',').map(x => x.trim()).filter(isTerraAddr);   // 4.2: a shared combined link
+            if (urlWs.length > 1) { setMyWallets([...new Set(myWallets().concat(urlWs))]); shown = true; mpShowCombined(); }
+            const show = (w) => { if (!isTerraAddr(w)) return; if (store._combined && urlWs.length > 1 && Date.now() - (store._bootAt || 0) < 3000) return; /* the picker's remembered wallet on load must not replace a shared combined link */ $('wallet-input').value = w; shown = true; store._combined = false; renderPortfolio(w); };
             if (window.AddressPicker) {
                 AddressPicker.mount({ onSelect: show, onClear: () => { store.wallet = null; showState('state-welcome'); } });
                 window.addEventListener('tla:wallet', (e) => { if (e.detail && e.detail.wallet && e.detail.wallet !== store.wallet) show(e.detail.wallet); });
@@ -2613,6 +2739,7 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '4.1.2', revDate: '2026-09-29', page: 'member-portfolio' });   // 4.1.2: an amplified single-asset LP (e.g. wBTC.creda.a in the compounder) is counted in net worth, the LP tile and the chart's today point — it read as $0. 4.1.1: Solid — a loan with no collateral left (after a liquidation) reads "SOLID still owed · no collateral left" + an alert, never "no loan". 4.1: chart engine from jsdelivr/unpkg/cdnjs in turn (cdnjs never had 5.5.1); alerts only for transfers in the last 14 days; positions sent away fold into their own group; side-by-side cards share row height; a popup says why an address is not tracked; tax / no-liability notes. Solid — the lending card shows collateral locked per token (and what is deposited but NOT locked, warned), SOLID owed, the borrow limit used, health (Solid's own view, banded), the liquidation price or fall, at Solid's own oracle; net worth carries Solid net; alerts for health under 1.5 and idle collateral; the chart's Lending view and net-worth stack carry Solid (member-data 1.6.0) · 4.0 (owner 2026-09-28 page walk): a new order — who you are (DAODAO picture for every wallet, days in TLA, oldest lock, VP and the LUNA behind it) with the alert chips beside it (lock decay > 5 %, votes missing / coasting and time left, NFTs / ampCAPA unstaking, LUNA unbonding, authz grants, listed locks, idle LP, moved receipts, Credia health) → net worth of EVERYTHING (liquid tokens, LUNA staked, other chains, Votion, Credia net, and the aDAO NFT backing — or NFTs at floor, never both) → tiles (claimable from every place) → ONE chart (member-data history series: net worth stacked, TLA, locks, LPs back to the first deposit, Votion, Credia, VP; 7D–All; USD / LUNA; LUNA price strip; deposit / withdraw markers; table view) → How you've done combined (LPs + locks & bribes + Votion + NFTs, each switchable, what drove it) → positions trip by trip (logos, venue, unpriced, return %, days, APR only ≥ 30 days, a Tokens lens, a scorecard) → open positions (locks with age / LUNA / decay, Credia) → wallet → everything ranked (same total as the banner) → income (bribes = the P&L's) → activity & fees folded · 3.8: receipts staked in a DAO (the ampCAPA DAO) are a position — their own cyan panel in LP positions (feed at once, live when read), in the LP tile, the banner, "what you hold" and every trend day (days before the capture carried them are filled from the CAPA supply history × CAPA's price that day; never added twice); a moved-out LP row says where the receipt went — the registry's name, the address, the day (tla-flows pnl 1.2.4); other Cosmos addresses found in your own IBC transfers, one tap to link · 3.7: trust pass — the P&L's open lots checked against the hourly chain read: a receipt staked in the ampCAPA DAO counts at its live value (P&L only on the part with a known cost), one sent to another address is flagged "not in this wallet" and left out of Open now; APR left blank where a trip had no price (never inflated); LP tokens idle in the wallet (no TLA rewards) warned and valued; illiquid tokens (pyROAR) shown with what they would actually fetch and kept out of the new liquid total · 3.6: wallet balances read every cw20 live (catalog + the registry's known_cw20s — pyROAR priced from its pair × ROAR, labelled); tokens with no price listed, not just counted; other Cosmos chains priced where the catalog knows the token, every token counted, Injective (link your inj1…), links kept per wallet · 3.5.1: all-LPs total under the positions table; dust (< $1) folds with the closed · 3.5: LP positions by bucket — in / out / open / P&L incl. rewards / APR earned / LP since entry (take-rate drag + top-up, amplifier compounding; tla-flows pnl-positions 1.1.0), closed folded · 3.4: vote card — what the votes WILL earn at the close vs what the best split COULD (lib/vote-market.js, the Vote Market page's model with Votion's move solved in), per bucket and in total · 3.3: vote allocations — expected bribes at the epoch close (per vote + total), pools with no bribes flagged, a simulate → link per vote and to the Vote Market; each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
+<script>SiteFooter.mount({ rev: '4.2.0', revDate: '2026-10-13', page: 'member-portfolio' });   // 4.2.0 (owner 2026-10-13): LUNA FIRST — the chart opens on "LUNA held" (LUNA by place from member-data/history/tokens, LSTs as the LUNA behind them, today live), the banner, change chips, How you've done, LP positions and NFTs open in LUNA (USD one tap away); MY WALLETS — several addresses saved on this device, "All combined" adds up their daily records (LUNA held, TLA value, VP, a combined chart, a row per wallet), ?wallets=a,b shares it; a dust Solid loan (< $1) is a note, not a red alert, and collateral Solid's oracle cannot price shows our LST price (marked *); the footer reads the daily holdings + P&L heartbeats at a daily cadence.
+   // 4.1.2   // 4.1.2: an amplified single-asset LP (e.g. wBTC.creda.a in the compounder) is counted in net worth, the LP tile and the chart's today point — it read as $0. 4.1.1: Solid — a loan with no collateral left (after a liquidation) reads "SOLID still owed · no collateral left" + an alert, never "no loan". 4.1: chart engine from jsdelivr/unpkg/cdnjs in turn (cdnjs never had 5.5.1); alerts only for transfers in the last 14 days; positions sent away fold into their own group; side-by-side cards share row height; a popup says why an address is not tracked; tax / no-liability notes. Solid — the lending card shows collateral locked per token (and what is deposited but NOT locked, warned), SOLID owed, the borrow limit used, health (Solid's own view, banded), the liquidation price or fall, at Solid's own oracle; net worth carries Solid net; alerts for health under 1.5 and idle collateral; the chart's Lending view and net-worth stack carry Solid (member-data 1.6.0) · 4.0 (owner 2026-09-28 page walk): a new order — who you are (DAODAO picture for every wallet, days in TLA, oldest lock, VP and the LUNA behind it) with the alert chips beside it (lock decay > 5 %, votes missing / coasting and time left, NFTs / ampCAPA unstaking, LUNA unbonding, authz grants, listed locks, idle LP, moved receipts, Credia health) → net worth of EVERYTHING (liquid tokens, LUNA staked, other chains, Votion, Credia net, and the aDAO NFT backing — or NFTs at floor, never both) → tiles (claimable from every place) → ONE chart (member-data history series: net worth stacked, TLA, locks, LPs back to the first deposit, Votion, Credia, VP; 7D–All; USD / LUNA; LUNA price strip; deposit / withdraw markers; table view) → How you've done combined (LPs + locks & bribes + Votion + NFTs, each switchable, what drove it) → positions trip by trip (logos, venue, unpriced, return %, days, APR only ≥ 30 days, a Tokens lens, a scorecard) → open positions (locks with age / LUNA / decay, Credia) → wallet → everything ranked (same total as the banner) → income (bribes = the P&L's) → activity & fees folded · 3.8: receipts staked in a DAO (the ampCAPA DAO) are a position — their own cyan panel in LP positions (feed at once, live when read), in the LP tile, the banner, "what you hold" and every trend day (days before the capture carried them are filled from the CAPA supply history × CAPA's price that day; never added twice); a moved-out LP row says where the receipt went — the registry's name, the address, the day (tla-flows pnl 1.2.4); other Cosmos addresses found in your own IBC transfers, one tap to link · 3.7: trust pass — the P&L's open lots checked against the hourly chain read: a receipt staked in the ampCAPA DAO counts at its live value (P&L only on the part with a known cost), one sent to another address is flagged "not in this wallet" and left out of Open now; APR left blank where a trip had no price (never inflated); LP tokens idle in the wallet (no TLA rewards) warned and valued; illiquid tokens (pyROAR) shown with what they would actually fetch and kept out of the new liquid total · 3.6: wallet balances read every cw20 live (catalog + the registry's known_cw20s — pyROAR priced from its pair × ROAR, labelled); tokens with no price listed, not just counted; other Cosmos chains priced where the catalog knows the token, every token counted, Injective (link your inj1…), links kept per wallet · 3.5.1: all-LPs total under the positions table; dust (< $1) folds with the closed · 3.5: LP positions by bucket — in / out / open / P&L incl. rewards / APR earned / LP since entry (take-rate drag + top-up, amplifier compounding; tla-flows pnl-positions 1.1.0), closed folded · 3.4: vote card — what the votes WILL earn at the close vs what the best split COULD (lib/vote-market.js, the Vote Market page's model with Votion's move solved in), per bucket and in total · 3.3: vote allocations — expected bribes at the epoch close (per vote + total), pools with no bribes flagged, a simulate → link per vote and to the Vote Market; each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
 </body>
 </html>
