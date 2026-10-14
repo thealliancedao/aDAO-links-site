@@ -234,6 +234,10 @@
             <div id="votes-summary" class="mb-3"></div>
             <div id="votes-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3"></div>
         </div>
+        <!-- 4.4 (owner 2026-10-14): the DAOs this wallet follows or is in on DAO DAO — its stake, its share of the vote, the rewards waiting -->
+        <div class="glass-card p-5 mb-4" id="daos-card"><div class="flex items-center justify-between flex-wrap gap-2 mb-1"><div class="font-semibold"><i class="fas fa-landmark text-cyan-300 mr-2"></i>Your DAOs</div><span id="daos-sum" class="text-[11px] text-gray-500"></span></div>
+            <p class="text-[12px] text-gray-500 mb-3">Every Terra DAO this wallet follows on DAO DAO or is a member of: what it has staked there, its share of the vote, and the rewards waiting to be claimed.</p>
+            <div id="daos-body"><div class="loading-pulse text-gray-500 text-sm">Asking DAO DAO…</div></div></div>
 
         <div class="text-[11px] uppercase tracking-wider text-gray-500 font-semibold mb-2 mt-6"><i class="fas fa-wallet mr-1 text-gray-600"></i>In the wallet</div>
         <!-- balances + everything ranked -->
@@ -774,6 +778,7 @@
                 try { fetchLiveClaimable(m); } catch (e) {}
             }
         }
+        if (!(store._daos && store._daos.wallet === wallet)) { store._daos = { wallet, loading: true, rows: [] }; loadDaos(wallet).catch(e => { store._daos = { wallet, ok: false, rows: [], errors: [e.message] }; renderDaos(); }); } else renderDaos();
         try { renderTrendCard(wallet); } catch (e) { console.warn('trend:', e); }
         try { renderIncome(wallet, m); } catch (e) { console.warn('income:', e); }
         renderTlaRank(wallet).catch(e => console.warn('rank:', e));
@@ -1145,6 +1150,75 @@
         CAPA: 'terra1t4p3u8khpd7f8qzurwyafxt648dya6mp6vur3vaapswt6m24gkuqrfdhar', SOLID: 'terra10aa3zdkrc7jwuf8ekl3zq7e7m42vmzqehcmu74e4egc7xkm5kr2s0muyst' };
     const decOf = (den) => { const t = (store.catalog?.tokens || []).find(x => x && x.denom === den); const d = t && (t.decimals ?? t.discovered?.decimals ?? t.effective?.decimals); return d != null ? Number(d) : 6; };
     const symOfDen = (den) => (window.Denoms && Denoms.symbol(den)) || ([...(store._symDenom || new Map())].find(([, d]) => d === den) || [])[0] || den.split('/').pop().slice(0, 10);
+    // ---------- 4.4 Your DAOs — DAO DAO follows + memberships, stake / vote share, rewards waiting in each DAO's reward distributors ----------
+    // Read-only, all public: pfpk profile → kvpk follow list ("following:<chain>:<core>"), the indexer's memberOf, then per DAO on chain:
+    // voting_power_at_height {address} / total_power_at_height {} and the voting module's hooks (cw721-staked hooks {}, token-staked
+    // get_hooks {}, cw20-staked staking_contract → get_hooks {}); a hook whose info {} is a dao-rewards-distributor answers
+    // pending_rewards {address} → [{ denom: { native | cw20 }, pending_rewards }]. Same shapes the 2026-10-13 probe proved.
+    const DD = { pfpk: 'https://pfpk.daodao.zone', kvpk: 'https://kvpk.daodao.zone', indexer: 'https://indexer.daodao.zone' };
+    const DCORE = /^terra1[0-9a-z]{58}$/;
+    const _tokInfo = new Map();
+    async function tokenInfoOf(den) { if (!/^terra1/.test(den)) return null; if (!_tokInfo.has(den)) _tokInfo.set(den, lcdSmart(den, { token_info: {} }).then(r => r ? { symbol: String(r.symbol || ''), decimals: Number(r.decimals ?? 6) } : null).catch(() => null)); return _tokInfo.get(den); }
+    async function readDaoList(addr) {
+        const errors = []; let followed = [], other = 0; const member = [], names = {};
+        const prof = await _j(`${DD.pfpk}/address/${addr}`);
+        if (prof && prof.uuid) { const f = await _j(`${DD.kvpk}/list/${encodeURIComponent(prof.uuid)}/following:`);
+            if (f && Array.isArray(f.items)) { for (const it of f.items) { const mm = /^following:([^:]+):(.+)$/.exec(String(it?.key || '')); if (!mm || it?.value == null) continue; if (mm[1] === 'phoenix-1') { if (DCORE.test(mm[2]) && !followed.includes(mm[2])) followed.push(mm[2]); } else other++; } }
+            else errors.push('DAO DAO follow list did not answer'); }
+        const mo = await _j(`${DD.indexer}/phoenix-1/account/${addr}/daos/memberOf`);
+        if (Array.isArray(mo)) { for (const x of mo) if (DCORE.test(String(x?.dao))) { member.push(x.dao); names[x.dao] = x.config?.name || null; } } else errors.push('DAO DAO indexer did not answer');
+        return { followed, member, other, names, errors };
+    }
+    const powerOf = (d) => { const p = String(d?.power ?? ''); return /^\d+$/.test(p) ? Number(p) : null; };
+    async function readDaoPosition(core, addr, knownName) {
+        const safe = (pr) => pr.then(x => x, () => undefined);
+        const out = { core, name: knownName || null, power: null, total: null, share: null, pending: {}, distributors: 0, error: null };
+        const [cfg, vp, tp, vm] = await Promise.all([knownName ? null : safe(lcdSmart(core, { config: {} })), safe(lcdSmart(core, { voting_power_at_height: { address: addr } })), safe(lcdSmart(core, { total_power_at_height: {} })), safe(lcdSmart(core, { voting_module: {} }))]);
+        if (cfg && cfg.name) out.name = cfg.name;
+        if (vp === undefined) { out.error = 'voting power not read'; return out; }
+        out.power = powerOf(vp); out.total = tp ? powerOf(tp) : null; out.share = out.power != null && out.total > 0 ? out.power / out.total : null;
+        if (typeof vm !== 'string') return out;
+        const [h1, h2, sc] = await Promise.all([safe(lcdSmart(vm, { hooks: {} })), safe(lcdSmart(vm, { get_hooks: {} })), safe(lcdSmart(vm, { staking_contract: {} }))]);
+        const hooks = new Set([...((h1 && h1.hooks) || []), ...((h2 && h2.hooks) || [])]);
+        if (typeof sc === 'string') { const g = await safe(lcdSmart(sc, { get_hooks: {} })); for (const h of (g && g.hooks) || []) hooks.add(h); }
+        for (const h of [...hooks].slice(0, 8)) { const i = await safe(lcdSmart(h, { info: {} })); if (!i || !String(i?.info?.contract || '').includes('dao-rewards-distributor')) continue;
+            out.distributors++; const pr = await safe(lcdSmart(h, { pending_rewards: { address: addr } }));
+            for (const x of (pr && pr.pending_rewards) || []) { const den = x?.denom?.native || x?.denom?.cw20 || null; const a = Number(x?.pending_rewards || 0); if (den && a > 0) out.pending[den] = (out.pending[den] || 0) + a; } }
+        return out;
+    }
+    async function loadDaos(wallet) {
+        const L = await readDaoList(wallet); if (store.wallet !== wallet) return;
+        const cores = [...new Set([...L.member, ...L.followed])];
+        const pos = await Promise.all(cores.map(c => readDaoPosition(c, wallet, L.names[c]).catch(e => ({ core: c, name: L.names[c] || null, error: e.message, pending: {} }))));
+        if (store.wallet !== wallet) return;
+        const pm = _livePriceMaps(); const rows = [];
+        for (const d of pos) { const pending = [];
+            for (const [den, raw] of Object.entries(d.pending || {})) { const ti = /^terra1/.test(den) ? await tokenInfoOf(den) : null; const sym = (ti && ti.symbol) || symOfDen(den); const dec = ti ? ti.decimals : decOf(den);
+                const n = raw / 10 ** dec; const p = pm.byDenom.get(den) ?? pm.bySym.get(sym) ?? store.symPrice.get(sym) ?? null; pending.push({ den, sym, n, usd: p != null ? n * p : null }); }
+            rows.push(Object.assign({}, d, { member: L.member.includes(d.core) || (d.power || 0) > 0, followed: L.followed.includes(d.core), pendingList: pending, usd: pending.reduce((x, y) => x + (y.usd || 0), 0), unpriced: pending.filter(y => y.usd == null).length })); }
+        rows.sort((a, b) => b.usd - a.usd || (b.share || 0) - (a.share || 0));
+        store._daos = { wallet, ok: !L.errors.length || rows.length > 0, rows, other: L.other, errors: L.errors, total: rows.reduce((x, r) => x + r.usd, 0), at: Date.now() };
+        renderDaos(); const m = store.members.get(wallet); if (m) { try { renderTiles(m); } catch (e) {} try { refreshChartNow(); } catch (e) {} }
+    }
+    function renderDaos() {
+        const el = $('daos-body'), sm = $('daos-sum'); if (!el) return; const D = store._daos; if (!D || D.wallet !== store.wallet) return;
+        if (D.loading) { el.innerHTML = '<div class="loading-pulse text-gray-500 text-sm">Asking DAO DAO…</div>'; return; }
+        const fmtTok = (n) => n >= 1e9 ? (n / 1e9).toFixed(2) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : n.toFixed(n >= 1 ? 2 : 4);
+        if (!D.rows.length) { el.innerHTML = `<div class="text-gray-500 text-sm">${D.errors && D.errors.length ? 'DAO DAO did not answer this load (' + esc(D.errors.join('; ')) + ') — reload to try again.' : 'This wallet follows no Terra DAO on DAO DAO and is not a member of one.'}</div>`; if (sm) sm.textContent = ''; return; }
+        const withVote = D.rows.filter(r => (r.power || 0) > 0).length;
+        if (sm) sm.innerHTML = `${D.rows.length} DAO${D.rows.length > 1 ? 's' : ''} · ${withVote} with your vote${D.total > 0.005 ? ` · <b class="text-amber-300">${fmt$(D.total)}</b> waiting` : ''}`;
+        el.innerHTML = `<div class="overflow-x-auto"><table class="w-full text-[12.5px]"><thead><tr class="text-[11px] text-gray-500 text-left"><th class="py-1.5 pr-3">DAO</th><th class="text-right pr-3">Your stake</th><th class="text-right pr-3">Share of the vote</th><th class="text-right pr-3">Rewards waiting</th><th></th></tr></thead><tbody>
+          ${D.rows.map(r => { const letter = String(r.name || '?').replace(/[^A-Za-z0-9$]/g, '').slice(0, 1) || '•';
+            const tag = (r.power || 0) > 0 ? '' : r.followed ? '<span class="text-[10px] text-gray-500"> · following, nothing staked</span>' : '<span class="text-[10px] text-gray-500"> · member</span>';
+            return `<tr class="border-t border-white/5"><td class="py-2 pr-3"><span class="inline-flex items-center gap-2"><i class="not-italic inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/5 border border-white/10 text-[11px] font-bold text-gray-400">${esc(letter)}</i><span><span class="text-gray-200">${esc(r.name || shortAddr(r.core))}</span>${tag}${r.error ? '<div class="text-[10px] text-amber-300/80">' + esc(r.error) + '</div>' : ''}</span></span></td>
+              <td class="text-right pr-3 mono">${r.power != null ? fmtNum(r.power / ((r.total || 0) > 1e9 ? 1e6 : 1)) : '—'}${r.total ? `<div class="text-[10px] text-gray-600">of ${fmtNum(r.total / (r.total > 1e9 ? 1e6 : 1))}</div>` : ''}</td>
+              <td class="text-right pr-3 mono">${r.share != null && r.share > 0 ? (r.share * 100 >= 0.01 ? (r.share * 100).toFixed(r.share * 100 >= 10 ? 1 : 2) + '%' : '<0.01%') : '<span class="text-gray-600">—</span>'}</td>
+              <td class="text-right pr-3 mono">${r.pendingList.length ? `${r.usd > 0.005 ? '<span class="text-amber-300">' + fmt$(r.usd) + '</span>' : ''}<div class="text-[10.5px] text-gray-400">${r.pendingList.map(p => esc(fmtTok(p.n) + ' ' + p.sym) + (p.usd == null ? ' <span class="text-gray-600">(no price)</span>' : '')).join(' + ')}</div>` : `<span class="text-gray-600">${r.distributors ? 'none' : '—'}</span>`}</td>
+              <td class="text-right"><a href="https://daodao.zone/dao/${esc(r.core)}" target="_blank" rel="noopener" class="text-cyan-300 hover:text-cyan-100 text-[12px] whitespace-nowrap">DAO DAO ↗</a></td></tr>`; }).join('')}
+          </tbody></table></div>
+          <div class="text-[10.5px] text-gray-600 mt-2">From this wallet's DAO DAO follows and memberships, read just now${D.other ? ` · ${D.other} followed DAO${D.other > 1 ? 's' : ''} on other chains not shown (Terra only)` : ''}. "Your stake" is the DAO's own voting power for this wallet (NFTs, tokens or membership weight). Claim and vote on DAO DAO — this site signs nothing.</div>`;
+    }
+
     async function fetchLiveClaimable(m) {
         const wallet = m.wallet;
         const pm = _livePriceMaps(); const lu = store.symPrice.get('LUNA') || (store.catalogPrices?.get('uluna') || {}).usd || null;
@@ -1414,11 +1488,15 @@
     async function pricesFor(syms) { const out = {}; await Promise.all(syms.filter(x => x && x !== 'LUNA').map(async (x) => { const d = await loadPx(x); if (d) out[x] = d; })); return out; }
     function topTokenSyms(tokRows, n) { const last = (tokRows || [])[tokRows.length - 1]; if (!last) return []; const pm = _livePriceMaps();
         return Object.entries(last[2] || {}).filter(([k]) => !/^(zluna|[0-9A-F]{40,})/i.test(k)).map(([k, pl]) => [k, Object.values(pl || {}).reduce((a, v) => a + (Number(v) || 0), 0) * (store.symPrice.get(k) ?? pm.bySym.get(k) ?? 0)]).sort((a, b) => b[1] - a[1]).slice(0, n).map(x => x[0]); }
-    let _earnP = null, _backP = null;
+    let _earnP = null, _backP = null, _yieldP = null;
+    // 4.4: the org's 30-day yields — each LST's own growth, each Votion vault's boost, LUNA staking's inflation share (votion/yields)
+    const yieldsP = () => (_yieldP = _yieldP || _j('https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/yields/current.json').catch(() => null));
+    const apr30 = (w) => { const x = w && ((w['30'] && w['30'].apr_daily_contract) ?? (w['14'] && w['14'].apr_daily_contract)); return x != null && x >= 0 ? x * 365.25 * 100 : null; };
+    const lsdApr = (Y, sym) => { if (sym === 'LUNA') return 0; const a = Y && Y.assets && Y.assets[sym]; return a && a.stale_days == null ? apr30(a.windows) : null; };
     const nftEarn = () => (_earnP = _earnP || _j(NFTC + 'adao/snapshots/earn.json').catch(() => null));
     const backingHist = () => (_backP = _backP || _j(NFTC + 'adao/snapshots/backing-history.json').then(j => (store._backRows = (j && j.rows) || [])).catch(() => []));
     const lpRewardApr = (lp) => { const sp = (store.feeds?.snap?.pools || []).find(p => p.gauge_pool_id && p.gauge_pool_id === lp.pool_gauge_id); const base = sp?.rewards?.approx_apr_pct; if (base == null) return null; return lp.is_amplified ? (Math.pow(1 + base / 100 / 52.14, 52.14) - 1) * 100 : base; };
-    function mixOf(m, earn) {
+    function mixOf(m, earn, Y) {
         const out = []; const lu = store.symPrice.get('LUNA'); const add = (key, label, usd, apr, color, sub) => { if (usd > 0.5) out.push({ key, label, usd, apr, color, sub }); };
         // LPs by bucket (the DAO-staked receipt joins its bucket); APR = this round's TLA reward APR, amplified compounded weekly
         const B = { stable: [], project: [], bluechip: [], single: [] };
@@ -1429,18 +1507,28 @@
             add('lp-' + b, 'LP · ' + b[0].toUpperCase() + b.slice(1), usd, ru > 0 && ru >= usd * 0.5 ? rated.reduce((a, x) => a + x.usd * x.apr, 0) / ru : null, COL[b], xs.length + ' position' + (xs.length > 1 ? 's' : '') + (xs.some(x => x.dao) ? ' · incl. one staked in a DAO' : '') + ' · TLA reward APR'); }
         // locks: the vote rewards your votes are on course for this round, a year at that pace
         const rp = repriceSummary(m); const lb = computeLiveBribes(m);
-        add('locks', 'TLA locks', rp.lk, lb && rp.lk > 0 ? lb.total * 52 / rp.lk * 100 : null, '#c98500', lb ? 'vote rewards this round × 52' : 'vote rewards not read yet');
+        // locks earn their LST's own yield (weighted by each lock's value) + this round's vote rewards × 52
+        let wv = 0, wa = 0, syms = []; for (const l of (m.locks || [])) { const v = (l.amount_human || 0) * (store.symPrice.get(l.asset_symbol) || 0); const a = lsdApr(Y, l.asset_symbol); if (!(v > 0)) continue; wv += v; wa += v * (a || 0); if (!syms.includes(l.asset_symbol)) syms.push(l.asset_symbol); }
+        const lsd = Y && wv > 0 ? wa / wv : null, vote = lb && rp.lk > 0 ? lb.total * 52 / rp.lk * 100 : null;
+        add('locks', 'TLA locks', rp.lk, lsd != null || vote != null ? (lsd || 0) + (vote || 0) : null, '#c98500', `${syms.join(' + ') || 'LST'} yield ${lsd != null ? lsd.toFixed(1) + '%' : '—'} + vote rewards ${vote != null ? vote.toFixed(1) + '%' : '—'}`);
         // Votion: what the vaults actually paid since you went in (LST staking + Votion compounding)
         const vr = store._votionRows && store._votionRows.wallet === m.wallet ? store._votionRows.rows : null;
         if (store._votionUsd > 0) { const rated = (vr || []).filter(r => r.story && r.story.totals && r.usd > 0); const ru = rated.reduce((a, r) => a + r.usd, 0);
-            add('votion', 'Votion', store._votionUsd, ru > 0 ? rated.reduce((a, r) => a + r.usd * ((r.story.totals.apr_lst || 0) + (r.story.totals.apr_votion || 0)) * 100, 0) / ru : null, '#9085e9', 'measured since you went in'); }
+            // 30-day: the vault LST's yield + the vault's boost (bribes the optimizer claims and adds back); else what it paid since you went in
+            const yr = (vr || []).filter(r => r.usd > 0).map(r => { const yv = Y && (Y.vaults || []).find(x => x.address === r.vault); const a = lsdApr(Y, r.lst), b = yv ? apr30(yv.windows) : null; return a != null && b != null ? { usd: r.usd, apr: a + b } : null; });
+            const okY = yr.length && yr.every(Boolean); const yu = okY ? yr.reduce((a, x) => a + x.usd, 0) : 0;
+            add('votion', 'Votion', store._votionUsd, okY && yu > 0 ? yr.reduce((a, x) => a + x.usd * x.apr, 0) / yu : ru > 0 ? rated.reduce((a, r) => a + r.usd * ((r.story.totals.apr_lst || 0) + (r.story.totals.apr_votion || 0)) * 100, 0) / ru : null, '#9085e9', okY ? 'LST yield + vault boost, last 30 days' : 'measured since you went in'); }
         // aDAO NFTs at their backing (the backing grows — 30-day growth, per year)
         const nf = store._nft && store._nft.wallet === m.wallet ? store._nft : null;
         if (nf && nf.backingUsd > 0) add('nft', 'aDAO NFT backing', nf.backingUsd, earn?.yield?.apr_on_backing_pct ?? null, '#e87ba4', `${nf.unbroken} unbroken NFTs · backing growth over 30 days`);
         // staked & liquid-staked: LUNA with validators + LSTs in the wallet (rate not measured)
         const lst = store._liquid && store._liquid.wallet === m.wallet ? Math.max(0, (store._liquid.lunaFamUsd || 0) - (store._liquid.lunaUsd || 0)) : 0;
         const stk = store._staked && store._staked.wallet === m.wallet ? store._staked.usd || 0 : 0;
-        add('staked', 'Staked & liquid-staked', stk + lst, null, '#86b6ef', 'LUNA with validators + LSTs in the wallet · rate not measured');
+        // LUNA with validators earns ≈ the inflation share (before commission; alliance rewards not counted); LSTs in the wallet earn their own yield
+        const stA = Y && Y.native_staking && Y.native_staking.apr_stakers != null ? Y.native_staking.apr_stakers * 100 : null;
+        let lstApr = null; if (store._liquid && store._liquid.wallet === m.wallet && lst > 0) { const tops = (store._liquid.top || []).filter(r => /^(ampLUNA|bLUNA|arbLUNA)$/.test(r.sym) && r.usd > 0); const tu = tops.reduce((a, r) => a + r.usd, 0); if (tu > 0 && Y) lstApr = tops.reduce((a, r) => a + r.usd * (lsdApr(Y, r.sym) || 0), 0) / tu; }
+        const sv = stk + lst; const sApr = sv > 0 && (stA != null || lstApr != null) ? ((stk * (stA || 0)) + (lst * (lstApr || 0))) / sv : null;
+        add('staked', 'Staked & liquid-staked', sv, sApr, '#86b6ef', `LUNA with validators${stA != null ? ' ≈ ' + stA.toFixed(1) + '% (before commission)' : ''} + LSTs in the wallet${lstApr != null ? ' ' + lstApr.toFixed(1) + '%' : ''}`);
         // liquid tokens (everything else in the wallet)
         if (store._liquid && store._liquid.wallet === m.wallet) add('liquid', 'Liquid tokens', Math.max(0, (store._liquid.usd || 0) - lst), null, '#6b7280', 'in the wallet, not earning');
         return out;
@@ -1532,7 +1620,9 @@
     // rewards (live) — bribes accruing this epoch are NOT claimable yet and are shown apart
     function claimEverywhere(m) {
         const cl = claimableOf(m); const lc = store._liveClaim && store._liveClaim.wallet === m.wallet && store._liveClaim.ok ? store._liveClaim : null;
-        const parts = lc ? lc.lines.map(l => ({ k: l.label, usd: l.usd, luna: l.luna, where: l.where, src: 'live' })) : [{ k: 'TLA rewards + rebase', usd: cl.rewards, src: cl.rewardsSrc }];
+        const D = store._daos && store._daos.wallet === m.wallet && store._daos.ok && !store._daos.loading ? store._daos : null;
+        const parts = lc ? lc.lines.filter(l => !(D && l.key === 'nftdao')).map(l => ({ k: l.label, usd: l.usd, luna: l.luna, where: l.where, src: 'live' })) : [{ k: 'TLA rewards + rebase', usd: cl.rewards, src: cl.rewardsSrc }];
+        if (D) for (const r of D.rows) if (r.pendingList.length) parts.push({ k: 'DAO · ' + (r.name || shortAddr(r.core)), usd: r.unpriced === r.pendingList.length ? null : r.usd, where: r.pendingList.map(p => p.sym).join(' + ') + ' · claim on DAO DAO', src: 'live', dao: true });
         if (store._staked && store._staked.wallet === m.wallet && store._staked.pendingUsd > 0.005) parts.push({ k: 'LUNA staking', usd: store._staked.pendingUsd, luna: store.symPrice.get('LUNA') ? store._staked.pendingUsd / store.symPrice.get('LUNA') : null, where: 'rewards from your validators · claim in your wallet', src: 'live' });
         if (store._chains && store._chains.wallet === m.wallet && store._chains.pendingUsd > 0.005) parts.push({ k: 'other chains’ staking', usd: store._chains.pendingUsd, where: 'claim on each chain', src: 'live' });
         parts.sort((x, y) => (y.usd || 0) - (x.usd || 0));
@@ -1542,7 +1632,8 @@
     window.mpClaimSheet = () => { const m = store.members.get(store.wallet); if (!m) return; const ce = claimEverywhere(m); const lu = store.symPrice.get('LUNA');
         const PLACES = [['TLA LP rewards', 'zLUNA paid to your LPs in TLA', 'Eris (TLA) → Claim'], ['Rebase', 'ampLUNA owed to your locks', 'Eris (TLA) → Claim'], ['Vote rewards', 'paid at the last flip to your votes', 'Eris (TLA) → Claim'],
             ['LUNA staking', 'rewards from your validators', 'your wallet (Station / Keplr / Leap)'], ['CAPA governance', 'CAPA + SOLID for staked CAPA', 'Capapult → Governance'], ['aDAO NFT DAO', 'LUNA for staked aDAO NFTs', 'DAO DAO → aDAO → Rewards'], ['other chains’ staking', 'linked Cosmos addresses', 'each chain’s wallet']];
-        const by = new Map(ce.parts.map(p => [p.k, p]));
+        const daoParts = ce.parts.filter(p => p.dao); const by = new Map(ce.parts.filter(p => !p.dao).map(p => [p.k, p]));
+        if (store._daos && store._daos.wallet === m.wallet && store._daos.ok) { const i = PLACES.findIndex(x => x[0] === 'aDAO NFT DAO'); if (i >= 0) PLACES.splice(i, 1, ...(daoParts.length ? daoParts.map(p => [p.k, p.where, 'DAO DAO → the DAO → Rewards']) : [['DAO rewards', 'none waiting in your DAOs', 'DAO DAO']])); }
         const rows = PLACES.map(([k, what, where]) => { const p = by.get(k); const un = (ce.unread || []).some(u => k.toLowerCase().startsWith(u.split(' ')[0].toLowerCase()));
             return `<tr class="border-t border-white/5"><td class="py-2 pr-3"><div class="text-gray-200">${esc(k)}</div><div class="text-[11px] text-gray-500">${esc(p && p.where ? p.where : what)}</div></td>
               <td class="text-right pr-3 mono ${p && p.usd > 0.005 ? 'text-amber-300' : 'text-gray-600'}">${p ? fmt$(p.usd) : un ? '<span class="text-amber-300/80">not read</span>' : '—'}${p && (p.luna || (lu && p.usd)) ? `<div class="text-[10.5px] text-gray-500">≈ ${fmtNum(p.luna || p.usd / lu)} LUNA</div>` : ''}</td><td class="text-[11.5px] text-gray-400">${esc(where)}</td></tr>`; }).join('');
@@ -1744,17 +1835,17 @@
         const epDay = (e) => cal && cal.get(Number(e)) || null;
         const deep = []; try { const D = led && led.v3 && window.PortfolioPnl ? PortfolioPnl.decode(led.v3) : null; for (const c of (D ? D.curve : [])) if (c.e !== 'now' && epDay(c.e)) deep.push({ d: epDay(c.e), usd: c.usd, luna: c.luna, missing: c.missing }); } catch (e) {}
         const activity = []; for (const [E, b] of Object.entries((led && led.epochs) || {})) { const d = epDay(E); if (d && b && b.c) activity.push({ d, dep: b.c.dep || 0, wdr: b.c.wdr || 0, clm: b.c.clm || 0 }); }
-        const [earn, back, prices] = await Promise.all([nftEarn(), backingHist(), pricesFor(topTokenSyms(TK, 8))]);
+        const [earn, back, prices, Y] = await Promise.all([nftEarn(), backingHist(), pricesFor(topTokenSyms(TK, 8)), yieldsP()]);
         if (store.wallet !== wallet) return;
         const nf = store._nft && store._nft.wallet === wallet ? store._nft : null;
         const data = { rows: H.rows, now: m ? nowRow(m) : null, deep, luna, activity, tokens: TK, lunaNow: m ? lunaNowOf(m, TK) : null,
-            prices, mix: m ? mixOf(m, earn) : [], nft: nf ? { counts: nf.counts, floors: (store.floors && store.floors.rows) || [], backing: back } : null, debtNow: m ? debtNowOf(m) : [], _earn: earn };
+            prices, mix: m ? mixOf(m, earn, Y) : [], _y: Y, nft: nf ? { counts: nf.counts, floors: (store.floors && store.floors.rows) || [], backing: back } : null, debtNow: m ? debtNowOf(m) : [], _earn: earn };
         store._chart = PortfolioChart.mount(el, data, { state: store._chartState || { view: TK.length ? 'luna' : 'net', range: 90, lens: 'luna' } /* 4.2 (owner): LUNA by default — the USD view of a LUNA book mostly shows LUNA's price */, onState: (st) => { store._chartState = Object.assign({}, st); }, onNeedPrices: (syms) => { pricesFor(syms).then(px => { if (store._chartData && store._chart) { Object.assign(store._chartData.prices, px); store._chart.update(store._chartData); } }); }, height: 400 });
         store._chartData = data;
         if (H.src === 'sampled') el.insertAdjacentHTML('beforeend', '<div class="text-[11px] text-amber-300/80 mt-1">Reading sampled days from the member archive — the full daily history appears after member-data 1.5.0’s first run.</div>');
     }
     // live pieces (Votion, custody, prices) move "now": refresh the last point without refetching
-    function refreshChartNow() { const m = store.members.get(store.wallet); if (store._chart && store._chartData && m) { store._chartData.now = nowRow(m); store._chartData.lunaNow = lunaNowOf(m, store._chartData.tokens); store._chartData.mix = mixOf(m, store._chartData._earn); store._chartData.debtNow = debtNowOf(m); const nf = store._nft && store._nft.wallet === m.wallet ? store._nft : null; if (nf && (!store._chartData.nft || !store._chartData.nft.floors.length)) store._chartData.nft = { counts: nf.counts, floors: (store.floors && store.floors.rows) || [], backing: store._backRows || [] }; store._chart.update(store._chartData); } }
+    function refreshChartNow() { const m = store.members.get(store.wallet); if (store._chart && store._chartData && m) { store._chartData.now = nowRow(m); store._chartData.lunaNow = lunaNowOf(m, store._chartData.tokens); store._chartData.mix = mixOf(m, store._chartData._earn, store._chartData._y); store._chartData.debtNow = debtNowOf(m); const nf = store._nft && store._nft.wallet === m.wallet ? store._nft : null; if (nf && (!store._chartData.nft || !store._chartData.nft.floors.length)) store._chartData.nft = { counts: nf.counts, floors: (store.floors && store.floors.rows) || [], backing: store._backRows || [] }; store._chart.update(store._chartData); } }
     window.mpChartView = (view) => { store._chartState = Object.assign({}, store._chartState || {}, { view }); if (store._chart) { store._chart.state.view = view; store._chart.redraw(); } mpScrollTo('chart-card'); };
 
     // ---------- "how you've done" — the honest bottom line ----------
@@ -2829,7 +2920,8 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '4.3.0', revDate: '2026-10-14', page: 'member-portfolio' });   // 4.3.0 (owner 2026-10-14): THE CHART, REBUILT — LUNA · Tokens · Mix · NFTs · Debt (+ More), a details panel beside it on desktop (portfolio-chart 2.0.0); CLAIM EVERYWHERE — TLA LP rewards (zLUNA at share × last exchange rate; was divided), rebase at the live ampLUNA rate (was 1.1), vote rewards from the last flip, LUNA staking, CAPA governance, the aDAO NFT DAO, other chains — a 'where to claim' sheet; the DAO-staked LP is labelled as an LP (it read like staked NFTs).
+<script>SiteFooter.mount({ rev: '4.4.0', revDate: '2026-10-14', page: 'member-portfolio' });   // 4.4.0 (owner 2026-10-14: "the DAO look up for the addresses — followed DAOs and holdings plus pending rewards"): YOUR DAOS — every Terra DAO the wallet follows on DAO DAO or is a member of: its stake, its share of the vote, rewards waiting in each DAO's reward distributors (priced where we can), a link to claim on DAO DAO; those rewards join Claimable now (replacing the single aDAO NFT DAO line); Mix APRs from the org's 30-day yields (locks = LST yield + votes, Votion = LST yield + vault boost, LUNA with validators ≈ inflation share).
+   // 4.3.0   // 4.3.0 (owner 2026-10-14): THE CHART, REBUILT — LUNA · Tokens · Mix · NFTs · Debt (+ More), a details panel beside it on desktop (portfolio-chart 2.0.0); CLAIM EVERYWHERE — TLA LP rewards (zLUNA at share × last exchange rate; was divided), rebase at the live ampLUNA rate (was 1.1), vote rewards from the last flip, LUNA staking, CAPA governance, the aDAO NFT DAO, other chains — a 'where to claim' sheet; the DAO-staked LP is labelled as an LP (it read like staked NFTs).
    // 4.2.0   // 4.2.0 (owner 2026-10-13): LUNA FIRST — the chart opens on "LUNA held" (LUNA by place from member-data/history/tokens, LSTs as the LUNA behind them, today live), the banner, change chips, How you've done, LP positions and NFTs open in LUNA (USD one tap away); MY WALLETS — several addresses saved on this device, "All combined" adds up their daily records (LUNA held, TLA value, VP, a combined chart, a row per wallet), ?wallets=a,b shares it; a dust Solid loan (< $1) is a note, not a red alert, and collateral Solid's oracle cannot price shows our LST price (marked *); the footer reads the daily holdings + P&L heartbeats at a daily cadence.
    // 4.1.2   // 4.1.2: an amplified single-asset LP (e.g. wBTC.creda.a in the compounder) is counted in net worth, the LP tile and the chart's today point — it read as $0. 4.1.1: Solid — a loan with no collateral left (after a liquidation) reads "SOLID still owed · no collateral left" + an alert, never "no loan". 4.1: chart engine from jsdelivr/unpkg/cdnjs in turn (cdnjs never had 5.5.1); alerts only for transfers in the last 14 days; positions sent away fold into their own group; side-by-side cards share row height; a popup says why an address is not tracked; tax / no-liability notes. Solid — the lending card shows collateral locked per token (and what is deposited but NOT locked, warned), SOLID owed, the borrow limit used, health (Solid's own view, banded), the liquidation price or fall, at Solid's own oracle; net worth carries Solid net; alerts for health under 1.5 and idle collateral; the chart's Lending view and net-worth stack carry Solid (member-data 1.6.0) · 4.0 (owner 2026-09-28 page walk): a new order — who you are (DAODAO picture for every wallet, days in TLA, oldest lock, VP and the LUNA behind it) with the alert chips beside it (lock decay > 5 %, votes missing / coasting and time left, NFTs / ampCAPA unstaking, LUNA unbonding, authz grants, listed locks, idle LP, moved receipts, Credia health) → net worth of EVERYTHING (liquid tokens, LUNA staked, other chains, Votion, Credia net, and the aDAO NFT backing — or NFTs at floor, never both) → tiles (claimable from every place) → ONE chart (member-data history series: net worth stacked, TLA, locks, LPs back to the first deposit, Votion, Credia, VP; 7D–All; USD / LUNA; LUNA price strip; deposit / withdraw markers; table view) → How you've done combined (LPs + locks & bribes + Votion + NFTs, each switchable, what drove it) → positions trip by trip (logos, venue, unpriced, return %, days, APR only ≥ 30 days, a Tokens lens, a scorecard) → open positions (locks with age / LUNA / decay, Credia) → wallet → everything ranked (same total as the banner) → income (bribes = the P&L's) → activity & fees folded · 3.8: receipts staked in a DAO (the ampCAPA DAO) are a position — their own cyan panel in LP positions (feed at once, live when read), in the LP tile, the banner, "what you hold" and every trend day (days before the capture carried them are filled from the CAPA supply history × CAPA's price that day; never added twice); a moved-out LP row says where the receipt went — the registry's name, the address, the day (tla-flows pnl 1.2.4); other Cosmos addresses found in your own IBC transfers, one tap to link · 3.7: trust pass — the P&L's open lots checked against the hourly chain read: a receipt staked in the ampCAPA DAO counts at its live value (P&L only on the part with a known cost), one sent to another address is flagged "not in this wallet" and left out of Open now; APR left blank where a trip had no price (never inflated); LP tokens idle in the wallet (no TLA rewards) warned and valued; illiquid tokens (pyROAR) shown with what they would actually fetch and kept out of the new liquid total · 3.6: wallet balances read every cw20 live (catalog + the registry's known_cw20s — pyROAR priced from its pair × ROAR, labelled); tokens with no price listed, not just counted; other Cosmos chains priced where the catalog knows the token, every token counted, Injective (link your inj1…), links kept per wallet · 3.5.1: all-LPs total under the positions table; dust (< $1) folds with the closed · 3.5: LP positions by bucket — in / out / open / P&L incl. rewards / APR earned / LP since entry (take-rate drag + top-up, amplifier compounding; tla-flows pnl-positions 1.1.0), closed folded · 3.4: vote card — what the votes WILL earn at the close vs what the best split COULD (lib/vote-market.js, the Vote Market page's model with Votion's move solved in), per bucket and in total · 3.3: vote allocations — expected bribes at the epoch close (per vote + total), pools with no bribes flagged, a simulate → link per vote and to the Vote Market; each Votion position told as a story — USD in → now split into LUNA price / LST staking / Votion compounding, LUNA in → now, real vs advertised APR (votion/holder-pnl, org-votion 1.5.0); wallet balances named + scaled by the catalog's effective layer (lib/denoms.js — PAXG no longer $3.19B), small amounts readable, balances under $2 folded · 3.2: live (TLA Stats tab + tools slot freed); opens asking for a wallet — no pre-picked demo wallets · 3.1: 3.1: the NFT leg — each aDAO / Pixel Lions NFT against what was paid, worth at the conservative floor, round trips sold (nft-flows by-wallet); Phoenix tier from the registry · 3.0: 3.0: the P&L from build-pnl v3 — net in USD and LUNA with the prices / pool / rewards / open split, a value curve per epoch, every position with its round trips, USDC.n flagged (lib/portfolio-pnl.js, lib/winddown.js); the Phase A story stays as the fallback</script>
 </body>
