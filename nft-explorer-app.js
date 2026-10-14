@@ -4739,7 +4739,7 @@ const generateShowcaseImage = async (button) => {
         ctx.fillText(totalTxt, canvas.width / 2, canvas.height - FOOT / 2 - 8);
         ctx.fillStyle = '#475569';
         ctx.font = '15px system-ui, sans-serif';
-        ctx.fillText('thealliancedao.com', canvas.width / 2, canvas.height - FOOT / 2 + 16);
+        ctx.fillText('theadao.com', canvas.width / 2, canvas.height - FOOT / 2 + 16);
 
         // Download via blob — the same path the single-NFT post already uses,
         // because it behaves on mobile where dataURL downloads do not.

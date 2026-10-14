@@ -41,7 +41,7 @@
     <link rel="manifest" href="site.webmanifest">
     
     <!-- Canonical URL — critical for dual-domain setup (theadao.com forwards here) -->
-    <link rel="canonical" href="https://www.thealliancedao.com/">
+    <link rel="canonical" href="https://theadao.com/">
     
     <!-- SEO -->
     <meta name="description" content="Live community dashboard for Alliance DAO on Terra. Track treasury holdings, TLA deposits, NFT backing, governance proposals, and on-chain stats in real time.">
@@ -51,10 +51,10 @@
     <!-- Open Graph (Facebook, LinkedIn, Discord, etc.) -->
     <meta property="og:title" content="Alliance DAO Dashboard">
     <meta property="og:description" content="Live community dashboard for Alliance DAO on Terra. Track treasury, TLA deposits, NFT backing, and governance.">
-    <meta property="og:image" content="/assets/images/android-chrome-512x512.png">
+    <meta property="og:image" content="https://theadao.com/assets/images/android-chrome-512x512.png">
     <meta property="og:image:width" content="512">
     <meta property="og:image:height" content="512">
-    <meta property="og:url" content="https://www.thealliancedao.com/">
+    <meta property="og:url" content="https://theadao.com/">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Alliance DAO">
     
@@ -3329,7 +3329,7 @@
                 <div class="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
                     <h4 class="font-bold text-cyan-300 mb-2 flex items-center gap-2"><i class="fab fa-apple"></i> iPhone / iPad</h4>
                     <ol class="list-decimal list-inside space-y-1 text-gray-300 text-sm">
-                        <li>Open <strong>thealliancedao.com</strong> in <strong>Safari</strong> (must be Safari, not Chrome)</li>
+                        <li>Open <strong>theadao.com</strong> in <strong>Safari</strong> (must be Safari, not Chrome)</li>
                         <li>Tap the Share button <i class="fas fa-arrow-up-from-bracket text-xs"></i> at the bottom</li>
                         <li>Scroll down and tap <strong>"Add to Home Screen"</strong></li>
                         <li>Tap <strong>Add</strong> in the top right</li>
@@ -3339,7 +3339,7 @@
                 <div class="bg-gray-900/50 border border-gray-700 rounded-lg p-4">
                     <h4 class="font-bold text-cyan-300 mb-2 flex items-center gap-2"><i class="fab fa-android"></i> Android</h4>
                     <ol class="list-decimal list-inside space-y-1 text-gray-300 text-sm">
-                        <li>Open <strong>thealliancedao.com</strong> in <strong>Chrome</strong></li>
+                        <li>Open <strong>theadao.com</strong> in <strong>Chrome</strong></li>
                         <li>Tap the menu <i class="fas fa-ellipsis-vertical text-xs"></i> in the top right</li>
                         <li>Tap <strong>"Install app"</strong> (or "Add to Home Screen")</li>
                         <li>Tap <strong>Install</strong> to confirm</li>
@@ -13881,7 +13881,7 @@
                                     isBroken: !!n.broken || isBrokenNow(n.id), rank: null,
                                     chainOnly: true, seller: l.seller || null, auctionId: l.internal_id != null ? String(l.internal_id) : null,
                                     // BBL's page will not show it — send people to the explorer card, which does.
-                                    url: `https://thealliancedao.com/nft-explorer-index.html`
+                                    url: `https://theadao.com/nft-explorer-index.html`
                                 };
                             }).filter(Boolean);
                         applyChainOnlyBbl();
