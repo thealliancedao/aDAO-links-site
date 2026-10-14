@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
             method: 'GET',
             signal: controller.signal,
             headers: {
-                'User-Agent': 'aDAO-proxy/1.0 (+https://www.thealliancedao.com)',
+                'User-Agent': 'aDAO-proxy/1.0 (+https://theadao.com)',
                 'Accept': 'application/json'
             }
         });
