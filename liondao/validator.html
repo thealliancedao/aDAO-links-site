@@ -123,5 +123,7 @@
         $('about').innerHTML = ui.section('How this page is built', '', ui.note('Live reads through the LCD hosts liondao/home.json names: the bonded set (rank, commission), this validator\'s delegations (paged), unbonding entries and accrued commission. The Alliance module account is derived from the module name (bech32 of sha256("alliance")), never typed. This page is the live view until the validator tracker cron writes its daily rank series — then the same page reads the product and gains the history.'));
     })().catch(e => { document.getElementById('hero').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });
     </script>
+<script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>   <!-- 2026-10-14: Vercel Web Analytics on every page -->
 </body>
 </html>

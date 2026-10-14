@@ -133,5 +133,7 @@
         const loader = HomeTiles.load(cfg, ctx, () => { clearTimeout(window.__ldT); window.__ldT = setTimeout(paintAll, 150); }); paintAll(); await loader.all; paintAll();
     })().catch(e => { document.getElementById('intro').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });
     </script>
+<script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>   <!-- 2026-10-14: Vercel Web Analytics on every page -->
 </body>
 </html>

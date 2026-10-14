@@ -116,5 +116,7 @@
         $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/lion-dao/positions</b>, hourly. Positions come from the same capture engine every member portfolio uses: staked LP from the TLA staking contracts, amplified positions from the Eris asset compounder (user shares × its own rate, then the pool\'s underlying at pool prices), locks from the vAMP escrow with VP = boost + fixed. The receipts those compounder positions leave in a wallet are labeled on the <a href="/liondao/dao_treasury.html" style="color:var(--ld-accent)">treasury page</a> and never counted twice.'));
     })().catch(e => { document.getElementById('hero').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });
     </script>
+<script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>   <!-- 2026-10-14: Vercel Web Analytics on every page -->
 </body>
 </html>

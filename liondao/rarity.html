@@ -117,5 +117,7 @@
         $('about').innerHTML = ui.section('How this page is built', '', ui.note('Counted in the page from the collection\'s own files in <b>nft-collections/' + esc(slug) + '</b>: <b>metadata/traits-reference.json</b> (every class\'s trait counts' + (ref.supply_proof ? ' — ' + esc(ref.supply_proof) : '') + '), <b>rarity/rarity.json</b> (rank and top-percent for every lion, ' + esc((rar && rar.method) || 'mirrored from BBL') + '), and <b>snapshots/explorer-bundle.json</b> (each lion\'s traits, whether it is staked or listed). The tiers are fixed shares of the supply, named above; nothing is estimated.'));
     })().catch(e => { document.getElementById('hero').innerHTML = LD.ui.note('The page hit an error: ' + LD.esc(e && e.message || e)); throw e; });
     </script>
+<script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>   <!-- 2026-10-14: Vercel Web Analytics on every page -->
 </body>
 </html>

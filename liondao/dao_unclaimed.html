@@ -101,5 +101,7 @@
         $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/lion-dao/positions</b>, hourly. TLA pending = the capture engine\'s pending rewards (deposit rewards per gauge, in zLUNA), pending bribes (per bucket, at the claim period) and the locks\' rebase. Validator = the distribution module\'s accrued commission on the validator account plus each roster wallet\'s own delegation rewards. pixeLions rewards read <span class="ld-unk">Coming</span> until the distributor contract is registered — the page never estimates a claim.'));
     })().catch(e => { document.getElementById('hero').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });
     </script>
+<script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>   <!-- 2026-10-14: Vercel Web Analytics on every page -->
 </body>
 </html>

@@ -106,5 +106,7 @@
         $('about').innerHTML = ui.section('How this page is built', '', ui.note('Sources: <b>member-data/dao-dashboard</b> (aDAO\'s delegation to the Lion DAO validator and its unclaimed rewards), <b>member-data/participants</b> (the aDAO treasury as a TLA participant: its LUNA-ROAR and ampROAR-ROAR positions, amp and non-amp, at the engine\'s pricing), <b>nft-collections/' + esc(SLUG) + '/snapshots/summary.json</b> (DAODAO stakers of pixeLions), the ROAR staking module read live, and <b>dao-originations/lion-dao/positions</b> for Lion DAO\'s side. The two "put in" paragraphs are the home\'s own copy since v1. Each row names its source; a leg no product measures is Unknown with the reason.'));
     })().catch(e => { document.getElementById('hero').innerHTML = LD.ui.note('The page hit an error: ' + LD.esc(e && e.message || e)); throw e; });
     </script>
+<script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>   <!-- 2026-10-14: Vercel Web Analytics on every page -->
 </body>
 </html>

@@ -171,5 +171,7 @@
         $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>nft-collections/' + esc(SLUG) + '/ledger/primary-sales.json</b> — one row per token from the launchpad contract\'s sale events (buyer, height, tx, price, the day\'s LUNA price from price-history). The page folds 5,000 rows into hours, tiers and wallets itself; nothing is sampled. <b>Still hold</b> reads <b>snapshots/summary.json</b>\'s per-real-owner counts (the same owner resolution the collection pages use). A minter who moved their pixeLions to another wallet of their own counts as "out" here — the products know addresses, not people.' + (owners ? ' Owner snapshot captured ' + ui.when(SUM.capturedAt) + '.' : '')));
     })().catch(e => { document.getElementById('hero').innerHTML = LD.ui.note('The page hit an error: ' + LD.esc(e && e.message || e)); throw e; });
     </script>
+<script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>   <!-- 2026-10-14: Vercel Web Analytics on every page -->
 </body>
 </html>

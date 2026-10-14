@@ -166,5 +166,7 @@
         $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/lion-dao/positions</b> — written hourly by the ally-positions cron (one engine per ally; the roster, validator and contracts come from tla-core/docs/curated/tenants.json). Tokens: ' + esc(LD.basis.tokens) + '. TLA: ' + esc(LD.basis.tla) + '. Credia: receipt balance × the market index, priced by our feed, with Credia\'s own oracle price kept beside it. Receipts: ' + esc(LD.basis.receipts) + '. A number this page cannot source renders as <span class="ld-unk">Coming</span> with the reason on hover — never a zero, never a guess. Trends read the cron\'s daily series; day-to-day changes read two archived days.'));
     })().catch(e => { document.getElementById('hero').innerHTML = '<div class="ld-note">The page hit an error: ' + LD.esc(e && e.message) + '</div>'; console.error(e); });
     </script>
+<script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>   <!-- 2026-10-14: Vercel Web Analytics on every page -->
 </body>
 </html>

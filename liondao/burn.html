@@ -84,5 +84,7 @@
         $('about').innerHTML = ui.section('How this page is built', '', ui.note('Source: <b>dao-originations/' + esc(DAO) + '/burn/holders.json</b>, written daily by <b>platform-crons/ally-positions/holders.js</b>: cw20 <code>all_accounts</code> walked whole (30 per page), <code>balance</code> per account, <code>token_info.total_supply</code> against the sum — the Δ is written into the product, and a run with one failed read writes nothing (the previous snapshot stands). Names: the tenant roster, the festival receiver, the trust register. Contract-or-wallet: the chain (<code>/cosmwasm/wasm/v1/contract/{addr}</code>) for the top ranks. Nothing here comes from a post or a spreadsheet.'));
     })().catch(e => { document.getElementById('hero').innerHTML = LD.ui.note('The page hit an error: ' + LD.esc(e && e.message || e)); throw e; });
     </script>
+<script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>   <!-- 2026-10-14: Vercel Web Analytics on every page -->
 </body>
 </html>

@@ -108,5 +108,7 @@ details{margin:.4em 0}summary{cursor:pointer;font-weight:700;color:#fff}
   document.getElementById('install-btn').addEventListener('click', function () { if (!deferred) return; deferred.prompt(); deferred.userChoice.then(function () { deferred = null; document.getElementById('install-now').classList.add('hide'); }); });
 })();
 </script>
+<script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+<script defer src="/_vercel/insights/script.js"></script>   <!-- 2026-10-14: Vercel Web Analytics on every page -->
 </body>
 </html>
