@@ -1531,11 +1531,13 @@
                     <div class="text-xs text-gray-400 mb-1">Phoenix Directive</div>
                     <div id="bribes-pd-luna" class="text-sm font-mono text-purple-300">-</div>
                     <div id="bribes-pd-usd" class="text-lg font-bold text-purple-400">-</div>
+                    <div id="bribes-pd-pct" class="text-[11px] text-purple-300/80 mt-0.5"></div>
                 </div>
                 <div class="text-center p-4 bg-amber-500/10 rounded-lg border border-amber-500/20">
                     <div class="text-xs text-gray-400 mb-1">Other Bribes</div>
                     <div class="text-sm font-mono text-amber-300">USD only</div>
                     <div id="bribes-other-usd" class="text-lg font-bold text-amber-400">-</div>
+                    <div id="bribes-other-pct" class="text-[11px] text-amber-300/80 mt-0.5"></div>
                 </div>
                 <div class="text-center p-4 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
                     <div class="text-xs text-gray-400 mb-1">Total Bribes</div>
@@ -1544,6 +1546,9 @@
                 </div>
             </div>
             
+            <!-- PD share of the pot → share of the votes Votion steers (2026-10-15, owner request) -->
+            <div id="bribes-pd-influence" class="mb-6"></div>
+
             <!-- Bucket Breakdown -->
             <div class="space-y-4" id="bribes-bucket-breakdown">
                 <!-- Populated by JS -->
@@ -12123,6 +12128,10 @@
         })();
         document.getElementById('bribes-other-usd').textContent = fmt$(totalOtherUSD);
         document.getElementById('bribes-total-usd').textContent = fmt$(totalBribesUSD);
+        const _pctOf = (v) => totalBribesUSD > 0 ? (v / totalBribesUSD * 100).toFixed(1) + '% of all bribes' : '';
+        document.getElementById('bribes-pd-pct').textContent = _pctOf(totalPdUSD);
+        document.getElementById('bribes-other-pct').textContent = _pctOf(totalOtherUSD);
+        renderPdInfluence(totalPdUSD, totalOtherUSD, totalBribesUSD);
         
         // Build bucket breakdown HTML with columns
         const bucketColors = {
@@ -12162,10 +12171,12 @@
                         <div class="text-right">
                             <div class="text-[10px] text-gray-500">PHOENIX DIR</div>
                             <div class="text-purple-400 font-medium">${fmt$(bucketPdUSD)}</div>
+                            <div class="text-[10px] text-purple-300/70">${bucketTotalUSD > 0 ? (bucketPdUSD / bucketTotalUSD * 100).toFixed(0) + '% of the bucket' : ''}</div>
                         </div>
                         <div class="text-right">
                             <div class="text-[10px] text-gray-500">OTHER</div>
                             <div class="text-amber-400 font-medium">${fmt$(bucketOtherUSD)}</div>
+                            <div class="text-[10px] text-amber-300/70">${bucketTotalUSD > 0 ? (bucketOtherUSD / bucketTotalUSD * 100).toFixed(0) + '% of the bucket' : ''}</div>
                         </div>
                         <div class="text-right">
                             <div class="text-[10px] text-gray-500">TOTAL</div>
@@ -12280,6 +12291,45 @@
         modal.classList.add('flex');
     }
     
+    // PD's share of the bribe pot, and what that means for votes: Votion vaults (about a third of TLA voting power) vote
+    // wherever bribes pay best per vote, so the votes Votion casts on a pool are credited to each funder by its share of that
+    // pool's pot. Descriptive arithmetic only — the same Votion model the Vote Market uses (lib/vote-market.js).
+    function renderPdInfluence(pdUsd, otherUsd, totalUsd) {
+        const host = document.getElementById('bribes-pd-influence'); if (!host) return;
+        const pct = (v, d) => v == null || !isFinite(v) ? '—' : v.toFixed(d == null ? 1 : d) + '%';
+        const bar = (a, b) => { const t = a + b; const pa = t > 0 ? a / t * 100 : 0; return `<div class="flex h-2.5 rounded overflow-hidden bg-white/5"><div class="bg-purple-500/70" style="width:${pa}%"></div><div class="bg-amber-500/60" style="width:${100 - pa}%"></div></div>`; };
+        const shell = (inner) => `<div class="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+            <div class="flex items-center justify-between mb-2"><div class="text-sm font-semibold text-gray-200">Phoenix Directive's share</div><div class="text-[10px] text-gray-500">this round's pots</div></div>
+            <div class="flex items-center justify-between text-[11px] mb-1"><span class="text-purple-300">PD ${pct(totalUsd > 0 ? pdUsd / totalUsd * 100 : null)}</span><span class="text-amber-300">everyone else ${pct(totalUsd > 0 ? otherUsd / totalUsd * 100 : null)}</span></div>
+            ${bar(pdUsd, otherUsd)}${inner}</div>`;
+        host.innerHTML = shell('<div class="text-[10px] text-gray-500 mt-3"><i class="fas fa-spinner fa-spin mr-1"></i>reading Votion\'s votes…</div>');
+        if (!window.VoteMarket) return;
+        const p = store.vmForBribes || (store.vmForBribes = VoteMarket.load({}).catch(() => null));
+        p.then(m => {
+            if (!m) { host.innerHTML = shell('<div class="text-[10px] text-gray-500 mt-3">Votion data unavailable — the vote split could not be computed.</div>'); return; }
+            const B = ['stable', 'project', 'bluechip', 'single'];
+            let tlaVp = 0, votionVp = 0, pdVotes = 0, otherVotes = 0; const per = {};
+            B.forEach(b => {
+                const pools = Object.values(m.pools).filter(x => x.bucket === b);
+                const bvp = pools.reduce((s2, x) => s2 + (x.vp || 0), 0);
+                const vv = m.vaults.reduce((s2, v) => s2 + ((v.byBucket[b] && v.byBucket[b].vp) || 0), 0);
+                let pdv = 0, ov = 0;
+                pools.forEach(x => { const votes = x.votionNow || 0; if (!(votes > 0)) return; const pot = x.potUsd || 0; const share = pot > 0 ? Math.min(1, (x.pdUsd || 0) / pot) : 0; pdv += votes * share; ov += votes * (pot > 0 ? 1 - share : 0); });
+                per[b] = { bvp, vv, pdv, ov }; tlaVp += bvp; votionVp += vv; pdVotes += pdv; otherVotes += ov;
+            });
+            const unbribed = Math.max(0, votionVp - pdVotes - otherVotes);
+            const rows = B.filter(b => per[b].bvp > 0).map(b => { const r = per[b]; return `<div class="grid grid-cols-4 gap-2 text-[11px] py-0.5"><div class="text-gray-400 capitalize">${b}</div><div class="text-right mono text-gray-300">${pct(r.vv / r.bvp * 100)}</div><div class="text-right mono text-purple-300">${pct(r.vv > 0 ? r.pdv / r.vv * 100 : null)}</div><div class="text-right mono text-purple-200">${pct(r.pdv / r.bvp * 100)}</div></div>`; }).join('');
+            host.innerHTML = shell(`
+                <div class="grid grid-cols-3 gap-3 mt-4 text-center">
+                    <div class="rounded bg-white/[0.03] p-2"><div class="text-[10px] text-gray-500">Votion's share of all TLA votes</div><div class="text-lg font-bold text-gray-100">${pct(tlaVp > 0 ? votionVp / tlaVp * 100 : null)}</div><div class="text-[10px] text-gray-600">${fmtNum(votionVp)} of ${fmtNum(tlaVp)} VP</div></div>
+                    <div class="rounded bg-white/[0.03] p-2"><div class="text-[10px] text-gray-500">Votion's votes on PD-funded pots</div><div class="text-lg font-bold text-purple-300">${pct(votionVp > 0 ? pdVotes / votionVp * 100 : null)}</div><div class="text-[10px] text-gray-600">${fmtNum(pdVotes)} VP</div></div>
+                    <div class="rounded bg-white/[0.03] p-2"><div class="text-[10px] text-gray-500">≈ share of ALL TLA votes PD's pots steer</div><div class="text-lg font-bold text-purple-200">${pct(tlaVp > 0 ? pdVotes / tlaVp * 100 : null)}</div><div class="text-[10px] text-gray-600">via Votion</div></div>
+                </div>
+                <div class="mt-3"><div class="grid grid-cols-4 gap-2 text-[9px] uppercase tracking-wider text-gray-600 pb-0.5"><div>bucket</div><div class="text-right">Votion of votes</div><div class="text-right">PD of Votion's</div><div class="text-right">PD-steered of all</div></div>${rows}</div>
+                <div class="text-[10px] text-gray-500 mt-2 leading-snug">How it is counted: Votion vaults vote wherever bribes pay most per vote, so each pool's Votion votes (as cast now) are credited to the funders by their share of that pool's pot — PD's share to PD, the rest to everyone else${unbribed > 1 ? `; ${fmtNum(unbribed)} VP of Votion's sits on pools with no pot this round and is credited to no one` : ''}. Votes held by people and DAOs voting on their own are not counted as steered. Same Votion model as the Vote Market.</div>`);
+        });
+    }
+
     function closeBribesModal(event) {
         if (event && event.target !== event.currentTarget) return;
         const modal = document.getElementById('bribes-modal');
