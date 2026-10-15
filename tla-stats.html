@@ -757,6 +757,7 @@
     <script src="/lib/address-picker.js"></script>
     <script src="/lib/vote-market.js?v=1.3.0"></script>
     <script src="/lib/vote-market-tile.js?v=1.1.1"></script>
+    <script src="/lib/lp-scorecard.js?v=1.0.0"></script>
     <style>.sh-epoch{display:flex;align-items:center;gap:1em}.sh-epoch #data-notice{margin:0 0 0 .5em}</style>
     <script>SiteHeader.mount({ page: 'tla-stats' });</script>
     <script>
@@ -1466,44 +1467,9 @@
         <!-- TLA Stats tab REMOVED 2026-08-25 — merged into the Pools tab (LP Stats + TLA Stats). -->
         <!-- RANKINGS TAB -->
         <!-- rankings + dao tabs retired 2026-07 (rankings merged into LP Grades; aDAO has dedicated pages); their dead HTML removed Rev T4 2026-08-20 -->
+        <!-- LP SCORECARD (2026-10-15): replaces the Vote Advisor, the PD Bribe Tracker and the v1/v2 grade rows. Rendered by renderScorecard() from lp-grades/series + grading_config.json → scorecard via /lib/lp-scorecard.js -->
         <div id="tab-grades" class="tab-content" data-cron-source="lp-grades">
-            <div class="glass-card p-6 mb-6">
-                <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-                    <h3 class="font-semibold text-lg flex items-center gap-2"><i class="fas fa-graduation-cap text-cyan-400"></i> LP Grades — where votes keep the system healthy</h3>
-                    <span class="text-[9px] px-2 py-0.5 rounded bg-white/5 text-gray-500" title="The old Rankings tab (access/performance/support opportunity score) is retired; its job moves here under the new grading doctrine.">Rankings merged here</span>
-                    <span id="grades-count-chip" class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 font-medium"></span>
-                </div>
-                <p class="text-xs text-gray-500 mb-1">Every vote is a resource. This grades each active pool on how much a vote there strengthens TLA — not how much it pays you (that's the Bounty Board) and not deposit opportunity (that's Rankings). <span class="desc-toggle" onclick="toggleDesc('grades-method', this)">methodology</span></p>
-                <div id="grades-method" class="desc-full">
-                    <div class="text-sm font-semibold text-gray-200 mb-1">How we grade, and how the DAO decides where to vote</div>
-                    <p class="mb-2"><span class="ex-lead">The one-sentence version:</span> a vote steers LUNA emissions to a pool, so we grade every pool on <b>what a vote there is worth to Terra</b>, and the DAO moves its votes only to pools that have <b>earned</b> it — four straight epochs of solid grades — or that the council names for a stated reason. Bribes never enter the decision.</p>
-                    <p class="mb-1"><span class="ex-lead">The letter:</span> five lenses, each scored <i>against the other active pools this epoch</i> (100 = best of the field), weighted 20 / 25 / 15 / 25 / 15 —</p>
-                    <ul class="list-disc pl-5 space-y-0.5 mb-2">
-                        <li><b>Purpose</b> — what the chain needs this kind of pool for. The only hand-set input: LUNA–stable 1.0 · LUNA–LST 0.9 · bluechip bridge 0.7 · stable–stable 0.6 · project / single 0.5. Changeable by DAO proposal.</li>
-                        <li><b>Work</b> — does it facilitate trades? Utilization (volume ÷ liquidity), depth, exit slippage.</li>
-                        <li><b>Efficiency</b> — what emissions buy: $ of emissions per $ traded and per $ staked; cheaper ranks higher.</li>
-                        <li><b>Durability</b> — does liquidity stay? Price-neutral retention over four epochs, amplified share, IL exposure by pair type, asset durability.</li>
-                        <li><b>Governance</b> — who holds the votes: Votion's share, bribe rate vs Votion's rate, cushion above 1%, PD's share of the pot. Less dependence ranks higher.</li>
-                    </ul>
-                    <p class="mb-2">Bands: <b>A ≥ 75 · B ≥ 60 · C ≥ 45 · D ≥ 30 · F</b>. A number with no trustworthy source is blank, never zero — it drops the pool's confidence instead. <b>Streak</b> = consecutive epochs at C or better: the "earned" counter.</p>
-                    <p class="mb-1"><span class="ex-lead">How the DAO votes (the Advisor):</span> an existing pool earns aDAO votes with <b>four consecutive epochs at C+</b>; a new, inactive or unsupported pool only through a reason the council declares (supporting a struggling ally is that mechanism); <b>bribes are never a factor</b> — what our votes earn is a bonus reported elsewhere; and a change becomes a proposal only when it is at least 10% more system value <i>and</i> every pool it points at has earned it. System value per 10% chunk = the composite × 1.5 for a good pool sliding toward 1% × (1 − 0.7 × the share Votion already plans to bring) × diminishing as our share grows; 50% cap per pool. When a bucket is proposable, the exact gauge-controller vote message is generated for the council.</p>
-                    <p class="mb-1"><span class="ex-lead">Who else votes:</span> ~28% of TLA VP is Votion, moving mechanically to the best bribe per vote (the Overview's Vote Market reproduces its optimizer). A bribe exists for Votion only if its pot is funded for the period being voted.</p>
-                    <p class="mb-1"><span class="ex-lead">The PD Bribe Tracker:</span> PD's own proposal titles state its criterion ("trading efficiency + volume"). The tracker applies that criterion to <i>every</i> active Astroport TLA pool at placement, shows PD's allocation beside each pool's rank, the pools that outranked a bribed pool and got nothing, and the drift through each four-epoch window. It draws no conclusion; it shows the arithmetic beside the stated rule.</p>
-                    <p class="text-gray-500">Declared: the Purpose table, weights, bands, the 4-epoch streak, the 10% threshold, council reasons — all published, all changeable by proposal. Measured: everything else, and every row opens to its numbers. Not captured yet, and labeled: Skeleton Swap volume, the Credia market, LP-holder concentration. Full guide: <a class="text-cyan-400 hover:underline" href="tla-docs.html#lp-grades-and-voting">Docs → How we grade pools &amp; how the DAO votes</a> (<a class="text-gray-500 hover:underline" href="https://github.com/thealliancedao/tla-core/blob/main/docs/ecosystem-knowledge/lp-grades-and-voting.md" target="_blank" rel="noopener">source ↗</a>) — the help bot has read it.</p>
-                </div>
-                <div id="grades-callouts" class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3"></div>
-                <div id="grades-advisor"></div>
-                <!-- PD Bribe Tracker (SPEC-lp-grades-v2 §4, 2026-08-25): what they said, what they did, what changed -->
-                <div id="pd-tracker" class="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4"><div class="text-[11px] text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>loading the PD bribe tracker…</div></div>
-            </div>
-            <div class="glass-card p-6">
-                <div id="grades-filters" class="flex items-center gap-2 flex-wrap mb-2"></div>
-                <div id="grades-view-desc" class="text-[11px] text-gray-500 mb-3"></div>
-                <div class="text-[9px] text-gray-600 mb-2">score bars: <span class="text-gray-500">D</span> depth · <span class="text-gray-500">U</span> utilization · <span class="text-gray-500">B</span> support balance · <span class="text-gray-500">T</span> threshold safety · <span class="text-gray-500">Tr</span> trend — green good, yellow middling, red weak. Click any row for the full breakdown.</div>
-                <div id="grades-table" class="space-y-1.5">
-                    <div class="loading-pulse text-gray-500 text-sm">Loading...</div>
-                </div>
-            </div>
+            <div id="lps-root"><div class="glass-card p-6 text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Loading the LP Scorecard…</div></div>
         </div>
 
         <div id="tab-docs" class="tab-content">
@@ -5512,138 +5478,13 @@
     // ============================================================
 
     // ============================================================
-    // aDAO VOTE ADVISOR + BRIBE PLANNER (Rev G2, 2026-08-19)
-    // Deterministic algorithms over the PUBLISHED lp-grades product, with
-    // every parameter in the public rubric (grading_config.json → advisor
-    // block, echoed in the product). This is the rubric's answer, never
-    // hidden opinion — council judgment always decides.
-    //
-    // TLA mechanics honored: each bucket receives the wallet's FULL VP,
-    // split across that bucket's pools in 10% chunks (weight_bps multiples
-    // of advisor.vote.chunk_bps). The allocator assigns chunk-by-chunk to
-    // the pool with the highest MARGINAL need (quality × underpaid-ratio),
-    // recomputing after every chunk as our own assigned VP raises that
-    // pool's support — so it never piles votes past diminishing need.
+    // LP SCORECARD (2026-10-15) — replaces the Vote Advisor, the PD tracker and the v1/v2 rows.
+    // A dashboard for everyone who decides where votes and bribes go (community, projects, DAOs, PD, aDAO):
+    // every TLA pool graded LIVE from raw daily facts (lp-grades/series/pools.json) under the published rubric
+    // (docs/curated/grading_config.json → scorecard), using /lib/lp-scorecard.js — the same code the lp-grades
+    // cron runs. Edit the config → past and present views here re-grade on the next load.
+    // Descriptive by law: the page shows the arithmetic; it never says anyone "should".
     // ============================================================
-    function computeVoteAdvice() {
-        const prod = store.lpGrades;
-        const adv = prod?.rubric?.advisor?.vote;
-        const treasury = store.adaoPositions?.treasury;
-        if (!prod || !adv || !treasury) return null;
-        const totalVp = treasury.voting?.total_voting_power_human || 0;
-        if (!totalVp) return null;
-        const chunkPct = (adv.chunk_bps || 1000) / 100;               // 10
-        const chunks = Math.round(100 / chunkPct);                    // 10
-        const medians = prod.medians?.liquidity_per_1m_vp_by_bucket || {};
-        const byBucket = {};
-        const candidatesFor = (bucket) => prod.pools.filter(p =>
-            p.state === 'graded' && p.gaugeActive && p.bucket === bucket
-            && (p.scores?.quality ?? 0) >= (adv.min_quality || 0));
-
-        // current allocation from the positions product (weight_bps per pool)
-        const current = {};
-        for (const [bucket, info] of Object.entries(treasury.voting?.votes_per_bucket || {})) {
-            current[bucket] = new Map((info.votes || []).map(v => [v.pool_gauge_id, v.weight_bps || 0]));
-        }
-
-        for (const bucket of Object.keys(medians)) {
-            const cands = candidatesFor(bucket);
-            if (!cands.length) continue;
-            const med = medians[bucket] || 0;
-            const chunkVp = totalVp * chunkPct / 100;
-            // marginal need of pool p given VP we've already assigned it
-            const assigned = new Map();
-            const marginal = (p) => {
-                const addVp = (assigned.get(p.gauge_pool_id) || 0) + chunkVp;
-                const ratio = med > 0 && (p.staked_usd || 0) > 0
-                    ? ((p.staked_usd) / (((p.vp || 0) + addVp) / 1e6)) / med : 0;
-                return (p.scores.quality) * Math.min(ratio, 4);
-            };
-            const capVp = totalVp * ((adv.max_per_pool_bps || 10000) / 10000);
-            for (let i = 0; i < chunks; i++) {
-                let best = null, bestV = -1;
-                for (const p of cands) {
-                    if ((assigned.get(p.gauge_pool_id) || 0) + chunkVp > capVp + 1e-9) continue;  // diversification cap (public config)
-                    const v = marginal(p); if (v > bestV) { bestV = v; best = p; }
-                }
-                if (!best || bestV <= 0) break;
-                assigned.set(best.gauge_pool_id, (assigned.get(best.gauge_pool_id) || 0) + chunkVp);
-            }
-            // to bps
-            const rec = new Map();
-            for (const [gid, vp] of assigned) rec.set(gid, Math.round(vp / totalVp * 10000));
-            // shift list = diff current → recommended
-            const cur = current[bucket] || new Map();
-            const gids = new Set([...cur.keys(), ...rec.keys()]);
-            const shifts = [];
-            for (const gid of gids) {
-                const d = (rec.get(gid) || 0) - (cur.get(gid) || 0);
-                if (d !== 0) shifts.push({ gid, delta_bps: d });
-            }
-            byBucket[bucket] = {
-                current: cur, recommended: rec, shifts,
-                nameOf: (gid) => {
-                    const p = prod.pools.find(x => x.gauge_pool_id === gid);
-                    if (!p) return gid;
-                    // two real pools can share a name across DEXes (e.g. LUNA-USDC
-                    // on Astroport AND SkeletonSwap) — disambiguate with the venue
-                    const dup = prod.pools.some(x => x.name === p.name && x.gauge_pool_id !== gid);
-                    return dup && p.dex ? `${p.name} (${p.dex.includes('Skeleton') ? 'SS' : p.dex.slice(0, 5)})` : p.name;
-                },
-            };
-        }
-        return { totalVp, chunkPct, byBucket, minQuality: adv.min_quality || 0 };
-    }
-
-    function computeBribePlan(budgetUsd) {
-        const prod = store.lpGrades;
-        const adv = prod?.rubric?.advisor?.bribe;
-        if (!prod || !adv || !(budgetUsd > 0)) return null;
-        const unit = adv.unit_usd || 25;
-        const minPot = adv.min_effective_pot_usd || unit;
-        const maxSplits = adv.max_splits || 4;
-        const cands = prod.pools.filter(p => p.state === 'graded' && p.gaugeActive
-            && (p.overlay?.bribe_target || p.overlay?.balance === 'underpaid'));
-        if (!cands.length) return { placements: [], leftover: budgetUsd };
-        const planned = new Map();
-        let remaining = Math.floor(budgetUsd / unit) * unit;
-        const leftover = budgetUsd - remaining;
-        // greedy: each unit goes where need_score, DIMINISHED by what we've
-        // already planned there (each planned min-pot halves the next unit's
-        // pull), is highest — so a big budget naturally splits, a small one
-        // concentrates.
-        const pull = (p) => {
-            const existing = (p.overlay?.support?.active_pot_usd || 0) + (planned.get(p.gauge_pool_id) || 0);
-            return (p.overlay?.need_score || 0) / (1 + existing / minPot);
-        };
-        while (remaining >= unit) {
-            const open = cands.filter(p => planned.has(p.gauge_pool_id) || planned.size < maxSplits);
-            let best = null, bestV = -1;
-            for (const p of open) { const v = pull(p); if (v > bestV) { bestV = v; best = p; } }
-            if (!best || bestV <= 0) break;
-            planned.set(best.gauge_pool_id, (planned.get(best.gauge_pool_id) || 0) + unit);
-            remaining -= unit;
-        }
-        // merge dust: any placement below minPot folds into the largest one
-        const entries = [...planned.entries()].sort((a, b) => b[1] - a[1]);
-        const keep = entries.filter(([, usd]) => usd >= minPot);
-        const dust = entries.filter(([, usd]) => usd < minPot).reduce((s, [, u]) => s + u, 0);
-        if (keep.length && dust) keep[0][1] += dust;
-        const placements = keep.map(([gid, usd]) => {
-            const p = prod.pools.find(x => x.gauge_pool_id === gid);
-            const why = [];
-            if ((p.overlay?.support?.active_pot_usd || 0) < 5) why.push('no existing pot — zero competition');
-            if (p.overlay?.ratio_vs_bucket_median > 1.4) why.push(`${p.overlay.ratio_vs_bucket_median.toFixed(1)}× bucket-median liquidity per vote`);
-            if (p.overlay?.threshold_risk) why.push(`defends ${fmt$(p.staked_usd || 0)} near the 1% threshold`);
-            return { gid, usd, name: p.name, bucket: p.bucket, grade: p.grade, need: p.overlay?.need_score || 0, why: why.join(' · ') };
-        });
-        return { placements, leftover: leftover + remaining, unit };
-    }
-
-    // ---------------- aDAO Vote Advisor v2 (SPEC-lp-grades-v2 §3 · owner doctrine 2026-08-25) ----------------
-    // Votes are EARNED: an existing pool qualifies with ≥4 epochs at C-or-better on the five lenses; a new /
-    // inactive / unsupported pool qualifies only through a declared reason (council override). Bribes are never
-    // an input. Recommend seldom: propose a change only when it is material; otherwise say "hold" and why.
     // a pool's display name: the product's name, or the catalog symbol when the product only knows the raw gauge id
     const poolDisplayName = (n, gaugeId) => { const raw = String(n || ''); if (!/^(cw20|native):|^terra1[0-9a-z]{38,}$|^Unknown$|^$/.test(raw)) return raw; const src = gaugeId ? String(gaugeId) : raw; /* the snapshot's 'name' for unnamed gauges is a truncated id — the full gauge id is the lookup key */ const bare = src.replace(/^(cw20|native):/, ''); const kc = store.knownContracts && store.knownContracts[bare]; return KNOWN_TOKEN_NAMES[src] || KNOWN_TOKEN_NAMES[bare] || KNOWN_TOKEN_NAMES['cw20:' + bare] || KNOWN_TOKEN_NAMES['native:' + bare] || (kc && kc.name) || (bare.length > 20 ? bare.slice(0, 10) + '…' + bare.slice(-4) : raw); };
     // T3.21 — curated alert pills (lp-grades `alerts`, stamped upstream from docs/curated/alerts.json).
@@ -5651,386 +5492,263 @@
     window.alertPills = window.alertPills || ((p) => (p && p.alerts || []).map(a => a.kind === 'asset'
         ? `<a class="alert-pill alert-asset inline-block align-middle ml-1 px-1.5 py-px rounded text-[9px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/40 no-underline" href="${a.source_url || '#'}" target="_blank" rel="noopener" title="${(a.headline || '').replace(/"/g, '&quot;')}${a.action ? ' — ' + a.action.replace(/"/g, '&quot;') : ''}">${a.status === 'watch' ? 'watch' : 'winding down'}${a.deadline ? ' · migrate by ' + a.deadline : ''}</a>`
         : `<a class="alert-pill alert-forum inline-block align-middle ml-1 px-1.5 py-px rounded text-[9px] font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 no-underline" href="${a.source_url || '#'}" target="_blank" rel="noopener" title="${(a.headline || '').replace(/"/g, '&quot;')}">forum: ${a.project || 'discussion'}</a>`).join(''));
-    const ADVISOR = { streak_required: 4, min_letter: 'C', chunk_bps: 1000, max_per_pool_bps: 5000, material_gain_pct: 10, rescue_band_pct: 2,
-        GAUGE_CONTROLLER: 'terra1hfksrhchkmsj4qdq33wkksrslnfles6y2l77fmmzeep0xmq24l2smsd3lj',
-        overrides: [] };   // council-declared reasons: [{ gauge_pool_id, reason }] — none today; added by DAO decision, shown verbatim
-    function computeAdvisorV2(preview) {
-        const prod = store.lpGrades; const treasury = store.adaoPositions?.treasury;
-        if (!prod || !prod.v2 || !treasury) return null;
-        const totalVp = treasury.voting?.total_voting_power_human || 0; if (!totalVp) return null;
-        const LO = { A: 4, B: 3, C: 2, D: 1, F: 0 };
-        const chunks = Math.round(10000 / ADVISOR.chunk_bps), chunkVp = totalVp / chunks;
-        const poolsV = store.data?.vote?.pools || [];
-        const bucketVp = {}; for (const q of poolsV) bucketVp[String(q.bucket || '').toLowerCase()] = (bucketVp[String(q.bucket || '').toLowerCase()] || 0) + (q.vp || 0);
-        const emisWk = {}; for (const sp of (store.tlaPools || [])) emisWk[`${sp.name}|${sp.dex || ''}`] = sp.rewards_per_year ? sp.rewards_per_year / 52.18 : 0;
-        const bucketWk = {}; for (const p of prod.pools) { const b = String(p.bucket || '').toLowerCase(); bucketWk[b] = (bucketWk[b] || 0) + (emisWk[`${p.name}|${p.dex || ''}`] || 0); }
-        const normP = (p) => (store.pools || []).find(x => x.name === p.name && String(x.bucket || '').toUpperCase() === String(p.bucket || '').toUpperCase() && (x.dex || '') === (p.dex || ''));
-        const current = {}; for (const [bucket, info] of Object.entries(treasury.voting?.votes_per_bucket || {})) current[String(bucket).toLowerCase()] = new Map((info.votes || []).map(v => [v.pool_gauge_id, v.weight_bps || 0]));
-        const byBucket = {}; const nameOf = {};
-        for (const bucket of ['stable', 'project', 'bluechip', 'single']) {
-            const all = prod.pools.filter(p => String(p.bucket || '').toLowerCase() === bucket && p.gaugeActive !== false);
-            for (const p of all) nameOf[p.gauge_pool_id] = poolDisplayName(p.name);
-            const ov = (p) => ADVISOR.overrides.find(o => o.gauge_pool_id === p.gauge_pool_id);
-            // T3.21 (2026-09-17): a pool whose asset is winding down (lp-grades `alerts` kind asset, migrating / winding_down —
-            // stamped upstream from docs/curated/alerts.json via the token-catalog) is NEVER eligible, whatever its grade; if
-            // we vote it today the shift out is material on its own — the liquidity is leaving whether we like it or not.
-            const winding = (p) => (p.alerts || []).find(a => a.kind === 'asset' && (a.status === 'migrating' || a.status === 'winding_down'));
-            const earned = (p) => p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter] && (p.v2.streak || 0) >= ADVISOR.streak_required;
-            const eligible = all.filter(p => !winding(p) && ((p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter]) || ov(p)));   // the lenses' answer uses every C+ pool that is not winding down
-            const earning = all.filter(p => p.v2 && p.v2.letter && LO[p.v2.letter] >= LO[ADVISOR.min_letter] && !earned(p) && !ov(p)).map(p => ({ p, streak: p.v2.streak || 0 }));
-            const cur = current[bucket] || new Map();
-            const score = (p, assignedBps) => {
-                const np = normP(p) || {}; const vp = p.vp || 0; const votionNext = np.votion_next_vp || 0;
-                const cover = vp > 0 ? Math.min(1, votionNext / (vp + chunkVp)) : 0;                       // Votion already bringing votes here
-                const rescue = (p.pct_of_bucket != null && p.pct_of_bucket >= 1 && p.pct_of_bucket < ADVISOR.rescue_band_pct) ? 1.5 : 1;   // good pool sliding toward the line
-                const mine = assignedBps / 10000 * totalVp; const dimin = vp > 0 ? vp / (vp + mine) : 1;   // diminishing as our share grows
-                return ((p.v2 ? p.v2.composite : 50) / 100) * rescue * (1 - 0.7 * cover) * dimin;
-            };
-            const rec = new Map(); const reasons = new Map();
-            if (eligible.length) for (let c = 0; c < chunks; c++) {
-                let best = null, bestS = -1;
-                for (const p of eligible) { const bps = rec.get(p.gauge_pool_id) || 0; if (bps >= ADVISOR.max_per_pool_bps) continue; const sc = score(p, bps); if (sc > bestS) { bestS = sc; best = p; } }
-                if (!best) break; rec.set(best.gauge_pool_id, (rec.get(best.gauge_pool_id) || 0) + ADVISOR.chunk_bps);
-            }
-            for (const p of eligible) { const np = normP(p) || {}; const o = ov(p); const bits = [];
-                if (p.v2) bits.push(`${p.v2.letter} · ${p.v2.streak || 0} ep streak`); if (o) bits.push(`declared: ${o.reason}`);
-                if (p.pct_of_bucket != null && p.pct_of_bucket >= 1 && p.pct_of_bucket < ADVISOR.rescue_band_pct) bits.push(`${p.pct_of_bucket.toFixed(2)}% of bucket — near the line`);
-                if ((np.votion_next_vp || 0) > (p.vp || 0) * 0.25) bits.push('Votion already covering'); if (p.v2 && p.v2.why) bits.push(p.v2.why);
-                reasons.set(p.gauge_pool_id, bits.join(' · ')); }
-            // value of an allocation = Σ chunk × score at that assignment (recomputed incrementally)
-            const valueOf = (alloc) => { let v = 0; for (const [g, bps] of alloc) { const p = all.find(x => x.gauge_pool_id === g); if (!p) continue; for (let k = 0; k < bps / ADVISOR.chunk_bps; k++) v += score(p, k * ADVISOR.chunk_bps); } return v; };
-            const vCur = valueOf(cur), vRec = valueOf(rec);
-            const gainPct = vCur > 0 ? (vRec - vCur) / vCur * 100 : (vRec > 0 ? 100 : 0);
-            const shifts = []; for (const g of new Set([...cur.keys(), ...rec.keys()])) { const d = (rec.get(g) || 0) - (cur.get(g) || 0); if (d) { const wp = all.find(x => x.gauge_pool_id === g); const wa = wp && winding(wp); shifts.push({ gauge_pool_id: g, name: nameOf[g] || g.slice(0, 14) + '…', delta_bps: d, winding: !!wa, reason: wa ? `winding down — ${wa.headline}${wa.deadline ? ` (by ${wa.deadline})` : ''}` : (reasons.get(g) || (d < 0 ? 'no longer earned (letter or streak below the bar)' : '')) }); } }
-            const windingVoted = shifts.some(x => x.winding && x.delta_bps < 0);
-            shifts.sort((x, y) => y.delta_bps - x.delta_bps);
-            const notEarned = [...rec.keys()].filter(g => { const p = all.find(x => x.gauge_pool_id === g); return p && rec.get(g) > 0 && !(earned(p) || ov(p)); }).map(g => { const p = all.find(x => x.gauge_pool_id === g); return { name: nameOf[g], streak: p.v2 ? p.v2.streak || 0 : 0 }; });
-            const material = eligible.length > 0 && shifts.length > 0 && (gainPct >= ADVISOR.material_gain_pct || windingVoted);   // T3.21: a winding-down pool we vote is material by itself
-            const hold = !material || notEarned.length > 0;   // proposable only when material AND every recommended pool has earned it
-            const movedBps = shifts.filter(x => x.delta_bps > 0).reduce((s2, x) => s2 + x.delta_bps, 0);
-            const emisRedirectWk = (bucketVp[bucket] > 0 ? (movedBps / 10000 * totalVp) / bucketVp[bucket] : 0) * (bucketWk[bucket] || 0);
-            const rescued = eligible.filter(p => rec.get(p.gauge_pool_id) > 0 && p.pct_of_bucket != null && p.pct_of_bucket < ADVISOR.rescue_band_pct).map(p => p.name);
-            byBucket[bucket] = { all, eligible, earning, cur, rec, shifts, hold, material, notEarned, gainPct, emisRedirectWk, rescued, windingVoted, winding: all.filter(winding).map(p => nameOf[p.gauge_pool_id]), bucketVp: bucketVp[bucket] || 0 };
-        }
-        return { totalVp, chunkVp, byBucket, nameOf, preview };
-    }
-    function renderVoteAdvisor() {
-        const el = document.getElementById('grades-advisor'); if (!el) return;
-        const adv = computeAdvisorV2(false);
-        if (!adv) { el.innerHTML = '<div class="text-[11px] text-gray-500 mt-2">aDAO Vote Advisor: waiting for the grades (v2) and the treasury positions products.</div>'; return; }
-        const pct = (bps) => (bps / 100).toFixed(0) + '%';
-        // one colour per pool, shared by both bars so a pool can be followed from NOW to RECOMMENDED
-        const PALETTE = ['bg-cyan-500/70', 'bg-teal-500/70', 'bg-sky-500/70', 'bg-indigo-500/70', 'bg-violet-500/70', 'bg-fuchsia-500/60', 'bg-emerald-500/60', 'bg-amber-500/60'];
-        const colorMap = new Map(); const colorOf = (g) => { if (!colorMap.has(g)) colorMap.set(g, PALETTE[colorMap.size % PALETTE.length]); return colorMap.get(g); };
-        const barOf = (alloc, nameOf) => { const ents = [...alloc.entries()].filter(([, b]) => b > 0).sort((x, y) => y[1] - x[1]); return `<div class="flex h-5 rounded overflow-hidden bg-white/[0.04]" style="background-image:repeating-linear-gradient(90deg,transparent 0 9.9%,rgba(255,255,255,.08) 9.9% 10%)">${ents.map(([g, b]) => `<div class="${colorOf(g)} h-full text-[9px] leading-5 px-1 truncate text-white/90" style="width:${b / 100}%" title="${nameOf[g] || g} ${pct(b)}">${b >= 2000 ? (nameOf[g] || '') + ' ' + pct(b) : ''}</div>`).join('') || '<div class="text-[9px] leading-5 px-1 text-gray-600">no votes</div>'}</div>`; };
-        const anyChange = Object.values(adv.byBucket).some(b => !b.hold);
-        const anySuggestion = Object.values(adv.byBucket).some(b => b.material);
-        const msgs = Object.entries(adv.byBucket).filter(([, b]) => !b.hold && b.rec.size).map(([bucket, b]) => ({ wasm: { execute: { contract_addr: ADVISOR.GAUGE_CONTROLLER, msg: { vote: { gauge: bucket, votes: [...b.rec.entries()].filter(([, w]) => w > 0).map(([g, w]) => [g, w]) } }, funds: [] } } }));
-        const bucketsHtml = Object.entries(adv.byBucket).map(([bucket, b]) => `
-            <div class="rounded-lg bg-white/[0.02] border border-white/[0.05] p-3">
-                <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">${bucket}</span>
-                    <span class="text-[10px] ${!b.material ? 'text-gray-500' : b.hold ? 'text-amber-300' : 'text-emerald-300'}">${!b.material ? (b.eligible.length ? (b.shifts.length ? `hold — the lenses' answer is only ${b.gainPct.toFixed(0)}% better, not material` : 'hold — the lenses agree with how we vote today') : 'hold — no C+ pool in this bucket') : b.hold ? `not proposable yet — ${b.notEarned.map(n => `${n.name} ${n.streak}/${ADVISOR.streak_required}`).join(', ')} still earning` : (b.windingVoted ? `proposable · move votes off a winding-down pool` : `proposable · ${b.gainPct.toFixed(0)}% more system value`)}</span></div>
-                ${b.winding && b.winding.length ? `<div class="text-[10px] text-amber-400/90 mt-1"><i class="fas fa-triangle-exclamation mr-1"></i>winding down, never eligible: ${b.winding.join(', ')}</div>` : ''}
-                <div class="text-[9px] text-gray-600 mb-0.5">NOW</div>${barOf(b.cur, adv.nameOf)}
-                ${b.material ? `<div class="text-[9px] text-gray-600 mt-1.5 mb-0.5">THE LENSES SAY${b.hold ? ' <span class="text-amber-400/80 normal-case">(when earned)</span>' : ''}</div>${barOf(b.rec, adv.nameOf)}
-                <div class="mt-2 space-y-0.5">${b.shifts.map(x => `<div class="text-[11px]"><span class="mono ${x.delta_bps > 0 ? 'text-emerald-300' : 'text-red-300'}">${x.delta_bps > 0 ? '+' : ''}${pct(x.delta_bps)} ${x.name}</span> <span class="text-gray-500">— ${x.reason}</span></div>`).join('')}</div>
-                <div class="text-[10px] text-gray-400 mt-2">≈ <span class="text-emerald-300 mono">+${fmt$(b.emisRedirectWk)}/wk</span> of LUNA emissions redirected${b.rescued.length ? ` · keeps ${b.rescued.join(', ')} above the line` : ''}</div>` : ''}
-                ${b.earning.length ? `<div class="text-[10px] text-gray-500 mt-2">Earning (C+ but under the ${ADVISOR.streak_required}-epoch bar): ${b.earning.sort((x, y) => y.streak - x.streak).map(e => `<span class="inline-block px-1.5 py-0.5 rounded bg-white/5 mr-1 mb-1">${poolDisplayName(e.p.name)} <span class="mono text-gray-400">${e.streak}/${ADVISOR.streak_required}</span></span>`).join('')}</div>` : ''}
-            </div>`).join('');
-        el.innerHTML = `
-            <div class="rounded-xl border border-cyan-500/20 bg-cyan-500/[0.03] p-4 mb-3">
-                <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-                    <div class="text-sm font-semibold flex items-center gap-2"><i class="fas fa-compass text-cyan-400"></i> aDAO Vote Advisor <span class="text-[10px] font-normal text-gray-500">votes are earned · ${fmtNum(adv.totalVp)} VP · 10% chunks</span></div>
-                    <div class="flex items-center gap-2 text-[10px]">${msgs.length ? `<button type="button" onclick="window.copyAdvisorMsg()" class="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25">copy proposal message</button>` : `<span class="text-gray-500">${anySuggestion ? 'no proposal yet — pools still earning' : 'no proposal — hold'}</span>`}</div>
-                </div>
-                <div class="text-[11px] text-gray-400 mb-3 leading-snug">The rule: an existing pool earns aDAO votes with <b class="text-gray-300">${ADVISOR.streak_required} consecutive epochs at ${ADVISOR.min_letter} or better</b> on the five lenses; a new, inactive or unsupported pool only through a reason the council declares. Bribes are never an input — what our votes earn is a bonus reported elsewhere. A change becomes a proposal only when it is at least ${ADVISOR.material_gain_pct}% more system value than what we vote today <b>and</b> every pool it points at has earned it. Each bucket shows how we vote now and what the lenses say today; the verdict line says whether that is proposable yet.</div>
-                <div class="grid md:grid-cols-2 gap-3">${bucketsHtml}</div>
-                ${msgs.length ? `<details class="mt-3 text-[10px]"><summary class="cursor-pointer text-gray-400">proposal message (${msgs.length} vote${msgs.length === 1 ? '' : 's'} on the gauge controller)</summary><pre id="advisor-msg" class="mono text-[10px] text-gray-300 whitespace-pre-wrap mt-1 p-2 rounded bg-black/30">${esc2(JSON.stringify(msgs, null, 2))}</pre></details>` : ''}
-                <div class="text-[9px] text-gray-600 mt-2">System value per chunk = the pool's five-lens composite × 1.5 when it is between 1% and ${ADVISOR.rescue_band_pct}% of its bucket (a good pool near the line) × (1 − 0.7 × the share Votion already plans to bring) × diminishing as our own share of the pool grows; capped at ${pct(ADVISOR.max_per_pool_bps)} per pool. Every input is on this tab. Recommendations are recorded per epoch from E201; the record is not public yet. <a class="text-cyan-400 hover:underline" href="tla-docs.html#lp-grades-and-voting">Read how this works →</a></div>
-            </div>`;
-    }
-    const esc2 = (x) => String(x).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-    window.toggleAdvisorPreview = function () { store.advisorPreview = !store.advisorPreview; renderVoteAdvisor(); };
-    window.copyAdvisorMsg = function () { const el = document.getElementById('advisor-msg'); if (!el) return; (navigator.clipboard ? navigator.clipboard.writeText(el.textContent) : Promise.reject()).catch(() => {}); };
-    function setBribeBudget(v) { store.bribeBudget = v > 0 ? v : 0; renderVoteAdvisor(); }
 
-    // ============================================================
-    // LP GRADES — renderer for the org lp-grades product.
-    // (Rev G1, 2026-08-19) The interim page-side grade computation is
-    // RETIRED: grades now come from lp-grades/snapshots/current.json —
-    // cron-computed on epoch-aligned trailing windows per the public rubric
-    // in tla-core/docs/curated/grading_config.json (SPEC-lp-grading.md).
-    // This function only RENDERS: lenses come from the product, weights
-    // shown come from the rubric echo, confidence tiers from the cron.
-    // ============================================================
-    // ---------------- PD Bribe Tracker (SPEC-lp-grades-v2 §4) ----------------
-    // Descriptive by law: quotes PD's own stated criterion, shows its allocation beside every pool's
-    // rank on that criterion at placement and through the window, names what qualified and was not
-    // bribed, and what the bribed pools carried. The page never says "should".
-    async function renderPdTracker() {
-        const host = document.getElementById('pd-tracker'); if (!host) return;
-        if (!store.pdFit) { store.pdFit = await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/pd-bribes/fit/current.json?t=' + Math.floor(Date.now() / 900000)).then(r => r.ok ? r.json() : null).catch(() => null) || { _missing: true }; }
-        const d = store.pdFit;
-        if (!d || d._missing || !Array.isArray(d.batches)) { host.innerHTML = '<div class="text-[11px] text-gray-500"><i class="fas fa-circle-info mr-1"></i>PD Bribe Tracker: the fit product (tla-voting pd-bribe-fit) has not published yet.</div>'; return; }
-        const fitted = d.batches.filter(b => b.universe_at_placement); if (!fitted.length) { host.innerHTML = '<div class="text-[11px] text-gray-500">No PD batch falls inside the captured weekly series yet.</div>'; return; }
-        const sel = store.pdTrackerBatch || fitted[fitted.length - 1].proposal_id; const b = fitted.find(x => x.proposal_id === sel) || fitted[fitted.length - 1];
-        const eps = []; for (let e = b.window.reference_epoch; e <= Math.min(b.window.end, d.epoch_current); e++) eps.push(e);
-        const N = b.universe_at_placement.length;
-        const rankCell = (r) => r == null ? '<span class="text-gray-700">—</span>' : `<span class="inline-block w-7 text-center rounded ${r <= Math.ceil(N / 4) ? 'bg-emerald-500/25 text-emerald-200' : r <= Math.ceil(N / 2) ? 'bg-emerald-500/10 text-emerald-300/80' : r <= Math.ceil(3 * N / 4) ? 'bg-amber-500/15 text-amber-300' : 'bg-red-500/20 text-red-300'}">${r}</span>`;
-        const vpTxt = (v) => v == null ? '—' : fmtNum(v);
-        const legRows = b.legs.map(l => { const vp0 = l.by_epoch.vp_human[b.window.reference_epoch], vpE = l.by_epoch.vp_human[eps[eps.length - 1]]; return `
-            <div class="grid gap-x-2 items-center px-2 py-1.5 border-t border-white/[0.04] text-[11px]" style="grid-template-columns: minmax(120px,1.2fr) 82px 60px ${eps.map(() => '34px').join(' ')} minmax(120px,1fr)">
-                <div class="min-w-0"><span class="font-medium">${poolDisplayName(l.pool)}</span> <span class="text-[9px] text-gray-600 uppercase">${l.gauge}</span>${l.in_universe ? '' : ' <span class="text-[9px] text-gray-500" title="Outside the Astroport weekly series (SkeletonSwap / single-asset / Credia) — no rank can be computed">no series</span>'}</div>
-                <div class="text-right mono text-gray-200">${fmtNum(l.luna_per_epoch)} <span class="text-gray-600">LUNA/ep</span></div>
-                <div class="text-right mono text-gray-400">${l.share_pct.toFixed(1)}%</div>
-                ${eps.map(e => `<div class="text-center mono text-[10px]" title="E${e}: efficiency ${l.by_epoch.eff[e] == null ? 'n/a' : l.by_epoch.eff[e].toFixed(3)} · rank ${l.by_epoch.eff_rank[e] ?? 'n/a'} of ${N}">${rankCell(l.by_epoch.eff_rank[e])}</div>`).join('')}
-                <div class="text-right mono text-[10px] text-gray-400" title="votes on the gauge at the reference epoch → latest epoch in the window">${vpTxt(vp0)} → ${vpTxt(vpE)} VP</div>
-            </div>`; }).join('');
-        const qualified = b.qualified_not_bribed_at_placement || [];
-        host.innerHTML = `
-            <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-                <div class="text-sm font-semibold flex items-center gap-2"><i class="fas fa-magnifying-glass-chart text-amber-400"></i> PD Bribe Tracker <span class="text-[10px] font-normal text-gray-500">what they said · what they did · what changed</span></div>
-                <div class="flex items-center gap-1 text-[10px]">${fitted.slice(-6).map(x => `<button type="button" onclick="window.setPdTrackerBatch(${x.proposal_id})" class="px-2 py-0.5 rounded-full ${x.proposal_id === b.proposal_id ? 'bg-amber-500/25 text-amber-200' : 'bg-white/5 text-gray-400 hover:text-amber-300'}">prop ${x.proposal_id} <span class="text-gray-600">E${x.window.start}–${x.window.end}</span></button>`).join('')}</div>
-            </div>
-            <div class="text-[11px] text-gray-400 mb-2"><span class="text-gray-500">Stated criterion (their proposal title):</span> <span class="text-gray-200">"${(b.title || '').replace(/"/g, '&quot;')}"</span> · placed ${(b.executed_at || '').slice(0, 10)} · pays E${b.window.start}–${b.window.end} · <span class="mono">${fmtNum(b.luna_per_epoch_total)} LUNA/epoch</span> across ${b.pools_bribed} gauges</div>
-            <div class="grid md:grid-cols-3 gap-2 mb-3 text-[11px]">
-                <div class="rounded-lg bg-white/[0.03] p-2"><div class="text-[9px] uppercase tracking-wider text-gray-500">LUNA to top-half pools by their own criterion</div><div class="mono text-lg ${b.share_to_top_half_by_efficiency_pct >= 75 ? 'text-emerald-300' : b.share_to_top_half_by_efficiency_pct >= 50 ? 'text-amber-300' : 'text-red-300'}">${b.share_to_top_half_by_efficiency_pct == null ? '—' : b.share_to_top_half_by_efficiency_pct.toFixed(0) + '%'}</div><div class="text-[9px] text-gray-600">ranked by trading efficiency (volume ÷ liquidity) at E${b.window.reference_epoch}, across ${N} active Astroport TLA pools</div></div>
-                <div class="rounded-lg bg-white/[0.03] p-2"><div class="text-[9px] uppercase tracking-wider text-gray-500">Top-${b.pools_bribed} by that criterion, not bribed</div><div class="text-gray-200 leading-snug">${qualified.length ? qualified.map(q => `<span class="inline-block px-1.5 py-0.5 rounded bg-white/5 mr-1 mb-1">${q}</span>`).join('') : '<span class="text-gray-500">none</span>'}</div><div class="text-[9px] text-gray-600">at placement${(b.qualified_not_bribed_at_window_end || []).length ? ` · at window end: ${b.qualified_not_bribed_at_window_end.join(', ')}` : ''}</div></div>
-                <div class="rounded-lg bg-white/[0.03] p-2"><div class="text-[9px] uppercase tracking-wider text-gray-500">Drift inside the window</div><div class="text-gray-300 leading-snug text-[10px]">${(() => { const moves = b.legs.filter(l => l.in_universe).map(l => { const r0 = l.by_epoch.eff_rank[b.window.reference_epoch], rs = eps.slice(1).map(e => l.by_epoch.eff_rank[e]).filter(x => x != null); if (r0 == null || !rs.length) return null; const worst = Math.max(...rs), best = Math.min(...rs); return { pool: l.pool, r0, best, worst, span: Math.max(Math.abs(worst - r0), Math.abs(best - r0)) }; }).filter(Boolean).sort((a, b2) => b2.span - a.span).slice(0, 3); return moves.length ? moves.map(m => `${m.pool}: #${m.r0} at placement → #${m.best}–#${m.worst} during the window`).join('<br>') : 'no ranked pools'; })()}</div><div class="text-[9px] text-gray-600">a fixed 4-epoch placement, re-ranked each epoch</div></div>
-            </div>
-            <div class="grid gap-x-2 px-2 pb-1 text-[9px] uppercase tracking-wider text-gray-600" style="grid-template-columns: minmax(120px,1.2fr) 82px 60px ${eps.map(() => '34px').join(' ')} minmax(120px,1fr)"><div>pool · gauge</div><div class="text-right">PD bribe</div><div class="text-right">share</div>${eps.map(e => `<div class="text-center" title="rank by trading efficiency among ${N} pools">E${e}</div>`).join('')}<div class="text-right">votes, ref → latest</div></div>
-            ${legRows}
-            ${(() => {   // the whole field at placement — every pool on their criterion, bribed or not
-                const U = b.universe_at_placement; const legBy = Object.fromEntries(b.legs.map(l => [l.pool, l]));
-                const bribedRanks = U.filter(r => r.bribed).map(r => r.rank_eff); const lowestBribed = bribedRanks.length ? Math.max(...bribedRanks) : null;
-                const passedOver = U.filter(r => !r.bribed && lowestBribed != null && r.rank_eff < lowestBribed);
-                const open = !!store.pdTrackerFieldOpen;
-                return `<div class="mt-3 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-                    <button type="button" onclick="window.togglePdField()" class="w-full flex items-center justify-between px-3 py-2 text-left">
-                        <span class="text-[11px] text-gray-300"><i class="fas fa-list-ol text-amber-400/80 mr-1"></i>The whole field at E${b.window.reference_epoch} — all ${N} pools on their criterion${passedOver.length ? ` · <span class="text-amber-300">${passedOver.length} ranked above a bribed pool and were not bribed</span>` : ''}</span>
-                        <i class="fas fa-chevron-${open ? 'up' : 'down'} text-[9px] text-gray-500"></i></button>
-                    ${open ? `<div class="px-2 pb-2">
-                        <div class="grid gap-x-2 px-1 pb-1 text-[9px] uppercase tracking-wider text-gray-600" style="grid-template-columns: 34px minmax(120px,1.2fr) 70px 90px 90px 70px 90px minmax(100px,1fr)"><div>#</div><div>pool</div><div>bucket</div><div class="text-right">volume/wk</div><div class="text-right">liquidity</div><div class="text-right">vol ÷ liq</div><div class="text-right">PD bribe</div><div></div></div>
-                        ${U.map(r => { const l = legBy[r.pool]; const po = !r.bribed && lowestBribed != null && r.rank_eff < lowestBribed; return `<div class="grid gap-x-2 items-center px-1 py-1 text-[11px] border-t border-white/[0.04] ${r.bribed ? 'bg-emerald-500/[0.05]' : po ? 'bg-amber-500/[0.05]' : ''}" style="grid-template-columns: 34px minmax(120px,1.2fr) 70px 90px 90px 70px 90px minmax(100px,1fr)">
-                            <div class="mono text-gray-400">${r.rank_eff}</div><div class="truncate ${r.bribed ? 'text-gray-100' : 'text-gray-300'}">${r.pool}</div><div class="text-[9px] uppercase text-gray-600">${r.bucket}</div>
-                            <div class="text-right mono text-gray-400">${fmt$(r.vol)}</div><div class="text-right mono text-gray-400">${fmt$(r.liq)}</div><div class="text-right mono text-gray-300">${r.eff.toFixed(3)}</div>
-                            <div class="text-right mono ${l ? 'text-emerald-300' : 'text-gray-700'}">${l ? fmtNum(l.luna_per_epoch) + '/ep' : '—'}</div>
-                            <div class="text-[9px] ${r.bribed ? 'text-emerald-400/80' : po ? 'text-amber-300/90' : 'text-gray-600'}">${r.bribed ? 'bribed' : po ? 'ranked above a bribed pool · not bribed' : 'not bribed'}</div>
-                        </div>`; }).join('')}
-                        <div class="text-[9px] text-gray-600 mt-1">Every active Astroport TLA pool at the epoch before the window, ranked by PD's stated criterion (trading efficiency = weekly volume ÷ average liquidity). Green = received PD LUNA; amber = outranked at least one bribed pool on that criterion and received none. Pools outside the Astroport series are not in this field.</div>
-                    </div>` : ''}
-                </div>`; })()}
-            <div class="text-[9px] text-gray-600 mt-2">Rank cells: 1 = highest trading efficiency among ${N} active Astroport TLA pools that epoch (green top quarter → red bottom quarter). ${b.notes && b.notes.length ? b.notes.join(' · ') + ' · ' : ''}Placement-time numbers are the record as captured then. Source: pd-bribe-fit v${(d.version || '').replace(/^\D+/, '')}, ${(d.generated_at || '').slice(0, 16).replace('T', ' ')} UTC.</div>`;
-    }
-    window.setPdTrackerBatch = function (id) { store.pdTrackerBatch = id; renderPdTracker(); };
-    window.togglePdField = function () { store.pdTrackerFieldOpen = !store.pdTrackerFieldOpen; renderPdTracker(); };
-
-    // ---------------- LP Grades v2 rows (SPEC-lp-grades-v2 §2) ----------------
-    const LENS_META = {
-        purpose:    { k: 'P', label: 'Purpose',    tip: 'What the chain needs this kind of pool for — declared per pair class (native-stable 1.0 · LST-correlated 0.9 · bluechip bridge 0.7 · stable-stable 0.6 · project 0.5), changeable by DAO prop. Not measured.' },
-        work:       { k: 'W', label: 'Work',       tip: 'Does it facilitate trades? Utilization (volume ÷ liquidity), depth, exit slippage — each a percentile vs the other active pools.' },
-        efficiency: { k: 'E', label: 'Efficiency', tip: 'What emissions buy here: $ of emissions per $ traded and per $ staked — lower cost ranks higher, vs the other active pools.' },
-        durability: { k: 'D', label: 'Durability', tip: 'Does liquidity stay? Price-neutral retention over 4 epochs, amplified (POL-like) share, IL exposure by pair class, asset durability.' },
-        governance: { k: 'G', label: 'Governance', tip: 'Who holds the votes: Votion (mercenary) share, bribe rate vs Votion\'s rate, cushion above the 1% line, PD share of the pot. Lower dependence ranks higher.' },
+    const LPS_URLS = {
+        series: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/lp-grades/series/pools.json',
+        config: 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/curated/grading_config.json',
+        configView: 'https://github.com/thealliancedao/tla-core/blob/main/docs/curated/grading_config.json',
     };
-    const LETTER_CLS = { A: 'bg-emerald-500/20 text-emerald-300', B: 'bg-teal-500/20 text-teal-300', C: 'bg-amber-500/20 text-amber-300', D: 'bg-orange-500/20 text-orange-300', F: 'bg-red-500/20 text-red-300' };
-    function renderGradesV2(tableEl, rows, prod, dexTag, myVotes) {
-        const m = prod.v2; const dist = m.distribution || {};
-        const bands = m.letter_bands || { A: 75, B: 60, C: 45, D: 30 };
-        const legend = `<div class="rounded-lg bg-white/[0.03] p-3 mb-3 text-[11px]">
-            <div class="flex items-center gap-2 flex-wrap mb-1"><span class="text-gray-300 font-semibold">This epoch's field:</span>${['A', 'B', 'C', 'D', 'F'].map(L => `<span class="px-2 py-0.5 rounded ${LETTER_CLS[L]} mono">${L} <span class="opacity-80">${dist[L] || 0}</span></span>`).join('')}<span class="text-gray-500 ml-1">of ${m.graded} active pools</span></div>
-            <div class="text-gray-400 leading-snug">A letter is the weighted average of five lenses — <b class="text-gray-300">P</b>urpose ${Math.round(m.lens_weights.purpose * 100)}% · <b class="text-gray-300">W</b>ork ${Math.round(m.lens_weights.work * 100)}% · <b class="text-gray-300">E</b>fficiency ${Math.round(m.lens_weights.efficiency * 100)}% · <b class="text-gray-300">D</b>urability ${Math.round(m.lens_weights.durability * 100)}% · <b class="text-gray-300">G</b>overnance ${Math.round(m.lens_weights.governance * 100)}% — where every measured lens scores a pool <i>against the other active pools</i> (100 = best of the field). A ≥ ${bands.A} · B ≥ ${bands.B} · C ≥ ${bands.C} · D ≥ ${bands.D} · F below. <b class="text-gray-300">Streak</b> = consecutive epochs at C or better — aDAO votes are earned with four. Hover a bar for what is inside it; click a row for every number.</div>
-        </div>`;
-        const bar = (id, l) => { const meta = LENS_META[id]; const v = l && l.score; const cls = v == null ? 'bg-white/10' : v >= 75 ? 'bg-emerald-400' : v >= 50 ? 'bg-teal-400' : v >= 30 ? 'bg-amber-400' : 'bg-red-400'; const parts = l && l.parts ? Object.entries(l.parts).map(([k, pv]) => `${k.replace(/_/g, ' ')}: ${pv == null ? 'n/a' : Math.round(pv)}`).join(' · ') : ''; return `<div class="flex items-center gap-1" title="${meta.label} ${v == null ? '— no source' : v + '/100'}${parts ? ' — ' + parts : ''}. ${meta.tip}"><span class="text-[9px] w-3 text-gray-500 font-semibold">${meta.k}</span><div class="w-12 h-1.5 rounded-full bg-white/[0.06] overflow-hidden"><div class="h-full ${cls}" style="width:${v == null ? 0 : v}%"></div></div><span class="mono text-[9px] w-5 ${v == null ? 'text-gray-700' : 'text-gray-400'}">${v == null ? '—' : v}</span></div>`; };
-        const order = ['stable', 'project', 'bluechip', 'single'];
-        const byBucket = {}; for (const p of rows) { const b = String(p.bucket || '').toLowerCase(); (byBucket[b] = byBucket[b] || []).push(p); }
-        const sections = order.filter(b => byBucket[b]).map(b => {
-            const ps = byBucket[b].sort((x, y) => ((y.v2 && y.v2.composite) ?? -1) - ((x.v2 && x.v2.composite) ?? -1));
-            const graded = ps.filter(p => p.v2 && p.v2.letter);
-            return `<div class="mt-3"><div class="flex items-center gap-2 px-1 mb-1"><span class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">${b}</span><span class="text-[10px] text-gray-600">${graded.length} graded${ps.length > graded.length ? ` · ${ps.length - graded.length} ungraded` : ''}</span></div>` + ps.map((p, i) => {
-                const v = p.v2; const mine = p.gauge_pool_id && myVotes.has(p.gauge_pool_id); const id = `g2-${b}-${i}`;
-                if (!v || !v.letter) return `<div class="px-2 py-1.5 rounded-lg text-[11px] text-gray-500 border-t border-white/[0.04]"><span class="text-gray-300">${p.name}</span> ${dexTag(p.dex, p.is_single)} — ${p.state === 'inactive' ? 'inactive (below 1% of its bucket): not graded' : p.state === 'new' ? 'too new to grade honestly' : 'not enough trustworthy data to grade'}</div>`;
-                const streak = v.streak || 0; const streakCls = streak >= 4 ? 'bg-emerald-500/20 text-emerald-300' : streak >= 2 ? 'bg-teal-500/15 text-teal-300' : 'bg-white/5 text-gray-500';
-                const detail = Object.entries(v.lenses).map(([lid, l]) => `<div class="rounded bg-white/[0.03] p-2"><div class="flex items-center justify-between"><span class="text-[10px] font-semibold text-gray-300">${LENS_META[lid].label}</span><span class="mono text-xs ${l.score == null ? 'text-gray-600' : 'text-gray-200'}">${l.score == null ? '—' : l.score}</span></div>${lid === 'purpose' ? `<div class="text-[10px] text-gray-500">${String(v.pair_class || '').replace(/_/g, ' ')}</div>` : Object.entries(l.parts).map(([k, pv]) => `<div class="flex justify-between text-[10px]"><span class="text-gray-500">${k.replace(/_/g, ' ')}</span><span class="mono ${pv == null ? 'text-gray-700' : 'text-gray-400'}">${pv == null ? 'n/a' : Math.round(pv)}</span></div>`).join('')}</div>`).join('');
-                const rawL = Object.entries(v.raw || {}).filter(([, x]) => x != null).map(([k, x]) => `${k.replace(/_/g, ' ')} ${typeof x === 'number' ? (Math.abs(x) >= 1000 ? fmtNum(x) : x.toFixed(x < 1 ? 3 : 2)) : x}`).join(' · ');
-                return `<div class="rounded-lg border-t border-white/[0.04] ${mine ? 'bg-amber-500/[0.04]' : ''}">
-                    <div class="grid gap-x-3 items-center px-2 py-1.5 cursor-pointer hover:bg-white/[0.03]" style="grid-template-columns: 36px minmax(140px,1.2fr) repeat(5, 92px) 70px minmax(120px,1fr) 100px" onclick="const d=document.getElementById('${id}'); d.classList.toggle('hidden');">
-                        <div class="mono text-base font-bold text-center rounded ${LETTER_CLS[v.letter]}" title="composite ${v.composite}/100 · confidence ${v.confidence}">${v.letter}</div>
-                        <div class="min-w-0"><div class="text-sm font-medium truncate">${mine ? '<span class="text-amber-400 text-[10px] mr-1" title="aDAO votes here">★</span>' : ''}${poolDisplayName(p.name)}${alertPills(p)}</div><div class="flex items-center gap-1">${dexTag(p.dex, p.is_single)}<span class="text-[9px] text-gray-600">${String(v.pair_class || '').replace(/_/g, ' ')}</span>${v.confidence !== 'firm' ? `<span class="text-[9px] text-gray-600" title="some lens components have no source">${v.confidence}</span>` : ''}</div></div>
-                        ${['purpose', 'work', 'efficiency', 'durability', 'governance'].map(lid => bar(lid, v.lenses[lid])).join('')}
-                        <div class="text-center"><span class="text-[10px] px-1.5 py-0.5 rounded ${streakCls} mono" title="consecutive epochs at C or better${v.streak_basis === 'v1-backfilled' ? ' (earlier epochs from the previous rubric)' : ''}">${streak} ep</span></div>
-                        <div class="text-[10px] text-gray-500 truncate" title="${v.why}">${v.why}</div>
-                        <div class="text-right"><div class="mono text-xs text-cyan-300">${fmt$(p.staked_usd || 0)}</div><div class="text-[9px] text-gray-600">${fmtNum(p.vp || 0)} VP</div></div>
-                    </div>
-                    <div id="${id}" class="hidden px-2 pb-2"><div class="grid md:grid-cols-5 gap-2">${detail}</div><div class="text-[9px] text-gray-600 mt-1">${rawL}</div></div>
-                </div>`; }).join('') + '</div>';
-        }).join('');
-        tableEl.innerHTML = legend + sections;
+    const LPS_LETTER = { A: 'bg-emerald-500/20 text-emerald-300', B: 'bg-teal-500/20 text-teal-300', C: 'bg-amber-500/20 text-amber-300', D: 'bg-orange-500/20 text-orange-300', F: 'bg-red-500/20 text-red-300' };
+    const LPS_CRIT = { efficiency: 'Vol ÷ Liq', volume: 'Volume', liquidity: 'Liquidity', fees: 'Fees', allround: 'All-round' };
+    const lpsState = { window: null, preset: null, asOf: null, activeOnly: false, dex: 'all', sort: null, open: {}, placement: null, crit: null, critWin: null, after: null, showUnranked: false, fieldOpen: false };
+    const lpsEsc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const lpsUsd = (v) => v == null ? '—' : v >= 1e6 ? '$' + (v / 1e6).toFixed(2) + 'M' : v >= 1e4 ? '$' + Math.round(v / 1e3) + 'K' : v >= 1e3 ? '$' + (v / 1e3).toFixed(1) + 'K' : v >= 10 ? '$' + Math.round(v) : '$' + v.toFixed(2);
+    const lpsN = (v) => v == null ? '—' : v >= 1e4 ? (v / 1e3).toFixed(v >= 1e5 ? 0 : 1) + 'K' : Math.round(v).toLocaleString('en-US');
+    const lpsPct = (v, d) => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(d == null ? 0 : d) + '%';
+    const lpsDex = (dex) => /astro/i.test(dex || '') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-300">Astro</span>' : /skel/i.test(dex || '') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Skeleton</span>' : '<span class="text-[9px] px-1 py-0.5 rounded bg-purple-500/20 text-purple-300">' + lpsEsc(dex || 'Single') + '</span>';
+    const lpsLetter = (L, title) => `<span class="inline-flex w-7 h-6 items-center justify-center rounded text-xs font-bold ${L ? LPS_LETTER[L] : 'bg-white/5 text-gray-600'}" title="${lpsEsc(title || '')}">${L || '–'}</span>`;
+    const lpsRankCell = (r, of) => r == null ? '<span class="text-gray-700">—</span>' : `<span class="inline-block min-w-[26px] text-center rounded px-0.5 ${r <= Math.ceil(of / 4) ? 'bg-emerald-500/25 text-emerald-200' : r <= Math.ceil(of / 2) ? 'bg-emerald-500/10 text-emerald-300/80' : r <= Math.ceil(3 * of / 4) ? 'bg-amber-500/15 text-amber-300' : 'bg-red-500/20 text-red-300'}">${r}</span>`;
+    const lpsRho = (v) => v == null ? '<span class="text-gray-700">—</span>' : `<span class="mono ${v >= 0.6 ? 'text-emerald-300' : v >= 0.4 ? 'text-teal-300' : v >= 0.2 ? 'text-amber-300' : 'text-red-300'}">${v.toFixed(2)}</span>`;
+
+    async function lpsLoad() {
+        if (store.lps) return store.lps;
+        if (!window.LPScorecard) throw new Error('lp-scorecard.js not loaded');
+        const bust = '?t=' + Math.floor(Date.now() / 900000);
+        const [series, config] = await Promise.all([
+            fetch(LPS_URLS.series + bust).then(r => r.ok ? r.json() : null).catch(() => null),
+            fetch(LPS_URLS.config + bust).then(r => r.ok ? r.json() : null).catch(() => null),
+        ]);
+        if (!series || !config || !config.scorecard) throw new Error(!series ? 'the facts series (lp-grades/series) has not published yet' : 'the rubric (grading_config.json → scorecard) did not load');
+        store.lps = { series, config, errors: LPScorecard.validate(config), names: Object.fromEntries(series.pools.map(p => [p.id, p])) };
+        return store.lps;
     }
 
-    function renderLpGrades() {
-        try { renderPdTracker(); } catch (e) { console.warn('pd tracker:', e); }
-        const tableEl = document.getElementById('grades-table');
-        if (!tableEl) return;
-        const prod = store.lpGrades;
-        if (!prod || !Array.isArray(prod.pools)) {
-            tableEl.innerHTML = '<div class="text-gray-600 text-sm py-3">LP grades product unavailable right now (lp-grades/snapshots/current.json). The grading cron publishes daily at 23:15 UTC — check System Health if this persists.</div>';
-            return;
-        }
-        const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-        const rubric = prod.rubric || {};
-        const aWeights = rubric.A_weights || {};
-        const pools = prod.pools;
+    // The epochs the "as of" picker offers: the last day of each completed epoch the trading facts cover, newest first.
+    function lpsAsOfOptions(S) {
+        const last = S.days[S.days.length - 1]; const out = [{ v: last, label: 'Latest (' + last + ')' }];
+        const firstTrade = S.days.find((d, i) => S.pools.filter(p => p.d && p.d.vol[i] != null).length >= 10) || S.days[0];
+        Object.entries(S.epochs).map(([E, m]) => ({ E: Number(E), m })).filter(x => x.m.end && x.m.end <= last && x.m.end > firstTrade).sort((a, b) => b.E - a.E)
+            .forEach(x => out.push({ v: LPScorecard.addDays(x.m.end, -1), label: 'End of E' + x.E + ' (' + LPScorecard.addDays(x.m.end, -1) + ')' }));
+        return out;
+    }
 
-        const dispName = (n) => {
-            if (!n) return '\u2014';
-            if (n.startsWith('cw20:') || n.startsWith('native:')) {
-                const addr = n.split(':')[1] || n;
-                return `<span title="Unresolved pool name \u2014 raw gauge id ${n}">${addr.slice(0, 10)}\u2026${addr.slice(-4)}</span>`;
-            }
-            return n;
-        };
+    async function renderScorecard() {
+        const root = document.getElementById('lps-root'); if (!root) return;
+        let D; try { D = await lpsLoad(); } catch (e) { root.innerHTML = `<div class="glass-card p-6 text-sm text-gray-400"><i class="fas fa-circle-info mr-1"></i>LP Scorecard: ${lpsEsc(e.message)}.</div>`; return; }
+        const { series: S, config: C } = D; const sc = C.scorecard;
+        if (!lpsState.window) lpsState.window = sc.default_window; if (!lpsState.preset) lpsState.preset = (LPScorecard.presetOf(C) || {}).id; if (!lpsState.asOf) lpsState.asOf = S.days[S.days.length - 1];
+        root.innerHTML = lpsHeaderHtml(D) + `<div id="lps-table-card"></div><div id="lps-bribe-card"></div>` + lpsMethodHtml(D);
+        lpsRenderTable(D); lpsRenderBribe(D);
+    }
 
-        const chip = document.getElementById('grades-count-chip');
-        if (chip) chip.textContent = prod.v2 ? `${prod.v2.graded ?? prod.counts?.graded ?? 0} graded \u00b7 ${prod.counts?.inactive ?? 0} inactive \u00b7 Epoch ${prod.epoch} \u00b7 grading v${prod.v2.config_version}` : `${prod.counts?.graded ?? 0} graded \u00b7 ${prod.counts?.inactive ?? 0} inactive \u00b7 Epoch ${prod.epoch} \u00b7 rubric ${prod.rubric?.config_version || '?'}`;
+    function lpsHeaderHtml(D) {
+        const { series: S, config: C } = D; const sc = C.scorecard; const pr = LPScorecard.presetOf(C, lpsState.preset);
+        const btn = (on, label, onclick, title) => `<button type="button" onclick="${onclick}" title="${lpsEsc(title || '')}" class="px-2.5 py-1 rounded-full text-[11px] ${on ? 'bg-cyan-500/25 text-cyan-200' : 'bg-white/5 text-gray-400 hover:text-cyan-300'}">${label}</button>`;
+        return `<div class="glass-card p-5 mb-4">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                <h3 class="font-semibold text-lg flex items-center gap-2"><i class="fas fa-graduation-cap text-cyan-400"></i> LP Scorecard <span class="text-xs font-normal text-gray-500">which pools earned votes and bribes</span></h3>
+                <div class="flex items-center gap-1.5 text-[10px]"><span class="px-2 py-0.5 rounded bg-white/5 text-gray-400" title="the rubric version every grade on this page used">rubric ${lpsEsc(sc.config_version)}</span><span class="px-2 py-0.5 rounded bg-white/5 text-gray-400" title="the facts series: ${lpsEsc(S.version)}, generated ${lpsEsc((S.generatedAt || '').slice(0, 16).replace('T', ' '))} UTC">data to ${lpsEsc(S.days[S.days.length - 1])}</span></div>
+            </div>
+            <p class="text-xs text-gray-500 mb-3">Every TLA pool, graded on facts anyone can check — for voters, projects, DAOs and bribers alike. Pick a time window and a lens; grades recompute right here from the raw daily data under the <a class="text-cyan-400 hover:underline" href="${LPS_URLS.configView}" target="_blank" rel="noopener">published rubric ↗</a>. Each measured number is scored against the other pools in view (100 = best of the field).</p>
+            ${D.errors.length ? `<div class="text-[11px] text-red-300 mb-2"><i class="fas fa-triangle-exclamation mr-1"></i>Rubric check: ${lpsEsc(D.errors.join('; '))}</div>` : ''}
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <div class="flex items-center gap-1"><span class="text-[10px] uppercase tracking-wider text-gray-600 mr-1">Window</span>${Object.keys(sc.windows).map(w => btn(lpsState.window === w, w, `lpsSet('window','${w}')`, 'average over the last ' + sc.windows[w] + ' day(s) up to the as-of date')).join('')}</div>
+                <div class="flex items-center gap-1"><span class="text-[10px] uppercase tracking-wider text-gray-600 mr-1">As of</span><select onchange="lpsSet('asOf', this.value)" class="bg-white/5 text-gray-300 text-[11px] rounded px-2 py-1 border border-white/10">${lpsAsOfOptions(S).map(o => `<option value="${o.v}" ${o.v === lpsState.asOf ? 'selected' : ''}>${lpsEsc(o.label)}</option>`).join('')}</select></div>
+                <div class="flex items-center gap-1"><span class="text-[10px] uppercase tracking-wider text-gray-600 mr-1">DEX</span>${[['all', 'All'], ['astro', 'Astroport'], ['skel', 'SkeletonSwap']].map(([k, l]) => btn(lpsState.dex === k, l, `lpsSet('dex','${k}')`)).join('')}</div>
+                <label class="flex items-center gap-1 text-[11px] text-gray-400 cursor-pointer"><input type="checkbox" ${lpsState.activeOnly ? 'checked' : ''} onchange="lpsSet('activeOnly', this.checked)"> above the 1% line only</label>
+            </div>
+            <div class="flex flex-wrap items-center gap-1 mt-3"><span class="text-[10px] uppercase tracking-wider text-gray-600 mr-1">Lens</span>${sc.presets.map(p => btn(lpsState.preset === p.id, lpsEsc(p.label), `lpsSet('preset','${p.id}')`, p.desc)).join('')}</div>
+            <div class="text-[11px] text-gray-400 mt-2"><span class="text-gray-200">${lpsEsc(pr.label)}:</span> ${lpsEsc(pr.desc)} <span class="text-gray-600">· weights ${Object.entries(pr.weights).map(([k, v]) => lpsEsc(((sc.metrics[k] || {}).label || k)) + ' ' + Math.round(v * 100) + '%').join(' · ')}</span></div>
+        </div>`;
+    }
+    window.lpsSet = function (k, v) {
+        lpsState[k] = v;
+        if (k === 'placement') { lpsState.crit = null; lpsState.critWin = null; }
+        if (k === 'crit') { const [c, w] = String(v).split('|'); lpsState.crit = c; lpsState.critWin = w; }
+        if (['placement', 'crit', 'after', 'fieldOpen'].includes(k)) { lpsRenderBribe(store.lps); return; }
+        if (['sort', 'showUnranked'].includes(k)) { lpsRenderTable(store.lps); return; }
+        renderScorecard();
+    };
+    window.lpsToggle = function (id) { lpsState.open[id] = !lpsState.open[id]; const el = document.getElementById('lps-d-' + id.slice(-12)); if (el) el.classList.toggle('hidden'); };
 
-        // ---- lens machinery: labels/descriptions/order come from the product;
-        // this map implements each lens id's row logic. Unknown ids fall back
-        // to a quality sort so a new config lens degrades gracefully.
-        const q = (p) => p.scores?.quality ?? -1;
-        const aPart = (p, k) => p.scores?.A?.parts?.[k] ?? null;
-        const gradedRows = pools.filter(p => p.state === 'graded');
-        const LENS_IMPL = {
-            best_for_chain:   { rows: () => gradedRows.slice().sort((a, b) => q(b) - q(a)) },
-            needs_votes:      { rows: () => gradedRows.filter(p => (p.overlay?.need_score || 0) > 0).sort((a, b) => (b.overlay.need_score) - (a.overlay.need_score)) },
-            underdogs:        { rows: () => gradedRows.filter(p => p.overlay?.underdog).sort((a, b) => q(b) - q(a)) },
-            chain_builders:   { rows: () => gradedRows.filter(p => (p.take_flow_epoch_usd || 0) > 0).sort((a, b) => (b.take_flow_epoch_usd || 0) - (a.take_flow_epoch_usd || 0)) },
-            traders_choice:   { rows: () => gradedRows.filter(p => !p.is_single).sort((a, b) => {
-                const t = (p2) => ['depth', 'exit_slippage', 'utilization'].map(k => aPart(p2, k)).filter(v => v != null);
-                const avg = (xs) => xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : -1;
-                return avg(t(b)) - avg(t(a)); }) },
-            active_projects:  { rows: () => gradedRows.filter(p => (p.bucket || '').toLowerCase() === 'project').sort((a, b) => (aPart(b, 'utilization') || 0) - (aPart(a, 'utilization') || 0)) },
-            new_pools:        { rows: () => pools.filter(p => p.state === 'new').sort((a, b) => (b.first_seen_epoch || 0) - (a.first_seen_epoch || 0)) },
-            bribe_targets:    { rows: () => gradedRows.filter(p => p.overlay?.bribe_target).sort((a, b) => (b.staked_usd || 0) - (a.staked_usd || 0)) },
-            at_risk:          { rows: () => gradedRows.filter(p => p.overlay?.threshold_risk).sort((a, b) => (a.pct_of_bucket || 99) - (b.pct_of_bucket || 99)) },
-            healthy_to_enter: { rows: () => gradedRows.slice().sort((a, b) => q(b) - q(a)) },
-        };
-        const lenses = (prod.lenses || []).map(l => ({ ...l, impl: LENS_IMPL[l.id] || { rows: () => gradedRows.slice().sort((a, b) => q(b) - q(a)) } }));
-        // derived local view: the inactive board (mission: grade every LP —
-        // inactive pools carry last-known grades as a safety signal)
-        lenses.push({ id: '_inactive', label: 'Inactive', description: 'Pools no longer gauged \u2014 last-known grades where their own window data existed; asset context otherwise.', impl: { rows: () => pools.filter(p => p.state === 'inactive').sort((a, b) => q(b) - q(a)) } });
-
-        const view = store.gradesView && lenses.some(l => l.id === store.gradesView) ? store.gradesView : (lenses.find(l => l.default) || lenses[0]).id;
-        const active = lenses.find(l => l.id === view);
-        const rows = active.impl.rows();
-
-        const filtersEl = document.getElementById('grades-filters');
-        if (filtersEl) filtersEl.innerHTML = lenses.map(l =>
-            `<button type="button" onclick="setGradesView('${l.id}')" title="${(l.description || '').replace(/"/g, '&quot;')}" class="text-[11px] px-3 py-1 rounded-full font-medium ${view === l.id ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/5 text-gray-400 hover:text-gray-300'}">${l.label} <span class="text-[9px] opacity-60">${l.impl.rows().length}</span></button>`).join('');
-        const descEl = document.getElementById('grades-view-desc');
-        if (descEl) descEl.textContent = active.description || '';
-
-        // ---- callouts (from overlay facts, bucket-aware medians upstream)
-        const callEl = document.getElementById('grades-callouts'); if (callEl) callEl.innerHTML = '';   // 2026-08-25: the v1 underpaid/overweighted callouts retired — the five-lens field + Advisor cover them
-
-        // ---- plain-language "why" line from the overlay facts
-        const whyLine = (p) => {
-            const bits = []; const o = p.overlay || {};
-            if (o.ratio_vs_bucket_median != null && o.ratio_vs_bucket_median > 1.4) bits.push(`carrying ${o.ratio_vs_bucket_median.toFixed(1)}\u00d7 its bucket's median liquidity per vote \u2014 votes here are underpaid`);
-            if (o.ratio_vs_bucket_median != null && o.ratio_vs_bucket_median < 0.6) bits.push(`only ${o.ratio_vs_bucket_median.toFixed(1)}\u00d7 bucket median liquidity per vote \u2014 support outruns the pool`);
-            if (o.threshold_risk && p.pct_of_bucket != null) bits.push(`${(p.pct_of_bucket - 1).toFixed(1)}pp above the 1% threshold \u2014 ${fmt$(p.staked_usd || 0)} of stake stops earning if it slips`);
-            if (o.underdog) bits.push('small pool doing real work \u2014 an underdog');
-            if (o.bribe_target && (o.support?.active_pot_usd || 0) < 5) bits.push('no bribe pot \u2014 first pot here has zero competition');
-            else if ((o.support?.active_pot_usd || 0) >= 5) bits.push(`${fmt$(o.support.active_pot_usd)} pot live`);
-            if ((p.take_flow_epoch_usd || 0) > 50) bits.push(`builds ${fmt$(p.take_flow_epoch_usd)}/epoch of chain-owned liquidity via the take rate`);
-            const tr = p.scores?.A?.trend_pct;
-            if (tr != null && Math.abs(tr) >= 15) bits.push(`real liquidity ${tr > 0 ? 'up' : 'down'} ${Math.abs(tr).toFixed(0)}% over the window`);
-            return bits.slice(0, 2).join(' \u00b7 ');
-        };
-
-        // ---- table
-        const alloc = getSelectedMemberAllocations();
-        const myVotes = alloc?.votesByPool || new Map();
-        const gradeCls = (g) => !g ? 'bg-white/5 text-gray-500' : g.startsWith('A') ? 'bg-emerald-500/20 text-emerald-300' : g === 'B' ? 'bg-cyan-500/20 text-cyan-300' : g === 'C' ? 'bg-yellow-500/20 text-yellow-300' : g === 'D' ? 'bg-orange-500/20 text-orange-300' : 'bg-red-500/20 text-red-300';
-        const tierChip = (t) => t === 'firm' ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400/90" title="Full trailing-window sample \u2014 the grade is firm.">firm</span>'
-            : t === 'provisional' ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-300/90" title="The trailing window has capture gaps or a thin sample \u2014 treat the grade as provisional, not firm.">provisional</span>'
-            : '<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-500/15 text-gray-400" title="Not enough sample to grade honestly.">low sample</span>';
-        const stateChip = (s) => s === 'new' ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300" title="Too young for an honest windowed grade \u2014 a jump-start candidate.">new</span>'
-            : s === 'inactive' ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-500/15 text-gray-400">inactive</span>' : '';
-        const balanceChip = (p) => {
-            const o = p.overlay || {}; const b = o.balance;
-            if (o.threshold_risk) return '<span class="text-[9px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400">near threshold</span>';
-            return {
-                underpaid: '<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">underpaid \u2014 votes help</span>',
-                overweighted: '<span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">overweighted</span>',
-                no_support: '<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-500/15 text-gray-400">no votes</span>',
-                balanced: '<span class="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-gray-500">balanced</span>',
-            }[b] || '';
-        };
-        const barLabel = { depth: 'D', utilization: 'U', trend: 'Tr', exit_slippage: 'S', pool_balance: 'B' };
-        const barTitle = { depth: 'Depth', utilization: 'Utilization', trend: 'Trend', exit_slippage: 'Exit slippage', pool_balance: 'Pool balance' };
-        const bar = (k, v) => v == null ? '' : `<div class="flex items-center gap-1" title="${barTitle[k]}: ${Math.round(v)}/100 (rubric weight ${Math.round((aWeights[k] || 0) * 100)}%)"><span class="text-[8px] text-gray-600 w-3.5">${barLabel[k]}</span><div class="w-10 h-1 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full ${v >= 70 ? 'bg-emerald-400/70' : v >= 40 ? 'bg-yellow-400/70' : 'bg-red-400/70'}" style="width:${clamp(v, 2, 100)}%"></div></div></div>`;
-        const dexTag = (dex, single) => single ? '<span class="text-[9px] px-1 py-0.5 rounded bg-purple-500/20 text-purple-300">Single</span>'
-            : dex?.includes('Astro') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400">Astro</span>'
-            : dex?.includes('Skeleton') ? '<span class="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Skeleton</span>'
-            : '<span class="text-[9px] px-1 py-0.5 rounded bg-white/5 text-gray-500">\u2014</span>';
-
-        // ---- v2 five-lens view (2026-08-25): bucketed, one letter, five bars, a streak, a plain why. Falls back to v1 rows when the product has no v2.
-        const useV2 = !!(prod.v2 && rows.some(p => p.v2));
-        if (useV2) renderGradesV2(tableEl, rows, prod, dexTag, myVotes);
-        else tableEl.innerHTML = rows.map((p, i) => {
-            const mine = p.gauge_pool_id && myVotes.has(p.gauge_pool_id);
-            const why = view === 'best_for_chain' ? '' : whyLine(p);
-            const detailId = `grade-detail-${i}`;
-            const parts = p.scores?.A?.parts || {};
-            const bTok = (p.scores?.B?.tokens || []);
-            return `
-            <div class="rounded-lg ${mine ? 'bg-amber-500/[0.05] border border-amber-500/15' : 'bg-white/[0.02] hover:bg-white/[0.04]'} cursor-pointer" data-gpool="${(p.name + '|' + (p.dex || '')).replace(/"/g, '&quot;')}" onclick="document.getElementById('${detailId}')?.classList.toggle('hidden')">
-                <div class="flex items-center gap-3 p-2">
-                    <span class="w-9 h-7 rounded flex items-center justify-center text-sm font-bold shrink-0 ${gradeCls(p.grade)}" title="Quality ${p.scores?.quality != null ? Math.round(p.scores.quality) : '\u2014'}/100 = trading quality (A) \u00d7 asset & chain value (B), weights ${Math.round((rubric.quality_weights?.trading_quality_A || 0) * 100)}/${Math.round((rubric.quality_weights?.asset_chain_value_B || 0) * 100)} per rubric ${rubric.config_version || ''}. Letters: A+\u2265${rubric.grade_boundaries?.A_plus} \u00b7 A\u2265${rubric.grade_boundaries?.A} \u00b7 B\u2265${rubric.grade_boundaries?.B} \u00b7 C\u2265${rubric.grade_boundaries?.C} \u00b7 D\u2265${rubric.grade_boundaries?.D}. Single-asset pools cap below A+ (can\u2019t demonstrate depth/utilization).">${p.grade || '\u2014'}</span>
-                    <div class="flex flex-col min-w-0 shrink-0" style="width:170px">
-                        <span class="text-sm font-medium truncate">${mine ? '<i class="fas fa-star text-amber-400 text-[10px] mr-1" title="Your selected wallet votes here"></i>' : ''}${dispName(p.name)}</span>
-                        <div class="flex items-center gap-1">${dexTag(p.dex, p.is_single)}<span class="text-[9px] text-gray-600 uppercase">${p.bucket || ''}</span>${stateChip(p.state)}</div>
-                    </div>
-                    <div class="hidden md:flex items-center gap-2 shrink-0">${Object.keys(barLabel).map(k => bar(k, parts[k])).join('')}</div>
-                    <div class="flex-1 hidden sm:flex items-center justify-end gap-1.5">${balanceChip(p)}${tierChip(p.confidence?.tier)}</div>
-                    <div class="text-right shrink-0" style="min-width:118px">
-                        <div class="mono text-xs text-gray-300">${fmt$(p.staked_usd || 0)} staked</div>
-                        <div class="text-[9px] text-gray-600">${fmtNum(p.vp || 0)} VP${p.scores?.A?.trend_pct != null ? ` \u00b7 <span class="${p.scores.A.trend_pct >= 0 ? 'text-emerald-500/80' : 'text-red-500/80'}">${p.scores.A.trend_pct >= 0 ? '+' : ''}${p.scores.A.trend_pct.toFixed(0)}% real</span>` : ''}</div>
-                    </div>
+    function lpsRenderTable(D) {
+        const host = document.getElementById('lps-table-card'); if (!host) return;
+        const { series: S, config: C } = D; const sc = C.scorecard; const meta = sc.metrics;
+        const opt = { activeOnly: lpsState.activeOnly };
+        const wf = LPScorecard.windowFacts(S, C, { asOf: lpsState.asOf, window: lpsState.window });
+        const res = LPScorecard.scoreField(wf, C, lpsState.preset, opt);
+        // the same lens in every window, at the same date → does the grade hold up, or is it one lucky stretch?
+        const across = {}; Object.keys(sc.windows).forEach(w => { const r = LPScorecard.scoreField(LPScorecard.windowFacts(S, C, { asOf: lpsState.asOf, window: w }), C, lpsState.preset, opt); const m = {}; let of = 0; r.field.forEach(x => { if (x.rank != null) { m[x.f.id] = x.rank; of++; } }); across[w] = { m, of }; });
+        const dexOk = (f) => lpsState.dex === 'all' || (lpsState.dex === 'astro' ? /astro/i.test(f.dex || '') : /skel/i.test(f.dex || ''));
+        let rows = res.field.filter(x => dexOk(x.f));
+        const graded = rows.filter(x => x.composite != null), ungraded = rows.filter(x => x.composite == null);
+        const SORT = { grade: x => x.composite ?? -1, eff: x => x.f.efficiency_raw ?? -1, vol: x => x.f.volume ?? -1, liq: x => x.f.liquidity ?? -1, fees: x => x.f.fees ?? -1, stick: x => x.f.stickiness ?? -1, cost: x => x.f.cost == null ? -1 : -x.f.cost, votes: x => x.f.bucket_pct ?? -1, bribes: x => x.f.bribes_usd_ep ?? -1 };
+        const sk = lpsState.sort && SORT[lpsState.sort] ? lpsState.sort : 'grade';
+        graded.sort((a, b) => SORT[sk](b) - SORT[sk](a));
+        const ofN = graded.length;
+        const hdr = (k, label, title) => `<button type="button" onclick="lpsSet('sort','${k}')" title="${lpsEsc(title || '')}" class="text-right ${sk === k ? 'text-cyan-300' : 'hover:text-gray-300'}">${label}${sk === k ? ' ▾' : ''}</button>`;
+        const cols = 'grid-template-columns: 34px 38px minmax(150px,1.5fr) 64px 78px 78px 66px 60px 66px 62px 84px 128px';
+        const partBar = (m, v) => { const lab = (meta[m] || {}).label || (m === 'purpose' ? 'Purpose' : m); return `<div class="flex items-center gap-1.5"><span class="w-28 text-gray-500 truncate">${lpsEsc(lab)}</span><span class="flex-1 h-1.5 rounded bg-white/5 overflow-hidden"><span class="block h-full ${v == null ? '' : v >= 70 ? 'bg-emerald-400/70' : v >= 40 ? 'bg-amber-400/70' : 'bg-red-400/70'}" style="width:${v == null ? 0 : Math.max(2, v)}%"></span></span><span class="mono w-7 text-right ${v == null ? 'text-gray-700' : 'text-gray-300'}">${v == null ? '—' : v}</span></div>`; };
+        const why = (x) => { const ps = Object.entries(x.parts).filter(([, v]) => v != null).sort((a, b) => b[1] - a[1]); if (!ps.length) return ''; const lab = (m) => ((meta[m] || {}).label || m).toLowerCase(); const top = ps.slice(0, 2).map(([m, v]) => lab(m) + ' ' + v), low = ps.slice(-2).reverse().filter(([m]) => !ps.slice(0, 2).some(t => t[0] === m)).map(([m, v]) => lab(m) + ' ' + v); return `strongest: ${top.join(', ')}${low.length ? ' · weakest: ' + low.join(', ') : ''}`; };
+        const rowHtml = (x, i) => {
+            const f = x.f; const id = f.id; const pdShare = f.bribes_usd_ep > 0 && f.pd_luna_ep && wf.luna_usd ? Math.min(100, f.pd_luna_ep * wf.luna_usd / f.bribes_usd_ep * 100) : null;
+            const stab = Object.keys(sc.windows).map(w => `<span title="rank on this lens over ${w}">${lpsRankCell(across[w].m[id] ?? null, across[w].of || ofN)}</span>`).join('');
+            return `<div class="rounded-lg bg-white/[0.02] hover:bg-white/[0.04]" data-gpool="${lpsEsc(f.name + '|' + (f.dex || ''))}">
+                <div class="grid gap-x-2 items-center px-2 py-1.5 text-[11px] cursor-pointer" style="${cols}" onclick="lpsToggle('${id}')">
+                    <div class="mono text-gray-500">${x.rank != null && sk === 'grade' ? x.rank : i + 1}</div>
+                    <div>${lpsLetter(x.letter, 'composite ' + x.composite + ' of 100 · ' + Math.round(x.weight_present * 100) + '% of the lens had data')}</div>
+                    <div class="min-w-0"><div class="font-medium text-gray-100 truncate">${lpsEsc(poolDisplayName(f.name))}${f.age_days != null && f.age_days <= sc.new_pool_days ? ' <span class="text-[9px] px-1 rounded bg-fuchsia-500/20 text-fuchsia-300" title="captured for ' + f.age_days + ' days — early data">new</span>' : ''}</div><div class="flex items-center gap-1">${lpsDex(f.dex)}<span class="text-[9px] text-gray-600 uppercase">${lpsEsc(f.bucket || '')}</span>${f.active ? '' : '<span class="text-[9px] text-gray-600" title="' + lpsEsc(f.status || '') + '">below 1%</span>'}</div></div>
+                    <div class="text-right mono ${f.small ? 'text-gray-600' : 'text-gray-200'}" title="${f.small ? 'below the ' + lpsUsd(sc.depth_floor_usd) + ' depth floor — not ranked on efficiency' : 'average daily volume ÷ average liquidity'}">${f.efficiency_raw == null ? '—' : (f.efficiency_raw * 100).toFixed(1) + '%'}</div>
+                    <div class="text-right mono text-gray-300">${lpsUsd(f.volume)}</div>
+                    <div class="text-right mono text-gray-300">${lpsUsd(f.liquidity)}</div>
+                    <div class="text-right mono text-gray-400">${lpsUsd(f.fees)}</div>
+                    <div class="text-right mono ${f.stickiness == null ? 'text-gray-600' : f.stickiness >= 1 ? 'text-emerald-300/90' : f.stickiness >= 0.8 ? 'text-gray-300' : 'text-red-300'}" title="price-neutral: the window's starting token amounts at end prices vs the end amounts">${f.stickiness == null ? '—' : lpsPct((f.stickiness - 1) * 100)}</div>
+                    <div class="text-right mono text-gray-400" title="estimated emissions ${f.emissions_luna_ep == null ? '—' : lpsN(f.emissions_luna_ep) + ' LUNA'} + bribes ${lpsUsd(f.bribes_usd_ep)} per epoch, per $1K traded">${f.cost == null ? '—' : '$' + (f.cost * 1000).toFixed(f.cost * 1000 >= 10 ? 0 : 1)}</div>
+                    <div class="text-right mono text-gray-300" title="share of its bucket's votes">${f.bucket_pct == null ? '—' : f.bucket_pct.toFixed(1) + '%'}</div>
+                    <div class="text-right mono ${f.bribes_usd_ep > 0 ? 'text-amber-300' : 'text-gray-600'}" title="average bribe pot per epoch in the window (all funders; non-LUNA tokens at today's price)${pdShare != null ? ' · PD’s share of this pot (USD): ' + Math.round(pdShare) + '%' : ''}">${f.bribes_usd_ep > 0 ? lpsUsd(f.bribes_usd_ep) : '—'}${pdShare != null ? ' <span class="text-[9px] text-gray-500">PD ' + Math.round(pdShare) + '%</span>' : ''}</div>
+                    <div class="flex items-center justify-end gap-0.5 text-[10px] mono">${stab}</div>
                 </div>
-                ${why ? `<div class="px-3 pb-2 -mt-1 text-[10px] text-cyan-300/80"><i class="fas fa-angles-right text-[8px] mr-1"></i>${why}</div>` : ''}
-                <div id="${detailId}" class="hidden px-3 pb-2 pt-1 border-t border-white/5 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-[10px]">
-                    <div><span class="text-gray-600">Quality:</span> <span class="mono text-gray-300">${p.scores?.quality != null ? Math.round(p.scores.quality) + '/100' : '\u2014'}</span> <span class="text-gray-700">(A ${p.scores?.A?.score != null ? Math.round(p.scores.A.score) : '\u2014'} \u00b7 B ${p.scores?.B?.score != null ? Math.round(p.scores.B.score) : '\u2014'})</span></div>
-                    <div><span class="text-gray-600">Confidence:</span> ${tierChip(p.confidence?.tier)} <span class="mono text-gray-500">${p.confidence ? Math.round((p.confidence.ratio || 0) * 100) + '% sample' : ''}</span></div>
-                    <div><span class="text-gray-600">Liquidity per vote:</span> <span class="mono ${p.overlay?.ratio_vs_bucket_median > 1 ? 'text-emerald-400/80' : 'text-gray-300'}">${p.overlay?.ratio_vs_bucket_median != null ? p.overlay.ratio_vs_bucket_median.toFixed(1) + '\u00d7 bucket median' : '\u2014'}</span></div>
-                    <div><span class="text-gray-600">Bucket share:</span> <span class="mono text-gray-300">${p.pct_of_bucket != null ? p.pct_of_bucket.toFixed(2) + '%' : '\u2014'}</span> <span class="text-gray-600">(1% = threshold)</span></div>
-                    ${Object.keys(barLabel).map(k => parts[k] == null ? '' : `<div><span class="text-gray-600">${barTitle[k]}:</span> <span class="mono ${parts[k] >= 70 ? 'text-emerald-400/90' : parts[k] >= 40 ? 'text-yellow-300/90' : 'text-red-400/90'}">${Math.round(parts[k])}</span><span class="text-gray-700">/100 \u00b7 w${Math.round((aWeights[k] || 0) * 100)}%</span></div>`).join('')}
-                    <div><span class="text-gray-600">Chain take-flow:</span> <span class="mono text-gray-300">${p.take_flow_epoch_usd != null ? fmt$(p.take_flow_epoch_usd) + '/epoch' : '\u2014'}</span></div>
-                    <div><span class="text-gray-600">Bribe pot:</span> <span class="mono ${(p.overlay?.support?.active_pot_usd || 0) >= 5 ? 'text-amber-300' : 'text-gray-500'}">${(p.overlay?.support?.active_pot_usd || 0) >= 5 ? fmt$(p.overlay.support.active_pot_usd) : 'none'}</span></div>
-                    <div class="col-span-2"><span class="text-gray-600">Assets:</span> ${bTok.map(t => `<span class="mono text-gray-400" title="oracle ${t.match} \u00b7 ${t.acquisition_class}${t.guide ? ' \u00b7 guide' : ''}">${t.symbol || '?'} ${t.score != null ? Math.round(t.score) : '\u2014'}</span>`).join(' \u00b7 ')}</div>
+                <div id="lps-d-${id.slice(-12)}" class="${lpsState.open[id] ? '' : 'hidden'} px-3 pb-3 pt-1 border-t border-white/5 grid md:grid-cols-2 gap-x-6 gap-y-1 text-[10px]">
+                    <div class="space-y-1">${Object.keys(res.weights).map(m => partBar(m, x.parts[m])).join('')}<div class="text-cyan-300/80 mt-1">${lpsEsc(why(x))}</div></div>
+                    <div class="space-y-0.5 text-gray-400">
+                        <div><span class="text-gray-600">Window:</span> ${lpsEsc(wf.from)} → ${lpsEsc(wf.to)} · ${f.days} of ${wf.n} days captured</div>
+                        <div><span class="text-gray-600">Pair class (declared purpose):</span> ${lpsEsc(String(f.pair_class).replace(/_/g, ' '))} · ${f.purpose}</div>
+                        <div><span class="text-gray-600">Votes:</span> ${f.vp == null ? '—' : lpsN(f.vp)} VP · ${f.bucket_pct == null ? '—' : f.bucket_pct.toFixed(2) + '% of ' + lpsEsc(f.bucket)} · E${f.epoch ?? '—'}</div>
+                        <div><span class="text-gray-600">Incentives per epoch:</span> ~${f.emissions_luna_ep == null ? '—' : lpsN(f.emissions_luna_ep)} LUNA emissions (est.) · bribes ${lpsUsd(f.bribes_usd_ep)}${f.pd_luna_ep ? ' (PD ' + lpsN(f.pd_luna_ep) + ' LUNA)' : ''}</div>
+                        <div><span class="text-gray-600">First captured:</span> ${lpsEsc(f.first_day || '—')}${(f.names || []).length > 1 ? ' · also listed as ' + lpsEsc(f.names.filter(n => n !== f.name).join(', ')) : ''}</div>
+                        <div class="mono text-gray-600 truncate" title="${lpsEsc(id)}">${lpsEsc(id)}</div>
+                    </div>
                 </div>
             </div>`;
-        }).join('') || '<div class="text-gray-600 text-sm py-3">No pools match this lens right now \u2014 that itself is a healthy sign.</div>';
-
-        renderVoteAdvisor();
+        };
+        const unrankedList = ungraded.concat(res.excluded.filter(f => dexOk(f)).map(f => ({ f, composite: null })));
+        host.innerHTML = `<div class="glass-card p-5 mb-4">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-2"><div class="text-sm font-semibold text-gray-200">${lpsEsc(LPScorecard.presetOf(C, lpsState.preset).label)} · ${lpsEsc(lpsState.window)} <span class="text-[11px] font-normal text-gray-500">${lpsEsc(wf.from)} → ${lpsEsc(wf.to)} · ${ofN} pools graded</span></div>
+                <div class="text-[10px] text-gray-500">${Object.entries({ A: 0, B: 0, C: 0, D: 0, F: 0 }).map(([L]) => `<span class="inline-block px-1.5 rounded ${LPS_LETTER[L]} mr-0.5">${L} ${graded.filter(x => x.letter === L).length}</span>`).join('')}</div></div>
+            <div class="overflow-x-auto"><div style="min-width:980px">
+                <div class="grid gap-x-2 px-2 pb-1 text-[9px] uppercase tracking-wider text-gray-600" style="${cols}">
+                    <div>#</div>${hdr('grade', 'Grade')}<div>Pool</div>${hdr('eff', 'Vol÷Liq', 'average daily volume ÷ average liquidity')}${hdr('vol', 'Vol/day')}${hdr('liq', 'Liquidity')}${hdr('fees', 'Fees/day')}${hdr('stick', 'Sticky', 'price-neutral liquidity change over the window')}${hdr('cost', '$/1K', 'incentives (est. emissions + bribes) per $1K traded — lower is cheaper')}${hdr('votes', 'Votes', 'share of its bucket’s votes')}${hdr('bribes', 'Bribes/ep')}<div class="text-right" title="this lens's rank in each window, same date">24h · 7d · 30d · 90d</div>
+                </div>
+                ${ofN > 0 && ofN < 6 ? `<div class="text-[10px] text-amber-300/80 px-2 pb-1"><i class="fas fa-circle-info mr-1"></i>Only ${ofN} pool${ofN > 1 ? 's' : ''} fit this lens here — in a field this small, percentiles swing between the extremes. Widen the window or try another lens.</div>` : ''}
+                <div class="space-y-1">${graded.map(rowHtml).join('') || '<div class="text-gray-600 text-sm py-3 px-2">No pool fits this lens and filter.</div>'}</div>
+            </div></div>
+            ${unrankedList.length ? `<button type="button" onclick="lpsSet('showUnranked', ${!lpsState.showUnranked})" class="mt-3 text-[11px] text-gray-500 hover:text-cyan-300"><i class="fas fa-chevron-${lpsState.showUnranked ? 'up' : 'down'} text-[9px] mr-1"></i>${unrankedList.length} pools not graded in this view — why</button>
+            ${lpsState.showUnranked ? `<div class="mt-2 grid md:grid-cols-2 gap-x-6 gap-y-0.5 text-[10px] text-gray-500">${unrankedList.map(x => { const f = x.f; const reason = !f.tla ? 'not a TLA gauge' : f.liquidity == null ? (f.is_single ? 'single-asset gauge — no trading facts' : 'not enough captured days in this window') : f.liquidity < 1000 ? 'under $1K liquidity' : (/skel/i.test(f.dex || '') && f.volume == null) ? 'SkeletonSwap does not publish volume — not enough of the lens has data' : 'outside this lens’s filter'; return `<div class="truncate">${lpsDex(f.dex)} <span class="text-gray-300">${lpsEsc(poolDisplayName(f.name))}</span> — ${reason}${f.liquidity != null ? ' · ' + lpsUsd(f.liquidity) : ''}</div>`; }).join('')}</div>` : ''}` : ''}
+        </div>`;
     }
+
+    function lpsRenderBribe(D) {
+        const host = document.getElementById('lps-bribe-card'); if (!host || !D) return;
+        const { series: S, config: C } = D; const sc = C.scorecard; const bc = sc.bribe_check || {};
+        if (!store.lpsUsable) store.lpsUsable = S.placements.filter(p => p.legs.some(l => l.luna_per_epoch) && LPScorecard.bribeCheck(S, C, p).best);   // only placements the trading facts can check
+        const usable = store.lpsUsable;
+        if (!usable.length) { host.innerHTML = ''; return; }
+        const pl = usable.find(p => p.proposal_id === lpsState.placement) || usable[usable.length - 1];
+        const chk = LPScorecard.bribeCheck(S, C, pl);
+        const best = chk.best; const crit = lpsState.crit || (best && best.criterion) || 'efficiency'; const cw = lpsState.critWin || (best && best.window) || '30d';
+        const rm = chk.fields[crit + '|' + cw] || {}; const N = Object.keys(rm).length;
+        const k = lpsState.after != null ? Number(lpsState.after) : (bc.after_epochs || 3);
+        const ae = LPScorecard.afterEffect(S, C, pl, { after: k, window: cw });
+        const path = LPScorecard.rankPath(S, C, pl, crit, '7d', { after: k });
+        const nm = (id) => { const p = D.names[id]; return p ? poolDisplayName(p.name) : (id || '').slice(0, 10) + '…'; };
+        const dexOf = (id) => (D.names[id] || {}).dex;
+        const stated = /efficien/i.test(pl.title || '') ? ['efficiency'].concat(/volume/i.test(pl.title || '') ? ['volume'] : []) : /volume/i.test(pl.title || '') ? ['volume'] : [];
+        const legsSorted = Object.entries(chk.alloc).sort((a, b) => b[1] - a[1]);
+        const cell = (c, w) => { const r = chk.rows.find(x => x.criterion === c && x.window === w); const on = c === crit && w === cw; return `<button type="button" onclick="lpsSet('crit','${c}|${w}')" class="rounded px-1.5 py-1 text-center ${on ? 'ring-1 ring-cyan-400/70 bg-cyan-500/10' : 'hover:bg-white/5'} ${best && best.criterion === c && best.window === w ? 'bg-emerald-500/10' : ''}" title="${r && r.rho != null ? 'top-' + r.bribed_ranked + ' overlap ' + r.overlap_topN + '/' + r.bribed_ranked + ' · ' + Math.round(r.luna_top_half_pct) + '% of ranked LUNA in the top half · ' + r.passed_over + ' unbribed pools ranked above a bribed one' : 'not enough data'}">${lpsRho(r ? r.rho : null)}</button>`; };
+        const noHistory = legsSorted.filter(([id]) => !rm[id]);
+        const totalLuna = chk.luna_total;
+        // whole field on the selected criterion
+        const fieldRows = Object.entries(rm).sort((a, b) => a[1].rank - b[1].rank);
+        const lowestBribed = Math.max(...legsSorted.filter(([id]) => rm[id]).map(([id]) => rm[id].rank), 0);
+        const fmtVal = (v) => v == null ? '—' : crit === 'efficiency' ? (v * 100).toFixed(2) + '%' : crit === 'allround' ? Math.round(v) : lpsUsd(v);
+        const chgCell = (v, base) => { if (v == null) return '<span class="text-gray-700">—</span>'; const rel = base == null ? v : v - base; return `<span class="mono ${rel >= 10 ? 'text-emerald-300' : rel <= -10 ? 'text-red-300' : 'text-gray-300'}" title="${base == null ? '' : 'vs the unbribed pools’ median ' + lpsPct(base)}">${lpsPct(v)}</span>`; };
+        const aeRows = ae.rows.filter(r => r.bribed).sort((a, b) => b.luna_per_epoch - a.luna_per_epoch);
+        const ub = ae.unbribed_median;
+        host.innerHTML = `<div class="glass-card p-5 mb-4">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                <div class="text-sm font-semibold text-gray-200 flex items-center gap-2"><i class="fas fa-magnifying-glass-chart text-amber-400"></i> Bribe Scorecard <span class="text-[11px] font-normal text-gray-500">how a placement lines up with the field — then and after</span></div>
+                <div class="flex items-center gap-1 flex-wrap text-[10px]">${usable.slice(-8).map(p => `<button type="button" onclick="lpsSet('placement', ${p.proposal_id})" class="px-2 py-0.5 rounded-full ${p.proposal_id === pl.proposal_id ? 'bg-amber-500/25 text-amber-200' : 'bg-white/5 text-gray-400 hover:text-amber-300'}">prop ${p.proposal_id} <span class="text-gray-600">${String(p.executed_at).slice(5, 10)}</span></button>`).join('')}</div>
+            </div>
+            <div class="text-[11px] text-gray-400 mb-3">Phoenix Directive proposal ${pl.proposal_id} · executed ${lpsEsc(String(pl.executed_at).slice(0, 10))} · pays E${chk.window.start}–E${chk.window.end} · <span class="mono text-gray-200">${lpsN(totalLuna)} LUNA/epoch</span> across ${legsSorted.length} pools · <span class="text-gray-500">title:</span> <span class="text-gray-200">"${lpsEsc(pl.title)}"</span></div>
+            <div class="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-4">
+                <div>
+                    <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Closest match — which ranking explains where the LUNA went?</div>
+                    <div class="rounded-lg bg-white/[0.03] p-2">
+                        <div class="grid gap-1 text-[10px]" style="grid-template-columns: 92px repeat(${(bc.windows || []).length}, minmax(0,1fr))">
+                            <div></div>${(bc.windows || []).map(w => `<div class="text-center text-gray-500">${w}</div>`).join('')}
+                            ${(bc.criteria || []).map(c => `<div class="text-gray-400 self-center">${LPS_CRIT[c] || c}${stated.includes(c) ? ' <span class="text-[8px] px-1 rounded bg-amber-500/20 text-amber-300" title="named in the proposal title">stated</span>' : ''}</div>${(bc.windows || []).map(w => cell(c, w)).join('')}`).join('')}
+                        </div>
+                    </div>
+                    <div class="text-[10px] text-gray-500 mt-1.5">Rank correlation, measured on ${lpsEsc(chk.asOf)} (the day before it executed), between each pool's LUNA (0 if none) and its rank on the criterion over the window — 1.00 = the allocation followed that ranking exactly, 0 = no relation. Click a cell to see that field.</div>
+                    ${best ? `<div class="text-[11px] text-gray-300 mt-2"><span class="text-gray-500">Closest:</span> ${LPS_CRIT[best.criterion]} over ${best.window} (${best.rho.toFixed(2)})${stated.length ? ` · <span class="text-gray-500">stated in the title:</span> ${stated.map(c => LPS_CRIT[c] + ' ' + (() => { const vs = chk.rows.filter(r => r.criterion === c && r.rho != null).map(r => r.rho); return vs.length ? Math.min(...vs).toFixed(2) + '–' + Math.max(...vs).toFixed(2) : 'n/a'; })()).join(' · ')}` : ''}</div>` : ''}
+                    ${noHistory.length ? `<div class="text-[10px] text-gray-500 mt-1.5"><i class="fas fa-circle-info mr-1"></i>${noHistory.length} bribed pool${noHistory.length > 1 ? 's' : ''} had no trading history to rank on ${lpsEsc(chk.asOf)} (${fmtNum(Math.round(noHistory.reduce((s, [, v]) => s + v, 0)))} LUNA/epoch, ${Math.round(noHistory.reduce((s, [, v]) => s + v, 0) / totalLuna * 100)}%): ${noHistory.map(([id]) => lpsEsc(nm(id)) + (D.names[id] && D.names[id].first_day && D.names[id].first_day > chk.asOf ? ' (first captured ' + D.names[id].first_day + ')' : D.names[id] && D.names[id].is_single ? ' (single-asset)' : '')).join(', ')}. They are left out of the correlation, not counted against it.</div>` : ''}
+                </div>
+                <div>
+                    <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Where the LUNA went · rank on ${LPS_CRIT[crit]} (${cw}) at placement</div>
+                    <div class="rounded-lg bg-white/[0.03] p-2 space-y-0.5">${legsSorted.map(([id, v]) => `<div class="grid items-center gap-2 text-[11px]" style="grid-template-columns: minmax(110px,1fr) 70px 46px 1fr 44px"><div class="truncate text-gray-200">${lpsEsc(nm(id))} <span class="opacity-70">${lpsDex(dexOf(id))}</span></div><div class="text-right mono text-gray-300">${lpsN(v)}</div><div class="text-right mono text-gray-500">${(v / totalLuna * 100).toFixed(0)}%</div><div class="h-1.5 rounded bg-white/5 overflow-hidden"><div class="h-full bg-amber-400/60" style="width:${(v / legsSorted[0][1] * 100).toFixed(0)}%"></div></div><div class="text-right text-[10px]">${rm[id] ? lpsRankCell(rm[id].rank, N) : '<span class="text-gray-600" title="no trading history to rank">n/a</span>'}</div></div>`).join('')}
+                    <div class="text-[9px] text-gray-600 pt-1">LUNA per epoch · share · rank of ${N} TLA pools with trading data</div></div>
+                </div>
+            </div>
+            <div class="mt-3 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                <button type="button" onclick="lpsSet('fieldOpen', ${!lpsState.fieldOpen})" class="w-full flex items-center justify-between px-3 py-2 text-left"><span class="text-[11px] text-gray-300"><i class="fas fa-list-ol text-amber-400/80 mr-1"></i>The whole field on ${LPS_CRIT[crit]} (${cw}) on ${lpsEsc(chk.asOf)} — ${N} pools${(() => { const n = fieldRows.filter(([id, r]) => !chk.alloc[id] && r.rank < lowestBribed).length; return n ? ` · <span class="text-amber-300">${n} ranked above a bribed pool and received none</span>` : ''; })()}</span><i class="fas fa-chevron-${lpsState.fieldOpen ? 'up' : 'down'} text-[9px] text-gray-500"></i></button>
+                ${lpsState.fieldOpen ? `<div class="px-2 pb-2 overflow-x-auto"><div style="min-width:560px">${fieldRows.map(([id, r]) => { const b = chk.alloc[id]; const po = !b && r.rank < lowestBribed; return `<div class="grid gap-x-2 items-center px-1 py-0.5 text-[11px] border-t border-white/[0.04] ${b ? 'bg-emerald-500/[0.05]' : po ? 'bg-amber-500/[0.05]' : ''}" style="grid-template-columns: 34px minmax(140px,1.4fr) 90px 90px minmax(120px,1fr)"><div class="mono text-gray-500">${r.rank}</div><div class="truncate ${b ? 'text-gray-100' : 'text-gray-300'}">${lpsEsc(nm(id))} <span class="opacity-70">${lpsDex(dexOf(id))}</span></div><div class="text-right mono text-gray-300">${fmtVal(r.value)}</div><div class="text-right mono ${b ? 'text-emerald-300' : 'text-gray-700'}">${b ? lpsN(b) + '/ep' : '—'}</div><div class="text-[9px] ${b ? 'text-emerald-400/80' : po ? 'text-amber-300/90' : 'text-gray-600'}">${b ? 'bribed' : po ? 'ranked above a bribed pool · not bribed' : 'not bribed'}</div></div>`; }).join('')}</div></div>` : ''}
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><div class="text-[10px] uppercase tracking-wider text-gray-500">Through the window — rank on ${LPS_CRIT[crit]} (7-day) at the end of each epoch</div>
+                    <div class="flex items-center gap-1 text-[10px]"><span class="text-gray-600">epochs after</span>${[1, 2, 3, 4].map(n => `<button type="button" onclick="lpsSet('after', ${n})" class="px-1.5 rounded ${n === k ? 'bg-cyan-500/25 text-cyan-200' : 'bg-white/5 text-gray-400'}">${n}</button>`).join('')}</div></div>
+                <div class="overflow-x-auto rounded-lg bg-white/[0.03] p-2"><div style="min-width:${180 + path.length * 40}px">
+                    <div class="grid gap-x-1 text-[9px] text-gray-500 pb-1" style="grid-template-columns: 170px repeat(${path.length}, 36px)"><div></div>${path.map(p => `<div class="text-center ${p.phase === 'paid' ? 'text-amber-300/90' : p.phase === 'after' ? 'text-cyan-300/80' : ''}" title="${p.phase} · as of ${p.asOf} · ${p.of} pools">E${p.epoch}</div>`).join('')}</div>
+                    ${legsSorted.map(([id]) => `<div class="grid gap-x-1 items-center text-[10px] py-0.5" style="grid-template-columns: 170px repeat(${path.length}, 36px)"><div class="truncate text-gray-300">${lpsEsc(nm(id))}</div>${path.map(p => `<div class="text-center mono">${lpsRankCell(p.ranks[id], p.of)}</div>`).join('')}</div>`).join('')}
+                    <div class="text-[9px] text-gray-600 pt-1"><span class="text-gray-400">before</span> · <span class="text-amber-300/90">paid window</span> · <span class="text-cyan-300/80">after</span> — green = top quarter, red = bottom quarter of the field that week.</div>
+                </div></div>
+            </div>
+            <div class="mt-4">
+                <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">What changed — ${lpsEsc(cw)} before the placement vs the last week of the window${ae.after ? ' vs ' + k + ' epoch' + (k > 1 ? 's' : '') + ' after' + (ae.after.partial ? ' (so far)' : '') : ''}</div>
+                <div class="overflow-x-auto rounded-lg bg-white/[0.03] p-2"><div style="min-width:760px">
+                    <div class="grid gap-x-2 text-[9px] uppercase tracking-wider text-gray-600 pb-1" style="grid-template-columns: minmax(130px,1.2fr) 66px repeat(4, 74px) repeat(4, 74px)"><div>pool</div><div class="text-right">LUNA/ep</div><div class="text-right text-amber-300/70">liq</div><div class="text-right text-amber-300/70">volume</div><div class="text-right text-amber-300/70">vol÷liq</div><div class="text-right text-amber-300/70">votes</div><div class="text-right text-cyan-300/70">liq</div><div class="text-right text-cyan-300/70">volume</div><div class="text-right text-cyan-300/70">vol÷liq</div><div class="text-right text-cyan-300/70">votes</div></div>
+                    ${aeRows.map(r => `<div class="grid gap-x-2 items-center text-[11px] py-0.5 border-t border-white/[0.04]" style="grid-template-columns: minmax(130px,1.2fr) 66px repeat(4, 74px) repeat(4, 74px)"><div class="truncate text-gray-200">${lpsEsc(poolDisplayName(r.name))}</div><div class="text-right mono text-gray-400">${lpsN(r.luna_per_epoch)}</div>${['liquidity', 'volume', 'efficiency_raw', 'bucket_pct'].map(m => `<div class="text-right">${chgCell(r.chg_during[m], ub.chg_during[m])}</div>`).join('')}${['liquidity', 'volume', 'efficiency_raw', 'bucket_pct'].map(m => `<div class="text-right">${ae.after ? chgCell(r.chg_after[m], ub.chg_after[m]) : '<span class="text-gray-700">—</span>'}</div>`).join('')}</div>`).join('')}
+                    <div class="grid gap-x-2 items-center text-[11px] py-1 border-t border-white/10" style="grid-template-columns: minmax(130px,1.2fr) 66px repeat(4, 74px) repeat(4, 74px)"><div class="text-gray-400 italic">unbribed pools (median)</div><div></div>${['liquidity', 'volume', 'efficiency_raw', 'bucket_pct'].map(m => `<div class="text-right mono text-gray-400">${lpsPct(ub.chg_during[m])}</div>`).join('')}${['liquidity', 'volume', 'efficiency_raw', 'bucket_pct'].map(m => `<div class="text-right mono text-gray-400">${ae.after ? lpsPct(ub.chg_after[m]) : '—'}</div>`).join('')}</div>
+                    <div class="text-[9px] text-gray-600 pt-1"><span class="text-amber-300/80">During</span> = ${lpsEsc(ae.during.from)}→${lpsEsc(ae.during.to)}${ae.after ? ' · <span class="text-cyan-300/80">after</span> = ' + lpsEsc(ae.after.from) + '→' + lpsEsc(ae.after.to) + (ae.after.partial ? ' (fewer than ' + k + ' epochs have passed — read so far)' : '') : ' · after: not reached yet'} · each vs ${lpsEsc(ae.before.from)}→${lpsEsc(ae.before.to)}. Green/red = at least 10 points better/worse than the unbribed pools moved over the same dates, so market-wide swings are netted out.</div>
+                </div></div>
+            </div>
+            <div class="text-[9px] text-gray-600 mt-3">Placements are decoded from the proposals themselves and checked against the chain events (pd-bribes product). Bribes from every other funder are in each pool's Bribes column above. The scorecard measures; it does not judge — reasons a pool was chosen that the data cannot see (a launch, a migration, an ally) are not visible here.</div>
+        </div>`;
+    }
+
+    function lpsMethodHtml(D) {
+        const sc = D.config.scorecard; const pw = sc.purpose_weights || {};
+        return `<div class="glass-card p-5 mb-4 text-[11px] text-gray-400">
+            <div class="text-sm font-semibold text-gray-200 mb-2">How the scorecard works</div>
+            <div class="grid md:grid-cols-2 gap-x-6 gap-y-2">
+                <div><span class="text-gray-200">Facts, not opinions.</span> Daily liquidity, volume and fees per pool (Astroport from 2026-05-12, SkeletonSwap liquidity from 2026-01-12), votes and pool amounts per epoch, and every bribe pot from chain state. Pools are tracked by address, so a pool that was renamed keeps its whole history, and a new pool counts from its first day.</div>
+                <div><span class="text-gray-200">Graded against the field.</span> Each measured number becomes a percentile among the pools in view (100 = best). A lens is a weighted mix; a number with no source is left out and its weight shared by the rest, never counted as zero. Letters: A ≥ ${sc.letter_bands.A} · B ≥ ${sc.letter_bands.B} · C ≥ ${sc.letter_bands.C} · D ≥ ${sc.letter_bands.D} · F below.</div>
+                <div><span class="text-gray-200">Windows.</span> 24h, 7d, 30d and 90d average the days before the as-of date. The four rank chips on each row show whether a grade holds across windows or rests on one stretch. Pools under ${lpsUsd(sc.depth_floor_usd)} of liquidity are not ranked on vol÷liq — a tiny pool can look efficient without carrying a real trade.</div>
+                <div><span class="text-gray-200">Declared, and changeable by proposal:</span> the purpose table (LUNA–stable ${pw.native_stable} · LUNA–LST ${pw.lst_correlated} · bluechip bridge ${pw.bluechip_bridge} · stable–stable ${pw.stable_stable} · project ${pw.project} · single ${pw.single_asset}), each lens's weights, the bands, the depth floor, the emissions calibration. All of it is one file: <a class="text-cyan-400 hover:underline" href="${LPS_URLS.configView}" target="_blank" rel="noopener">grading_config.json → scorecard ↗</a>. Change it, and every view here — past dates included — re-grades on the next load.</div>
+                <div><span class="text-gray-200">Estimated, and labeled:</span> emissions per pool (annual TLA LUNA ÷ 52 × bucket share × the pool's share of its bucket's active votes); non-LUNA bribe tokens at today's price.</div>
+                <div><span class="text-gray-200">Not captured, and labeled:</span> SkeletonSwap volume (its API mostly does not provide it), single-asset gauges' trading, the Credia market. Full guide: <a class="text-cyan-400 hover:underline" href="tla-docs.html#lp-grades-and-voting">Docs → How we grade pools</a>.</div>
+            </div>
+        </div>`;
+    }
+
+    // Entry point kept under the old name: the tab switcher, the member picker and deep links call it.
+    function renderLpGrades() { renderScorecard().catch(e => console.warn('LP Scorecard:', e)); }
 
     // Click-through: any pool name opens that pool's grade card (expanded, scrolled,
     // briefly highlighted). Falls back to name-only match when dex strings differ.
     function openGradeFor(name, dex) {
-        store.gradesView = 'all';
         switchToTab('grades');
-        setTimeout(() => {
+        let tries = 0;
+        const find = () => {   // the scorecard renders after its data loads — poll for the row, then open it
             const sel = `[data-gpool="${(name + '|' + (dex || '')).replace(/"/g, '\\"')}"]`;
-            let row = document.querySelector(sel) || document.querySelector(`[data-gpool^="${name.replace(/"/g, '\\"')}|"]`);
-            if (!row) return;
-            const detail = row.querySelector('[id^="grade-detail-"]');
+            const row = document.querySelector(sel) || document.querySelector(`[data-gpool^="${String(name).replace(/"/g, '\\"')}|"]`);
+            if (!row) { if (++tries < 15) setTimeout(find, 300); return; }
+            const detail = row.querySelector('[id^="lps-d-"]');
             if (detail) detail.classList.remove('hidden');
             row.scrollIntoView({ behavior: 'smooth', block: 'center' });
             row.style.outline = '1px solid rgba(34,211,238,0.6)';
             setTimeout(() => { row.style.outline = ''; }, 2500);
-        }, 250);
+        };
+        setTimeout(find, 250);
     }
 
     function setGradesView(v) {
