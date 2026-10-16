@@ -5507,7 +5507,7 @@
     const LPS_LETTER = { A: 'bg-emerald-500/20 text-emerald-300', B: 'bg-teal-500/20 text-teal-300', C: 'bg-amber-500/20 text-amber-300', D: 'bg-orange-500/20 text-orange-300', F: 'bg-red-500/20 text-red-300' };
     const LPS_BUCKET = { stable: 'Stable', project: 'Project', bluechip: 'Bluechip', single: 'Single', other: 'Other', all: 'All pools' };
     const LPS_CRIT = { pd_reported: 'Reported PD formula', efficiency: 'Vol ÷ Liq', volume: 'Volume', liquidity: 'Liquidity', fees: 'Fees', allround: 'All-round' };
-    const lpsState = { window: null, preset: null, asOf: null, activeOnly: false, dex: 'all', bucket: 'all', sort: null, open: {}, placement: null, crit: null, critWin: null, after: null, showUnranked: false, fieldOpen: false, fWin: null, sMet: 'volume', sWin: '7d' };
+    const lpsState = { window: null, preset: null, asOf: null, activeOnly: false, dex: 'all', bucket: 'all', earnBy: 'volume', funder: 'all', placementsOpen: false, sort: null, open: {}, placement: null, crit: null, critWin: null, after: null, showUnranked: false, fieldOpen: false, fWin: null, sMet: 'volume', sWin: '7d' };
     const lpsEsc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const lpsUsd = (v) => v == null ? '—' : v >= 1e6 ? '$' + (v / 1e6).toFixed(2) + 'M' : v >= 1e4 ? '$' + Math.round(v / 1e3) + 'K' : v >= 1e3 ? '$' + (v / 1e3).toFixed(1) + 'K' : v >= 10 ? '$' + Math.round(v) : '$' + v.toFixed(2);
     const lpsN = (v) => v == null ? '—' : v >= 1e4 ? (v / 1e3).toFixed(v >= 1e5 ? 0 : 1) + 'K' : Math.round(v).toLocaleString('en-US');
@@ -5549,11 +5549,13 @@
                 if (q.get('lens') && sc.presets.some(p => p.id === q.get('lens'))) lpsState.preset = q.get('lens');
                 if (/^\d{4}-\d{2}-\d{2}$/.test(q.get('asof') || '')) lpsState.asOf = q.get('asof');
                 if (['stable', 'project', 'bluechip', 'single'].includes(q.get('bucket'))) lpsState.bucket = q.get('bucket');
-                if (q.get('prop')) { lpsState.placement = Number(q.get('prop')); lpsState._scrollTo = 'lps-bribe-card'; }
-                if (q.get('sec')) lpsState._scrollTo = 'lps-sec-' + q.get('sec');
+                if (['volume', 'fees', 'grade'].includes(q.get('earn'))) lpsState.earnBy = q.get('earn');
+                if (['all', 'pd', 'others'].includes(q.get('funder'))) lpsState.funder = q.get('funder');
+                if (q.get('prop')) { lpsState.placement = Number(q.get('prop')); lpsState.placementsOpen = true; lpsState._scrollTo = 'lps-bribe-card'; }
+                if (q.get('sec')) { lpsState.placementsOpen = true; lpsState._scrollTo = 'lps-sec-' + q.get('sec'); }
             } catch (e) { } }
         if (!lpsState.window) lpsState.window = sc.default_window; if (!lpsState.preset) lpsState.preset = (LPScorecard.presetOf(C) || {}).id; if (!lpsState.asOf) lpsState.asOf = S.days[S.days.length - 1];
-        root.innerHTML = lpsHeaderHtml(D) + `<div id="lps-table-card"></div><div id="lps-bribe-card"></div>` + lpsMethodHtml(D);
+        root.innerHTML = `<div id="lps-head">${lpsHeaderHtml(D)}</div><div id="lps-table-card"></div><div id="lps-bribe-card" class="scroll-mt-20"></div>` + lpsMethodHtml(D);
         lpsRenderTable(D); lpsRenderBribe(D);
         if (lpsState._scrollTo) { const id = lpsState._scrollTo; lpsState._scrollTo = null; setTimeout(() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 300); }
     }
@@ -5562,114 +5564,158 @@
         const q = new URLSearchParams(); const S = store.lps && store.lps.series; const last = S ? S.days[S.days.length - 1] : null;
         if (kind === 'prop') { q.set('prop', lpsState.placement || ''); }
         else if (kind && kind.indexOf('sec:') === 0) { q.set('prop', lpsState.placement || ''); q.set('sec', kind.slice(4)); }
-        else { q.set('win', lpsState.window); q.set('lens', lpsState.preset); if (lpsState.asOf && lpsState.asOf !== last) q.set('asof', lpsState.asOf); if (lpsState.bucket !== 'all') q.set('bucket', lpsState.bucket); }
+        else { q.set('win', lpsState.window); q.set('lens', lpsState.preset); if (lpsState.asOf && lpsState.asOf !== last) q.set('asof', lpsState.asOf); if (lpsState.bucket !== 'all') q.set('bucket', lpsState.bucket); if (lpsState.earnBy !== 'volume') q.set('earn', lpsState.earnBy); if (lpsState.funder !== 'all') q.set('funder', lpsState.funder); }
         const url = location.origin + location.pathname + '?' + q.toString() + '#grades';
         const done = () => { if (btn) { const t = btn.innerHTML; btn.innerHTML = '<i class="fas fa-check"></i> copied'; setTimeout(() => { btn.innerHTML = t; }, 1600); } };
         try { navigator.clipboard.writeText(url).then(done, () => { prompt('Copy this link', url); }); } catch (e) { prompt('Copy this link', url); }
     };
 
     function lpsHeaderHtml(D) {
-        const { series: S, config: C } = D; const sc = C.scorecard; const pr = LPScorecard.presetOf(C, lpsState.preset);
+        const { series: S, config: C } = D; const sc = C.scorecard;
         const btn = (on, label, onclick, title) => `<button type="button" onclick="${onclick}" title="${lpsEsc(title || '')}" class="px-2.5 py-1 rounded-full text-[11px] ${on ? 'bg-cyan-500/25 text-cyan-200' : 'bg-white/5 text-gray-400 hover:text-cyan-300'}">${label}</button>`;
+        const grp = (label, inner) => `<div class="flex items-center gap-1 flex-wrap"><span class="text-[10px] uppercase tracking-wider text-gray-600 mr-1">${label}</span>${inner}</div>`;
         return `<div class="glass-card p-5 mb-4">
             <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-                <h3 class="font-semibold text-lg flex items-center gap-2"><i class="fas fa-graduation-cap text-cyan-400"></i> LP Scorecard <span class="text-xs font-normal text-gray-500">which pools earned votes and bribes</span></h3>
-                <div class="flex items-center gap-1.5 text-[10px]"><span class="px-2 py-0.5 rounded bg-white/5 text-gray-400" title="the rubric version every grade on this page used">rubric ${lpsEsc(sc.config_version)}</span><span class="px-2 py-0.5 rounded bg-white/5 text-gray-400" title="the facts series: ${lpsEsc(S.version)}, generated ${lpsEsc((S.generatedAt || '').slice(0, 16).replace('T', ' '))} UTC">data to ${lpsEsc(S.days[S.days.length - 1])}</span></div>
+                <h3 class="font-semibold text-lg flex items-center gap-2"><i class="fas fa-scale-balanced text-cyan-400"></i> LP Scorecard <span class="text-xs font-normal text-gray-500">what each pool earns · what it receives · who pays</span></h3>
+                <div class="flex items-center gap-1.5 text-[10px]"><span class="px-2 py-0.5 rounded bg-white/5 text-gray-400" title="the rubric version every grade on this page used">rubric ${lpsEsc(sc.config_version)}</span><span class="px-2 py-0.5 rounded bg-white/5 text-gray-400" title="facts series ${lpsEsc(S.version)}, generated ${lpsEsc((S.generatedAt || '').slice(0, 16).replace('T', ' '))} UTC">data to ${lpsEsc(S.days[S.days.length - 1])}</span></div>
             </div>
-            <div class="flex flex-wrap items-center gap-1.5 text-[10px] mb-2"><span class="text-gray-600 uppercase tracking-wider mr-1">Jump to</span>${[['lps-table-card', 'Grades by bucket'], ['lps-bribe-card', 'Bribe Scorecard'], ['lps-sec-steer', 'Votes PD steers vs 20%'], ['lps-sec-record', 'Track record'], ['lps-sec-summary', 'This placement in brief'], ['lps-sec-sizing', 'Sizing: amount vs work'], ['lps-sec-formula', 'Reported formula check']].map(([id, l]) => `<button type="button" onclick="document.getElementById('${id}')&&document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})" class="px-2 py-0.5 rounded-full bg-white/5 text-gray-300 hover:text-cyan-300 hover:bg-cyan-500/10">${l}</button>`).join('')}</div>
-            <p class="text-xs text-gray-500 mb-3">Every TLA pool, graded on facts anyone can check — for voters, projects, DAOs and bribers alike. Pick a time window and a lens; grades recompute right here from the raw daily data under the <a class="text-cyan-400 hover:underline" href="${LPS_URLS.configView}" target="_blank" rel="noopener">published rubric ↗</a>. Each pool is graded against the other pools <b class="text-gray-300">in its own bucket</b> — emissions are split per bucket, so that is the field a vote there competes in (100 = best in the bucket).</p>
+            <p class="text-xs text-gray-400 mb-3">For anyone deciding where votes or bribes go — voters, projects, DAOs, bribers. Every pool is measured against the others <b class="text-gray-200">in its bucket</b>: how much of the bucket's trading it carries (<span class="text-cyan-300">earns</span>) versus how much of the bucket's votes — and so emissions — it gets (<span class="text-gray-200">receives</span>), with this epoch's bribes beside it. All from on-chain and DEX data under the <a class="text-cyan-400 hover:underline" href="${LPS_URLS.configView}" target="_blank" rel="noopener">published rubric ↗</a>.</p>
             ${D.errors.length ? `<div class="text-[11px] text-red-300 mb-2"><i class="fas fa-triangle-exclamation mr-1"></i>Rubric check: ${lpsEsc(D.errors.join('; '))}</div>` : ''}
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <div class="flex items-center gap-1"><span class="text-[10px] uppercase tracking-wider text-gray-600 mr-1">Window</span>${Object.keys(sc.windows).map(w => btn(lpsState.window === w, w, `lpsSet('window','${w}')`, 'average over the last ' + sc.windows[w] + ' day(s) up to the as-of date')).join('')}</div>
-                <div class="flex items-center gap-1"><span class="text-[10px] uppercase tracking-wider text-gray-600 mr-1">As of</span><select onchange="lpsSet('asOf', this.value)" class="bg-white/5 text-gray-300 text-[11px] rounded px-2 py-1 border border-white/10">${lpsAsOfOptions(S).map(o => `<option value="${o.v}" ${o.v === lpsState.asOf ? 'selected' : ''}>${lpsEsc(o.label)}</option>`).join('')}</select></div>
-                <div class="flex items-center gap-1"><span class="text-[10px] uppercase tracking-wider text-gray-600 mr-1">Bucket</span>${['all', 'stable', 'project', 'bluechip', 'single'].map(k => btn(lpsState.bucket === k, k === 'all' ? 'All' : LPS_BUCKET[k], `lpsSet('bucket','${k}')`)).join('')}</div>
-                <div class="flex items-center gap-1"><span class="text-[10px] uppercase tracking-wider text-gray-600 mr-1">DEX</span>${[['all', 'All'], ['astro', 'Astroport'], ['skel', 'SkeletonSwap']].map(([k, l]) => btn(lpsState.dex === k, l, `lpsSet('dex','${k}')`)).join('')}</div>
-                <label class="flex items-center gap-1 text-[11px] text-gray-400 cursor-pointer"><input type="checkbox" ${lpsState.activeOnly ? 'checked' : ''} onchange="lpsSet('activeOnly', this.checked)"> above the 1% line only</label>
+            <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+                ${grp('Window', Object.keys(sc.windows).map(w => btn(lpsState.window === w, w, `lpsSet('window','${w}')`, 'average of the last ' + sc.windows[w] + ' day(s)')).join(''))}
+                ${grp('Earns by', [['volume', 'Volume'], ['fees', 'Fees'], ['grade', 'Grade score']].map(([k2, l]) => btn(lpsState.earnBy === k2, l, `lpsSet('earnBy','${k2}')`, 'what counts as the work a pool does')).join(''))}
+                ${grp('Bribes from', [['all', 'Everyone'], ['pd', 'PD'], ['others', 'Others']].map(([k2, l]) => btn(lpsState.funder === k2, l, `lpsSet('funder','${k2}')`, 'highlight where this funder\'s bribes went')).join(''))}
+                ${grp('Bucket', ['all', 'stable', 'project', 'bluechip', 'single'].map(k2 => btn(lpsState.bucket === k2, k2 === 'all' ? 'All' : LPS_BUCKET[k2], `lpsSet('bucket','${k2}')`)).join(''))}
             </div>
-            <div class="flex flex-wrap items-center gap-1 mt-3"><span class="text-[10px] uppercase tracking-wider text-gray-600 mr-1">Lens</span>${sc.presets.map(p => btn(lpsState.preset === p.id, lpsEsc(p.label), `lpsSet('preset','${p.id}')`, p.desc)).join('')}</div>
-            <div class="text-[11px] text-gray-400 mt-2"><span class="text-gray-200">${lpsEsc(pr.label)}:</span> ${lpsEsc(pr.desc)} <span class="text-gray-600">· weights ${Object.entries(pr.weights).map(([k, v]) => lpsEsc(((sc.metrics[k] || {}).label || k)) + ' ' + Math.round(v * 100) + '%').join(' · ')}</span></div>
+            <div class="flex flex-wrap items-center gap-x-5 gap-y-2 mt-2">
+                ${grp('As of', `<select onchange="lpsSet('asOf', this.value)" class="bg-white/5 text-gray-300 text-[11px] rounded px-2 py-1 border border-white/10">${lpsAsOfOptions(S).map(o => `<option value="${o.v}" ${o.v === lpsState.asOf ? 'selected' : ''}>${lpsEsc(o.label)}</option>`).join('')}</select>`)}
+                ${grp('Grade lens', `<select onchange="lpsSet('preset', this.value)" class="bg-white/5 text-gray-300 text-[11px] rounded px-2 py-1 border border-white/10" title="the lens the letter grade uses">${sc.presets.map(p2 => `<option value="${p2.id}" ${p2.id === lpsState.preset ? 'selected' : ''}>${lpsEsc(p2.label)}</option>`).join('')}</select>`)}
+                ${grp('DEX', [['all', 'All'], ['astro', 'Astroport'], ['skel', 'SkeletonSwap']].map(([k2, l]) => btn(lpsState.dex === k2, l, `lpsSet('dex','${k2}')`)).join(''))}
+                <button type="button" onclick="lpsSet('placementsOpen', true); setTimeout(() => document.getElementById('lps-bribe-card').scrollIntoView({behavior:'smooth'}), 200)" class="ml-auto text-[11px] px-3 py-1 rounded-full bg-amber-500/15 text-amber-200 hover:bg-amber-500/25"><i class="fas fa-magnifying-glass-chart mr-1"></i>Check a bribe placement ↓</button>
+            </div>
         </div>`;
     }
     window.lpsSet = function (k, v) {
         lpsState[k] = v;
         if (k === 'placement') { lpsState.crit = null; lpsState.critWin = null; }
         if (k === 'crit') { const [c, w] = String(v).split('|'); lpsState.crit = c; lpsState.critWin = w; }
-        if (['placement', 'crit', 'after', 'fieldOpen', 'fWin', 'sMet', 'sWin'].includes(k)) { lpsRenderBribe(store.lps); return; }
+        if (['placement', 'crit', 'after', 'fieldOpen', 'fWin', 'sMet', 'sWin', 'placementsOpen'].includes(k)) { lpsRenderBribe(store.lps); return; }
+        if (['funder'].includes(k)) { lpsRenderTable(store.lps); const hh = document.getElementById('lps-head'); if (hh) hh.innerHTML = lpsHeaderHtml(store.lps); return; }
         if (['sort', 'showUnranked'].includes(k)) { lpsRenderTable(store.lps); return; }
         renderScorecard();
     };
     window.lpsToggle = function (id) { lpsState.open[id] = !lpsState.open[id]; const el = document.getElementById('lps-d-' + id.slice(-12)); if (el) el.classList.toggle('hidden'); };
 
+    // ---------------- EARNED vs RECEIVED (2026-10-16, owner: "put it all in one place … easy to make decisions") ----------------
+    // Per bucket: what each pool EARNS (its share of the bucket's measured work) beside what it RECEIVES (its share of the bucket's
+    // votes — which is what sets its emissions — and this epoch's bribes, PD vs everyone else). One verdict per row. Whole system,
+    // every funder; the numbers decide, the page does not.
+    const LPS_VERDICT = { over: { label: 'over-supported', cls: 'bg-red-500/15 text-red-300', tip: 'receives at least 1.5× the vote share its work earns' }, under: { label: 'under-supported', cls: 'bg-emerald-500/15 text-emerald-300', tip: 'earns at least 1.5× the vote share it receives' }, fair: { label: 'in line', cls: 'bg-white/5 text-gray-300', tip: 'votes received within 1.5× of what its work earns' }, wind: { label: 'winding down', cls: 'bg-red-500/10 text-red-300/80', tip: 'holds an asset being wound down — not supportable' }, nodata: { label: 'not measurable', cls: 'bg-white/5 text-gray-500', tip: 'no trading data to measure what it earns (single-asset gauge, or a DEX that publishes no volume)' } };
+    function lpsSystem(D) {
+        const { series: S, config: C } = D; const sc = C.scorecard;
+        const wf = LPScorecard.windowFacts(S, C, { asOf: lpsState.asOf, window: lpsState.window });
+        const res = LPScorecard.scoreField(wf, C, lpsState.preset, {});
+        const byId = {}; res.field.forEach(x => { byId[x.f.id] = x; });
+        const earnOf = (x) => lpsState.earnBy === 'fees' ? x.f.fees : lpsState.earnBy === 'grade' ? x.composite : x.f.volume;
+        const buckets = {};
+        wf.pools.forEach(f => { if (!f.tla || !f.bucket) return; const x = byId[f.id]; const inBucket = x || f.winding || (f.vp > 0);
+            if (!inBucket) return; (buckets[f.bucket] = buckets[f.bucket] || []).push({ f, x: x || null }); });
+        const out = {};
+        Object.keys(buckets).forEach(b => {
+            const rows = buckets[b];
+            rows.forEach(r => { r.earnV = (!r.f.winding && r.x) ? earnOf(r.x) : null; r.earnV = r.earnV != null && isFinite(r.earnV) && r.earnV >= 0 ? r.earnV : null; });
+            const earnTot = rows.reduce((s2, r) => s2 + (r.earnV || 0), 0), voteTot = rows.reduce((s2, r) => s2 + (r.f.vp || 0), 0), bribeTot = rows.reduce((s2, r) => s2 + (r.f.ep_bribe_usd || 0), 0);
+            rows.forEach(r => {
+                r.earn = r.earnV != null && earnTot > 0 ? r.earnV / earnTot : null; r.recv = voteTot > 0 ? (r.f.vp || 0) / voteTot : 0; r.bribeShare = bribeTot > 0 ? (r.f.ep_bribe_usd || 0) / bribeTot : 0;
+                r.ratio = r.earn > 0 ? r.recv / r.earn : (r.earn === 0 && r.recv > 0 ? Infinity : null);
+                r.verdict = r.f.winding ? 'wind' : r.earn == null ? 'nodata' : (r.recv < 0.005 && r.earn < 0.005) ? 'fair' : r.ratio >= 1.5 ? 'over' : r.ratio <= 1 / 1.5 ? 'under' : 'fair';
+            });
+            const order = { fair: 0, over: 0, under: 0, nodata: 1, wind: 2 };
+            rows.sort((a, b2) => (order[a.verdict] - order[b2.verdict]) || ((b2.earn ?? -1) - (a.earn ?? -1)) || (b2.recv - a.recv));
+            out[b] = { rows, earnTot, voteTot, bribeTot, emission: (sc.bucket_share_of_tla || {})[b] };
+        });
+        return { wf, res, buckets: out, order: LPScorecard.groupOrder(sc, Object.keys(out)) };
+    }
+    function lpsStripHtml(D, sys) {
+        const S = D.series; const all = Object.values(sys.buckets).flatMap(b => b.rows);
+        const pdUsd = all.reduce((s2, r) => s2 + (r.f.ep_pd_usd || 0), 0), totUsd = all.reduce((s2, r) => s2 + (r.f.ep_bribe_usd || 0), 0);
+        const H = LPScorecard.steerHistory(S).filter(h => h.epoch <= (sys.wf.epoch || 1e9)); const h = H[H.length - 1];
+        const vp = all.reduce((s2, r) => s2 + (r.f.vp || 0), 0), vOver = all.filter(r => r.verdict === 'over').reduce((s2, r) => s2 + (r.f.vp || 0), 0), vWind = all.filter(r => r.verdict === 'wind').reduce((s2, r) => s2 + (r.f.vp || 0), 0);
+        const under = all.filter(r => r.verdict === 'under' && r.x && r.x.letter && 'ABC'.includes(r.x.letter) && r.f.liquidity >= (D.config.scorecard.depth_floor_usd || 0)).sort((a, b) => (b.earn / Math.max(b.recv, 1e-6)) - (a.earn / Math.max(a.recv, 1e-6)));
+        const tile = (label, big, sub, cls) => `<div class="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3"><div class="text-[10px] uppercase tracking-wider text-gray-500">${label}</div><div class="text-xl font-bold ${cls || 'text-gray-100'} mt-0.5">${big}</div><div class="text-[11px] text-gray-400 mt-0.5 leading-snug">${sub}</div></div>`;
+        return `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+            ${tile('Bribes placed for E' + (sys.wf.epoch ?? ''), lpsUsd(totUsd), totUsd > 0 ? `<span class="text-purple-300">PD ${Math.round(pdUsd / totUsd * 100)}%</span> · <span class="text-amber-300">everyone else ${Math.round((totUsd - pdUsd) / totUsd * 100)}%</span>` : 'none captured yet')}
+            ${tile('Votes steered by PD-funded pots', h ? h.pd_pct.toFixed(1) + '%' : '—', h ? `of all TLA votes at E${h.epoch} (Votion follows bribes) · <span class="text-amber-300">others ${h.other_pct.toFixed(1)}%</span> · PD charter ceiling <b class="text-gray-200">20%</b>` : 'vote history starts E193', h && h.pd_pct >= 20 ? 'text-red-300' : 'text-purple-200')}
+            ${tile('Votes on over-supported pools', vp ? Math.round(vOver / vp * 100) + '%' : '—', `of all votes sit on pools receiving ≥1.5× what their work earns${vWind > 0 ? ` · <span class="text-red-300/80">${Math.round(vWind / vp * 100)}% on winding-down pools</span>` : ''}`)}
+            ${tile('Under-supported good pools', String(under.length), under.length ? 'grade C+ and over the depth floor, earning ≥1.5× their vote share: ' + under.slice(0, 3).map(r => `<span class="text-emerald-300">${lpsEsc(poolDisplayName(r.f.name))}</span>`).join(', ') + (under.length > 3 ? '…' : '') : 'none right now', 'text-emerald-300')}
+        </div>`;
+    }
+    function lpsFunderLine(sys) {
+        const all = Object.values(sys.buckets).flatMap(b => b.rows); const k = lpsState.funder || 'all';
+        const amt = (r) => k === 'pd' ? (r.f.ep_pd_usd || 0) : k === 'others' ? (r.f.ep_other_usd || 0) : (r.f.ep_bribe_usd || 0);
+        const tot = all.reduce((s2, r) => s2 + amt(r), 0); if (!(tot > 0)) return `<div class="text-[11px] text-gray-500 mb-3">No ${k === 'pd' ? 'PD' : k === 'others' ? 'non-PD' : ''} bribes captured for E${sys.wf.epoch ?? ''}.</div>`;
+        const by = (v) => all.filter(r => r.verdict === v).reduce((s2, r) => s2 + amt(r), 0) / tot * 100;
+        const seg = [['under', 'bg-emerald-500/70'], ['fair', 'bg-gray-400/50'], ['over', 'bg-red-500/70'], ['nodata', 'bg-gray-600/60'], ['wind', 'bg-red-900/70']].map(([v, c]) => ({ v, c, p: by(v) })).filter(x => x.p > 0.05);
+        const who = k === 'pd' ? 'PD' : k === 'others' ? 'everyone except PD' : 'all funders';
+        return `<div class="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3 mb-3">
+            <div class="flex items-center justify-between flex-wrap gap-2 text-[11px] mb-1.5"><span class="text-gray-300">Where <b>${who}</b>'s bribes for E${sys.wf.epoch ?? ''} went (${lpsUsd(tot)})</span><span class="text-gray-500">by each pool's verdict below</span></div>
+            <div class="flex h-3 rounded overflow-hidden bg-white/5">${seg.map(x => `<div class="${x.c}" style="width:${x.p}%" title="${LPS_VERDICT[x.v].label}: ${x.p.toFixed(0)}%"></div>`).join('')}</div>
+            <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] mt-1.5">${seg.map(x => `<span><span class="inline-block w-2 h-2 rounded-sm ${x.c} mr-1"></span>${LPS_VERDICT[x.v].label} <span class="mono text-gray-300">${x.p.toFixed(0)}%</span></span>`).join('')}</div>
+        </div>`;
+    }
     function lpsRenderTable(D) {
         const host = document.getElementById('lps-table-card'); if (!host) return;
-        const { series: S, config: C } = D; const sc = C.scorecard; const meta = sc.metrics;
-        const opt = { activeOnly: lpsState.activeOnly };
-        const wf = LPScorecard.windowFacts(S, C, { asOf: lpsState.asOf, window: lpsState.window });
-        const res = LPScorecard.scoreField(wf, C, lpsState.preset, opt);
-        // the same lens in every window, at the same date → does the grade hold up, or is it one lucky stretch?
-        const across = {}; Object.keys(sc.windows).forEach(w => { const r = LPScorecard.scoreField(LPScorecard.windowFacts(S, C, { asOf: lpsState.asOf, window: w }), C, lpsState.preset, opt); const m = {}; r.field.forEach(x => { if (x.rank != null) m[x.f.id] = { rank: x.rank, of: x.of }; }); across[w] = { m }; });
-        const dexOk = (f) => (lpsState.dex === 'all' || (lpsState.dex === 'astro' ? /astro/i.test(f.dex || '') : /skel/i.test(f.dex || ''))) && (lpsState.bucket === 'all' || f.bucket === lpsState.bucket);
-        let rows = res.field.filter(x => dexOk(x.f));
-        const graded = rows.filter(x => x.composite != null), ungraded = rows.filter(x => x.composite == null);
-        const SORT = { grade: x => x.composite ?? -1, eff: x => x.f.efficiency_raw ?? -1, vol: x => x.f.volume ?? -1, liq: x => x.f.liquidity ?? -1, fees: x => x.f.fees ?? -1, stick: x => x.f.stickiness ?? -1, cost: x => x.f.cost == null ? -1 : -x.f.cost, votes: x => x.f.bucket_pct ?? -1, bribes: x => x.f.ep_bribe_usd ?? -1 };
-        const sk = lpsState.sort && SORT[lpsState.sort] ? lpsState.sort : 'grade';
-        graded.sort((a, b) => SORT[sk](b) - SORT[sk](a));
-        const ofN = graded.length;
-        // PD's picks this epoch, per bucket: the lowest-ranked PD-bribed pool sets the bar; any pool ranked above it with no PD bribe is flagged
-        const pdBar = {}; graded.forEach(x => { if (x.f.ep_pd_luna > 0 && x.rank != null) pdBar[x.group] = Math.max(pdBar[x.group] || 0, x.rank); });
-        const outranks = (x) => !(x.f.ep_pd_luna > 0) && x.rank != null && pdBar[x.group] != null && x.rank < pdBar[x.group] && x.f.liquidity >= (sc.depth_floor_usd || 0);   // a pool under the depth floor is not a credible alternative pick
-        const hdr = (k, label, title) => `<button type="button" onclick="lpsSet('sort','${k}')" title="${lpsEsc(title || '')}" class="text-right ${sk === k ? 'text-cyan-300' : 'hover:text-gray-300'}">${label}${sk === k ? ' ▾' : ''}</button>`;
-        const cols = 'grid-template-columns: 34px 38px minmax(190px,1.6fr) 64px 78px 78px 66px 60px 66px 62px 92px 128px';
+        const { config: C } = D; const sc = C.scorecard; const meta = sc.metrics;
+        const sys = lpsSystem(D); const res = sys.res; const wf = sys.wf;
+        const dexOk = (f) => lpsState.dex === 'all' || (lpsState.dex === 'astro' ? /astro/i.test(f.dex || '') : /skel/i.test(f.dex || ''));
+        const across = {}; Object.keys(sc.windows).forEach(w => { const r = LPScorecard.scoreField(LPScorecard.windowFacts(D.series, C, { asOf: lpsState.asOf, window: w }), C, lpsState.preset, {}); const m = {}; r.field.forEach(x => { if (x.rank != null) m[x.f.id] = { rank: x.rank, of: x.of }; }); across[w] = m; });
+        const earnLab = lpsState.earnBy === 'fees' ? 'fees' : lpsState.earnBy === 'grade' ? 'grade score' : 'trading volume';
+        const k = lpsState.funder || 'all';
+        const bar = (v, cls) => v == null ? '<span class="text-gray-600 text-[10px]">—</span>' : `<div class="flex items-center gap-1.5"><div class="flex-1 h-2 rounded bg-white/5 overflow-hidden"><div class="h-full ${cls}" style="width:${Math.min(100, Math.max(v > 0 ? 2 : 0, v * 100))}%"></div></div><span class="mono text-[11px] w-10 text-right">${(v * 100).toFixed(v < 0.1 ? 1 : 0)}%</span></div>`;
+        const cols = 'grid-template-columns: 26px 36px minmax(170px,1.5fr) minmax(120px,1fr) minmax(120px,1fr) 84px 108px 70px 72px';
         const partBar = (m, v) => { const lab = (meta[m] || {}).label || (m === 'purpose' ? 'Purpose' : m); return `<div class="flex items-center gap-1.5"><span class="w-28 text-gray-500 truncate">${lpsEsc(lab)}</span><span class="flex-1 h-1.5 rounded bg-white/5 overflow-hidden"><span class="block h-full ${v == null ? '' : v >= 70 ? 'bg-emerald-400/70' : v >= 40 ? 'bg-amber-400/70' : 'bg-red-400/70'}" style="width:${v == null ? 0 : Math.max(2, v)}%"></span></span><span class="mono w-7 text-right ${v == null ? 'text-gray-700' : 'text-gray-300'}">${v == null ? '—' : v}</span></div>`; };
-        const why = (x) => { const ps = Object.entries(x.parts).filter(([, v]) => v != null).sort((a, b) => b[1] - a[1]); if (!ps.length) return ''; const lab = (m) => ((meta[m] || {}).label || m).toLowerCase(); const top = ps.slice(0, 2).map(([m, v]) => lab(m) + ' ' + v), low = ps.slice(-2).reverse().filter(([m]) => !ps.slice(0, 2).some(t => t[0] === m)).map(([m, v]) => lab(m) + ' ' + v); return `strongest: ${top.join(', ')}${low.length ? ' · weakest: ' + low.join(', ') : ''}`; };
-        const rowHtml = (x, i) => {
-            const f = x.f; const id = f.id; const pdShare = f.bribes_usd_ep > 0 && f.pd_luna_ep && wf.luna_usd ? Math.min(100, f.pd_luna_ep * wf.luna_usd / f.bribes_usd_ep * 100) : null;
-            const stab = Object.keys(sc.windows).map(w => { const a = across[w].m[id]; return `<span title="rank in its bucket on this lens over ${w}${a ? ' (' + a.rank + ' of ' + a.of + ')' : ''}">${lpsRankCell(a ? a.rank : null, a ? a.of : 1)}</span>`; }).join('');
-            const isPd = f.ep_pd_luna > 0, flag = outranks(x);
-            return `<div class="rounded-lg ${isPd ? 'bg-purple-500/[0.06] border-l-2 border-purple-400/70' : flag ? 'bg-amber-500/[0.05] border-l-2 border-amber-400/60' : 'bg-white/[0.02] border-l-2 border-transparent'} hover:bg-white/[0.05]" data-gpool="${lpsEsc(f.name + '|' + (f.dex || ''))}">
+        const row = (r, i) => {
+            const f = r.f, x = r.x, id = f.id, V = LPS_VERDICT[r.verdict];
+            const pd = f.ep_pd_usd || 0, ot = f.ep_other_usd || 0; const dim = (k === 'pd' && !(pd > 0.5)) || (k === 'others' && !(ot > 0.5));
+            const vtxt = r.verdict === 'over' ? `over ${r.ratio === Infinity ? '' : r.ratio.toFixed(1) + '×'}` : r.verdict === 'under' ? `under ${(1 / r.ratio).toFixed(1)}×` : V.label;
+            return `<div class="rounded-lg ${r.verdict === 'wind' ? 'opacity-60' : ''} ${dim ? 'opacity-40' : ''} bg-white/[0.02] hover:bg-white/[0.05]" data-gpool="${lpsEsc(f.name + '|' + (f.dex || ''))}">
                 <div class="grid gap-x-2 items-center px-2 py-1.5 text-[11px] cursor-pointer" style="${cols}" onclick="lpsToggle('${id}')">
-                    <div class="mono text-gray-500" title="rank in the ${lpsEsc(f.bucket || '')} bucket">${x.rank != null && sk === 'grade' ? x.rank : i + 1}</div>
-                    <div>${lpsLetter(x.letter, 'composite ' + x.composite + ' of 100 · ' + Math.round(x.weight_present * 100) + '% of the lens had data')}</div>
-                    <div class="min-w-0"><div class="font-medium text-gray-100 truncate">${lpsEsc(poolDisplayName(f.name))}${f.age_days != null && f.age_days <= sc.new_pool_days ? ' <span class="text-[9px] px-1 rounded bg-fuchsia-500/20 text-fuchsia-300" title="captured for ' + f.age_days + ' days — early data">new</span>' : ''}</div><div class="flex items-center gap-1 flex-wrap">${lpsDex(f.dex)}<span class="text-[9px] text-gray-600 uppercase">${lpsEsc(f.bucket || '')}</span>${f.active ? '' : '<span class="text-[9px] text-gray-600" title="' + lpsEsc(f.status || '') + '">below 1%</span>'}${isPd ? '<span class="text-[9px] px-1 rounded bg-purple-500/25 text-purple-200" title="Phoenix Directive placed ' + lpsN(f.ep_pd_luna) + ' LUNA on this pool for E' + (wf.epoch ?? '') + '">PD bribed</span>' : ''}${flag ? '<span class="text-[9px] px-1 rounded bg-amber-500/20 text-amber-200" title="ranked above at least one PD-bribed pool in its bucket on this lens, and has no PD bribe for E' + (wf.epoch ?? '') + '">ranks above a PD pick · no PD bribe</span>' : ''}</div></div>
-                    <div class="text-right mono ${f.small ? 'text-gray-600' : 'text-gray-200'}" title="${f.small ? 'below the ' + lpsUsd(sc.depth_floor_usd) + ' depth floor — not ranked on efficiency' : 'average daily volume ÷ average liquidity'}">${f.efficiency_raw == null ? '—' : (f.efficiency_raw * 100).toFixed(1) + '%'}</div>
-                    <div class="text-right mono text-gray-300">${lpsUsd(f.volume)}</div>
-                    <div class="text-right mono text-gray-300">${lpsUsd(f.liquidity)}</div>
-                    <div class="text-right mono text-gray-400">${lpsUsd(f.fees)}</div>
-                    <div class="text-right mono ${f.stickiness == null ? 'text-gray-600' : f.stickiness >= 1 ? 'text-emerald-300/90' : f.stickiness >= 0.8 ? 'text-gray-300' : 'text-red-300'}" title="price-neutral: the window's starting token amounts at end prices vs the end amounts">${f.stickiness == null ? '—' : lpsPct((f.stickiness - 1) * 100)}</div>
-                    <div class="text-right mono text-gray-400" title="estimated emissions ${f.emissions_luna_ep == null ? '—' : lpsN(f.emissions_luna_ep) + ' LUNA'} + bribes ${lpsUsd(f.bribes_usd_ep)} per epoch, per $1K traded">${f.cost == null ? '—' : '$' + (f.cost * 1000).toFixed(f.cost * 1000 >= 10 ? 0 : 1)}</div>
-                    <div class="text-right mono text-gray-300" title="share of its bucket's votes">${f.bucket_pct == null ? '—' : f.bucket_pct.toFixed(1) + '%'}</div>
-                    <div class="text-right mono leading-tight" title="pots placed for E${wf.epoch ?? ''}${f.ep_bribe_src === 'runway' ? ' (funded, round in progress)' : ''} — PD vs everyone else; non-LUNA tokens at today's price · window average ${lpsUsd(f.bribes_usd_ep)}/epoch">${f.ep_bribe_usd > 0.5 ? `${f.ep_pd_usd > 0.5 ? `<div class="text-purple-300">${lpsUsd(f.ep_pd_usd)} <span class="text-[9px] text-purple-300/60">PD</span></div>` : ''}${f.ep_other_usd > 0.5 ? `<div class="text-amber-300">${lpsUsd(f.ep_other_usd)} <span class="text-[9px] text-amber-300/60">other</span></div>` : ''}` : '<span class="text-gray-600">none</span>'}</div>
-                    <div class="flex items-center justify-end gap-0.5 text-[10px] mono">${stab}</div>
+                    <div class="mono text-gray-600">${r.n != null ? r.n : '—'}</div>
+                    <div>${r.verdict === 'wind' ? '<span class="inline-flex w-7 h-6 items-center justify-center rounded text-[10px] font-bold bg-red-500/15 text-red-300">W</span>' : lpsLetter(x && x.letter, x && x.composite != null ? 'grade ' + x.composite + '/100 on the ' + LPScorecard.presetOf(C, lpsState.preset).label + ' lens, vs the bucket' : 'not graded')}</div>
+                    <div class="min-w-0"><div class="font-medium text-gray-100 truncate">${lpsEsc(poolDisplayName(f.name))}${f.age_days != null && f.age_days <= sc.new_pool_days ? ' <span class="text-[9px] px-1 rounded bg-fuchsia-500/20 text-fuchsia-300">new</span>' : ''}</div><div class="flex items-center gap-1">${lpsDex(f.dex)}${f.active ? '' : '<span class="text-[9px] text-gray-600">below 1%</span>'}</div></div>
+                    <div class="text-cyan-200" title="share of the bucket's ${earnLab} (${lpsState.window} average)">${bar(r.earn, 'bg-cyan-400/70')}</div>
+                    <div class="text-gray-200" title="share of the bucket's votes (E${f.epoch ?? ''}) — emissions follow votes">${bar(r.recv, 'bg-gray-300/60')}</div>
+                    <div><span class="text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap ${V.cls}" title="${V.label}: ${V.tip}${r.verdict === 'over' || r.verdict === 'under' ? ` — receives ${(r.recv * 100).toFixed(1)}% of the votes, earns ${(r.earn * 100).toFixed(1)}%` : ''}">${vtxt}</span></div>
+                    <div class="text-right mono leading-tight text-[11px]">${pd > 0.5 || ot > 0.5 ? `${pd > 0.5 ? `<div class="text-purple-300">${lpsUsd(pd)} <span class="text-[9px] opacity-70">PD</span></div>` : ''}${ot > 0.5 ? `<div class="text-amber-300">${lpsUsd(ot)} <span class="text-[9px] opacity-70">others</span></div>` : ''}` : '<span class="text-gray-600">none</span>'}</div>
+                    <div class="text-right mono text-gray-400">${lpsUsd(f.volume)}</div>
+                    <div class="text-right mono text-gray-400">${lpsUsd(f.liquidity)}</div>
                 </div>
                 <div id="lps-d-${id.slice(-12)}" class="${lpsState.open[id] ? '' : 'hidden'} px-3 pb-3 pt-1 border-t border-white/5 grid md:grid-cols-2 gap-x-6 gap-y-1 text-[10px]">
-                    <div class="space-y-1">${Object.keys(res.weights).map(m => partBar(m, x.parts[m])).join('')}<div class="text-cyan-300/80 mt-1">${lpsEsc(why(x))}</div></div>
+                    <div class="space-y-1">${x ? Object.keys(res.weights).map(m => partBar(m, x.parts[m])).join('') : '<div class="text-gray-500">No grade — ' + lpsEsc(V.tip) + '.</div>'}
+                        ${x ? `<div class="text-gray-500 pt-1">Rank in its bucket on this lens: ${Object.keys(sc.windows).map(w => { const a = across[w][id]; return `${w} ${a ? lpsRankCell(a.rank, a.of) : '—'}`; }).join(' · ')}</div>` : ''}</div>
                     <div class="space-y-0.5 text-gray-400">
-                        <div><span class="text-gray-600">Window:</span> ${lpsEsc(wf.from)} → ${lpsEsc(wf.to)} · ${f.days} of ${wf.n} days captured</div>
-                        <div><span class="text-gray-600">Pair class (declared purpose):</span> ${lpsEsc(String(f.pair_class).replace(/_/g, ' '))} · ${f.purpose}</div>
-                        <div><span class="text-gray-600">Votes:</span> ${f.vp == null ? '—' : lpsN(f.vp)} VP · ${f.bucket_pct == null ? '—' : f.bucket_pct.toFixed(2) + '% of ' + lpsEsc(f.bucket)} · E${f.epoch ?? '—'}</div>
-                        <div><span class="text-gray-600">Incentives per epoch:</span> ~${f.emissions_luna_ep == null ? '—' : lpsN(f.emissions_luna_ep)} LUNA emissions (est.) · bribes ${lpsUsd(f.bribes_usd_ep)}${f.pd_luna_ep ? ' (PD ' + lpsN(f.pd_luna_ep) + ' LUNA)' : ''}</div>
-                        <div><span class="text-gray-600">First captured:</span> ${lpsEsc(f.first_day || '—')}${(f.names || []).length > 1 ? ' · also listed as ' + lpsEsc(f.names.filter(n => n !== f.name).join(', ')) : ''}</div>
-                        <div class="mono text-gray-600 truncate" title="${lpsEsc(id)}">${lpsEsc(id)}</div>
+                        <div><span class="text-gray-600">Earns:</span> ${r.earnV == null ? '—' : (lpsState.earnBy === 'grade' ? Math.round(r.earnV) + ' score' : lpsUsd(r.earnV) + '/day')} = ${r.earn == null ? '—' : (r.earn * 100).toFixed(1) + '%'} of the ${lpsEsc(f.bucket)} bucket's ${earnLab}</div>
+                        <div><span class="text-gray-600">Receives:</span> ${f.vp == null ? '—' : fmtNum(Math.round(f.vp))} VP = ${(r.recv * 100).toFixed(1)}% of the bucket's votes · ~${f.emissions_luna_ep == null ? '—' : lpsN(f.emissions_luna_ep)} LUNA emissions/epoch (est.) · ${(r.bribeShare * 100).toFixed(0)}% of the bucket's bribes</div>
+                        <div><span class="text-gray-600">Work:</span> vol÷liq ${f.efficiency_raw == null ? '—' : (f.efficiency_raw * 100).toFixed(1) + '%'} · fees ${lpsUsd(f.fees)}/day · sticky ${f.stickiness == null ? '—' : lpsPct((f.stickiness - 1) * 100)} · incentives per $1K traded ${f.cost == null ? '—' : '$' + (f.cost * 1000).toFixed(0)}</div>
+                        <div><span class="text-gray-600">Pair:</span> ${lpsEsc(String(f.pair_class).replace(/_/g, ' '))}${(f.names || []).length > 1 ? ' · also listed as ' + lpsEsc(f.names.filter(n => n !== f.name).join(', ')) : ''} · first captured ${lpsEsc(f.first_day || '—')}</div>
+                        ${f.winding ? `<div class="text-red-300/80">${lpsEsc(f.winding.label)} (since ${lpsEsc(f.winding.since)})</div>` : ''}
                     </div>
                 </div>
             </div>`;
         };
-        const unrankedList = ungraded.concat(res.excluded.filter(f => dexOk(f)).map(f => ({ f, composite: null })));
         host.innerHTML = `<div class="glass-card p-5 mb-4">
-            <div class="flex items-center justify-between flex-wrap gap-2 mb-2"><div class="text-sm font-semibold text-gray-200">${lpsEsc(LPScorecard.presetOf(C, lpsState.preset).label)} · ${lpsEsc(lpsState.window)} <span class="text-[11px] font-normal text-gray-500">${lpsEsc(wf.from)} → ${lpsEsc(wf.to)} · ${ofN} pools graded · ranked within each bucket</span></div>
-                <div class="flex items-center gap-2 text-[10px] text-gray-500"><button type="button" onclick="lpsCopyLink('view', this)" class="px-2 py-0.5 rounded bg-white/5 text-gray-300 hover:text-cyan-300" title="copy a link that opens this exact view (window, lens, as-of, bucket)"><i class="fas fa-link"></i> copy link</button>${Object.entries({ A: 0, B: 0, C: 0, D: 0, F: 0 }).map(([L]) => `<span class="inline-block px-1.5 rounded ${LPS_LETTER[L]} mr-0.5">${L} ${graded.filter(x => x.letter === L).length}</span>`).join('')}</div></div>
-            <div class="text-[10px] text-gray-500 mb-2"><span class="inline-block w-2 h-2 rounded-sm bg-purple-400/70 mr-1"></span>PD bribed this pool for E${wf.epoch ?? ''} · <span class="inline-block w-2 h-2 rounded-sm bg-amber-400/60 mr-1 ml-2"></span>ranks above a PD-bribed pool in its bucket on this lens, with no PD bribe (pools over ${lpsUsd(sc.depth_floor_usd)} only) · Bribes column = this epoch's pots, PD vs everyone else. Change the lens or window to see whether the picks hold up.</div>
-            <div class="overflow-x-auto"><div style="min-width:1010px">
-                <div class="grid gap-x-2 px-2 pb-1 text-[9px] uppercase tracking-wider text-gray-600" style="${cols}">
-                    <div>#</div>${hdr('grade', 'Grade')}<div>Pool</div>${hdr('eff', 'Vol÷Liq', 'average daily volume ÷ average liquidity')}${hdr('vol', 'Vol/day')}${hdr('liq', 'Liquidity')}${hdr('fees', 'Fees/day')}${hdr('stick', 'Sticky', 'price-neutral liquidity change over the window')}${hdr('cost', '$/1K', 'incentives (est. emissions + bribes) per $1K traded — lower is cheaper')}${hdr('votes', 'Votes', 'share of its bucket’s votes')}${hdr('bribes', 'Bribes E' + (wf.epoch ?? ''), 'pots placed for this epoch, PD vs everyone else')}<div class="text-right" title="rank in its bucket on this lens in each window, same date">24h · 7d · 30d · 90d</div>
-                </div>
-                ${ofN > 0 && (ofN < 6 || res.groups.some(g => { const n = graded.filter(x => x.group === g).length; return n > 0 && n < 4; })) ? `<div class="text-[10px] text-amber-300/80 px-2 pb-1"><i class="fas fa-circle-info mr-1"></i>Only ${ofN} pool${ofN > 1 ? 's' : ''} fit this lens here — in fields this small, percentiles swing between the extremes. Widen the window or try another lens.</div>` : ''}
-                ${res.groups.filter(g => graded.some(x => x.group === g)).map(g => { const gr = graded.filter(x => x.group === g); const share = (sc.bucket_share_of_tla || {})[g]; return `<div class="mt-3 first:mt-0">
-                    <div class="flex items-center justify-between flex-wrap gap-2 px-2 py-1.5 mb-1 rounded bg-white/[0.04] border-l-2 border-cyan-400/50"><div class="text-[12px] font-semibold text-gray-100">${lpsEsc(LPS_BUCKET[g] || g)}${res.rank_within === 'bucket' ? ' bucket' : ''} <span class="text-[10px] font-normal text-gray-500">${gr.length} pools graded${share != null && res.rank_within === 'bucket' ? ' · ' + Math.round(share * 100) + '% of TLA emissions' : ''}</span>${(() => { const pdN = gr.filter(x => x.f.ep_pd_luna > 0).length, flN = gr.filter(outranks).length, noB = gr.filter(x => !(x.f.ep_bribe_usd > 0.5)).length; return ` <span class="text-[10px] font-normal ml-1"><span class="text-purple-300">PD bribed ${pdN}</span>${flN ? ` · <span class="text-amber-300">${flN} ranked above a PD pick without one</span>` : ''} · <span class="text-gray-500">${noB} with no bribe at all</span></span>`; })()}</div><div class="text-[10px]">${['A', 'B', 'C', 'D', 'F'].map(L => { const n = gr.filter(x => x.letter === L).length; return n ? `<span class="inline-block px-1.5 rounded ${LPS_LETTER[L]} mr-0.5">${L} ${n}</span>` : ''; }).join('')}</div></div>
-                    <div class="space-y-1">${gr.map(rowHtml).join('')}${(res.winding || []).filter(f => dexOk(f) && (res.rank_within === 'bucket' ? (f.bucket || 'other') === g : true)).map(f => `<div class="rounded-lg bg-white/[0.015] border-l-2 border-red-500/40 opacity-70" data-gpool="${lpsEsc(f.name + '|' + (f.dex || ''))}"><div class="grid gap-x-2 items-center px-2 py-1.5 text-[11px]" style="${cols}"><div class="mono text-gray-600">—</div><div><span class="inline-flex w-7 h-6 items-center justify-center rounded text-[10px] font-bold bg-red-500/15 text-red-300" title="${lpsEsc(f.winding.label)}">W</span></div><div class="min-w-0"><div class="font-medium text-gray-400 truncate">${lpsEsc(poolDisplayName(f.name))}</div><div class="flex items-center gap-1 flex-wrap">${lpsDex(f.dex)}<span class="text-[9px] px-1 rounded bg-red-500/15 text-red-300" title="${lpsEsc(f.winding.label)} · since ${lpsEsc(f.winding.since)}">winding down · not supportable</span></div></div><div class="text-right mono text-gray-500">${f.efficiency_raw == null ? '—' : (f.efficiency_raw * 100).toFixed(1) + '%'}</div><div class="text-right mono text-gray-500">${lpsUsd(f.volume)}</div><div class="text-right mono text-gray-500">${lpsUsd(f.liquidity)}</div><div class="text-right mono text-gray-600">${lpsUsd(f.fees)}</div><div class="text-right mono text-gray-600">${f.stickiness == null ? '—' : lpsPct((f.stickiness - 1) * 100)}</div><div class="text-right mono text-gray-600">—</div><div class="text-right mono text-gray-500">${f.bucket_pct == null ? '—' : f.bucket_pct.toFixed(1) + '%'}</div><div class="text-right mono text-gray-500">${f.ep_bribe_usd > 0.5 ? lpsUsd(f.ep_bribe_usd) : 'none'}</div><div class="text-right text-[9px] text-red-300/70">not graded</div></div></div>`).join('')}</div></div>`; }).join('') || '<div class="text-gray-600 text-sm py-3 px-2">No pool fits this lens and filter.</div>'}
+            ${lpsStripHtml(D, sys)}
+            ${lpsFunderLine(sys)}
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-2"><div class="text-[11px] text-gray-500">Earns = share of the bucket's ${earnLab} (${lpsEsc(wf.from)} → ${lpsEsc(wf.to)}) · Receives = share of the bucket's votes, which sets emissions · verdict when the two differ by 1.5× or more · ranked and graded within each bucket</div><button type="button" onclick="lpsCopyLink('view', this)" class="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-300 hover:text-cyan-300"><i class="fas fa-link"></i> copy link</button></div>
+            <div class="overflow-x-auto"><div style="min-width:900px">
+                <div class="grid gap-x-2 px-2 pb-1 text-[9px] uppercase tracking-wider text-gray-600" style="${cols}"><div>#</div><div>grade</div><div>pool</div><div class="text-cyan-300/70">earns</div><div>receives (votes)</div><div>verdict</div><div class="text-right">bribes E${wf.epoch ?? ''}</div><div class="text-right">vol/day</div><div class="text-right">liquidity</div></div>
+                ${sys.order.filter(b => lpsState.bucket === 'all' || b === lpsState.bucket).map(b => { const B = sys.buckets[b]; const all = B.rows.filter(r => dexOk(r.f)); if (!all.length) return '';
+                    const small = all.filter(r => (r.verdict === 'nodata' || r.verdict === 'wind') && r.recv < 0.01); const rows = all.filter(r => small.indexOf(r) < 0); let nn = 0; rows.forEach(r => { r.n = (r.verdict === 'nodata' || r.verdict === 'wind') ? null : ++nn; });
+                    const n = (v) => B.rows.filter(r => r.verdict === v).length;
+                    return `<div class="mt-3 first:mt-0"><div class="flex items-center justify-between flex-wrap gap-2 px-2 py-1.5 mb-1 rounded bg-white/[0.04] border-l-2 border-cyan-400/50"><div class="text-[12px] font-semibold text-gray-100">${lpsEsc(LPS_BUCKET[b] || b)} bucket <span class="text-[10px] font-normal text-gray-500">${B.emission != null ? Math.round(B.emission * 100) + '% of TLA emissions · ' : ''}${fmtNum(Math.round(B.voteTot))} VP · bribes ${lpsUsd(B.bribeTot)}</span></div><div class="text-[10px] flex gap-1">${n('under') ? `<span class="px-1.5 rounded ${LPS_VERDICT.under.cls}">${n('under')} under</span>` : ''}${n('over') ? `<span class="px-1.5 rounded ${LPS_VERDICT.over.cls}">${n('over')} over</span>` : ''}${n('fair') ? `<span class="px-1.5 rounded ${LPS_VERDICT.fair.cls}">${n('fair')} in line</span>` : ''}</div></div>
+                        <div class="space-y-1">${rows.map(row).join('')}</div>${small.length ? `<div class="text-[10px] text-gray-600 px-2 pt-1">+ ${small.length} small pool${small.length > 1 ? 's' : ''} with no trading data or winding down, ${(small.reduce((s2, r) => s2 + r.recv, 0) * 100).toFixed(1)}% of the bucket's votes together: ${small.map(r => lpsEsc(poolDisplayName(r.f.name)) + ' (' + (r.f.dex || '').replace('SkeletonSwap', 'Skeleton') + ')').join(', ')}</div>` : ''}</div>`; }).join('')}
             </div></div>
-            ${unrankedList.length ? `<button type="button" onclick="lpsSet('showUnranked', ${!lpsState.showUnranked})" class="mt-3 text-[11px] text-gray-500 hover:text-cyan-300"><i class="fas fa-chevron-${lpsState.showUnranked ? 'up' : 'down'} text-[9px] mr-1"></i>${unrankedList.length} pools not graded in this view — why</button>
-            ${lpsState.showUnranked ? `<div class="mt-2 grid md:grid-cols-2 gap-x-6 gap-y-0.5 text-[10px] text-gray-500">${unrankedList.map(x => { const f = x.f; const reason = !f.tla ? 'not a TLA gauge' : f.liquidity == null ? (f.is_single ? 'single-asset gauge — no trading facts' : 'not enough captured days in this window') : f.liquidity < 1000 ? 'under $1K liquidity' : (/skel/i.test(f.dex || '') && f.volume == null) ? 'SkeletonSwap does not publish volume — not enough of the lens has data' : 'outside this lens’s filter'; return `<div class="truncate">${lpsDex(f.dex)} <span class="text-gray-300">${lpsEsc(poolDisplayName(f.name))}</span> — ${reason}${f.liquidity != null ? ' · ' + lpsUsd(f.liquidity) : ''}</div>`; }).join('')}</div>` : ''}` : ''}
+            <div class="text-[10px] text-gray-600 mt-3">A pool can be over-supported for reasons the data cannot see — a new pool being bootstrapped, a migration, an ally the voters chose to back. The verdict measures the gap; readers judge the reason. Click any row for its grade, ranks across windows and the numbers behind both bars.</div>
         </div>`;
     }
 
@@ -5686,7 +5732,7 @@
         return `<div id="lps-sec-steer" class="rounded-lg border border-white/10 bg-white/[0.03] p-3 mb-4 scroll-mt-20">
             <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><div class="text-[11px] font-semibold text-gray-200">Votes steered by Phoenix Directive's pots, per epoch <span class="font-normal text-[10px] text-gray-500">share of ALL TLA votes · measured</span></div>
                 <div class="text-[10px]"><span class="text-purple-300">PD ${(last.pd_pct || 0).toFixed(1)}%</span> · <span class="text-amber-300">other funders ${(last.other_pct || 0).toFixed(1)}%</span> · <span class="text-gray-400">Votion ${(last.votion_pct || 0).toFixed(1)}%</span> <span class="text-gray-600">at E${last.epoch}</span></div></div>
-            <svg viewBox="0 0 ${W} ${Ht}" class="w-full h-auto" role="img" aria-label="PD-steered share of TLA votes per epoch">${grid}${bars}
+            <svg viewBox="0 0 ${W} ${Ht}" class="w-full h-auto max-h-56" role="img" aria-label="PD-steered share of TLA votes per epoch">${grid}${bars}
                 <line x1="${padL}" x2="${W - 4}" y1="${y(20)}" y2="${y(20)}" stroke="rgba(248,113,113,0.8)" stroke-dasharray="5 4"/><text x="${W - 6}" y="${y(20) - 4}" font-size="9" text-anchor="end" fill="#fca5a5">20% — PD charter ceiling</text></svg>
             <div class="text-[10px] text-gray-500 mt-1 leading-snug">PD's founding document authorizes it to join the liquidity wars "to have a strategic impact in liquidity recommendations (<b class="text-gray-300">max 20% of total voting power</b>)". PD's own DAO holds no TLA voting power; its influence runs through bribes. Each bar: Votion's actual votes on each pool that period (from the vote harvest), credited to each funder by its share of that pool's pot — <span class="text-purple-300">purple</span> to PD, <span class="text-amber-300">amber</span> to everyone else — as a share of every vote cast. The charter does not say whether bribe-steered votes count toward the 20%; this shows the number either way. <a class="text-cyan-400 hover:underline" href="https://commonwealth.im/terra/discussion/23826-the-phoenix-directive" target="_blank" rel="noopener">charter ↗</a></div>
         </div>`;
@@ -5725,6 +5771,7 @@
 
     function lpsRenderBribe(D) {
         const host = document.getElementById('lps-bribe-card'); if (!host || !D) return;
+        if (!lpsState.placementsOpen) { host.innerHTML = `<button type="button" onclick="lpsSet('placementsOpen', true)" class="glass-card w-full text-left p-4 mb-4 flex items-center justify-between hover:bg-white/[0.04]"><span><span class="text-sm font-semibold text-gray-200"><i class="fas fa-magnifying-glass-chart text-amber-400 mr-2"></i>Bribe placements — check any placement</span><span class="block text-[11px] text-gray-500 mt-0.5">Votes steered per epoch vs the 20% charter line · track record · per proposal: which pools were picked, how amounts were sized, the reported formula, what changed after</span></span><i class="fas fa-chevron-down text-gray-500"></i></button>`; return; }
         const { series: S, config: C } = D; const sc = C.scorecard; const bc = sc.bribe_check || {};
         if (!store.lpsUsable) store.lpsUsable = S.placements.filter(p => p.legs.some(l => l.luna_per_epoch) && LPScorecard.bribeCheck(S, C, p).best);   // only placements the trading facts can check
         const usable = store.lpsUsable;
@@ -5752,7 +5799,7 @@
         const ub = ae.unbribed_median;
         host.innerHTML = `<div class="glass-card p-5 mb-4">
             <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-                <div class="text-sm font-semibold text-gray-200 flex items-center gap-2"><i class="fas fa-magnifying-glass-chart text-amber-400"></i> Bribe Scorecard <span class="text-[11px] font-normal text-gray-500">how a placement lines up with the field — then and after</span></div>
+                <div class="text-sm font-semibold text-gray-200 flex items-center gap-2"><button type="button" onclick="lpsSet('placementsOpen', false)" class="text-gray-500 hover:text-gray-300" title="collapse"><i class="fas fa-chevron-up text-xs"></i></button><i class="fas fa-magnifying-glass-chart text-amber-400"></i> Bribe placements <span class="text-[11px] font-normal text-gray-500">check any placement against the field — then and after</span></div>
                 <div class="flex items-center gap-1 flex-wrap text-[10px]">${usable.slice(-8).map(p => `<button type="button" onclick="lpsSet('placement', ${p.proposal_id})" class="px-2 py-0.5 rounded-full ${p.proposal_id === pl.proposal_id ? 'bg-amber-500/25 text-amber-200' : 'bg-white/5 text-gray-400 hover:text-amber-300'}">prop ${p.proposal_id} <span class="text-gray-600">${String(p.executed_at).slice(5, 10)}</span></button>`).join('')}</div>
             </div>
             ${lpsSteerHtml(S)}
