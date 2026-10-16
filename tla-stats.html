@@ -757,7 +757,7 @@
     <script src="/lib/address-picker.js"></script>
     <script src="/lib/vote-market.js?v=1.3.0"></script>
     <script src="/lib/vote-market-tile.js?v=1.1.1"></script>
-    <script src="/lib/lp-scorecard.js?v=1.6.0"></script>
+    <script src="/lib/lp-scorecard.js?v=1.7.0"></script>
     <style>.sh-epoch{display:flex;align-items:center;gap:1em}.sh-epoch #data-notice{margin:0 0 0 .5em}</style>
     <script>SiteHeader.mount({ page: 'tla-stats' });</script>
     <script>
@@ -5543,10 +5543,30 @@
         const root = document.getElementById('lps-root'); if (!root) return;
         let D; try { D = await lpsLoad(); } catch (e) { root.innerHTML = `<div class="glass-card p-6 text-sm text-gray-400"><i class="fas fa-circle-info mr-1"></i>LP Scorecard: ${lpsEsc(e.message)}.</div>`; return; }
         const { series: S, config: C } = D; const sc = C.scorecard;
+        if (!lpsState._urlRead) {   // shareable links: tla-stats.html?prop=262&win=30d&lens=workhorses&asof=2026-09-20&bucket=stable#grades
+            lpsState._urlRead = true; try { const q = new URLSearchParams(location.search);
+                if (q.get('win') && sc.windows[q.get('win')]) lpsState.window = q.get('win');
+                if (q.get('lens') && sc.presets.some(p => p.id === q.get('lens'))) lpsState.preset = q.get('lens');
+                if (/^\d{4}-\d{2}-\d{2}$/.test(q.get('asof') || '')) lpsState.asOf = q.get('asof');
+                if (['stable', 'project', 'bluechip', 'single'].includes(q.get('bucket'))) lpsState.bucket = q.get('bucket');
+                if (q.get('prop')) { lpsState.placement = Number(q.get('prop')); lpsState._scrollTo = 'lps-bribe-card'; }
+                if (q.get('sec')) lpsState._scrollTo = 'lps-sec-' + q.get('sec');
+            } catch (e) { } }
         if (!lpsState.window) lpsState.window = sc.default_window; if (!lpsState.preset) lpsState.preset = (LPScorecard.presetOf(C) || {}).id; if (!lpsState.asOf) lpsState.asOf = S.days[S.days.length - 1];
         root.innerHTML = lpsHeaderHtml(D) + `<div id="lps-table-card"></div><div id="lps-bribe-card"></div>` + lpsMethodHtml(D);
         lpsRenderTable(D); lpsRenderBribe(D);
+        if (lpsState._scrollTo) { const id = lpsState._scrollTo; lpsState._scrollTo = null; setTimeout(() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 300); }
     }
+    // a link that reopens exactly this view (copied to the clipboard)
+    window.lpsCopyLink = function (kind, btn) {
+        const q = new URLSearchParams(); const S = store.lps && store.lps.series; const last = S ? S.days[S.days.length - 1] : null;
+        if (kind === 'prop') { q.set('prop', lpsState.placement || ''); }
+        else if (kind && kind.indexOf('sec:') === 0) { q.set('prop', lpsState.placement || ''); q.set('sec', kind.slice(4)); }
+        else { q.set('win', lpsState.window); q.set('lens', lpsState.preset); if (lpsState.asOf && lpsState.asOf !== last) q.set('asof', lpsState.asOf); if (lpsState.bucket !== 'all') q.set('bucket', lpsState.bucket); }
+        const url = location.origin + location.pathname + '?' + q.toString() + '#grades';
+        const done = () => { if (btn) { const t = btn.innerHTML; btn.innerHTML = '<i class="fas fa-check"></i> copied'; setTimeout(() => { btn.innerHTML = t; }, 1600); } };
+        try { navigator.clipboard.writeText(url).then(done, () => { prompt('Copy this link', url); }); } catch (e) { prompt('Copy this link', url); }
+    };
 
     function lpsHeaderHtml(D) {
         const { series: S, config: C } = D; const sc = C.scorecard; const pr = LPScorecard.presetOf(C, lpsState.preset);
@@ -5556,6 +5576,7 @@
                 <h3 class="font-semibold text-lg flex items-center gap-2"><i class="fas fa-graduation-cap text-cyan-400"></i> LP Scorecard <span class="text-xs font-normal text-gray-500">which pools earned votes and bribes</span></h3>
                 <div class="flex items-center gap-1.5 text-[10px]"><span class="px-2 py-0.5 rounded bg-white/5 text-gray-400" title="the rubric version every grade on this page used">rubric ${lpsEsc(sc.config_version)}</span><span class="px-2 py-0.5 rounded bg-white/5 text-gray-400" title="the facts series: ${lpsEsc(S.version)}, generated ${lpsEsc((S.generatedAt || '').slice(0, 16).replace('T', ' '))} UTC">data to ${lpsEsc(S.days[S.days.length - 1])}</span></div>
             </div>
+            <div class="flex flex-wrap items-center gap-1.5 text-[10px] mb-2"><span class="text-gray-600 uppercase tracking-wider mr-1">Jump to</span>${[['lps-table-card', 'Grades by bucket'], ['lps-bribe-card', 'Bribe Scorecard'], ['lps-sec-steer', 'Votes PD steers vs 20%'], ['lps-sec-record', 'Track record'], ['lps-sec-summary', 'This placement in brief'], ['lps-sec-sizing', 'Sizing: amount vs work'], ['lps-sec-formula', 'Reported formula check']].map(([id, l]) => `<button type="button" onclick="document.getElementById('${id}')&&document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})" class="px-2 py-0.5 rounded-full bg-white/5 text-gray-300 hover:text-cyan-300 hover:bg-cyan-500/10">${l}</button>`).join('')}</div>
             <p class="text-xs text-gray-500 mb-3">Every TLA pool, graded on facts anyone can check — for voters, projects, DAOs and bribers alike. Pick a time window and a lens; grades recompute right here from the raw daily data under the <a class="text-cyan-400 hover:underline" href="${LPS_URLS.configView}" target="_blank" rel="noopener">published rubric ↗</a>. Each pool is graded against the other pools <b class="text-gray-300">in its own bucket</b> — emissions are split per bucket, so that is the field a vote there competes in (100 = best in the bucket).</p>
             ${D.errors.length ? `<div class="text-[11px] text-red-300 mb-2"><i class="fas fa-triangle-exclamation mr-1"></i>Rubric check: ${lpsEsc(D.errors.join('; '))}</div>` : ''}
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -5636,7 +5657,7 @@
         const unrankedList = ungraded.concat(res.excluded.filter(f => dexOk(f)).map(f => ({ f, composite: null })));
         host.innerHTML = `<div class="glass-card p-5 mb-4">
             <div class="flex items-center justify-between flex-wrap gap-2 mb-2"><div class="text-sm font-semibold text-gray-200">${lpsEsc(LPScorecard.presetOf(C, lpsState.preset).label)} · ${lpsEsc(lpsState.window)} <span class="text-[11px] font-normal text-gray-500">${lpsEsc(wf.from)} → ${lpsEsc(wf.to)} · ${ofN} pools graded · ranked within each bucket</span></div>
-                <div class="text-[10px] text-gray-500">${Object.entries({ A: 0, B: 0, C: 0, D: 0, F: 0 }).map(([L]) => `<span class="inline-block px-1.5 rounded ${LPS_LETTER[L]} mr-0.5">${L} ${graded.filter(x => x.letter === L).length}</span>`).join('')}</div></div>
+                <div class="flex items-center gap-2 text-[10px] text-gray-500"><button type="button" onclick="lpsCopyLink('view', this)" class="px-2 py-0.5 rounded bg-white/5 text-gray-300 hover:text-cyan-300" title="copy a link that opens this exact view (window, lens, as-of, bucket)"><i class="fas fa-link"></i> copy link</button>${Object.entries({ A: 0, B: 0, C: 0, D: 0, F: 0 }).map(([L]) => `<span class="inline-block px-1.5 rounded ${LPS_LETTER[L]} mr-0.5">${L} ${graded.filter(x => x.letter === L).length}</span>`).join('')}</div></div>
             <div class="text-[10px] text-gray-500 mb-2"><span class="inline-block w-2 h-2 rounded-sm bg-purple-400/70 mr-1"></span>PD bribed this pool for E${wf.epoch ?? ''} · <span class="inline-block w-2 h-2 rounded-sm bg-amber-400/60 mr-1 ml-2"></span>ranks above a PD-bribed pool in its bucket on this lens, with no PD bribe (pools over ${lpsUsd(sc.depth_floor_usd)} only) · Bribes column = this epoch's pots, PD vs everyone else. Change the lens or window to see whether the picks hold up.</div>
             <div class="overflow-x-auto"><div style="min-width:1010px">
                 <div class="grid gap-x-2 px-2 pb-1 text-[9px] uppercase tracking-wider text-gray-600" style="${cols}">
@@ -5662,7 +5683,7 @@
             return `<g><title>E${h.epoch} (${h.start || ''}) — PD-funded pots steer ${(h.pd_pct || 0).toFixed(1)}% of all TLA votes · other funders ${(h.other_pct || 0).toFixed(1)}% · Votion holds ${(h.votion_pct || 0).toFixed(1)}%</title><rect x="${x}" y="${yo}" width="${w}" height="${Math.max(0, yp - yo)}" fill="rgba(245,158,11,0.45)"/><rect x="${x}" y="${yp}" width="${w}" height="${Math.max(0, y(0) - yp)}" fill="rgba(168,85,247,0.75)"/>${i % 2 === 0 || i === n - 1 ? `<text x="${x + w / 2}" y="${Ht - 6}" font-size="9" text-anchor="middle" fill="#6b7280">E${h.epoch}</text>` : ''}</g>`; }).join('');
         const grid = [0, 5, 10, 15, 20, 25, 30].filter(v => v <= maxY).map(v => `<line x1="${padL}" x2="${W - 4}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(255,255,255,0.05)"/><text x="${padL - 4}" y="${y(v) + 3}" font-size="9" text-anchor="end" fill="#6b7280">${v}%</text>`).join('');
         const last = H[H.length - 1];
-        return `<div class="rounded-lg border border-white/10 bg-white/[0.03] p-3 mb-4">
+        return `<div id="lps-sec-steer" class="rounded-lg border border-white/10 bg-white/[0.03] p-3 mb-4 scroll-mt-20">
             <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><div class="text-[11px] font-semibold text-gray-200">Votes steered by Phoenix Directive's pots, per epoch <span class="font-normal text-[10px] text-gray-500">share of ALL TLA votes · measured</span></div>
                 <div class="text-[10px]"><span class="text-purple-300">PD ${(last.pd_pct || 0).toFixed(1)}%</span> · <span class="text-amber-300">other funders ${(last.other_pct || 0).toFixed(1)}%</span> · <span class="text-gray-400">Votion ${(last.votion_pct || 0).toFixed(1)}%</span> <span class="text-gray-600">at E${last.epoch}</span></div></div>
             <svg viewBox="0 0 ${W} ${Ht}" class="w-full h-auto" role="img" aria-label="PD-steered share of TLA votes per epoch">${grid}${bars}
@@ -5671,13 +5692,44 @@
         </div>`;
     }
 
+    const lpsCritLabel = (c) => LPS_CRIT[c] || c;
+    function lpsRecordHtml(S, C, usable, current) {
+        const rows = usable.map(p => ({ p, s: LPScorecard.placementSummary(S, C, p) })).filter(x => x.s);
+        if (!rows.length) return '';
+        const bk = (s, b) => { const r = s.sizing.buckets.find(x => x.bucket === b); return r ? `<span class="text-purple-300">${Math.round(r.luna_pct)}%</span><span class="text-gray-600"> / </span><span class="text-gray-300">${Math.round(r.volume_pct)}%</span>` : '<span class="text-gray-700">—</span>'; };
+        const cols = 'grid-template-columns: 56px 86px minmax(150px,1.3fr) 64px 70px 92px 92px 70px';
+        return `<div id="lps-sec-record" class="rounded-lg border border-white/10 bg-white/[0.03] p-3 mb-4 scroll-mt-20">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><div class="text-[11px] font-semibold text-gray-200">Track record — every placement the data can check <span class="font-normal text-[10px] text-gray-500">updates each epoch · click a row to open it</span></div><button type="button" onclick="lpsCopyLink('sec:record', this)" class="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-300 hover:text-cyan-300"><i class="fas fa-link"></i> copy link</button></div>
+            <div class="overflow-x-auto"><div style="min-width:720px">
+                <div class="grid gap-x-2 text-[9px] uppercase tracking-wider text-gray-600 pb-0.5" style="${cols}"><div>prop</div><div>executed</div><div>closest match (selection)</div><div class="text-right" title="rank correlation of the reported formula's score with the LUNA, 7d">formula ρ</div><div class="text-right" title="share of LUNA sized differently than volume among the picks, 7d">sized ≠ volume</div><div class="text-right" title="PD LUNA % / volume % — single bucket">single LUNA/vol</div><div class="text-right" title="PD LUNA % / volume % — stable bucket">stable LUNA/vol</div><div class="text-right" title="average share of ALL TLA votes steered by PD-funded pots over the paid window (measured; from E193)">PD-steered</div></div>
+                ${rows.slice().reverse().map(({ p, s }) => `<button type="button" onclick="lpsSet('placement', ${p.proposal_id})" class="w-full text-left grid gap-x-2 items-center text-[11px] py-1 border-t border-white/[0.04] hover:bg-white/[0.04] ${p.proposal_id === current ? 'bg-amber-500/[0.07]' : ''}" style="${cols}"><div class="mono ${p.proposal_id === current ? 'text-amber-200' : 'text-gray-300'}">${p.proposal_id}</div><div class="mono text-gray-500">${String(p.executed_at).slice(0, 10)}</div><div class="text-gray-300 truncate">${lpsEsc(lpsCritLabel(s.closest.criterion))} · ${s.closest.window} <span class="mono">${lpsRho(s.closest.rho)}</span></div><div class="text-right">${s.formula && s.formula.rho != null ? lpsRho(Math.round(s.formula.rho * 100) / 100) : '—'}</div><div class="text-right mono text-gray-200">${s.sizing.sized_differently_pct == null ? '—' : Math.round(s.sizing.sized_differently_pct) + '%'}</div><div class="text-right mono">${bk(s, 'single')}</div><div class="text-right mono">${bk(s, 'stable')}</div><div class="text-right mono ${s.steered ? (s.steered.pd_pct_max >= 20 ? 'text-red-300' : 'text-purple-200') : 'text-gray-700'}">${s.steered ? s.steered.pd_pct_avg.toFixed(1) + '%' : '—'}</div></button>`).join('')}
+                <div class="text-[9px] text-gray-600 pt-1">Same arithmetic as the panels below. Selection = which ranking best explains which pools got LUNA; sized ≠ volume = how far the amounts depart from each pick's share of volume; bucket columns = PD's LUNA share vs that bucket's share of volume (USDC.n pools out from 2026-09-11). Placements before the daily trading capture (2026-05-12) cannot be checked.</div>
+            </div></div></div>`;
+    }
+    function lpsSummaryHtml(S, C, pl, nm) {
+        const s = LPScorecard.placementSummary(S, C, pl); if (!s) return '';
+        const parts = [];
+        parts.push(`Pools were selected closest to <b>${lpsEsc(lpsCritLabel(s.closest.criterion))}</b> over ${s.closest.window} (rank correlation ${s.closest.rho.toFixed(2)}).`);
+        if (s.stated_efficiency_rho) parts.push(`Vol ÷ Liq — the "trading efficiency" in the title — matched at ${s.stated_efficiency_rho.min.toFixed(2)}–${s.stated_efficiency_rho.max.toFixed(2)}.`);
+        if (s.formula && s.formula.rho != null) parts.push(`The reported PD formula matched at ${s.formula.rho.toFixed(2)} (7d).`);
+        if (s.sizing.sized_differently_pct != null) parts.push(`Among the pools picked, <b>${Math.round(s.sizing.sized_differently_pct)}%</b> of the LUNA was sized differently than their share of volume${s.sizing.cost_spread ? `, and LUNA per $1K of daily volume ranged ${lpsN(s.sizing.cost_spread.min)}–${lpsN(s.sizing.cost_spread.max)}` : ''}.`);
+        const bs = s.sizing.buckets.filter(b => b.luna_pct >= 1).map(b => `${lpsEsc(LPS_BUCKET[b.bucket] || b.bucket)} ${Math.round(b.luna_pct)}% of the LUNA on ${Math.round(b.volume_pct)}% of volume`); if (bs.length) parts.push(`By bucket: ${bs.join(' · ')}.`);
+        if (s.sizing.most_overweight && s.sizing.most_overweight.weight >= 2) parts.push(`Most over-weighted: ${lpsEsc(nm(s.sizing.most_overweight.id))} — ${Math.round(s.sizing.most_overweight.luna_pct)}% of the LUNA on ${Math.max(0, s.sizing.most_overweight.metric_pct).toFixed(s.sizing.most_overweight.metric_pct < 1 ? 1 : 0)}% of the picks' volume.`);
+        if (s.unrankable_luna > 0.5) parts.push(`${lpsN(s.unrankable_luna)} LUNA/epoch (${Math.round(s.unrankable_luna / s.luna_per_epoch * 100)}%) went to pools with no trading history to rank at placement.`);
+        if (s.steered) parts.push(`During the paid window, PD-funded pots steered <b>${s.steered.pd_pct_avg.toFixed(1)}%</b> of all TLA votes on average (peak ${s.steered.pd_pct_max.toFixed(1)}%; charter ceiling 20%).`);
+        return `<div id="lps-sec-summary" class="rounded-lg border border-amber-500/20 bg-amber-500/[0.04] p-3 mb-3 scroll-mt-20">
+            <div class="flex items-center justify-between gap-2 mb-1"><div class="text-[11px] font-semibold text-amber-200">Prop ${pl.proposal_id} in brief</div><button type="button" onclick="lpsCopyLink('prop', this)" class="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-300 hover:text-cyan-300" title="copy a link that opens this proposal's scorecard"><i class="fas fa-link"></i> copy link</button></div>
+            <div class="text-[12px] text-gray-200 leading-relaxed">${parts.join(' ')}</div>
+            <div class="text-[9px] text-gray-500 mt-1">Generated from the panels below with the same arithmetic; numbers only, no judgment.</div></div>`;
+    }
+
     function lpsRenderBribe(D) {
         const host = document.getElementById('lps-bribe-card'); if (!host || !D) return;
         const { series: S, config: C } = D; const sc = C.scorecard; const bc = sc.bribe_check || {};
         if (!store.lpsUsable) store.lpsUsable = S.placements.filter(p => p.legs.some(l => l.luna_per_epoch) && LPScorecard.bribeCheck(S, C, p).best);   // only placements the trading facts can check
         const usable = store.lpsUsable;
         if (!usable.length) { host.innerHTML = ''; return; }
-        const pl = usable.find(p => p.proposal_id === lpsState.placement) || usable[usable.length - 1];
+        const pl = usable.find(p => p.proposal_id === lpsState.placement) || usable[usable.length - 1]; lpsState.placement = pl.proposal_id;
         const chk = LPScorecard.bribeCheck(S, C, pl);
         const best = chk.best; const crit = lpsState.crit || (best && best.criterion) || 'efficiency'; const cw = lpsState.critWin || (best && best.window) || '30d';
         const rm = chk.fields[crit + '|' + cw] || {}; const N = Object.keys(rm).length;
@@ -5704,7 +5756,9 @@
                 <div class="flex items-center gap-1 flex-wrap text-[10px]">${usable.slice(-8).map(p => `<button type="button" onclick="lpsSet('placement', ${p.proposal_id})" class="px-2 py-0.5 rounded-full ${p.proposal_id === pl.proposal_id ? 'bg-amber-500/25 text-amber-200' : 'bg-white/5 text-gray-400 hover:text-amber-300'}">prop ${p.proposal_id} <span class="text-gray-600">${String(p.executed_at).slice(5, 10)}</span></button>`).join('')}</div>
             </div>
             ${lpsSteerHtml(S)}
+            ${lpsRecordHtml(S, C, usable, pl.proposal_id)}
             <div class="text-[11px] text-gray-400 mb-3">Phoenix Directive proposal ${pl.proposal_id} · executed ${lpsEsc(String(pl.executed_at).slice(0, 10))} · pays E${chk.window.start}–E${chk.window.end} · <span class="mono text-gray-200">${lpsN(totalLuna)} LUNA/epoch</span> across ${legsSorted.length} pools · <span class="text-gray-500">title:</span> <span class="text-gray-200">"${lpsEsc(pl.title)}"</span></div>
+            ${lpsSummaryHtml(S, C, pl, nm)}
             <div class="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-4">
                 <div>
                     <div class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Closest match — which ranking explains where the LUNA went?</div>
@@ -5734,7 +5788,7 @@
                 const metLab = (SM.find(m => m[0] === lpsState.sMet) || [, lpsState.sMet])[1];
                 const fmtM = (v) => v == null ? '—' : ['volume', 'fees', 'liquidity'].includes(lpsState.sMet) ? lpsUsd(v) : lpsState.sMet === 'grade' ? Math.round(v) : v.toFixed(2);
                 const wCell = (w) => w == null ? '<span class="text-gray-600">—</span>' : `<span class="mono ${w >= 2 ? 'text-red-300' : w >= 1.33 ? 'text-amber-300' : w <= 0.5 ? 'text-sky-300' : w <= 0.75 ? 'text-sky-200/80' : 'text-gray-300'}">${w >= 10 ? Math.round(w) : w.toFixed(1)}×</span>`;
-                return `<div class="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                return `<div id="lps-sec-sizing" class="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3 scroll-mt-20">
                 <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><div class="text-[11px] font-semibold text-gray-200">Sizing — does the amount follow the work? <span class="font-normal text-[10px] text-gray-500">among the pools this placement picked</span></div>
                     <div class="flex items-center gap-1 flex-wrap text-[10px]"><span class="text-gray-600">compare to</span>${SM.map(([k, l]) => `<button type="button" onclick="lpsSet('sMet','${k}')" class="px-1.5 rounded ${k === lpsState.sMet ? 'bg-cyan-500/25 text-cyan-100' : 'bg-white/5 text-gray-400'}">${lpsEsc(l)}</button>`).join('')}<span class="text-gray-600 ml-2">window</span>${(bc.windows || []).map(w => `<button type="button" onclick="lpsSet('sWin','${w}')" class="px-1.5 rounded ${w === lpsState.sWin ? 'bg-cyan-500/25 text-cyan-100' : 'bg-white/5 text-gray-400'}">${w}</button>`).join('')}</div></div>
                 <div class="grid grid-cols-3 gap-2 my-2 text-center">
@@ -5751,7 +5805,7 @@
                 const fw = lpsState.fWin || (chk.rows.filter(r => r.criterion === fid && r.rho != null).sort((a, b) => b.rho - a.rho)[0] || {}).window || '7d';
                 const ff = LPScorecard.formulaFit(S, C, pl, fid, fw);
                 const byG = LPScorecard.groupOrder(sc, ff.rows.map(r => r.group));
-                return `<div class="mt-4 rounded-lg border border-purple-500/20 bg-purple-500/[0.04] p-3">
+                return `<div id="lps-sec-formula" class="mt-4 rounded-lg border border-purple-500/20 bg-purple-500/[0.04] p-3 scroll-mt-20">
                 <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><div class="text-[11px] font-semibold text-purple-200">${lpsEsc(F.label)} vs what was placed <span class="font-normal text-[10px] px-1 rounded bg-white/5 text-gray-400" title="${lpsEsc(F.desc)}">${F.verified ? 'published' : 'reported · unverified'}</span></div>
                     <div class="flex items-center gap-1 text-[10px]"><span class="text-gray-600">window</span>${(bc.windows || []).map(w => `<button type="button" onclick="lpsSet('fWin','${w}')" class="px-1.5 rounded ${w === fw ? 'bg-purple-500/30 text-purple-100' : 'bg-white/5 text-gray-400'}">${w}</button>`).join('')}</div></div>
                 <div class="text-[10px] text-gray-400 mb-2">${lpsEsc(F.desc)}</div>
