@@ -757,7 +757,7 @@
     <script src="/lib/address-picker.js"></script>
     <script src="/lib/vote-market.js?v=1.3.0"></script>
     <script src="/lib/vote-market-tile.js?v=1.1.1"></script>
-    <script src="/lib/lp-scorecard.js?v=1.2.0"></script>
+    <script src="/lib/lp-scorecard.js?v=1.3.0"></script>
     <style>.sh-epoch{display:flex;align-items:center;gap:1em}.sh-epoch #data-notice{margin:0 0 0 .5em}</style>
     <script>SiteHeader.mount({ page: 'tla-stats' });</script>
     <script>
@@ -5505,8 +5505,8 @@
     };
     const LPS_LETTER = { A: 'bg-emerald-500/20 text-emerald-300', B: 'bg-teal-500/20 text-teal-300', C: 'bg-amber-500/20 text-amber-300', D: 'bg-orange-500/20 text-orange-300', F: 'bg-red-500/20 text-red-300' };
     const LPS_BUCKET = { stable: 'Stable', project: 'Project', bluechip: 'Bluechip', single: 'Single', other: 'Other', all: 'All pools' };
-    const LPS_CRIT = { efficiency: 'Vol ÷ Liq', volume: 'Volume', liquidity: 'Liquidity', fees: 'Fees', allround: 'All-round' };
-    const lpsState = { window: null, preset: null, asOf: null, activeOnly: false, dex: 'all', bucket: 'all', sort: null, open: {}, placement: null, crit: null, critWin: null, after: null, showUnranked: false, fieldOpen: false };
+    const LPS_CRIT = { pd_reported: 'Reported PD formula', efficiency: 'Vol ÷ Liq', volume: 'Volume', liquidity: 'Liquidity', fees: 'Fees', allround: 'All-round' };
+    const lpsState = { window: null, preset: null, asOf: null, activeOnly: false, dex: 'all', bucket: 'all', sort: null, open: {}, placement: null, crit: null, critWin: null, after: null, showUnranked: false, fieldOpen: false, fWin: null };
     const lpsEsc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const lpsUsd = (v) => v == null ? '—' : v >= 1e6 ? '$' + (v / 1e6).toFixed(2) + 'M' : v >= 1e4 ? '$' + Math.round(v / 1e3) + 'K' : v >= 1e3 ? '$' + (v / 1e3).toFixed(1) + 'K' : v >= 10 ? '$' + Math.round(v) : '$' + v.toFixed(2);
     const lpsN = (v) => v == null ? '—' : v >= 1e4 ? (v / 1e3).toFixed(v >= 1e5 ? 0 : 1) + 'K' : Math.round(v).toLocaleString('en-US');
@@ -5572,7 +5572,7 @@
         lpsState[k] = v;
         if (k === 'placement') { lpsState.crit = null; lpsState.critWin = null; }
         if (k === 'crit') { const [c, w] = String(v).split('|'); lpsState.crit = c; lpsState.critWin = w; }
-        if (['placement', 'crit', 'after', 'fieldOpen'].includes(k)) { lpsRenderBribe(store.lps); return; }
+        if (['placement', 'crit', 'after', 'fieldOpen', 'fWin'].includes(k)) { lpsRenderBribe(store.lps); return; }
         if (['sort', 'showUnranked'].includes(k)) { lpsRenderTable(store.lps); return; }
         renderScorecard();
     };
@@ -5674,7 +5674,7 @@
         const totalLuna = chk.luna_total;
         // whole field on the selected criterion
         const fieldRows = Object.entries(rm).sort((a, b) => a[1].rank - b[1].rank);
-                const fmtVal = (v) => v == null ? '—' : crit === 'efficiency' ? (v * 100).toFixed(2) + '%' : crit === 'allround' ? Math.round(v) : lpsUsd(v);
+                const fmtVal = (v) => v == null ? '—' : crit === 'efficiency' ? (v * 100).toFixed(2) + '%' : crit === 'allround' ? Math.round(v) : (bc.formulas || {})[crit] ? v.toFixed(2) : lpsUsd(v);
         const chgCell = (v, base) => { if (v == null) return '<span class="text-gray-700">—</span>'; const rel = base == null ? v : v - base; return `<span class="mono ${rel >= 10 ? 'text-emerald-300' : rel <= -10 ? 'text-red-300' : 'text-gray-300'}" title="${base == null ? '' : 'vs the unbribed pools’ median ' + lpsPct(base)}">${lpsPct(v)}</span>`; };
         const aeRows = ae.rows.filter(r => r.bribed).sort((a, b) => b.luna_per_epoch - a.luna_per_epoch);
         const ub = ae.unbribed_median;
@@ -5690,7 +5690,7 @@
                     <div class="rounded-lg bg-white/[0.03] p-2">
                         <div class="grid gap-1 text-[10px]" style="grid-template-columns: 92px repeat(${(bc.windows || []).length}, minmax(0,1fr))">
                             <div></div>${(bc.windows || []).map(w => `<div class="text-center text-gray-500">${w}</div>`).join('')}
-                            ${(bc.criteria || []).map(c => `<div class="text-gray-400 self-center">${LPS_CRIT[c] || c}${stated.includes(c) ? ' <span class="text-[8px] px-1 rounded bg-amber-500/20 text-amber-300" title="named in the proposal title">stated</span>' : ''}</div>${(bc.windows || []).map(w => cell(c, w)).join('')}`).join('')}
+                            ${(bc.criteria || []).map(c => `<div class="text-gray-400 self-center">${LPS_CRIT[c] || c}${stated.includes(c) ? ' <span class="text-[8px] px-1 rounded bg-amber-500/20 text-amber-300" title="named in the proposal title">stated</span>' : ''}${(bc.formulas || {})[c] ? ' <span class="text-[8px] px-1 rounded bg-purple-500/20 text-purple-300" title="' + lpsEsc(bc.formulas[c].desc) + '">reported</span>' : ''}</div>${(bc.windows || []).map(w => cell(c, w)).join('')}`).join('')}
                         </div>
                     </div>
                     <div class="text-[10px] text-gray-500 mt-1.5">Rank correlation, measured on ${lpsEsc(chk.asOf)} (the day before it executed), between each pool's LUNA (0 if none) and its standing in its bucket on the criterion over the window — 1.00 = the allocation followed that ranking exactly, 0 = no relation. Click a cell to see that field.</div>
@@ -5707,6 +5707,24 @@
                 <button type="button" onclick="lpsSet('fieldOpen', ${!lpsState.fieldOpen})" class="w-full flex items-center justify-between px-3 py-2 text-left"><span class="text-[11px] text-gray-300"><i class="fas fa-list-ol text-amber-400/80 mr-1"></i>The whole field on ${LPS_CRIT[crit]} (${cw}) on ${lpsEsc(chk.asOf)} — ${N} pools${(() => { const n = fieldRows.filter(([id]) => passedOver(id)).length; return n ? ` · <span class="text-amber-300">${n} ranked above a bribed pool in their bucket and received none</span>` : ''; })()}</span><i class="fas fa-chevron-${lpsState.fieldOpen ? 'up' : 'down'} text-[9px] text-gray-500"></i></button>
                 ${lpsState.fieldOpen ? `<div class="px-2 pb-2 overflow-x-auto"><div style="min-width:560px">${LPScorecard.groupOrder(sc, fieldRows.map(([, r]) => r.group)).map(g => `<div class="text-[10px] uppercase tracking-wider text-gray-400 px-1 pt-2 pb-0.5">${lpsEsc(LPS_BUCKET[g] || g)} bucket</div>` + fieldRows.filter(([, r]) => r.group === g).map(([id, r]) => { const b = chk.alloc[id]; const po = passedOver(id); return `<div class="grid gap-x-2 items-center px-1 py-0.5 text-[11px] border-t border-white/[0.04] ${b ? 'bg-emerald-500/[0.05]' : po ? 'bg-amber-500/[0.05]' : ''}" style="grid-template-columns: 34px minmax(140px,1.4fr) 90px 90px minmax(120px,1fr)"><div class="mono text-gray-500">${r.rank}</div><div class="truncate ${b ? 'text-gray-100' : 'text-gray-300'}">${lpsEsc(nm(id))} <span class="opacity-70">${lpsDex(dexOf(id))}</span></div><div class="text-right mono text-gray-300">${fmtVal(r.value)}</div><div class="text-right mono ${b ? 'text-emerald-300' : 'text-gray-700'}">${b ? lpsN(b) + '/ep' : '—'}</div><div class="text-[9px] ${b ? 'text-emerald-400/80' : po ? 'text-amber-300/90' : 'text-gray-600'}">${b ? 'bribed' : po ? 'ranked above a bribed pool in its bucket · not bribed' : 'not bribed'}</div></div>`; }).join('')).join('')}</div></div>` : ''}
             </div>
+            ${Object.keys(bc.formulas || {}).map(fid => { const F = bc.formulas[fid];
+                const fw = lpsState.fWin || (chk.rows.filter(r => r.criterion === fid && r.rho != null).sort((a, b) => b.rho - a.rho)[0] || {}).window || '7d';
+                const ff = LPScorecard.formulaFit(S, C, pl, fid, fw);
+                const byG = LPScorecard.groupOrder(sc, ff.rows.map(r => r.group));
+                return `<div class="mt-4 rounded-lg border border-purple-500/20 bg-purple-500/[0.04] p-3">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><div class="text-[11px] font-semibold text-purple-200">${lpsEsc(F.label)} vs what was placed <span class="font-normal text-[10px] px-1 rounded bg-white/5 text-gray-400" title="${lpsEsc(F.desc)}">${F.verified ? 'published' : 'reported · unverified'}</span></div>
+                    <div class="flex items-center gap-1 text-[10px]"><span class="text-gray-600">window</span>${(bc.windows || []).map(w => `<button type="button" onclick="lpsSet('fWin','${w}')" class="px-1.5 rounded ${w === fw ? 'bg-purple-500/30 text-purple-100' : 'bg-white/5 text-gray-400'}">${w}</button>`).join('')}</div></div>
+                <div class="text-[10px] text-gray-400 mb-2">${lpsEsc(F.desc)}</div>
+                <div class="grid grid-cols-3 gap-2 mb-2 text-center">
+                    <div class="rounded bg-white/[0.03] p-2"><div class="text-[9px] text-gray-500">rank correlation, score vs LUNA</div><div class="text-base font-bold">${lpsRho(ff.rho == null ? null : Math.round(ff.rho * 100) / 100)}</div></div>
+                    <div class="rounded bg-white/[0.03] p-2"><div class="text-[9px] text-gray-500">LUNA placed differently from the formula</div><div class="text-base font-bold text-purple-200">${ff.placed_differently_pct == null ? '—' : Math.round(ff.placed_differently_pct) + '%'}</div><div class="text-[9px] text-gray-600">if each gauge's LUNA followed the score</div></div>
+                    <div class="rounded bg-white/[0.03] p-2"><div class="text-[9px] text-gray-500">LUNA on pools the formula cannot score</div><div class="text-base font-bold text-gray-300">${ff.unscored_luna ? lpsN(ff.unscored_luna) + '/ep' : 'none'}</div><div class="text-[9px] text-gray-600 truncate" title="${lpsEsc(ff.unscored.map(nm).join(', '))}">${ff.unscored.length ? lpsEsc(ff.unscored.map(nm).join(', ')) : 'no trading history at placement'}</div></div>
+                </div>
+                <div class="overflow-x-auto"><div style="min-width:520px">
+                    <div class="grid gap-x-2 text-[9px] uppercase tracking-wider text-gray-600 pb-0.5" style="grid-template-columns: minmax(140px,1.4fr) 60px 90px 90px 90px"><div>pool</div><div class="text-right">score</div><div class="text-right">formula LUNA</div><div class="text-right">placed LUNA</div><div class="text-right">difference</div></div>
+                    ${byG.map(g => `<div class="text-[10px] uppercase tracking-wider text-gray-400 pt-1.5">${lpsEsc(LPS_BUCKET[g] || g)}</div>` + ff.rows.filter(r => r.group === g).sort((a, b) => b.score - a.score).map(r => { const d = r.actual - r.predicted; return `<div class="grid gap-x-2 items-center text-[11px] py-0.5 border-t border-white/[0.04]" style="grid-template-columns: minmax(140px,1.4fr) 60px 90px 90px 90px"><div class="truncate text-gray-200">${lpsEsc(nm(r.id))}</div><div class="text-right mono text-gray-400">${r.score.toFixed(2)}</div><div class="text-right mono text-gray-300">${lpsN(r.predicted)}</div><div class="text-right mono ${r.actual ? 'text-purple-300' : 'text-gray-600'}">${r.actual ? lpsN(r.actual) : '—'}</div><div class="text-right mono ${Math.abs(d) < Math.max(25, 0.15 * Math.max(r.actual, r.predicted)) ? 'text-gray-500' : d > 0 ? 'text-emerald-300' : 'text-red-300'}">${(d >= 0 ? '+' : '−') + lpsN(Math.abs(d))}</div></div>`; }).join('')).join('')}
+                    <div class="text-[9px] text-gray-600 pt-1">Formula LUNA = each gauge's placed LUNA split in proportion to the score (pools with trading data on ${lpsEsc(ff.asOf)}, ${lpsEsc(fw)} window). Green = more placed than the formula gives, red = less. The formula is shown as reported; its data source and window are not published.</div>
+                </div></div></div>`; }).join('')}
             <div class="mt-4">
                 <div class="flex items-center justify-between flex-wrap gap-2 mb-1"><div class="text-[10px] uppercase tracking-wider text-gray-500">Through the window — rank on ${LPS_CRIT[crit]} (7-day) at the end of each epoch</div>
                     <div class="flex items-center gap-1 text-[10px]"><span class="text-gray-600">epochs after</span>${[1, 2, 3, 4].map(n => `<button type="button" onclick="lpsSet('after', ${n})" class="px-1.5 rounded ${n === k ? 'bg-cyan-500/25 text-cyan-200' : 'bg-white/5 text-gray-400'}">${n}</button>`).join('')}</div></div>
