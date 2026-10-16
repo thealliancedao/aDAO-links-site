@@ -3153,6 +3153,7 @@
             store.votionData = votionResp;
             // Community layer sources
             store.tlaParticipants = tlaParticipantsResp;
+            try { store.nameOverrides = ((await fetch('https://raw.githubusercontent.com/thealliancedao/tla-core/main/docs/curated/name-overrides.json?t=' + Math.floor(Date.now() / 900000)).then(r => r.ok ? r.json() : null)) || {}).overrides || []; } catch (e) { store.nameOverrides = []; }
             store.adaoAllies = adaoAlliesResp;
             store.orgNftSummary = orgNftSummaryResp;
             store.orgMemberData = orgMemberDataResp;
@@ -5822,6 +5823,11 @@
         for (const ally of (store.adaoAllies?.allies || [])) {
             for (const m of (ally.members || [])) put(m.wallet, m.name);
         }
+        // hidden names (tla-core docs/curated/name-overrides.json, 2026-10-16): the address stays, the name is replaced or cleared —
+        // applied here too so a correction shows before the participants cron's next run
+        for (const o of (store.nameOverrides || [])) { if (!o || !o.address) continue; if (o.name) names.set(o.address, o.name); else names.delete(o.address);
+            for (const list of [store.adaoPositions?.members, store.tlaParticipants?.members]) for (const m of (list || [])) if (m && m.wallet === o.address) m.name = o.name || null;
+            for (const ally of (store.adaoAllies?.allies || [])) for (const m of (ally.members || [])) if (m && m.wallet === o.address) m.name = o.name || null; }
         store.nameByWallet = names;
 
         // aDAO staker roster (org tla-core). DAO-owned wallets are the DAO itself,
