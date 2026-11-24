@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// gate-portfolio-pnl.mjs — member-portfolio 4.0 (… 4.4.1: P34) + lib/portfolio-pnl.js 2.0.0 (… 2.0.2: P34) + lib/portfolio-chart.js + lib/token-logos.js on REAL data (jsdom, the page's own script).
+// gate-portfolio-pnl.mjs — member-portfolio 4.0 (… 4.4.1: P34 · 4.4.2: P35) + lib/portfolio-pnl.js 2.0.0 (… 2.0.2: P34 · 2.0.3: P35) + lib/portfolio-chart.js + lib/token-logos.js on REAL data (jsdom, the page's own script).
 //   4.0: P2 the combined P&L (sources, drivers add to the net) · P26 the chart (history series) · P27 net worth (backing vs floor, liquid, staked, claimable everywhere)
 //   · P28 locks (lock history P&L conserves every dollar; age / LUNA / decay) · P29 sources switch off · P30 alerts (decay, unstaking, authz, unbonding, pfp)
 //   · P31 Tokens lens + unpriced + logos · P32 income = the P&L's bribes, Credia card · P33 Solid card / net worth / alert / chart (PCRONS_DIR). OVERLAY_DIR serves products not on main yet (the history series).
@@ -496,4 +496,25 @@ console.log('— P34 a failed live read is unread, not a loss (4.4.1 · lib 2.0.
     ok(`scorecard (${lens}): "Made money · ${L ? 'in LUNA' : 'in dollars'}" = ${won.length} of ${scored.length} — the positions' results in that lens`, !!m && m[1] === (L ? 'in LUNA' : 'in dollars') && Number(m[2]) === won.length && Number(m[3]) === scored.length, m ? m[0] : txt.slice(0, 200)); }
   { const txt = PPL.scorecard(rows, 'luna', {}).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '); const m = txt.match(/Best round trip ([^ ]+ ?[A-Z]*)/);
     ok('scorecard (luna): the best round trip is stated in LUNA, not dollars', !!m && /LUNA/.test(m[1]) && !/\$/.test(m[1]), m ? m[0] : txt.slice(0, 200)); } }
+console.log('— P35 one LP result on the page (lib 2.0.3): the scorecard\'s Result is the "TLA LPs" total, and its tiles add up — every wallet in the fixture —');
+{ const dir = path.join(OUT, 'tla-flows/pnl/ledger'); const unesc = (h) => h.replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+  let n = 0, own = 0; const gap = { usd: [], luna: [] }, idb = { usd: [], luna: [] }; let extraW = 0, noBasisW = 0;
+  for (const f of fs.readdirSync(dir)) { if (!/^terra1[0-9a-z]+\.json$/.test(f)) continue; const L = J(path.join(dir, f)); if (!L.v3) continue; const W = f.replace('.json', '');
+    const D = PPL.decode(L.v3); const O0 = D.totals.open;
+    // a ledger whose own total disagrees with its own positions is a build matter, not the page's — counted apart (and kept rare)
+    const selfUn = D.positions.filter(p => !p.disputed && p.units_open > 0 && p.open_cost_usd != null && p.open_value_usd != null && !p.not_held).reduce((x, p) => x + p.open_value_usd - p.open_cost_usd, 0);
+    if (Math.abs((O0.unrealized_usd || 0) - selfUn) > 1) { own++; continue; }
+    const R = PPL.reconcile(D, liveFor(W)); const T = R.totals, rw = T.rewards || {}; const rows = R.positions.filter(p => p.deposits || p.withdraws); n++;
+    for (const k of ['usd', 'luna']) { const src = T.realized['delta_' + k] + T.open['unrealized_' + k] + (rw['claims_' + k] || 0);
+      const N = JSON.parse(unesc(PPL.scorecard(rows, k, {}, T).match(/data-pp-n="([^"]*)"/)[1]));
+      if (Math.abs(src - N.result) > (k === 'luna' ? 1 : 0.10)) gap[k].push(Math.round((src - N.result) * 100) / 100);
+      if (Math.abs(N.taken_out + N.open_now - N.no_basis - N.put_in + N.rewards - N.result) > (k === 'luna' ? 5 : 1)) idb[k].push(1);
+      if (k === 'usd') { if (N.extra_rewards > 0) extraW++; if (N.no_basis > 0.5) noBasisW++; } } }
+  ok(`${n} ledgers: Result = the "TLA LPs" total in dollars (≤ 10¢) and in LUNA (≤ 1) — ${extraW} have rewards tied to no position, ${noBasisW} hold something with no cost`, n > 500 && !gap.usd.length && !gap.luna.length, { usd: gap.usd.slice(0, 6), luna: gap.luna.slice(0, 6) });
+  ok('Taken out + Open now − what has no cost − Put in + LP rewards = Result on every one of them (≤ $1 / 5 LUNA)', !idb.usd.length && !idb.luna.length, [idb.usd.length, idb.luna.length]);
+  ok(`ledgers whose own total disagrees with their own positions stay rare (${own}; a build matter — they are left out above)`, own <= 5, own);
+  // the gate's wallet: its ampCAPA has no cost and sits with a custodian holding less than the ledger's lots — only the VALUE moves
+  const t0 = L0.v3.totals.open, t1 = R0.totals.open; const cap = R0.positions.find(p => p.custody && p.open_cost_usd == null);
+  if (!cap) console.log('  (no uncosted position with a custodian for the gate wallet in this fixture — the reconcile check is skipped)');
+  else ok(`reconcile(): the uncosted ${cap.name} with a custodian (${money(cap.custody.usd)} of the ledger's ${money(cap.open_value_usd)}) moves value only — unrealized stays the ledger's ${money(t0.unrealized_usd)}`, Math.abs(t1.unrealized_usd - t0.unrealized_usd) < 0.005 && Math.abs(t1.unrealized_luna - t0.unrealized_luna) < 0.005 && cap.custody.luna > 0, [t0.unrealized_usd, t1.unrealized_usd, cap.custody.luna]); }
 console.log(`\n${pass}/${pass + fail} passed`); process.exit(fail ? 1 : 0);
