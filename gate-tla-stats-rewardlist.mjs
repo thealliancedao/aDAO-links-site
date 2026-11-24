@@ -7,6 +7,7 @@
 //   H1 TLA TVL tile = staked value of the pools the chain is paying = the Eris-method feed's total (±3 %)
 //   H2 Epoch rewards tile = the emission per epoch (±2 %) — never more than the chain distributes
 //   H3 Active pools tile counts only pools on a reward list
+//   H4 Epoch Bribes tile = the pots frozen at the last flip (bribe-state period = epoch − 1), at the price feed's prices; its line says so (T8.10.1)
 //   I1 a pool off its bucket's reward list with ≥ 1 % of the votes is listed under Currently inactive, tagged "off the reward list"
 //   I2 none of them shows a reward APR card on the Overview
 //   P1 Pools tab: the four bucket headers' "LUNA emissions / week" add up to the weekly emission (±2 %); Stable's is its 40 %
@@ -95,6 +96,19 @@ const overviewText = T(d.getElementById('tab-overview') || d.body);
 const aprCards = offBig.filter(p => new RegExp(p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[^%]{0,220}\\d+% reward APR').test(overviewText)).map(p => p.name);
 check('I2 none of them shows a reward APR on the Overview', aprCards.length === 0, aprCards);
 
+// H4 (T8.10.1): the Epoch Bribes tile is the pots frozen at the last flip, paying out during this epoch — and its line says so.
+// (The Vote Market tile under it counts the pots on offer for the vote now open: a different, equally true number.)
+{ const tp = np.token_prices; const byDenom = new Map(); for (const [sym, e] of Object.entries(tp)) if (e && e.denom) byDenom.set(e.denom, e);
+  let potsUsd = 0, pots = 0, unpriced = 0;
+  for (const p of snap.pools) for (const b of ((p.bribes && p.bribes.active_now) || [])) { pots++; for (const a of (b.assets || [])) { const id = a.info.native || a.info.cw20; const e = id === 'uluna' ? tp.LUNA : byDenom.get(id); if (!e || e.final_price_usd == null) { unpriced++; continue; } potsUsd += Number(a.amount) / Math.pow(10, e.decimals != null ? e.decimals : 6) * e.final_price_usd; } }
+  const tile = money(T(d.getElementById('stat-total-bribes'))), sub = T(d.getElementById('stat-total-bribes-sub'));
+  check(`H4 Epoch Bribes tile ${T(d.getElementById('stat-total-bribes'))} = the ${pots} pots the snapshot holds, at the price feed's prices ($${potsUsd.toFixed(2)}${unpriced ? `, ${unpriced} token(s) unpriced` : ''})`, tile != null && pots > 0 && Math.abs(tile - potsUsd) <= Math.max(1, potsUsd * 0.02), { tile, potsUsd });
+  check('   its line says what they are — "last round’s pots, paying out now" — not "active this epoch"', /last round’s pots, paying out now/.test(sub) && !/active this epoch/.test(sub), sub);
+  const cap = new Date(snap.capturedAt); const rel = `tla-voting/bribe-state/${cap.getUTCFullYear()}/${String(cap.getUTCMonth() + 1).padStart(2, '0')}.json`;
+  const month = fs.existsSync(path.join(CORE_REAL, rel)) ? J(rel) : null; const last = Array.isArray(month) && month.length ? month[month.length - 1] : null;
+  if (!last) console.log(`  (${rel} is not in this checkout — the round the pots belong to is not checked)`);
+  else check(`   the harvest those pots come from is round ${last.period} = the epoch before ${snap.epoch.currentEpoch} (harvested ${String(last.harvested_at).slice(0, 16)}Z)`, last.period === snap.epoch.currentEpoch - 1, { period: last.period, epoch: snap.epoch.currentEpoch }); }
+
 w.eval('switchToTab')('pools'); await new Promise(r => setTimeout(r, 2500));
 const poolsRoot = d.getElementById('tab-pools') || d.body; const all = [...poolsRoot.querySelectorAll('div')];
 const headers = all.filter(x => x.children.length >= 4 && /^(STABLE|PROJECT|BLUECHIP|SINGLE)\s+\d+ pools/i.test(T(x.children[0])));
@@ -114,6 +128,6 @@ else console.log('  (no two pools share the name LUNA-EURe in this checkout — 
 const big = active.slice().sort((x, y) => (y.staked_in_tla_usd || 0) - (x.staked_in_tla_usd || 0))[0];
 const rb = rowOf(big.name, /astro/i.test(big.dex) ? 'Astro' : /skeleton/i.test(big.dex) ? 'Skeleton' : ''); const vb = rb && money(T(rb.children[1]));
 check(`P3 the largest pool (${big.name}) shows $${Math.round(big.staked_in_tla_usd).toLocaleString('en-US')} staked, not $0.00`, vb != null && Math.abs(vb / big.staked_in_tla_usd - 1) < 0.02 && !/0% in TLA/.test(T(rb)), rb && T(rb).slice(0, 140));
-check('footer rev T8.10; the tab title no longer ends in TEST', /rev: 'T8\.10'/.test(html) && !/<title>[^<]*TEST<\/title>/.test(html));
+check('footer rev T8.10; the tab title no longer ends in TEST', /rev: 'T8\.10(\.\d+)?'/.test(html) && !/<title>[^<]*TEST<\/title>/.test(html));
 fs.rmSync(CORE, { recursive: true, force: true });
 console.log(`\n=== GATE tla-stats-rewardlist: ${PASS} passed, ${FAIL} failed ===`); process.exit(FAIL ? 1 : 0);
