@@ -70,6 +70,6 @@ const heads = [...adv.querySelectorAll('span.text-\\[10px\\]')].map(x => x.textC
 console.log('  (bucket verdicts: ' + heads.join(' | ') + ')');
 check('the bucket voting a winding pool is proposable on that ground alone, or blocked only by the earned bar (never "hold — not material")', todayBars.length === 0 || heads.some(t => /move votes off a winding-down pool/.test(t) || /not proposable yet/.test(t)), heads);
 } else console.log('  (no Advisor on this page any more — its checks are skipped)');
-check('footer rev T8.10', /rev: 'T8\.10(\.\d+)?'/.test(fs.readFileSync(path.join(here, 'tla-stats.html'), 'utf8')));
+check('footer rev T8.10 or later', /rev: 'T8\.1\d(\.\d+)?'/.test(fs.readFileSync(path.join(here, 'tla-stats.html'), 'utf8')));
 fs.rmSync(CORE, { recursive: true, force: true });
 console.log(`\n=== GATE tla-stats-alerts: ${PASS} passed, ${FAIL} failed ===`); process.exit(FAIL ? 1 : 0);

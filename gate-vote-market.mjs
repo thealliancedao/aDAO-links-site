@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// gate-vote-market.mjs — lib/vote-market.js + the Vote Market page (vote-market.html) + the app's Vote Market tab (app.html) on the committed products.
+// gate-vote-market.mjs — lib/vote-market.js (1.4.0: section V — Votion's own rule, the reward list, what it takes) + the Vote Market page (vote-market.html) + the app's Vote Market tab (app.html) on the committed products.
 // Relations, never literals: every check derives its expectation from the same fixtures the engine reads.
 // Usage: TLA_CORE_DIR=/path/to/tla-core node gate-vote-market.mjs      (jsdom must be resolvable for the page checks)
 import fs from 'fs'; import path from 'path'; import { createRequire } from 'module';
@@ -16,7 +16,9 @@ const sum = (o, f) => Object.values(o).reduce((s, x) => s + f(x), 0);
 
 console.log('E. engine');
 // E1 units: Votion's end-of-round VP is converted to today's per bucket, and on its own gauges the two views then agree
-for (const b of VM.BUCKETS) { const k = m.vpScale[b]; check(`E1 ${b}: Votion VP scale k=${k.toFixed(3)} in (1, 1.3)`, k > 1 && k < 1.3, k); }
+// (lib 1.4.0) a snapshot with boost + fixed totals (tla-snapshot 1.2.0) is already in Votion's units: k = 1.00, nothing converted
+const HAS_TOTAL = (IN.snapshot.pools || []).some(p => p.voting_power && p.voting_power.total_human != null);
+for (const b of VM.BUCKETS) { const k = m.vpScale[b]; if (HAS_TOTAL) check(`E1 ${b}: boost + fixed on both sides — Votion's totals are ours, k=${k.toFixed(4)} within 2% of 1`, Math.abs(k - 1) < 0.02, k); else check(`E1 ${b}: Votion VP scale k=${k.toFixed(3)} in (1, 1.3)`, k > 1 && k < 1.3, k); }
 // E2 pots = the period's list Votion captured, priced by the feed; where fully priced they match Votion's own dollars (±5%)
 { const bad = Object.values(m.pools).filter(p => p.inVotion && p.pot.tokens.length && !p.pot.unpriced.length && !near(p.potUsd, p.votionPotUsd, 0.05)); check('E2 fully priced pots match Votion\'s own dollars within 5%', bad.length === 0, bad.map(p => [p.name, p.potUsd, p.votionPotUsd])); }
 { const up = Object.values(m.pools).filter(p => p.pot.unpriced.length && p.inVotion); check('E2b a pot with a token the feed cannot price takes Votion\'s price, labelled', up.every(p => p.potPricedBy === 'votion' && p.potUsd >= p.votionPotUsd - 1e-9), up.map(p => [p.name, p.pot.unpriced, p.potUsd])); }
@@ -91,6 +93,62 @@ for (const b of VM.BUCKETS) { const o = VM.outcome(m, b, {}); const bad = o.deci
   const b = 'project'; const o = VM.outcome(m, b, { force: Object.fromEntries(m.vaults.map(v => [v.key, false])) }); const cur = {}; m.vaults.forEach(v => Object.entries(v.byBucket[b].current).forEach(([pk, x]) => cur[pk] = (cur[pk] || 0) + x));
   check('E12 all vaults holding → Votion\'s votes at close = its current votes', Object.keys(o.rows).every(pk => near(o.rows[pk].votion, cur[pk] || 0, 1e-9))); }
 
+console.log('V. Votion\'s own rule (lib 1.4.0): its published plans, the reward list, what it takes');
+// V1 every plan Votion publishes in this capture is its rule on its own inputs — a = max(0, pot ÷ c − votes already there), the same
+// bribe per vote on every pool it uses. Its solver iterates and sometimes stops a step early (the plan then says "iterations 3"): such a
+// plan sits a few points off the rule's split and is worth the same to the vault within 1%. So: most plans exact, the rest equal in dollars.
+{ let n = 0, exact = 0, worst = 0, multi = 0, bestHits = 0; const early = [];
+  for (const vk of Object.keys(IN.votion.vaults || {})) for (const o of ((IN.votion.vaults[vk] || {}).optimizations || [])) {
+    const pub = {}; ((o.optimization && o.optimization.votes) || []).forEach(x => { pub[x.id] = Number(x.votingPowerPercentage) || 0; }); const vp = Number(o.votingPower) || 0;
+    const opts = (o.votingOptions || []).map(q => ({ pk: q.id, b: Number(q.usdIncentives) || 0, V: Number(q.votingPower) || 0 })); if (!opts.length || !(vp > 0) || !Object.keys(pub).length) continue; n++;
+    const miss = (a) => Math.max(...opts.map(q => Math.abs((a[q.pk] || 0) / vp * 100 - (pub[q.pk] || 0)))); const mine = VM.votionFill(opts, vp); const w = miss(mine); worst = Math.max(worst, w);
+    const R = (al) => opts.reduce((t, q) => t + ((al[q.pk] || 0) > 0 ? q.b * al[q.pk] / (q.V + al[q.pk]) : 0), 0); const pl = {}; opts.forEach(q => { pl[q.pk] = (pub[q.pk] || 0) / 100 * vp; });
+    if (w <= 0.05) exact++; else early.push({ vault: vk, bucket: o.id, points: +w.toFixed(2), usd_rule: +R(mine).toFixed(3), usd_published: +R(pl).toFixed(3), same: Math.abs(R(mine) - R(pl)) <= 0.01 * Math.max(R(mine), R(pl)) });
+    if (opts.filter(q => q.b > 0).length > 1) { multi++; if (miss(VM.waterFill(opts, vp)) <= 0.05) bestHits++; } }
+  check(`V1 Votion's rule gives its ${n} published plans: ${exact} to 0.05 points${early.length ? `, ${early.length} stopped early (up to ${worst.toFixed(1)} points off, worth the same within 1%)` : ''}; the best-split solve it replaces matches ${bestHits} of the ${multi} plans with more than one funded pool`,
+    n > 0 && exact >= n * 0.85 && early.every(e => e.same), { n, exact, early });
+  // …and on that solution every pool Votion uses pays the same bribe per vote, and every pool it skips pays less
+  let bad = 0; for (const vk of Object.keys(IN.votion.vaults || {})) for (const o of ((IN.votion.vaults[vk] || {}).optimizations || [])) { const vp = Number(o.votingPower) || 0; const opts = (o.votingOptions || []).map(q => ({ pk: q.id, b: Number(q.usdIncentives) || 0, V: Number(q.votingPower) || 0 })).filter(q => q.b > 0); if (!opts.length || !(vp > 0)) continue;
+    const sol = VM.votionSolve(opts, vp); const used = opts.filter(q => sol.a[q.pk] > 1), skipped = opts.filter(q => !(sol.a[q.pk] > 1));
+    if (!near(used.reduce((t, q) => t + sol.a[q.pk], 0), vp, 1e-6) || used.some(q => !near(q.b / (q.V + sol.a[q.pk]), sol.c, 1e-6)) || skipped.some(q => q.V > 0 && q.b / q.V > sol.c * (1 + 1e-6))) bad++; }
+  check('V1b on its solution every pool Votion uses pays the same bribe per vote (its rate), every pool it skips pays less, and its whole budget is placed', bad === 0, bad); }
+// V2 units: votes are boost + fixed wherever the snapshot has that total
+{ const withTotal = (IN.snapshot.pools || []).filter(p => p.voting_power && p.voting_power.total_human != null && p.status !== 'deprecated');
+  if (withTotal.length) { const bad = withTotal.filter(p => { const q = m.pools[VM.keyOf(p.bucket, p.gauge_pool_id)]; return q && Math.abs(q.vp - p.voting_power.total_human) > 1e-6; });
+    check(`V2 a pool's votes are boost + fixed for all ${withTotal.length} pools (${IN.snapshot.version}) — the chain's and Votion's own measure`, bad.length === 0, bad.slice(0, 3).map(p => p.name)); }
+  else console.log('  (this snapshot carries no boost + fixed totals — V2 skipped; E1 covers the conversion)'); }
+// V3 the reward list: a pool off its gauge's list earns nothing next epoch whatever votes sit on it, is not in the 1% line's total, is never recommended
+{ const off = pools.filter(p => p.offList);
+  if (off.length) { const bad = []; let listedOk = true; for (const b of VM.BUCKETS) { const o = VM.outcome(m, b, {}); for (const pk of o.pks) if (m.pools[pk].offList && (o.rows[pk].active || o.rows[pk].weeklyUsd !== 0)) bad.push(m.pools[pk].name);
+      if (!near(o.listedVotes, Object.values(o.rows).filter(r => !r.offList).reduce((t, r) => t + r.votes, 0), 1e-9)) listedOk = false; }
+    const rec = ['impact', 'underdogs', 'pd'].flatMap(L => VM.lens(m, { lens: L, usd: 50, limit: 80 })).filter(r => r.pool.offList);
+    check(`V3 the ${off.length} pools off a reward list (${off.filter(p => p.vp >= 1e6).length} still hold over 1M VP) earn nothing, sit outside the 1% line's total, and are never recommended`, bad.length === 0 && rec.length === 0 && listedOk, [bad, rec.map(r => r.pool.name)]);
+    // with nothing changed, a paid pool Votion does not vote keeps the snapshot's own APR (the chain's distribution) within a tenth
+    const still = pools.filter(p => !p.offList && p.status === 'active' && p.aprNow > 0 && p.stakedUsd >= 1000 && p.votionNow < 1000 && p.votionPlan < 1000).map(p => [p, VM.outcome(m, p.bucket, {}).rows[p.pk]]).filter(([p, r]) => r.apr != null);
+    const drift = still.filter(([p, r]) => Math.abs(r.apr / p.aprNow - 1) > 0.10 && Math.abs(r.votes / p.vp - 1) < 0.001 && Object.values(VM.outcome(m, p.bucket, {}).rows).every(x => Math.abs(x.votion - m.pools[x.pk].votionNow) < 1000));
+    check(`V3b nothing changed and Votion holding: a paid pool's APR next epoch stays within 10% of the snapshot's (${still.length} pools Votion does not vote)`, drift.length === 0, drift.map(([p, r]) => [p.name, p.aprNow, r.apr])); }
+  else console.log('  (no pool is marked off a reward list in this snapshot — V3 skipped)'); }
+// V4 what it takes — "how much before Votion votes here?"
+{ const cand = pools.filter(p => !p.offList && !p.votionExcluded && p.stakedUsd >= 1000 && VM.votionLevel(m, p.bucket) != null).map(p => [p, VM.whatItTakes(m, p.pk)]);   // listed or simply unfunded — Votion's rule applies to both
+  const need = cand.filter(([p, w]) => w.entryUsd != null && w.entryUsd > 2 && w.votionVotes < 50000).slice(0, 6); const bad = [];
+  for (const [p, w] of need) { const at = (x) => { const a = {}; a[p.pk] = x; return VM.withChange(m, p.bucket, {}, { add: a }).plan.rows[p.pk].votion; };
+    if (!(at(w.entryUsd) >= w.votionVotes + 50000) || at(w.entryUsd - 2) >= w.votionVotes + 50000) bad.push([p.name, w.entryUsd, Math.round(at(w.entryUsd)), Math.round(at(w.entryUsd - 2))]); }
+  check(`V4 entry price: on ${need.length} pool(s) Votion does not vote (${need.map(([p, w]) => p.name + ' $' + w.entryUsd).join(', ')}), that many dollars more brings its first votes and $2 less does not`, bad.length === 0, bad);
+  // …and it is the rule's own threshold: the pot must reach a vault's rate × the votes that vault finds on the pool (when every vault re-votes anyway)
+  { const off = []; for (const [p, w] of need) { const o = VM.outcome(m, p.bucket, {}); const ds = o.decisions.filter(d => d.level != null); if (!ds.length || !ds.every(d => d.moves)) continue; const thr = Math.min(...ds.map(d => d.level * d.seen[p.pk] / 1e6)) - (p.votionPotUsd || 0); if (Math.abs(w.entryUsd - thr) > Math.max(3, 0.12 * thr)) off.push([p.name, w.entryUsd, +thr.toFixed(2)]); }
+    check('V4a that price = Votion\'s rate × the votes already on the pool − the pot it counts (within $3 or 12% — the first 50K VP cost a little more)', off.length === 0, off); }
+  const inn = cand.filter(([p, w]) => w.votionVotes >= 50000); check(`V4b a pool Votion already votes (${inn.length}) needs nothing more to bring it in`, inn.every(([p, w]) => w.entryUsd === 0), inn.filter(([p, w]) => w.entryUsd !== 0).map(([p]) => p.name));
+  check('V4c the rate a pool pays = its pot ÷ every vote on it; the level is the bucket\'s own', cand.every(([p, w]) => (w.rate == null || near(w.rate, w.potUsd / (w.votes / 1e6), 1e-9)) && w.level === VM.votionLevel(m, p.bucket))); }
+// V5 a funded pool Votion's list leaves out: no price brings Votion in as things stand; "if it were listed" is the same rule on our price for the pot
+{ const ex = pools.filter(p => p.votionExcluded && !p.offList);
+  if (ex.length) { const ws = ex.map(p => [p, VM.whatItTakes(m, p.pk)]);
+    check(`V5 ${ex.length} funded pool(s) left out of Votion's list: no entry price as listed; $500 moves no Votion vote there`, ws.every(([p, w]) => w.votionExcluded && w.entryUsd === null && Math.abs(VM.impact(m, p.pk, 500).votionIn) < 1), ws.map(([p, w]) => [p.name, w.entryUsd]));
+    const bad = []; for (const [p, w] of ws) { const io = w.ifOffered; if (!io) { bad.push([p.name, 'no answer']); continue; } const o = {}; o[p.pk] = true; const v0 = VM.withChange(m, p.bucket, { offer: o }, { offer: o }).plan.rows[p.pk].votion;
+      if (!near(io.votionNow, v0, 1e-9)) bad.push([p.name, io.votionNow, v0]);
+      if (io.votionNow < 50000 && io.entryUsd != null) { const a = {}; a[p.pk] = io.entryUsd; if (!(VM.withChange(m, p.bucket, { offer: o }, { offer: o, add: a }).plan.rows[p.pk].votion >= io.votionNow + 50000)) bad.push([p.name, 'entry', io.entryUsd]); } }
+    check('V5b "if it were listed": Votion\'s votes there on the pot as it stands, or the dollars more that bring them — from the same solve', bad.length === 0, bad); }
+  else console.log("  (no funded pool is left out of Votion's list in this capture — V5 skipped)"); }
+
 console.log('P. the page (vote-market.html in jsdom, captured pots — the LCD is not reachable)');
 let JSDOM; try { ({ JSDOM } = require('jsdom')); } catch (e) { console.log('  (jsdom not installed — page checks skipped)'); }
 if (JSDOM) {
@@ -158,6 +216,17 @@ if (JSDOM) {
   const r250 = [...el.querySelectorAll('.vmt-row[data-pk]')]; const top250 = VM.lens(m, { lens: 'impact', bucket: 'project', usd: 250, limit: 8 });
   { const sl = el.querySelector('#vmt-lens'); check('T8b Rank by → Underdogs re-ranks to the engine\'s underdogs list', (() => { sl.value = 'underdogs'; sl.dispatchEvent(new tw.Event('change')); const got = [...el.querySelectorAll('.vmt-row[data-pk]')].map(r => r.dataset.pk); const exp = VM.lens(m, { lens: 'underdogs', bucket: 'project', usd: 250, limit: 8 }).map(r => r.pool.pk); const ok = got.join() === exp.join(); const s2 = el.querySelector('#vmt-lens'); s2.value = 'impact'; s2.dispatchEvent(new tw.Event('change')); return ok; })()); }
   check('T8 $250 in Project re-ranks to the engine\'s list and the links carry bribe=250', r250.length === top250.length && r250.every((r, i) => r.dataset.pk === top250[i].pool.pk && /&bribe=250$/.test(r.getAttribute('href'))));
+  // T10 (tile 1.2.0): the tile explains itself — the rule with the bucket's own rate, and where each pool stands against it
+  { const sl = el.querySelector('#vmt-lens'); sl.value = 'impact'; sl.dispatchEvent(new tw.Event('change')); el.querySelector('[data-amt="50"]').click();
+    const lvl = VM.votionLevel(m, 'project'); const f2 = (x) => '$' + x.toFixed(2); const rule = el.querySelector('[data-vmt="rule"]');
+    check(`T10 "How Votion decides" is on the tile with Project's own rate (${lvl != null ? f2(lvl) + ' per 1M VP' : 'none funded'})`, !!rule && /same bribe per vote/.test(rule.textContent) && (lvl == null ? /no funded pool/.test(rule.textContent) : rule.textContent.includes(f2(lvl))), rule && rule.textContent.slice(0, 160));
+    check('T10b "A vote costs" is the selected bucket\'s rate, not one figure for all four', lvl == null || [...el.querySelectorAll('.vmt-stat')].some(x => /A vote costs/.test(x.textContent) && x.textContent.includes(f2(lvl)) && /Votion in Project/.test(x.textContent)));
+    const rws = [...el.querySelectorAll('.vmt-row[data-pk]')]; const why = (r) => { const y = r.querySelector('[data-vmt="why"]'); return y ? y.textContent : ''; };
+    check(`T10c each of the ${rws.length} pool rows says where it stands, in one line`, rws.length > 0 && rws.every(r => why(r).length > 25), rws.filter(r => why(r).length <= 25).map(r => r.dataset.pk));
+    const exr = rws.filter(r => m.pools[r.dataset.pk].votionExcluded);
+    if (exr.length) check(`T10d the ${exr.length} funded pool(s) Votion's list leaves out say so and show no Votion figure`, exr.every(r => /Not on Votion’s list this round/.test(why(r)) && /not listed/.test(r.querySelector('.c-vot').textContent)), exr.map(r => why(r).slice(0, 80)));
+    const need = rws.map(r => [r, VM.whatItTakes(m, r.dataset.pk)]).filter(([r, w]) => !w.votionExcluded && !w.offList && w.level != null && w.votionVotes < 50000 && w.entryUsd > 0);
+    if (need.length) check(`T10e a listed pool Votion does not vote shows the engine's entry price ($${need[0][1].entryUsd} more for ${m.pools[need[0][0].dataset.pk].name})`, need.every(([r, w]) => why(r).includes('$' + w.entryUsd.toLocaleString('en-US'))), need.map(([r]) => why(r).slice(0, 120))); }
   // the simulator honours the tile's deep link
   const html2 = fs.readFileSync(path.join(here, 'vote-market.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '').replace('<script>if (window.SiteFooter)', '<script>if (false)');
   const tpk = top[0].pool.pk; const ddom = new JSDOM(html2, { url: 'https://thealliancedao.com/vote-market.html?pool=' + encodeURIComponent(tpk) + '&bribe=50', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {

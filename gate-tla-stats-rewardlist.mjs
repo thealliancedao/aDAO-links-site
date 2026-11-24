@@ -128,6 +128,6 @@ else console.log('  (no two pools share the name LUNA-EURe in this checkout — 
 const big = active.slice().sort((x, y) => (y.staked_in_tla_usd || 0) - (x.staked_in_tla_usd || 0))[0];
 const rb = rowOf(big.name, /astro/i.test(big.dex) ? 'Astro' : /skeleton/i.test(big.dex) ? 'Skeleton' : ''); const vb = rb && money(T(rb.children[1]));
 check(`P3 the largest pool (${big.name}) shows $${Math.round(big.staked_in_tla_usd).toLocaleString('en-US')} staked, not $0.00`, vb != null && Math.abs(vb / big.staked_in_tla_usd - 1) < 0.02 && !/0% in TLA/.test(T(rb)), rb && T(rb).slice(0, 140));
-check('footer rev T8.10; the tab title no longer ends in TEST', /rev: 'T8\.10(\.\d+)?'/.test(html) && !/<title>[^<]*TEST<\/title>/.test(html));
+check('footer rev T8.10 or later; the tab title no longer ends in TEST', /rev: 'T8\.1\d(\.\d+)?'/.test(html) && !/<title>[^<]*TEST<\/title>/.test(html));
 fs.rmSync(CORE, { recursive: true, force: true });
 console.log(`\n=== GATE tla-stats-rewardlist: ${PASS} passed, ${FAIL} failed ===`); process.exit(FAIL ? 1 : 0);
