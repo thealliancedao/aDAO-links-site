@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// gate-portfolio-pnl.mjs — member-portfolio 4.0 + lib/portfolio-pnl.js 2.0.0 + lib/portfolio-chart.js + lib/token-logos.js on REAL data (jsdom, the page's own script).
+// gate-portfolio-pnl.mjs — member-portfolio 4.0 (… 4.4.1: P34) + lib/portfolio-pnl.js 2.0.0 (… 2.0.2: P34) + lib/portfolio-chart.js + lib/token-logos.js on REAL data (jsdom, the page's own script).
 //   4.0: P2 the combined P&L (sources, drivers add to the net) · P26 the chart (history series) · P27 net worth (backing vs floor, liquid, staked, claimable everywhere)
 //   · P28 locks (lock history P&L conserves every dollar; age / LUNA / decay) · P29 sources switch off · P30 alerts (decay, unstaking, authz, unbonding, pfp)
 //   · P31 Tokens lens + unpriced + logos · P32 income = the P&L's bribes, Credia card · P33 Solid card / net worth / alert / chart (PCRONS_DIR). OVERLAY_DIR serves products not on main yet (the history series).
@@ -473,4 +473,27 @@ console.log('— P33 Solid (4.1, member-data 1.6.0 · lib/solid-reader.js 1.0.0)
     ok('before member-data 1.6.0 has run: the card says Solid appears after that run — never "$0", no net-worth line, no alert', /appears here after that run/.test(T(d2.querySelector('[data-solid]'))) && !/Solid \(collateral/.test(T(d2.getElementById('networth-banner'))) && !/Solid health/.test(T(d2.getElementById('alerts'))));
     const PCH = require(path.join(SITE, 'lib/portfolio-chart.js')); const sf = PCH.seriesFor ? PCH.seriesFor({ rows: [{ d: '2026-09-28', ss: S.collateral_usd, sb: S.debt_usd, cs: 0, cb: 0 }] }, { view: 'credia', range: 0, lens: 'usd' }) : null;
     ok('the chart\'s Lending view carries Solid collateral and debt as their own series', !!sf && JSON.stringify(sf).includes('Solid'), sf && JSON.stringify(sf).slice(0, 300)); } }
+console.log('— P34 a failed live read is unread, not a loss (4.4.1 · lib 2.0.2) —');
+{ // expected values from the wallet's own daily record: each place from the latest of the last 4 rows that has it
+  const sh = J(path.join(CORE, 'member-data/history/tokens', OWNER.charAt(6) + '.json')); const TK = (sh.wallets && sh.wallets[OWNER]) || [];
+  const lastWith = (k) => { for (let i = TK.length - 1; i >= 0 && i >= TK.length - 4; i--) { const v = TK[i] && TK[i][2] && TK[i][2].LUNA ? TK[i][2].LUNA[k] : null; if (v != null) return v; } return null; };
+  const newest = (TK.length && TK[TK.length - 1][2] && TK[TK.length - 1][2].LUNA) || {}; const wantW = (lastWith('w') || 0) + (lastWith('ls') || 0), naive = (newest.w || 0) + (newest.ls || 0);
+  // (a) every live read fails — the gate's fetch answers 404 for the bank read and the cw20 reads
+  const w = await run(OWNER); const d = w.document; for (let i = 0; i < 40 && !(w.__mpStore._liquid && w.__mpStore._chartData); i++) await new Promise(r => setTimeout(r, 250));
+  const st = w.__mpStore; const nw = st._chartData && st._chartData.lunaNow;
+  ok('the wallet read failed → marked incomplete (bank_read false), never a zero balance taken as fact', !!st._liquid && st._liquid.complete === false && st._liquid.bank_read === false, st._liquid && [st._liquid.complete, st._liquid.bank_read, st._liquid.cw_failed]);
+  ok(`"LUNA held now" keeps wallet + LSTs from the latest daily rows that have them (${fmtN(wantW)} LUNA — the newest, partial row alone says ${fmtN(naive)})`, !!nw && wantW > 0 && Math.abs((nw.places.w || 0) - wantW) < 1e-6, nw && nw.places);
+  ok('the net-worth banner says so ("may be short")', /may be short/.test(T(d.getElementById('networth-banner'))), T(d.getElementById('networth-banner')).slice(0, 200));
+  // (b) a complete read (bank + every cw20 answered) is used as "now", with no warning
+  const w2 = await run(OWNER, { bank: [{ denom: 'uluna', amount: '412000000' }], cw20: {} }); for (let i = 0; i < 40 && !(w2.__mpStore._liquid && w2.__mpStore._chartData); i++) await new Promise(r => setTimeout(r, 250));
+  const s2 = w2.__mpStore;
+  ok('a complete read is marked complete and shown without the warning', !!s2._liquid && s2._liquid.complete === true && s2._liquid.cw_failed === 0 && !/may be short/.test(T(w2.document.getElementById('networth-banner'))), s2._liquid && [s2._liquid.complete, s2._liquid.cw_failed]);
+  // (c) lib 2.0.2 — the scorecard's "Made money" tile counts in the lens on screen, like the bucket rows above it
+  const rows = R0.positions.filter(p => (p.deposits || p.withdraws));
+  for (const lens of ['usd', 'luna']) { const L = lens === 'luna'; const txt = PPL.scorecard(rows, lens, {}).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    const all = rows.filter(p => !p.disputed).map(p => PPL.posStats2(p, L)); const scored = all.filter(S => S.pnl != null && !S.unpriced), won = scored.filter(S => S.pnl > 0);
+    const m = txt.match(/Made money · (in LUNA|in dollars) (\d+) of (\d+)/);
+    ok(`scorecard (${lens}): "Made money · ${L ? 'in LUNA' : 'in dollars'}" = ${won.length} of ${scored.length} — the positions' results in that lens`, !!m && m[1] === (L ? 'in LUNA' : 'in dollars') && Number(m[2]) === won.length && Number(m[3]) === scored.length, m ? m[0] : txt.slice(0, 200)); }
+  { const txt = PPL.scorecard(rows, 'luna', {}).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '); const m = txt.match(/Best round trip ([^ ]+ ?[A-Z]*)/);
+    ok('scorecard (luna): the best round trip is stated in LUNA, not dollars', !!m && /LUNA/.test(m[1]) && !/\$/.test(m[1]), m ? m[0] : txt.slice(0, 200)); } }
 console.log(`\n${pass}/${pass + fail} passed`); process.exit(fail ? 1 : 0);
