@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Member Portfolio — The Alliance DAO</title>
 <meta name="description" content="Your personal Terra position companion — TLA locks, LP, votes and alerts for any wallet. Read-only, no wallet connect.">
+<meta property="og:title" content="Member Portfolio — The Alliance DAO">
+<meta property="og:description" content="Your Terra positions in one place — TLA locks, LPs, votes and rewards for any wallet. Read-only, no wallet connect.">
+<meta property="og:image" content="https://theadao.com/assets/images/android-chrome-512x512.png">
+<meta property="og:url" content="https://theadao.com/member-portfolio.html">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -48,7 +54,7 @@
     var sc = document.createElement('script'); sc.src = src[i++]; sc.async = true;
     sc.onload = function () { if (window.echarts) { window.__echarts = 'ready'; window.dispatchEvent(new Event('echarts-ready')); } else next(); }; sc.onerror = next; document.head.appendChild(sc); })(); })();
 </script>
-<script src="/lib/winddown.js?v=1.0.0"></script>
+<script src="/lib/winddown.js?v=1.1.0"></script>
 <script src="/lib/denoms.js?v=1.0.0"></script>
 <script src="/lib/vote-market.js?v=1.3.0"></script>   <!-- 3.4: THE vote-market engine — "your votes now earn" and "the best split earns" on the vote card, same model as the Vote Market page -->   <!-- 3.3: THE denom → symbol/decimals rule (the catalog's effective → discovered layer) -->   <!-- 3.0: winding-down assets (USDC.n) flagged on positions -->
 <script>SiteHeader.mount({ page: 'member-portfolio' });

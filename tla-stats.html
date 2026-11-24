@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terra Liquidity Alliance Tracker | Alliance DAO — TEST</title>
+    <title>Terra Liquidity Alliance Tracker | Alliance DAO</title>
     
     <!-- Favicons (site assets) -->
     <link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
@@ -17,7 +17,8 @@
     <meta name="keywords" content="Terra, TLA, Liquidity Alliance, Alliance DAO, DeFi, Astroport, Skeleton Swap, LUNA">
     <meta property="og:title" content="Terra Liquidity Alliance Tracker | Alliance DAO">
     <meta property="og:description" content="Track TLA pools, votes, bribes, and APR with data-driven analytics.">
-    <meta property="og:image" content="/assets/images/android-chrome-512x512.png">
+    <meta property="og:image" content="https://theadao.com/assets/images/android-chrome-512x512.png">
+    <meta property="og:url" content="https://theadao.com/tla-stats.html">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary">
     
@@ -756,7 +757,7 @@
     <script src="/lib/site-header.js"></script>
     <script src="/lib/address-picker.js"></script>
     <script src="/lib/vote-market.js?v=1.3.0"></script>
-    <script src="/lib/vote-market-tile.js?v=1.1.1"></script>
+    <script src="/lib/vote-market-tile.js?v=1.1.2"></script>
     <script src="/lib/lp-scorecard.js?v=1.13.0"></script>
     <style>.sh-epoch{display:flex;align-items:center;gap:1em}.sh-epoch #data-notice{margin:0 0 0 .5em}</style>
     <script>SiteHeader.mount({ page: 'tla-stats' });</script>
@@ -1400,7 +1401,7 @@
                     <div>
                         <div class="flex items-center gap-2 mb-3">
                             <span class="text-[10px] px-2 py-1 rounded bg-red-500/20 text-red-400 font-medium">CURRENTLY INACTIVE</span>
-                            <span class="text-xs text-gray-500">Below 1% right now — not earning, candidates to pull liquidity from</span>
+                            <span class="text-xs text-gray-500">Below 1% or off the reward list — not earning, candidates to pull liquidity from</span>
                         </div>
                         <div id="threshold-currently-inactive" class="space-y-2 mb-4">
                             <div class="text-gray-500 text-sm">Loading...</div>
@@ -2108,7 +2109,6 @@
         orgMemberDataUrl:   'https://raw.githubusercontent.com/thealliancedao/tla-core/main/member-data/snapshots/current.json',
         // Schema-6 briber leaderboard (org tla-voting rollups) — powers the Top Bribers board.
         orgVotingRollupsUrl:'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/events/rollups.json',
-        bribesCurrentUrl:  'https://raw.githubusercontent.com/thealliancedao/tla-core/main/tla-voting/bribe-state/2026/08.json',  // ORG: month file is a LIST of harvests; adapter takes latest -> .active_bribes (buckets byte-identical to legacy)
         votionBaseUrl:     'https://raw.githubusercontent.com/thealliancedao/tla-core/main/votion/snapshots',  // ORG current.json (chain-derived); legacy per-epoch files were website copy-paste, retired,  // append /votion-epoch-{N}.json
 
         // Per-epoch pool data (new cron repos) — used to build last-completed-epoch
@@ -2811,6 +2811,7 @@
                 dex_raw: p.dex_raw || p.dex,
                 bucket: p.bucket,
                 is_active: p.is_active,
+                off_list: p.off_list === true,   // T8.10: taken off its bucket's reward list (carried through the second normalizer)
                 // Canonical unique identifier — preserved here as well so the
                 // member-overlay lookups work after both normalizers run. Pools coming
                 // from the v3 transform (votePools) already carry gauge_pool_id;
@@ -2885,6 +2886,7 @@
         return pools.map(p => ({
             name: p.name,
             normalized_name: p.normalized_name || p.name,
+            gauge_pool_id: p.gauge_pool_id || null,
             dex: p.dex,
             type: p.type,
             bucket: p.bucket,
@@ -2991,14 +2993,7 @@
                 fetch(CONFIG.tlaSnapshotUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('tla-snapshot fetch:', e.message); return null; }),
                 fetch(CONFIG.networkPricesUrl).then(r => r.ok ? r.json() : null).catch(e => { console.warn('network-prices fetch:', e.message); return null; }),
                 loadDaoPositions(CONFIG.adaoPositionsUrl),   // 2026-09-23: the tenant's DAO entity (aDAO unchanged; an ally's roster otherwise)
-                fetch(CONFIG.bribesCurrentUrl).then(r => r.ok ? r.json() : null)
-                    // ORG ADAPTER: bribe-state month file is a LIST of harvests; the
-                    // page expects {active_bribes:[...]}. Latest harvest's buckets are
-                    // byte-identical to the legacy active_bribes entries.
-                    .then(m => Array.isArray(m) && m.length
-                        ? { schemaVersion: 1, capturedAt: m[m.length - 1].harvested_at, active_bribes: m[m.length - 1].buckets || [] }
-                        : m)
-                    .catch(e => { console.warn('bribes fetch:', e.message); return null; }),
+                Promise.resolve(null),   // T8.10: was a download of tla-voting/bribe-state/2026/08.json (a fixed August file) that nothing read — live pots come from the snapshot and bribe-state/runway.json
                 fetch(CONFIG.pdBribesUrl).then(r => r.ok ? r.json() : null)
                     // ORG ADAPTER: chain-derived placements -> the legacy per-window
                     // shape buildBribesIndex() consumes. Only fields that exist on
@@ -3552,6 +3547,7 @@
                 dex_raw: p.dex_raw || p.dex,
                 bucket: (p.bucket || '').toUpperCase(),  // renderer expects UPPERCASE
                 is_active: p.status === 'active',
+                off_list: p.gauge_whitelisted === false || p.status_reason === 'dewhitelisted',   // T8.10: taken off its gauge's reward list — old votes may still sit on it, it earns nothing
                 // Canonical unique identifier — preserved from tla-snapshot so member-vote
                 // lookups can match by gauge_pool_id (which is truly unique, unlike name+dex
                 // which can collide when two pools with the same pair exist on the same DEX,
@@ -3690,6 +3686,7 @@
             return {
                 name: p.name,
                 normalized_name: p.name,
+                gauge_pool_id: p.gauge_pool_id || null,   // T8.10: the unique key — two pools can share a name (LUNA-EURe exists on Astroport and SkeletonSwap)
                 dex: p.dex || 'Astroport',
                 type: p.dex_subtype || null,
                 bucket: (p.bucket || '').toUpperCase(),  // renderer expects UPPERCASE
@@ -5557,9 +5554,14 @@
     // a pool's display name: the product's name, or the catalog symbol when the product only knows the raw gauge id
     const poolDisplayName = (n, gaugeId) => { const raw = String(n || ''); if (!/^(cw20|native):|^terra1[0-9a-z]{38,}$|^Unknown$|^$/.test(raw)) return raw; const src = gaugeId ? String(gaugeId) : raw; /* the snapshot's 'name' for unnamed gauges is a truncated id — the full gauge id is the lookup key */ const bare = src.replace(/^(cw20|native):/, ''); const kc = store.knownContracts && store.knownContracts[bare]; return KNOWN_TOKEN_NAMES[src] || KNOWN_TOKEN_NAMES[bare] || KNOWN_TOKEN_NAMES['cw20:' + bare] || KNOWN_TOKEN_NAMES['native:' + bare] || (kc && kc.name) || (bare.length > 20 ? bare.slice(0, 10) + '…' + bare.slice(-4) : raw); };
     // T3.21 — curated alert pills (lp-grades `alerts`, stamped upstream from docs/curated/alerts.json).
-    // asset (migrating / winding_down) → amber "winding down · migrate by <date>"; forum → cyan "forum: <project>", linked.
+    // T8.10 (owner): an asset notice is the curated one-line headline and nothing else — no deadline, no instructions, no link
+    // ("Terra has moved to USDC.inj"). A stamp that still carries a long headline shows nothing until it is restamped.
+    // forum → cyan "forum: <project>", linked.
+    const assetNoticeLine = (a) => (a && typeof a.headline === 'string' && a.headline.length > 0 && a.headline.length <= 60) ? a.headline : '';
     window.alertPills = window.alertPills || ((p) => (p && p.alerts || []).map(a => a.kind === 'asset'
-        ? `<a class="alert-pill alert-asset inline-block align-middle ml-1 px-1.5 py-px rounded text-[9px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/40 no-underline" href="${a.source_url || '#'}" target="_blank" rel="noopener" title="${(a.headline || '').replace(/"/g, '&quot;')}${a.action ? ' — ' + a.action.replace(/"/g, '&quot;') : ''}">${a.status === 'watch' ? 'watch' : 'winding down'}${a.deadline ? ' · migrate by ' + a.deadline : ''}</a>`
+        ? (a.status === 'watch'
+            ? `<span class="alert-pill alert-asset inline-block align-middle ml-1 px-1.5 py-px rounded text-[9px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/40" title="${(a.headline || '').replace(/"/g, '&quot;')}">watch</span>`
+            : (assetNoticeLine(a) ? `<span class="alert-pill alert-asset inline-block align-middle ml-1 px-1.5 py-px rounded text-[9px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/40">${assetNoticeLine(a).replace(/</g, '&lt;')}</span>` : ''))
         : `<a class="alert-pill alert-forum inline-block align-middle ml-1 px-1.5 py-px rounded text-[9px] font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 no-underline" href="${a.source_url || '#'}" target="_blank" rel="noopener" title="${(a.headline || '').replace(/"/g, '&quot;')}">forum: ${a.project || 'discussion'}</a>`).join(''));
 
     const LPS_URLS = {
@@ -5678,7 +5680,7 @@
     // Per bucket: what each pool EARNS (its share of the bucket's measured work) beside what it RECEIVES (its share of the bucket's
     // votes — which is what sets its emissions — and this epoch's bribes, PD vs everyone else). One verdict per row. Whole system,
     // every funder; the numbers decide, the page does not.
-    const LPS_VERDICT = { over: { label: 'over-supported', cls: 'bg-red-500/15 text-red-300', tip: 'receives at least 1.5× the vote share its work earns' }, under: { label: 'under-supported', cls: 'bg-emerald-500/15 text-emerald-300', tip: 'earns at least 1.5× the vote share it receives' }, fair: { label: 'in line', cls: 'bg-white/5 text-gray-300', tip: 'votes received within 1.5× of what its work earns' }, wind: { label: 'winding down', cls: 'bg-red-500/10 text-red-300/80', tip: 'holds an asset being wound down — not supportable' }, nodata: { label: 'not measurable', cls: 'bg-white/5 text-gray-500', tip: 'no trading data to measure what it earns (single-asset gauge, or a DEX that publishes no volume)' } };
+    const LPS_VERDICT = { over: { label: 'over-supported', cls: 'bg-red-500/15 text-red-300', tip: 'receives at least 1.5× the vote share its work earns' }, under: { label: 'under-supported', cls: 'bg-emerald-500/15 text-emerald-300', tip: 'earns at least 1.5× the vote share it receives' }, fair: { label: 'in line', cls: 'bg-white/5 text-gray-300', tip: 'votes received within 1.5× of what its work earns' }, wind: { label: 'replaced asset', cls: 'bg-red-500/10 text-red-300/80', tip: 'holds an asset Terra has moved away from — left out of the field' }, nodata: { label: 'not measurable', cls: 'bg-white/5 text-gray-500', tip: 'no trading data to measure what it earns (single-asset gauge, or a DEX that publishes no volume)' } };
     function lpsSystem(D) {
         const { series: S, config: C } = D; const sc = C.scorecard;
         const wf = LPScorecard.windowFacts(S, C, { asOf: lpsState.asOf, window: lpsState.window });
@@ -5786,7 +5788,7 @@
                     const small = all.filter(r => (r.verdict === 'nodata' || r.verdict === 'wind') && r.recv < 0.01); const rows = all.filter(r => small.indexOf(r) < 0); let nn = 0; rows.forEach(r => { r.n = (r.verdict === 'nodata' || r.verdict === 'wind') ? null : ++nn; });
                     const n = (v) => B.rows.filter(r => r.verdict === v).length;
                     return `<div class="mt-3 first:mt-0"><div class="flex items-center justify-between flex-wrap gap-2 px-2 py-1.5 mb-1 rounded bg-white/[0.04] border-l-2 border-cyan-400/50"><div class="text-[12px] font-semibold text-gray-100">${lpsEsc(LPS_BUCKET[b] || b)} bucket <span class="text-[10px] font-normal text-gray-500">${B.emission != null ? Math.round(B.emission * 100) + '% of TLA emissions · ' : ''}${fmtNum(Math.round(B.voteTot))} VP · bribes ${lpsUsd(B.bribeTot)}</span></div><div class="text-[10px] flex gap-1">${n('under') ? `<span class="px-1.5 rounded ${LPS_VERDICT.under.cls}">${n('under')} under</span>` : ''}${n('over') ? `<span class="px-1.5 rounded ${LPS_VERDICT.over.cls}">${n('over')} over</span>` : ''}${n('fair') ? `<span class="px-1.5 rounded ${LPS_VERDICT.fair.cls}">${n('fair')} in line</span>` : ''}</div></div>
-                        <div class="space-y-1">${rows.map(row).join('')}</div>${small.length ? `<div class="text-[10px] text-gray-600 px-2 pt-1">+ ${small.length} small pool${small.length > 1 ? 's' : ''} with no trading data or winding down, ${(small.reduce((s2, r) => s2 + r.recv, 0) * 100).toFixed(1)}% of the bucket's votes together: ${small.map(r => lpsEsc(poolDisplayName(r.f.name)) + ' (' + (r.f.dex || '').replace('SkeletonSwap', 'Skeleton') + ')').join(', ')}</div>` : ''}</div>`; }).join('')}
+                        <div class="space-y-1">${rows.map(row).join('')}</div>${small.length ? `<div class="text-[10px] text-gray-600 px-2 pt-1">+ ${small.length} small pool${small.length > 1 ? 's' : ''} with no trading data or holding a replaced asset, ${(small.reduce((s2, r) => s2 + r.recv, 0) * 100).toFixed(1)}% of the bucket's votes together: ${small.map(r => lpsEsc(poolDisplayName(r.f.name)) + ' (' + (r.f.dex || '').replace('SkeletonSwap', 'Skeleton') + ')').join(', ')}</div>` : ''}</div>`; }).join('')}
             </div></div>
             <div class="text-[10px] text-gray-600 mt-3">A pool can be over-supported for reasons the data cannot see — a new pool being bootstrapped, a migration, an ally the voters chose to back. The verdict measures the gap; readers judge the reason. Click any row for its grade, ranks across windows and the numbers behind both bars.</div>
         </div>`;
@@ -5961,7 +5963,7 @@
             ${g.rows.map(r => { const d = r.formula_luna == null ? null : r.luna - r.formula_luna; return `<div class="grid gap-x-2 items-center text-[11px] px-2 py-1 border-t border-white/[0.04] ${r.luna > 0 ? '' : 'opacity-70'}" style="${cols}"><div class="truncate ${r.luna > 0 ? 'text-gray-100' : 'text-gray-400'}">${lpsEsc(nm(r.id))}${r.winding ? ' <span class="text-[9px] text-red-300/80">winding</span>' : ''}${r.small ? ' <span class="text-[9px] text-gray-600" title="under the depth floor">tiny</span>' : ''}</div><div class="text-right mono text-gray-300">${r.score == null ? '—' : r.score.toFixed(2)}</div><div class="text-center mono text-gray-500">${r.formula_rank ? '#' + r.formula_rank : '—'}</div><div class="text-right mono ${r.weight ? 'text-purple-200 font-semibold' : 'text-gray-600'}">${r.weight == null ? '?' : r.weight || '—'}</div><div class="text-right mono ${r.luna ? 'text-purple-300' : 'text-gray-600'}">${r.luna ? lpsN(r.luna) : '—'}</div><div class="text-right mono text-gray-400">${r.formula_luna == null ? '—' : lpsN(r.formula_luna)}</div><div class="text-right mono ${d == null ? 'text-gray-700' : Math.abs(d) < Math.max(25, 0.15 * Math.max(r.luna, r.formula_luna || 0)) ? 'text-gray-500' : d > 0 ? 'text-emerald-300' : 'text-red-300'}">${d == null ? '—' : (d >= 0 ? '+' : '−') + lpsN(Math.abs(d))}</div><div class="text-[10px] ${r.flags.length ? 'text-amber-200/90' : 'text-gray-600'}">${r.flags.length ? lpsEsc(r.flags.join(' · ')) : (r.luna > 0 ? 'follows the formula' : '')}</div></div>`; }).join('')}</div>`;
         // every other TLA pool in the gauge at the time (owner: "make sure we aren't leaving any out") — with why it has no score
         const wfA = LPScorecard.windowFacts(S, C, { asOf: A.asOf, window: lpsState.aWin }); const inRows = new Set(A.gauges.flatMap(g => g.rows.map(r => r.id)));
-        const whyNot = (f) => f.winding ? 'winding down — left out of the field' : f.liquidity == null ? 'no liquidity captured in the window' : f.liquidity < 1000 ? 'under $1K liquidity' : f.volume == null ? (/skel/i.test(f.dex || '') ? 'no volume (SkeletonSwap API)' : f.is_single ? 'single-asset gauge — no trading to score' : 'no trading data in the window') : 'not in the scoring field';
+        const whyNot = (f) => f.winding ? 'holds a replaced asset — left out of the field' : f.liquidity == null ? 'no liquidity captured in the window' : f.liquidity < 1000 ? 'under $1K liquidity' : f.volume == null ? (/skel/i.test(f.dex || '') ? 'no volume (SkeletonSwap API)' : f.is_single ? 'single-asset gauge — no trading to score' : 'no trading data in the window') : 'not in the scoring field';
         const others = {}; wfA.pools.forEach(f => { if (!f.tla || inRows.has(f.id) || !f.bucket) return; if (!(f.vp > 0 || f.active || f.liquidity > 0)) return; (others[f.bucket] = others[f.bucket] || []).push(f); });
         const othersHtml = (gauge) => { const L = (others[gauge] || []).sort((a, b) => (b.liquidity || 0) - (a.liquidity || 0)); if (!L.length) return '';
             return `<details class="border-t border-white/[0.04]"><summary class="cursor-pointer text-[10px] text-gray-500 px-2 py-1">${L.length} more pool${L.length > 1 ? 's' : ''} in this gauge with no score — and why</summary>${L.map(f => `<div class="grid gap-x-2 items-center text-[11px] px-2 py-0.5 opacity-60" style="${cols}"><div class="truncate text-gray-400">${lpsEsc(poolDisplayName(f.name))}</div><div class="text-right text-gray-600">—</div><div class="text-center text-gray-600">—</div><div class="text-right text-gray-600">—</div><div class="text-right text-gray-600">—</div><div class="text-right mono text-gray-600">${lpsUsd(f.liquidity)}</div><div></div><div class="text-[10px] text-gray-500">${lpsEsc(whyNot(f))}</div></div>`).join('')}</details>`; };
@@ -9795,7 +9797,7 @@
         // this epoch" (an event) — this is the standing set of inactive pools.
         // =====================================================================
         const inactiveNow = applyMemberFilter(
-            poolsWithPct.filter(p => p.is_active !== true && p.bucketPct < 1 && (p.vp || 0) > 0)
+            poolsWithPct.filter(p => p.is_active !== true && (p.bucketPct < 1 || p.off_list) && (p.vp || 0) > 0)   // T8.10: a pool off the reward list earns nothing whatever its vote share
         ).sort((a, b) => (b.tla_staked || 0) - (a.tla_staked || 0));  // most TLA-staked first (biggest $ being eroded by take rate)
         const ciC = document.getElementById('threshold-currently-inactive');
         if (ciC) {
@@ -9805,12 +9807,12 @@
                 const row = (p, hidden) => `
                     <div class="flex items-center justify-between p-3 rounded-lg bg-red-500/[0.04] border border-red-500/10 hover:bg-red-500/[0.08] transition-colors ci-pool-item ${hidden ? 'ci-pool-hidden hidden' : ''}">
                         <div class="flex flex-col gap-1">
-                            <div class="flex items-center gap-2"><span class="font-medium text-gray-300">${p.name}</span><span class="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">inactive</span></div>
+                            <div class="flex items-center gap-2"><span class="font-medium text-gray-300">${p.name}</span><span class="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400" ${p.off_list ? 'title="This pool was taken off its bucket\u2019s reward list. Votes left on it earn nothing."' : ''}>${p.off_list ? 'off the reward list' : 'inactive'}</span></div>
                             <div class="flex items-center gap-1">${getDexLabel(p.dex)}${getBucketBadge(p.bucket)}</div>
                         </div>
                         <div class="text-right cursor-pointer hover:scale-105 transition-transform pool-history-trigger bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg px-3 py-2" data-pool="${p.name}" data-bucket="${p.bucket}" title="Click for history">
                             <div class="mono text-red-400/90 font-bold flex items-center gap-1">${fmt$(p.tla_staked || 0)}<i class="fas fa-chart-line text-[10px] opacity-60"></i></div>
-                            <div class="text-[10px] text-gray-500">staked \u00b7 ${p.bucketPct.toFixed(2)}% (need 1%)</div>
+                            <div class="text-[10px] text-gray-500">staked \u00b7 ${p.off_list ? p.bucketPct.toFixed(2) + '% of the votes, earning nothing' : p.bucketPct.toFixed(2) + '% (need 1%)'}</div>
                         </div>
                     </div>`;
                 const visible = inactiveNow.slice(0, 3).map(p => row(p, false)).join('');
@@ -10442,7 +10444,11 @@
         const sortKey = store.poolsSort || 'staked', sortDir = store.poolsSortDir || -1;
         const grades = {}; for (const g of (store.lpGrades?.pools || [])) grades[g.gauge_pool_id] = g;
         const liqBy = {}; for (const t of (store.tlaPools || [])) liqBy[`${t.name}|${(t.dex || '')}`] = t;
-        const liqOf = (p) => liqBy[`${p.name}|${p.dex || ''}`] || (store.tlaPools || []).find(t => t.name === p.name) || null;
+        // T8.10: joined by the gauge id first. The name-only fallback gave SkeletonSwap's LUNA-EURe the Astroport pool's stake and
+        // emissions (the Stable header counted that pool twice); it is kept only for a name no other pool shares.
+        const liqByGid = {}; for (const t of (store.tlaPools || [])) if (t.gauge_pool_id) liqByGid[t.gauge_pool_id] = t;
+        const nameCount = {}; for (const q of (store.pools || [])) nameCount[q.name] = (nameCount[q.name] || 0) + 1;
+        const liqOf = (p) => (p.gauge_pool_id && liqByGid[p.gauge_pool_id]) || liqBy[`${p.name}|${p.dex || ''}`] || (nameCount[p.name] === 1 ? (store.tlaPools || []).find(t => t.name === p.name) : null) || null;
         const selM = (typeof getSelectedMember === 'function') ? getSelectedMember() : null;
         const myPos = new Map(); for (const lp of (selM && selM.lp_positions || [])) { const k = `${lp.pool_name}|${String(lp.bucket || '').toUpperCase()}`; const cur = myPos.get(k) || { usd: 0, share: 0 }; cur.usd += lp.estimated_position_usd || 0; cur.share = Math.max(cur.share, lp.pool_share_pct || 0); myPos.set(k, cur); }
         const live = store.livePots && Number(store.livePots.period) === Number(store.votionOptPeriod || store.epoch) ? store.livePots : null;
@@ -14000,7 +14006,7 @@
     <!-- Vercel Web Analytics (auto-enabled for Vercel-hosted sites) -->
     <script defer src="/_vercel/insights/script.js"></script>
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T6.13.5', revDate: '2026-09-27', page: 'tla-stats' });   // T6.13.5: the Member Portfolio tab is live (was greyed SOON) · T6.13.4: Noble USDC sweep — the Pools tab's wind-down pill reads lp-grades' alerts (the tla-snapshot row it was handed carries none, so it never showed) · T6.13.3: tile 1.1.1 — "Voting closes in" names the real deadline (Sun 23:59 UTC), not Votion's ~21:20 cast · T6.13.2: Vote Market tile 1.1.0 — the footer bar is gone; the filters are one compact toolbar ($ segments · Bucket · Rank by) · T6.13.1: a stray </div> after the Vote Market card closed its row early, so Movers This Epoch fell below it — Movers sits beside the tile again · T6.13: the Vote Market tile runs on the simulator's engine (lib/vote-market-tile.js 1.0.0) — Where $ does the most · Votion's next move (real VP) · Pots & rates, one pot total with the planner, the cast time from Votion's timing, a best-split teaser for the selected wallet, and the simulator one click from the header, every row and the footer · T6.12: the Vote Market tile shows Votion's next move only (the $X chips and their fine print are gone — the planner does that) + wind-down pills on its pool names · T6.11: the tile opens the planner (/vote-market.html) ·    // T6.10: the Pools tab's bucket charts plot votes — every pool in the bucket, its TLA VP or share of the bucket over the last 13 epochs (a 1% line on the share view; click an epoch for its whole vote); Liquidity & volume is still one pick away.   // T6.9: the Vote Breakdown shows any past epoch (Past epochs… picker, change vs the epoch before); bars never run off the card (the scale covers the locked-in outline; labels sit inside when long); the pool drill-down charts give each epoch's exact number on hover and jump to that epoch's whole vote.   // T6.8: every pool named before anything keys on names (Votion plan title / catalog underlyings for raw-address pools; a dewhitelisted twin gauge is "(old)" instead of hiding the live one)
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T8.10', revDate: '2026-11-24', page: 'tla-stats' });   // T8.10 (2026-11-24, pre-promotion health check): the footer rev had stayed at T6.13.5 through T7.0–T8.9.1; the tab title no longer ends in "TEST"; link-preview image is an absolute URL; a pool off its bucket's reward list (tla-snapshot 1.2.0) is listed under Currently inactive as "off the reward list" whatever its vote share; the asset notice is the curated one-liner only ("Terra has moved to USDC.inj" — owner); the unused August bribe-state download is gone · T6.13.5: the Member Portfolio tab is live (was greyed SOON) · T6.13.4: Noble USDC sweep — the Pools tab's wind-down pill reads lp-grades' alerts (the tla-snapshot row it was handed carries none, so it never showed) · T6.13.3: tile 1.1.1 — "Voting closes in" names the real deadline (Sun 23:59 UTC), not Votion's ~21:20 cast · T6.13.2: Vote Market tile 1.1.0 — the footer bar is gone; the filters are one compact toolbar ($ segments · Bucket · Rank by) · T6.13.1: a stray </div> after the Vote Market card closed its row early, so Movers This Epoch fell below it — Movers sits beside the tile again · T6.13: the Vote Market tile runs on the simulator's engine (lib/vote-market-tile.js 1.0.0) — Where $ does the most · Votion's next move (real VP) · Pots & rates, one pot total with the planner, the cast time from Votion's timing, a best-split teaser for the selected wallet, and the simulator one click from the header, every row and the footer · T6.12: the Vote Market tile shows Votion's next move only (the $X chips and their fine print are gone — the planner does that) + wind-down pills on its pool names · T6.11: the tile opens the planner (/vote-market.html) ·    // T6.10: the Pools tab's bucket charts plot votes — every pool in the bucket, its TLA VP or share of the bucket over the last 13 epochs (a 1% line on the share view; click an epoch for its whole vote); Liquidity & volume is still one pick away.   // T6.9: the Vote Breakdown shows any past epoch (Past epochs… picker, change vs the epoch before); bars never run off the card (the scale covers the locked-in outline; labels sit inside when long); the pool drill-down charts give each epoch's exact number on hover and jump to that epoch's whole vote.   // T6.8: every pool named before anything keys on names (Votion plan title / catalog underlyings for raw-address pools; a dewhitelisted twin gauge is "(old)" instead of hiding the live one)
     //   // T6.7: pots price off the feed by the catalog symbol (network-and-prices 3.1.0); the T6.5 page bridge is gone · T6.6 (step 5): the Vote Market's +$X cell carries Votion's own threshold flags for the bucket (moves / holds, its published gain) and the per-bucket back-test error; a header chip shows the mean model-vs-plan error. Words + one derived number; no layout change.   // T6.5: live pots price through the catalog's own price when the feed keys a symbol differently (USDC.n vs USDC); a pot with tokens is never 'not funded' — the LUNA-EURe $10 pot for p203 was funded all along.   // T6.4: the Top-by-APR subline names the LUNA price the product is on (live / day price, as-of) and the trading-leg caveat for the four pools that read lower than Eris. Words only.   // T6.3: the Bribes popup reads the rollup too (1.1.0 oracle join); footer says why an epoch can be missing.   // T6.2: hero-tile popups read member-data/tla-snapshot/epoch-history.json (every epoch since E184 for pools / TVL / rewards / voting VP, APR from E196, on the tiles' own basis; bribes keep their live point until the oracle join); the band product is used only for epochs the rollup lacks — no mixed definitions. In place under the freeze.   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
 </body>
 </html>

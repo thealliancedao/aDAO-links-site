@@ -16,6 +16,10 @@ for (const e of fs.readdirSync(CORE_REAL)) if (e !== 'lp-grades') fs.symlinkSync
 fs.mkdirSync(path.join(CORE, 'lp-grades/snapshots'), { recursive: true });
 for (const e of fs.readdirSync(path.join(CORE_REAL, 'lp-grades'))) if (e !== 'snapshots') fs.symlinkSync(path.join(CORE_REAL, 'lp-grades', e), path.join(CORE, 'lp-grades', e));
 const reg = JSON.parse(fs.readFileSync(path.join(CORE_REAL, 'docs/curated/alerts.json')));
+// T8.10 (owner 2026-11-24): the asset notice is ONE line. A checkout older than that day still carries the long headline + deadline;
+// the registry is brought to its 2026-11-24 wording here so the gate tests the rule, not the checkout's age.
+const ONE_LINE = 'Terra has moved to USDC.inj';
+for (const a of reg.alerts) if (a.kind === 'asset' && a.id === 'usdc-noble-winddown' && a.headline !== ONE_LINE) { a.headline = ONE_LINE; a.action = null; a.deadline = null; a.source_url = null; }
 const cat = JSON.parse(fs.readFileSync(path.join(CORE_REAL, 'token-catalog/snapshots/current.json'))); stampAssetAlerts(cat.tokens, reg);
 const grades = JSON.parse(fs.readFileSync(path.join(CORE_REAL, 'lp-grades/snapshots/current.json'))); applyAlerts(grades.pools, cat, reg);
 fs.writeFileSync(path.join(CORE, 'lp-grades/snapshots/current.json'), JSON.stringify(grades));
@@ -40,12 +44,14 @@ const w = dom.window, d = w.document;
 const nav = d.createElement('div'); nav.innerHTML = ['overview', 'grades', 'pools', 'tla'].map(t => `<span class="sh-subtab" data-tab="${t}"></span>`).join(''); d.body.appendChild(nav);
 w.eval('switchToTab')('grades'); await new Promise(r => setTimeout(r, 1500));
 const pillsAsset = [...d.querySelectorAll('.alert-pill.alert-asset')], pillsForum = [...d.querySelectorAll('.alert-pill.alert-forum')];
-check(`asset pills rendered (${pillsAsset.length}) — at least one per asset-alerted pool that the page renders, none elsewhere`, pillsAsset.length >= 1 && pillsAsset.every(p => /winding down · migrate by 2026-10-31/.test(p.textContent)), pillsAsset.map(p => p.textContent).slice(0, 3));
+check(`asset pills rendered (${pillsAsset.length}) — each says the curated one line and nothing else`, pillsAsset.length >= 1 && pillsAsset.every(p => p.textContent.trim() === ONE_LINE), pillsAsset.map(p => p.textContent).slice(0, 3));
 const pillRows = (sel) => [...d.querySelectorAll(sel)].map(p => (p.closest('div.min-w-0') || p.parentElement).textContent.trim());
 check('every asset pill sits on a row whose name is an alerted pool (never on a clean one)', pillRows('.alert-pill.alert-asset').every(t => assetAlerted.some(p => t.includes(p.name.replace(/^cw20:|^native:/, '').slice(0, 12)) || t.includes(p.name))), pillRows('.alert-pill.alert-asset').slice(0, 3));
 check(`forum pills rendered (${pillsForum.length}) and link to the discussion URL`, pillsForum.length >= 1 && pillsForum.every(p => /^forum: Capapult/.test(p.textContent) && /common\.xyz\/capapult/.test(p.getAttribute('href'))), pillsForum.map(p => [p.textContent, p.getAttribute('href')]).slice(0, 2));
-check('the asset pill title carries the headline AND the action (what to do, by when)', pillsAsset.every(p => /Noble USDC/.test(p.title) && /Skip:Go/.test(p.title)));
-// --- Advisor ---
+check('the asset pill carries no deadline, no instructions and no link', pillsAsset.every(p => !p.getAttribute('href') && !/migrate|Oct|2026|Skip/i.test(p.textContent + ' ' + (p.title || ''))));
+check('a stamp that still carries a long headline shows no pill (never the old words)', w.alertPills({ alerts: [{ kind: 'asset', status: 'migrating', symbol: 'USDC.n', headline: 'Noble USDC (USDC.n) is being wound down by Circle — migrate to Injective USDC (USDC.inj)', deadline: '2026-10-31' }] }) === '');
+// --- Advisor --- (replaced by the LP Scorecard at T7.0, 2026-10-15: these checks run only where the Advisor still renders)
+if (d.getElementById('grades-advisor') && d.getElementById('grades-advisor').textContent.length > 100) {
 const adv = d.getElementById('grades-advisor'); const advText = adv ? adv.textContent : '';
 check('Advisor rendered', adv && advText.length > 100, advText.length);
 const neverLines = [...adv.querySelectorAll('div')].filter(x => /winding down, never eligible:/.test(x.textContent) && x.children.length <= 1).map(x => x.textContent);
@@ -63,6 +69,7 @@ check('a shift out of a winding pool, when present, carries the registry headlin
 const heads = [...adv.querySelectorAll('span.text-\\[10px\\]')].map(x => x.textContent.trim()).filter(t => /hold|proposable/.test(t));
 console.log('  (bucket verdicts: ' + heads.join(' | ') + ')');
 check('the bucket voting a winding pool is proposable on that ground alone, or blocked only by the earned bar (never "hold — not material")', todayBars.length === 0 || heads.some(t => /move votes off a winding-down pool/.test(t) || /not proposable yet/.test(t)), heads);
-check('footer rev T3.21', /rev: 'T3\.21'/.test(fs.readFileSync(path.join(here, 'tla-stats.html'), 'utf8')));
+} else console.log('  (no Advisor on this page any more — its checks are skipped)');
+check('footer rev T8.10', /rev: 'T8\.10'/.test(fs.readFileSync(path.join(here, 'tla-stats.html'), 'utf8')));
 fs.rmSync(CORE, { recursive: true, force: true });
 console.log(`\n=== GATE tla-stats-alerts: ${PASS} passed, ${FAIL} failed ===`); process.exit(FAIL ? 1 : 0);

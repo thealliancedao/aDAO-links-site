@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// gate-winddown.mjs — the Noble USDC sweep (lib/winddown.js 1.0.0 and every page that uses it) on REAL fixtures.
+// gate-winddown.mjs — the Noble USDC sweep (lib/winddown.js and every page that uses it) on REAL fixtures.
+// 2026-11-24 (lib 1.1.0, owner): the notice is ONE line — "Terra has moved to USDC.inj" — no deadline, no instructions, no links;
+// the holder checks are data-driven (by now nobody may hold USDC.n: then there must be no banner and no pill at all).
 // A. the lib against the committed products: curated alerts.json + lp-grades + member-data positions/participants + Lion DAO positions
 //    (expected values are computed here from the raw rows, independent of the lib)
 // B. the pages in jsdom with their own scripts: liondao/dao_treasury.html (a USDC.n balance row pill + one banner for that wallet),
@@ -31,7 +33,7 @@ ok('forPool: every lp-grades gauge stamped upstream (' + flagged.length + ') res
 ok('forPool: an unflagged gauge does not resolve', grades.pools.filter(p => !(p.alerts || []).length).every(p => !W.forPool(p.gauge_pool_id)));
 const pos = J(path.join(CORE, 'member-data/positions/current.json'));
 const tre = W.scan({ lps: pos.treasury.lp_positions, balances: pos.treasury.wallet_balances }); const treExp = pos.treasury.lp_positions.reduce((a, l) => a + legUsd(l), 0) + balUsd(pos.treasury.wallet_balances);
-ok('aDAO treasury: scan = ' + treExp.toFixed(2) + ' USD of USDC.n (the USDC.nbl-SOLID leg)', tre.length === 1 && Math.abs(tre[0].usd - treExp) < 0.01 && tre[0].lps === 1, tre);
+ok('aDAO treasury: scan = ' + treExp.toFixed(2) + ' USD of USDC.n' + (treExp > 0 ? ' (the USDC.nbl-SOLID leg)' : ' — it holds none today, so nothing is flagged'), treExp > 0 ? (tre.length === 1 && Math.abs(tre[0].usd - treExp) < 0.01 && tre[0].lps === 1) : tre.length === 0, tre);
 const part = J(path.join(CORE, 'member-data/participants/current.json')).members;
 let hitsN = 0, hitsUsd = 0, expN = 0, expUsd = 0, dustOnly = 0;
 for (const m of part) { const s = W.scan({ lps: m.lp_positions, balances: m.wallet_balances }); const e = (m.lp_positions || []).reduce((a, l) => a + legUsd(l), 0) + balUsd(m.wallet_balances); if (s.length) { hitsN++; hitsUsd += s[0].usd; } if (e > 0) { expN++; expUsd += e; } if (!e && (m.lp_positions || []).some(l => (l.underlying_token_amounts || []).some(isN))) dustOnly++; }
@@ -42,8 +44,10 @@ const lionHits = Object.entries(lion.wallets).map(([a, w]) => ({ a, w, s: W.scan
 const lionExp = Object.entries(lion.wallets).map(([a, w]) => ({ a, e: balUsd(w.balances) + ((w.portfolio || {}).lp_positions || []).reduce((s, l) => s + legUsd(l), 0) })).filter(x => x.e > 0);
 ok('Lion DAO: ' + lionExp.length + ' wallet(s) hold USDC.n ≥ $1 — ' + lionExp.map(x => x.a.slice(-6) + ' $' + x.e.toFixed(2)).join(', '), lionHits.length === lionExp.length && lionHits.every(h => Math.abs(h.s[0].usd - lionExp.find(x => x.a === h.a).e) < 0.01), lionHits.map(h => [h.a.slice(-6), h.s[0].usd]));
 const b = WDL.banner({ alert: AL, usd: 3756.15, n: 1 }, { who: 'X', now: Date.parse('2026-09-27T12:00:00Z') });
-ok('banner: who · amount · move to USDC.inj by Oct 31 (34 days on 09-27) · both curated links', /X holds \$3,756 of USDC\.n/.test(T(new JSDOM(b).window.document.body)) && /USDC\.inj by Oct 31 \(35 days\)|USDC\.inj by Oct 31 \(34 days\)/.test(T(new JSDOM(b).window.document.body)) && AL.links.every(l => b.includes(l.url)), T(new JSDOM(b).window.document.body));
-ok('pill links the step-by-step migration doc and says "USDC.n ending · move by Oct 31"', WDL.pill(AL).includes(AL.links[0].url) && /USDC\.n ending · move by Oct 31/.test(T(new JSDOM(WDL.pill(AL)).window.document.body)));
+const bT = T(new JSDOM(b).window.document.body);
+ok('banner: who · amount · the one line — no deadline, no instructions, no links', /X holds \$3,756 of USDC\.n in 1 place · Terra has moved to USDC\.inj$/.test(bT.trim()) && !/Oct 31|wound|redemption|snapshot/i.test(bT) && !/href=/.test(b), bT);
+ok('pill says the one line (short: "moved to USDC.inj") and links nowhere', T(new JSDOM(WDL.pill(AL)).window.document.body).trim() === 'Terra has moved to USDC.inj' && T(new JSDOM(WDL.pill(AL, { short: true })).window.document.body).trim() === 'moved to USDC.inj' && !/href=/.test(WDL.pill(AL)) && WDL.line(AL) === 'Terra has moved to USDC.inj');
+ok('an entry with neither a one-line headline nor a replacement shows nothing', WDL.pill({ symbol: 'X', headline: 'x'.repeat(80) }) === '' && WDL.notice({ symbol: 'X', headline: 'x'.repeat(80) }) === '' && WDL.banner({ alert: { symbol: 'X', headline: 'x'.repeat(80) }, usd: 5, n: 1 }) === '');
 ok('an inactive entry never flags (status → resolved)', WDL.build({ alerts: [Object.assign({}, AL, { status: 'resolved' })] }, grades).alerts.length === 0 && !WDL.build({ alerts: [Object.assign({}, AL, { status: 'resolved' })] }, null).forDenom(DEN));
 
 console.log('— B. pages (jsdom, the page\'s own script)');
@@ -63,9 +67,9 @@ async function run(file, libs, wait) {
 }
 const LDLIBS = ['lib/collection-context.js', 'lib/site-header.js', 'liondao/lib/ld.js', 'lib/cron-registry.js', 'lib/site-footer.js', 'lib/winddown.js'];
 { const w = await run('liondao/dao_treasury.html', LDLIBS); const d = w.document; const hold = d.getElementById('holdings');
-  const exp = lionExp.sort((a, b) => b.e - a.e)[0]; const label = (J(path.join(CORE, 'docs/curated/tenants.json')).tenants.liondao.wallets[exp.a] || {}).label;
+  const exp = lionExp.sort((a, b) => b.e - a.e)[0] || null; const label = exp ? (J(path.join(CORE, 'docs/curated/tenants.json')).tenants.liondao.wallets[exp.a] || {}).label : null;
   ok('Lion DAO treasury: one banner per holding wallet (' + lionExp.length + ')', hold && hold.querySelectorAll('.wd-banner').length === lionExp.length, T(hold).slice(0, 200));
-  ok('the banner names the wallet (' + label + ') and $' + Math.round(exp.e).toLocaleString('en-US'), hold && label && T(hold.querySelector('.wd-banner')).includes(label + ' holds $' + Math.round(exp.e).toLocaleString('en-US')), hold && T(hold.querySelector('.wd-banner')));
+  if (exp) ok('the banner names the wallet (' + label + ') and $' + Math.round(exp.e).toLocaleString('en-US') + ', then the one line', hold && label && T(hold.querySelector('.wd-banner')).includes(label + ' holds $' + Math.round(exp.e).toLocaleString('en-US')) && /Terra has moved to USDC\.inj/.test(T(hold.querySelector('.wd-banner'))), hold && T(hold.querySelector('.wd-banner')));
   const pills = hold ? [...hold.querySelectorAll('tr .wd-pill')] : []; ok('the USDC.n balance row carries the pill (' + lionExp.length + ' row); the dust validator balance does not', pills.length === lionExp.length && pills.every(p => /USDC\.n/.test(T(p.closest('tr')))), pills.map(p => T(p.closest('tr')).slice(0, 80)));
   ok('page rev 1.1', /1\.1/.test(T(d.getElementById('page-rev')) || d.body.innerHTML.includes("REV = '1.1'")));
   // lib missing → the page renders as before, no flag, no crash
@@ -74,15 +78,17 @@ const LDLIBS = ['lib/collection-context.js', 'lib/site-header.js', 'liondao/lib/
   ok('Lion DAO TLA: ' + expLp + ' LP(s) with a USDC.n leg ≥ $1 → ' + expLp + ' pill(s) (the 1e-6 dust leg is not flagged)', d.querySelectorAll('#pools .wd-pill').length === expLp && d.querySelectorAll('#pools .wd-banner').length === (expLp ? 1 : 0), T(d.getElementById('pools')).slice(0, 160)); }
 { const w = await run('dao_tla_deposits.html', ['lib/tla-decompose.js', 'lib/adao-live-data.js', 'lib/winddown.js', 'lib/cron-registry.js', 'lib/site-footer.js'], 6000); const d = w.document; const c = d.getElementById('positions-table');
   const row = c && [...c.querySelectorAll('tr.pool-row')].find(r => r.querySelector('.wd-pill'));
-  ok('aDAO TLA deposits: the treasury banner ($' + treExp.toFixed(2) + ' of USDC.n in 1 place)', c && c.querySelectorAll('.wd-banner').length === 1 && T(c.querySelector('.wd-banner')).includes('$' + treExp.toFixed(2) + ' of USDC.n in 1 place'), c && T(c).slice(0, 200));
-  ok('the pill sits on the USDC.nbl-SOLID row, and only there', row && /USDC\.nbl-SOLID/.test(T(row)) && c.querySelectorAll('.wd-pill').length === 1, c && [...c.querySelectorAll('.wd-pill')].map(p => T(p.closest('tr')).slice(0, 40))); }
+  if (treExp > 0) {
+    ok('aDAO TLA deposits: the treasury banner ($' + treExp.toFixed(2) + ' of USDC.n in 1 place)', c && c.querySelectorAll('.wd-banner').length === 1 && T(c.querySelector('.wd-banner')).includes('$' + treExp.toFixed(2) + ' of USDC.n in 1 place'), c && T(c).slice(0, 200));
+    ok('the pill sits on the USDC.nbl-SOLID row, and only there', row && /USDC\.nbl-SOLID/.test(T(row)) && c.querySelectorAll('.wd-pill').length === 1, c && [...c.querySelectorAll('.wd-pill')].map(p => T(p.closest('tr')).slice(0, 40)));
+  } else ok('aDAO TLA deposits: the treasury holds no USDC.n today → no banner, no pill', c && c.querySelectorAll('.wd-banner').length === 0 && c.querySelectorAll('.wd-pill').length === 0, c && T(c).slice(0, 200)); }
 { // index 4.41: the strip snippet exactly as the page runs it
   const src = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8'); const line = src.split('\n').find(l => l.includes("document.getElementById('winddown-strip')"));
   const dom = new JSDOM('<div id="winddown-strip"></div>', { runScripts: 'outside-only' }); dom.window.eval(fs.readFileSync(path.join(SITE, 'lib/winddown.js'), 'utf8'));
   dom.window.a = alertsDoc; dom.window.g = grades; dom.window.eval(line.trim().replace(/\/\/ 4\.41$/, ''));
   const t = T(dom.window.document.getElementById('winddown-strip'));
-  ok('index strip: "USDC.n is ending · Move to USDC.inj by Oct 31 · ' + flagged.length + ' TLA pools hold it · How to migrate"', /USDC\.n is ending/.test(t) && /Move to USDC\.inj by Oct 31/.test(t) && t.includes(flagged.length + ' TLA pools hold it') && /How to migrate/.test(t), t);
-  ok('index: the strip sits above the Alert Center and the lib is loaded', /id="winddown-strip"[\s\S]{0,300}id="alert-center"/.test(src) && src.includes('/lib/winddown.js?v=1.0.0')); }
+  ok('index strip: the one line and nothing else', t.trim() === 'Terra has moved to USDC.inj', t);
+  ok('index: the strip sits above the Alert Center and the lib is loaded', /id="winddown-strip"[\s\S]{0,300}id="alert-center"/.test(src) && src.includes('/lib/winddown.js?v=1.1.0')); }
 { // tla-stats T6.13.4: the Pools tab pill reads lp-grades (the snapshot row carries no alerts)
   const src = fs.readFileSync(path.join(SITE, 'tla-stats.html'), 'utf8'); const snap = J(path.join(CORE, 'member-data/tla-snapshot/current.json'));
   ok('the tla-snapshot pool rows carry no alerts (why the pill was silent)', snap.pools.every(p => !p.alerts));
