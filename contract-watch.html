@@ -109,6 +109,7 @@
     .cw-line { font-size: .95rem; margin: .55rem 0 0; color: #d1d5db; }
     .cw-line.dim { color: var(--dim); }
     .cw-flag { margin: .6rem 0 0; padding: .5rem .7rem; border-left: 3px solid var(--amber); background: rgba(251,191,36,.07); border-radius: 0 8px 8px 0; font-size: .95rem; color: #fde68a; }
+    details.cw-sent summary { cursor: pointer; } details.cw-sent summary::marker { color: var(--faint); }
     .cw-sent { margin: .6rem 0 0; padding: .5rem .7rem; border-left: 3px solid var(--line); background: rgba(255,255,255,.035); border-radius: 0 8px 8px 0; font-size: .95rem; }
     .cw-rel { margin: .6rem 0 0; padding: .5rem .7rem; border-left: 3px solid var(--sky); background: rgba(125,211,252,.06); border-radius: 0 8px 8px 0; font-size: .95rem; }
     .cw-rel ul { margin: .3rem 0 0; padding-left: 1.1rem; list-style: disc; } .cw-rel li { margin: .15rem 0; }
@@ -266,7 +267,7 @@
 <script>
 (function () {
     'use strict';
-    const REV = '1.1.2', REV_DATE = '2026-11-25';   // 1.1.2: the catch-up as stretches of the chain, oldest first (November is read before September–October) · 1.1.1: the Latest line and the catch-up line read as one item / one stretch · 1.1: the message as sent, beside a change that was sent directly
+    const REV = '1.2', REV_DATE = '2026-11-25';   // 1.2: a role says which change on record set it to its holder (from that change's own message) · 1.1.2: the catch-up as stretches of the chain, oldest first (November is read before September–October) · 1.1.1: the Latest line and the catch-up line read as one item / one stretch · 1.1: the message as sent, beside a change that was sent directly
     const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
     const DAOO = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main';
     const TREE = 'https://github.com/thealliancedao/tla-core/tree/main';
@@ -333,6 +334,10 @@
         return { items, cut };
     }
 
+    function bookPairs(r) { const a = r && r.sent && r.sent.msg && r.sent.msg.set_addresses && r.sent.msg.set_addresses.addresses; return Array.isArray(a) && a.every((x) => Array.isArray(x) && x.length === 2 && typeof x[0] === 'string' && typeof x[1] === 'string') ? a : null; }
+    // the change on record that set a role to an address (the newest one whose own message names that pair)
+    function setBy(role, holder) { return S.recs.find((r) => !r.observed && (bookPairs(r) || []).some((p) => p[0] === role && p[1] === holder)) || null; }
+
     // ── a record in plain words ─────────────────────────────────────────────────────────────────────────────────────
     function describe(r) {
         const d = r.detail || {}, act = lastSeg(r.action), o = { title: '', items: [], note: '' };
@@ -355,7 +360,7 @@
         else if (r.action === 'update_admin') { o.title = 'Changed the admin — the address that can upgrade this contract'; o.items.push(`New admin: ${who(d.new_admin_address)}`); }
         else if (r.action === 'clear_admin') { o.title = 'Removed the admin: this contract can no longer be upgraded'; }
         else if (r.kind === 'code') { o.title = 'New contract code uploaded to the chain'; if (d.code_id) o.items.push(`Code id <b>${esc(d.code_id)}</b>`); }
-        else if (act === 'set_addresses' || act === 'set_address') { o.title = 'Changed the address book — which address holds each role'; o.note = r.sent && r.sent.msg ? '' : 'The transaction’s events do not say which role changed. The state read does: look for “Seen in a state read” on the address book.'; }
+        else if (act === 'set_addresses' || act === 'set_address') { const bp = bookPairs(r); o.title = bp ? `Changed the address book — set ${plural(bp.length, 'role')}` : 'Changed the address book — which address holds each role'; o.note = r.sent && r.sent.msg ? '' : 'The transaction’s events do not say which role changed. The state read does: look for “Seen in a state read” on the address book.'; }
         else if (act === 'update_asset_config') { o.title = 'Changed the settings of one asset on the reward list'; if (d.asset) o.items.push(assetHtml(d.asset)); }
         else if (r.kind === 'setting') { o.title = 'Changed a setting'; o.note = Object.keys(d).length || (r.sent && r.sent.msg) ? '' : 'The transaction’s events do not carry the new values.'; }
         else if (act === 'update_members') { o.title = 'Changed the DAO’s member list'; o.items.push(`${esc(d.added || '0')} added · ${esc(d.removed || '0')} removed`); }
@@ -539,14 +544,16 @@
         if (v && typeof v === 'object') { const ks = Object.keys(v); if (!ks.length) { out.push(`${label}<span class="id">no values</span>`); return; } for (const k of ks) sentLines(v[k], path.concat(k), out); return; }
         out.push(`${label}${typeof v === 'string' && isAddr(v) ? who(v, { plain: true }) : `<b>${esc(String(v))}</b>`}`);
     }
-    function sentHtml(r) {
+    function sentHtml(r, fold) {
         const st = r.sent; if (!st) return '';
         const elsewhere = st.to && st.to !== r.contract ? `<p class="cw-line dim">The message was sent to ${who(st.to, { plain: true })}; this contract changed as a result.</p>` : '';
         if (st.msg === undefined) return elsewhere;
         if (st.msg && st.msg.too_long) return `<div class="cw-sent"><b>The message as sent</b> is ${num(st.msg.too_long)} characters long and is not stored here; the transaction has it.</div>${elsewhere}`;
         const keys = st.msg && typeof st.msg === 'object' && !Array.isArray(st.msg) ? Object.keys(st.msg) : [];
         const out = []; sentLines(keys.length === 1 ? st.msg[keys[0]] : st.msg, [], out);
-        return `<div class="cw-sent"><b>The message as sent</b>${keys.length === 1 ? ` — <span class="mono">${esc(keys[0])}</span>` : ''}<ul class="cw-items">${out.map((x) => `<li>${x}</li>`).join('')}${out.more ? `<li><span class="id">…and ${num(out.more)} more value(s); the transaction has all of it</span></li>` : ''}</ul>${st.funds && st.funds.length ? `<p class="cw-line dim" style="margin:.3rem 0 0">With funds: ${st.funds.map((f) => `${esc(num(f.amount))} ${assetHtml('native:' + f.denom)}`).join(' · ')}</p>` : ''}</div>${elsewhere}`;
+        const head = `<b>The message as sent</b>${keys.length === 1 ? ` — <span class="mono">${esc(keys[0])}</span>` : ''}`;
+        const body = `<ul class="cw-items">${out.map((x) => `<li>${x}</li>`).join('')}${out.more ? `<li><span class="id">…and ${num(out.more)} more value(s); the transaction has all of it</span></li>` : ''}</ul>${st.funds && st.funds.length ? `<p class="cw-line dim" style="margin:.3rem 0 0">With funds: ${st.funds.map((f) => `${esc(num(f.amount))} ${assetHtml('native:' + f.denom)}`).join(' · ')}</p>` : ''}`;
+        return (fold ? `<details class="cw-sent"><summary>${head}</summary>${body}</details>` : `<div class="cw-sent">${head}${body}</div>`) + elsewhere;
     }
     function rowHtml(r, compact) {
         const d = describe(r), c = cinfo(r.contract), b = c.bucket ? bucketOf(c.bucket) : null;
@@ -557,7 +564,7 @@
             ${compact || !on ? '' : `<div class="cw-on">${on}</div>`}
             ${d.items.length ? `<ul class="cw-items">${d.items.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
             ${d.note ? `<p class="cw-line dim">${esc(d.note)}</p>` : ''}
-            ${sentHtml(r)}${howLine(r)}${flagHtml(r)}${relatedHtml(r)}
+            ${sentHtml(r, d.items.length > 0)}${howLine(r)}${flagHtml(r)}${relatedHtml(r)}
             <div class="cw-acts">${r.txhash ? `<a class="cw-btn" href="${EXPLORER}/tx/${esc(r.txhash)}" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i>Transaction</a>` : ''}<button type="button" class="cw-btn" data-copy="${esc(location.origin + location.pathname + '#k=' + encodeURIComponent(r.k))}"><i class="fas fa-link"></i>Copy link</button><span class="cw-line dim" style="margin:0;align-self:center">${esc(r.action)}${r.height ? ' · block ' + num(r.height) : ''}</span></div>
         </article>`;
     }
@@ -687,7 +694,7 @@
         if (!ab || !ab.entries) { el.innerHTML = `<div class="glass-card cw-empty">${S.ready ? 'The address book has not been read yet.' : 'Reading…'}</div>`; return; }
         const hist = roleHistory(), roles = Object.keys(ab.entries).sort();
         const isPointer = (role) => { const c = S.lib.byAddr.get(ab.entries[role]); return !!(c && c.role === role); };
-        const row = (role) => { const h = hist[role], last = h && h[0]; return `<tr class="${last ? 'changed' : ''}"><td><span class="mono" style="font-size:.92rem">${esc(role)}</span></td><td data-l="Now">${who(ab.entries[role], { plain: true })}</td><td data-l="Before">${last ? `${last.detail.before ? who(last.detail.before, { plain: true }) : 'not in the address book'}<div class="cw-was">at the read of ${esc(day(last.detail.seen_after))} · <a href="#k=${encodeURIComponent(last.k)}" data-jump="${esc(last.k)}">see the difference</a></div>` : '<span class="cw-line dim" style="margin:0">no difference on record</span>'}</td></tr>`; };
+        const row = (role) => { const h = hist[role], last = h && h[0]; return `<tr class="${last ? 'changed' : ''}"><td><span class="mono" style="font-size:.92rem">${esc(role)}</span></td><td data-l="Now">${who(ab.entries[role], { plain: true })}${(() => { const by = setBy(role, ab.entries[role]); return by ? `<div class="cw-was">Set to this holder on <a href="#k=${encodeURIComponent(by.k)}" data-jump="${esc(by.k)}">${esc(day(by.timestamp))} — ${esc(HOW_LABEL[by._how].toLowerCase())}</a></div>` : ''; })()}</td><td data-l="Before">${last ? `${last.detail.before ? who(last.detail.before, { plain: true }) : 'not in the address book'}<div class="cw-was">at the read of ${esc(day(last.detail.seen_after))} · <a href="#k=${encodeURIComponent(last.k)}" data-jump="${esc(last.k)}">see the difference</a></div>` : '<span class="cw-line dim" style="margin:0">no difference on record</span>'}</td></tr>`; };
         const ctl = roles.filter((r) => !isPointer(r)), ptr = roles.filter(isPointer);
         // the same roles, by holder
         const movedLine = (b, t, moved, total) => {
@@ -857,6 +864,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '1.1.2', revDate: '2026-11-25', page: 'contract-watch' });</script>
+<script>SiteFooter.mount({ rev: '1.2', revDate: '2026-11-25', page: 'contract-watch' });</script>
 </body>
 </html>
