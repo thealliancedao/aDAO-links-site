@@ -109,6 +109,7 @@
     .cw-line { font-size: .95rem; margin: .55rem 0 0; color: #d1d5db; }
     .cw-line.dim { color: var(--dim); }
     .cw-flag { margin: .6rem 0 0; padding: .5rem .7rem; border-left: 3px solid var(--amber); background: rgba(251,191,36,.07); border-radius: 0 8px 8px 0; font-size: .95rem; color: #fde68a; }
+    .cw-sent { margin: .6rem 0 0; padding: .5rem .7rem; border-left: 3px solid var(--line); background: rgba(255,255,255,.035); border-radius: 0 8px 8px 0; font-size: .95rem; }
     .cw-rel { margin: .6rem 0 0; padding: .5rem .7rem; border-left: 3px solid var(--sky); background: rgba(125,211,252,.06); border-radius: 0 8px 8px 0; font-size: .95rem; }
     .cw-rel ul { margin: .3rem 0 0; padding-left: 1.1rem; list-style: disc; } .cw-rel li { margin: .15rem 0; }
     .cw-acts { margin-top: .65rem; display: flex; gap: .45rem; flex-wrap: wrap; }
@@ -265,7 +266,7 @@
 <script>
 (function () {
     'use strict';
-    const REV = '1.0', REV_DATE = '2026-11-25';
+    const REV = '1.1', REV_DATE = '2026-11-25';   // 1.1: the message as sent, beside a change that was sent directly
     const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
     const DAOO = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main';
     const TREE = 'https://github.com/thealliancedao/tla-core/tree/main';
@@ -354,9 +355,9 @@
         else if (r.action === 'update_admin') { o.title = 'Changed the admin — the address that can upgrade this contract'; o.items.push(`New admin: ${who(d.new_admin_address)}`); }
         else if (r.action === 'clear_admin') { o.title = 'Removed the admin: this contract can no longer be upgraded'; }
         else if (r.kind === 'code') { o.title = 'New contract code uploaded to the chain'; if (d.code_id) o.items.push(`Code id <b>${esc(d.code_id)}</b>`); }
-        else if (act === 'set_addresses' || act === 'set_address') { o.title = 'Changed the address book — which address holds each role'; o.note = 'The transaction’s events do not say which role changed. The state read does: look for “Seen in a state read” on the address book.'; }
+        else if (act === 'set_addresses' || act === 'set_address') { o.title = 'Changed the address book — which address holds each role'; o.note = r.sent && r.sent.msg ? '' : 'The transaction’s events do not say which role changed. The state read does: look for “Seen in a state read” on the address book.'; }
         else if (act === 'update_asset_config') { o.title = 'Changed the settings of one asset on the reward list'; if (d.asset) o.items.push(assetHtml(d.asset)); }
-        else if (r.kind === 'setting') { o.title = 'Changed a setting'; o.note = Object.keys(d).length ? '' : 'The transaction’s events do not carry the new values.'; }
+        else if (r.kind === 'setting') { o.title = 'Changed a setting'; o.note = Object.keys(d).length || (r.sent && r.sent.msg) ? '' : 'The transaction’s events do not carry the new values.'; }
         else if (act === 'update_members') { o.title = 'Changed the DAO’s member list'; o.items.push(`${esc(d.added || '0')} added · ${esc(d.removed || '0')} removed`); }
         else if (act === 'execute_update_sub_daos_list') o.title = 'Changed the DAO’s list of sub-DAOs';
         else if (act === 'execute_set_item' || act === 'set_item') { o.title = 'Set an item in the DAO’s storage'; if (d.key) o.items.push(`Key <span class="mono">${esc(d.key)}</span>${d.addr ? ' → ' + who(d.addr) : ''}`); }
@@ -524,6 +525,29 @@
             <div class="cw-acts"><button type="button" class="cw-btn" data-copy="${esc(location.origin + location.pathname + '#k=' + encodeURIComponent(r.k))}"><i class="fas fa-link"></i>Copy link</button><a class="cw-btn" href="#view=roles" data-view="roles"><i class="fas fa-key"></i>The whole address book</a><span class="cw-line dim" style="margin:0;align-self:center">${esc(r.action)}${r.height ? ' · block ' + num(r.height) : ''}</span></div>
         </article>`;
     }
+    // The message as the transaction's own bytes hold it (record.sent, org-tla-flows 3.8.0), as short lines: name → value.
+    // A [text, address] pair reads "text → address"; nothing is interpreted beyond that.
+    function sentLines(v, path, out) {
+        if (out.length > 40) { out.more = (out.more || 0) + 1; return; }
+        const label = path.length ? `<span class="mono">${esc(path.join(' · '))}</span>: ` : '';
+        if (Array.isArray(v)) {
+            if (v.length === 2 && typeof v[0] === 'string' && typeof v[1] === 'string' && isAddr(v[1])) { out.push(`<span class="mono">${esc(v[0])}</span> → ${who(v[1], { plain: true })}`); return; }
+            if (!v.length) { out.push(`${label}<span class="id">an empty list</span>`); return; }
+            const pairs = v.every((x) => Array.isArray(x) && x.length === 2 && typeof x[0] === 'string');
+            v.forEach((x, i) => sentLines(x, pairs ? [] : path.concat('#' + (i + 1)), out)); return;
+        }
+        if (v && typeof v === 'object') { const ks = Object.keys(v); if (!ks.length) { out.push(`${label}<span class="id">no values</span>`); return; } for (const k of ks) sentLines(v[k], path.concat(k), out); return; }
+        out.push(`${label}${typeof v === 'string' && isAddr(v) ? who(v, { plain: true }) : `<b>${esc(String(v))}</b>`}`);
+    }
+    function sentHtml(r) {
+        const st = r.sent; if (!st) return '';
+        const elsewhere = st.to && st.to !== r.contract ? `<p class="cw-line dim">The message was sent to ${who(st.to, { plain: true })}; this contract changed as a result.</p>` : '';
+        if (st.msg === undefined) return elsewhere;
+        if (st.msg && st.msg.too_long) return `<div class="cw-sent"><b>The message as sent</b> is ${num(st.msg.too_long)} characters long and is not stored here; the transaction has it.</div>${elsewhere}`;
+        const keys = st.msg && typeof st.msg === 'object' && !Array.isArray(st.msg) ? Object.keys(st.msg) : [];
+        const out = []; sentLines(keys.length === 1 ? st.msg[keys[0]] : st.msg, [], out);
+        return `<div class="cw-sent"><b>The message as sent</b>${keys.length === 1 ? ` — <span class="mono">${esc(keys[0])}</span>` : ''}<ul class="cw-items">${out.map((x) => `<li>${x}</li>`).join('')}${out.more ? `<li><span class="id">…and ${num(out.more)} more value(s); the transaction has all of it</span></li>` : ''}</ul>${st.funds && st.funds.length ? `<p class="cw-line dim" style="margin:.3rem 0 0">With funds: ${st.funds.map((f) => `${esc(num(f.amount))} ${assetHtml('native:' + f.denom)}`).join(' · ')}</p>` : ''}</div>${elsewhere}`;
+    }
     function rowHtml(r, compact) {
         const d = describe(r), c = cinfo(r.contract), b = c.bucket ? bucketOf(c.bucket) : null;
         const on = r.contract ? `<a href="#contract=${esc(r.contract)}" data-contract="${esc(r.contract)}"><b>${esc(c.name)}</b></a>${b ? `<span class="cw-bucket">${esc(b.label)}</span>` : ''}${c.role ? `<span class="cw-role" title="This contract’s role in the address book">${esc(c.role)}</span>` : ''}` : '';
@@ -533,7 +557,7 @@
             ${compact || !on ? '' : `<div class="cw-on">${on}</div>`}
             ${d.items.length ? `<ul class="cw-items">${d.items.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
             ${d.note ? `<p class="cw-line dim">${esc(d.note)}</p>` : ''}
-            ${howLine(r)}${flagHtml(r)}${relatedHtml(r)}
+            ${sentHtml(r)}${howLine(r)}${flagHtml(r)}${relatedHtml(r)}
             <div class="cw-acts">${r.txhash ? `<a class="cw-btn" href="${EXPLORER}/tx/${esc(r.txhash)}" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i>Transaction</a>` : ''}<button type="button" class="cw-btn" data-copy="${esc(location.origin + location.pathname + '#k=' + encodeURIComponent(r.k))}"><i class="fas fa-link"></i>Copy link</button><span class="cw-line dim" style="margin:0;align-self:center">${esc(r.action)}${r.height ? ' · block ' + num(r.height) : ''}</span></div>
         </article>`;
     }
@@ -807,7 +831,7 @@
     $('l-form').addEventListener('submit', (e) => { e.preventDefault(); S.lookup = $('l-q').value.trim(); setHash(S.lookup ? (/^[0-9A-Fa-f]{64}$/.test(S.lookup) ? 'tx=' : 'address=') + S.lookup : 'view=lookup'); renderLookup(); });
     window.addEventListener('hashchange', () => { if (!S.ready) return; readHash(); renderAll(); });
 
-    window.__cw = { S, REV, REV_DATE, CHANGE_RE, howOf, describe, relatedProps, openProps, cinfo, visible, load, ingestCatalog, liveBook, renderAll };
+    window.__cw = { S, REV, REV_DATE, CHANGE_RE, howOf, describe, sentHtml, relatedProps, openProps, cinfo, visible, load, ingestCatalog, liveBook, renderAll };
     load();
 })();
 </script>
@@ -815,6 +839,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '1.0', revDate: '2026-11-25', page: 'contract-watch' });</script>
+<script>SiteFooter.mount({ rev: '1.1', revDate: '2026-11-25', page: 'contract-watch' });</script>
 </body>
 </html>
