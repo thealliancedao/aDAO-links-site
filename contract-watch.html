@@ -266,7 +266,7 @@
 <script>
 (function () {
     'use strict';
-    const REV = '1.1', REV_DATE = '2026-11-25';   // 1.1: the message as sent, beside a change that was sent directly
+    const REV = '1.1.1', REV_DATE = '2026-11-25';   // 1.1.1: the Latest line and the catch-up line read as one item / one stretch · 1.1: the message as sent, beside a change that was sent directly
     const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
     const DAOO = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main';
     const TREE = 'https://github.com/thealliancedao/tla-core/tree/main';
@@ -573,8 +573,9 @@
             tile('t-prop', 'Through a passed proposal', num(n('proposal')), 'a DAO vote, executed', 'proposal') +
             tile('t-direct', 'Sent directly', num(n('direct')), 'by an account, no proposal', 'direct') +
             tile('', 'Seen in a state read', num(n('observed')), S.st && S.st.capturedAt ? `last read ${esc(day(S.st.capturedAt))}` : 'before and after', 'observed');
-        const last = all[0];
-        $('cw-latest').innerHTML = last ? `<div class="glass-card cw-latest" data-jump="${esc(last.k)}" role="button" tabindex="0"><span class="tag">Latest</span><span class="txt"><b>${esc(day(last.timestamp))}</b> — ${esc(describe(last).title)} · ${esc(cinfo(last.contract).name)}</span><span class="cw-how ${last._how}">${esc(HOW_LABEL[last._how])}</span></div>` : '';
+        const top = groupRows(all.slice(0, 30))[0], last = top && top.group ? top.recs[0] : top;   // one state read's address-book differences are one item here too
+        const lastTitle = top && top.group ? `The address book is different in ${plural(top.recs.length, 'role')}` : last ? describe(last).title : '';
+        $('cw-latest').innerHTML = last ? `<div class="glass-card cw-latest" data-jump="${esc(last.k)}" role="button" tabindex="0"><span class="tag">Latest</span><span class="txt"><b>${esc(day(last.timestamp))}</b> — ${esc(lastTitle)} · ${esc(cinfo(last.contract).name)}</span><span class="cw-how ${last._how}">${esc(HOW_LABEL[last._how])}</span></div>` : '';
     }
     // the stored walks: from the first record they hold to the day they end (the index states the end; the report the first record)
     function histSpan() { const rep = S.report, h = S.idx && S.idx.history; const from = (rep && rep.first && rep.first.day) || (h && h.first_record), to = (h && h.walks_end) || (rep && rep.last && rep.last.day); return from && to ? { from, to } : null; }
@@ -767,9 +768,13 @@
         if (hist) li.push(`<b>${esc(day(hist.to))} → ${big ? esc(day(big.first_walked.time)) : 'the first block public nodes still hold'}</b> — <b>not on record.</b> In those months the capture kept deposits and withdrawals only, and public nodes no longer hold the blocks${big ? '' : ' (the catch-up below finds where they begin)'}.`);
         for (const j of jobs) {
             if (!j) continue;
-            const span = j.first_walked && j.last_walked ? `${esc(day(j.first_walked.time))} → ${esc(day(j.last_walked.time))}` : `blocks ${num(j.pruned_to != null ? Number(j.pruned_to) + 1 : j.from)}–${num(j.to)}`;
+            const fw = j.first_walked, lw = j.last_walked, sameDay = fw && lw && day(fw.time) === day(lw.time);
+            const span = fw && lw ? (sameDay ? `${esc(day(fw.time))}, ${esc(hm(fw.time).replace(' UTC', ''))} → ${esc(hm(lw.time))}` : `${esc(day(fw.time))} → ${esc(day(lw.time))}`) : `blocks ${num(j.pruned_to != null ? Number(j.pruned_to) + 1 : j.from)}–${num(j.to)}`;
             if (j.done) li.push(`<b>${span}</b> — read again for contract changes: done, ${plural(Number(j.found) || 0, 'change')} found.`);
-            else if (j.next != null) li.push(`<b>${span}</b> — being read again now: ${jobPct(j)}% of the stretch done, ${plural(Number(j.found) || 0, 'change')} found so far. It runs a little every 15 minutes.`);
+            else if (j.next != null) {   // the whole stretch it has to read, and how far it is
+                const end = S.idx && S.idx.forward_since ? esc(day(S.idx.forward_since.day)) : 'block ' + num(j.to);
+                li.push(`<b>${fw ? esc(day(fw.time)) : 'block ' + num(j.from)} → ${end}</b> — being read again now: done up to ${lw ? esc(day(lw.time)) : 'block ' + num(Number(j.next) - 1)} (${jobPct(j)}% of the stretch), ${plural(Number(j.found) || 0, 'change')} found so far. It reads a little every 15 minutes.`);
+            }
             else li.push(`<b>blocks ${num(j.from)}–${num(j.to)}</b> — queued to be read again.`);
         }
         if (S.idx && S.idx.forward_since) li.push(`<b>${esc(day(S.idx.forward_since.day))} → now</b> — live. Every block is read; upgrades and admin changes are kept for every contract on the chain, the other changes for the watched contracts.${S.hb && S.hb.capturedAt ? ` Last run: ${esc(day(S.hb.capturedAt))}, ${esc(hm(S.hb.capturedAt))}${S.hb.last_heights && S.hb.last_heights.cursor ? `, read to block ${num(S.hb.last_heights.cursor)}` : ''}.` : ''}`);
@@ -839,6 +844,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '1.1', revDate: '2026-11-25', page: 'contract-watch' });</script>
+<script>SiteFooter.mount({ rev: '1.1.1', revDate: '2026-11-25', page: 'contract-watch' });</script>
 </body>
 </html>
