@@ -108,6 +108,29 @@
     .cw-items .id { color: var(--faint); font-size: .84rem; }
     .cw-line { font-size: .95rem; margin: .55rem 0 0; color: #d1d5db; }
     .cw-line.dim { color: var(--dim); }
+    .cw-attn { padding: 1rem 1.1rem; margin-bottom: 1rem; border-left: 4px solid #4b5563; }
+    .cw-wrap .cw-attn h2 { font-size: 1.15rem; margin: 0 0 .55rem; display: flex; gap: .55rem; align-items: flex-start; }
+    .cw-attn h2 i { margin-top: .2rem; }
+    .cw-attn p { margin: 0; font-size: 1rem; }
+    .cw-attn p + p { margin-top: .45rem; }
+    .cw-attn.look { border-left-color: var(--amber); background: rgba(251,191,36,.06); }
+    .cw-wrap .cw-attn.look h2 { color: #fde68a; }
+    .cw-attn.calm { border-left-color: var(--green); }
+    .cw-attn .ok { color: var(--green); margin-right: .4rem; }
+    .cw-attn-list { list-style: none; margin: 0 0 .6rem; padding: 0; display: grid; gap: .55rem; }
+    .cw-attn-list li { padding: .6rem .75rem; border-radius: 10px; background: rgba(255,255,255,.045); cursor: pointer; }
+    .cw-attn-list li:hover { background: rgba(255,255,255,.075); }
+    .cw-attn-list .what { font-size: 1rem; }
+    .cw-attn-list .on { font-size: .88rem; color: var(--dim); margin-left: .3rem; }
+    .cw-attn-list .why { font-size: .95rem; color: #fde68a; margin-top: .25rem; }
+    .cw-look { font-size: .82rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: .2rem .6rem; border-radius: 999px; background: rgba(251,191,36,.16); color: #fde68a; white-space: nowrap; }
+    .cw-chips { display: flex; gap: .4rem; flex-wrap: wrap; justify-content: flex-end; }
+    .cw-row.att-look { border-left-color: var(--amber); }
+    .cw-flag-h { font-weight: 700; display: flex; gap: .45rem; align-items: center; margin-bottom: .2rem; }
+    .cw-flag ul { margin: .2rem 0 0; padding-left: 1.1rem; list-style: disc; } .cw-flag li { margin: .35rem 0; } .cw-flag p { margin: .25rem 0 0; }
+    .cw-flag .id { color: var(--dim); } .cw-flag .cw-line { color: #e5e7eb; }
+    .cw-was-now { margin: .6rem 0 0; }
+    .cw-was-now caption { text-align: left; font-size: .9rem; color: var(--dim); padding: 0 0 .3rem; caption-side: top; }
     .cw-flag { margin: .6rem 0 0; padding: .5rem .7rem; border-left: 3px solid var(--amber); background: rgba(251,191,36,.07); border-radius: 0 8px 8px 0; font-size: .95rem; color: #fde68a; }
     details.cw-sent summary { cursor: pointer; } details.cw-sent summary::marker { color: var(--faint); }
     .cw-sent { margin: .6rem 0 0; padding: .5rem .7rem; border-left: 3px solid var(--line); background: rgba(255,255,255,.035); border-radius: 0 8px 8px 0; font-size: .95rem; }
@@ -190,6 +213,7 @@
         <p class="cw-lead">Who changed a Liquidity Alliance contract, what they changed and when — and how the change arrived: through a passed proposal, or sent directly.</p>
     </header>
 
+    <div id="cw-attn"></div>
     <section id="cw-glance" class="cw-tiles" aria-label="At a glance"><div class="glass-card cw-tile loading-pulse" style="grid-column:1/-1">Reading the record…</div></section>
     <div id="cw-latest"></div>
     <p id="cw-cover-line" class="cw-cover-line"></p>
@@ -253,6 +277,15 @@
             <div><span class="cw-how direct">Sent directly</span><p>An account sent the change itself; no proposal was executed in that transaction. Some powers belong to an account (the admin that can upgrade a contract), so this is the usual route for those. A change that leaves the route every earlier change of its kind took is marked.</p></div>
             <div><span class="cw-how observed">Seen in a state read</span><p>The chain gave one value at one read and another at the next. It shows before and after — not who sent it.</p></div>
         </div>
+        <h3 id="cw-look-means" style="margin:1.1rem 0 .4rem;font-size:1.05rem"><span class="cw-look">Needs a look</span></h3>
+        <p class="cw-sub" style="margin:0">Most changes are ordinary: a passed proposal being executed, or the holder of a key doing what that key has always been used for. A change is marked when the record itself shows one of four things:</p>
+        <ul class="cw-list" style="margin:.4rem 0 0">
+            <li><b>Control moved from a DAO to an account.</b> A role or an admin key that took a passed vote to use can now be used by whoever holds one account’s key.</li>
+            <li><b>Not the route it took before.</b> Every earlier change of that kind to that contract came through a passed proposal; this one was sent directly.</li>
+            <li><b>A vote on it was open, or did not pass.</b> A proposal asked for the same kind of change on the same contract, and the change was sent directly anyway.</li>
+            <li><b>No transaction explains it.</b> A state read found a difference and the record, complete for that time, holds no transaction for it.</li>
+        </ul>
+        <p class="cw-sub" style="margin:.5rem 0 0">The mark is not a verdict. It says where a change left the usual route, with the reason beside it, so that anyone can check it.</p>
         <p class="cw-sub" style="margin:.9rem 0 0">This page states what the chain shows: what changed, when, who sent it and how. It does not say why.</p>
     </section>
 
@@ -267,7 +300,7 @@
 <script>
 (function () {
     'use strict';
-    const REV = '1.2', REV_DATE = '2026-11-25';   // 1.2: a role says which change on record set it to its holder (from that change's own message) · 1.1.2: the catch-up as stretches of the chain, oldest first (November is read before September–October) · 1.1.1: the Latest line and the catch-up line read as one item / one stretch · 1.1: the message as sent, beside a change that was sent directly
+    const REV = '1.3', REV_DATE = '2026-11-25';   // 1.3: NEEDS A LOOK — a banner that is calm when the last 30 days hold nothing out of the ordinary and names what does (control moved from a DAO to an account · a change sent directly that had always taken a vote · sent directly while a vote on it was open or after one did not pass · a difference no transaction explains), each with its reason; who held a role before a change; the one-time archive read in the coverage · 1.2: a role says which change on record set it to its holder (from that change's own message) · 1.1.2: the catch-up as stretches of the chain, oldest first (November is read before September–October) · 1.1.1: the Latest line and the catch-up line read as one item / one stretch · 1.1: the message as sent, beside a change that was sent directly
     const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
     const DAOO = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main';
     const TREE = 'https://github.com/thealliancedao/tla-core/tree/main';
@@ -291,8 +324,8 @@
     const getJson = (url) => fetch(url).then((r) => (r && r.ok ? r.json() : null)).catch(() => null);
 
     const S = { ready: false, recs: [], lib: { buckets: [], byAddr: new Map(), daos: [] }, st: null, idx: null, rewalk: null, report: null, hb: null,
-        props: new Map(), pools: null, tokens: null, wide: null, view: 'changes', shown: 40, hit: null, openGroups: new Set(), openContract: null, lookup: null, live: null,
-        f: { how: 'all', kind: 'all', bucket: 'all', q: '', routine: false, all: false } };
+        props: new Map(), pools: null, tokens: null, wide: null, hist: { book: null, config: null, contracts: null }, guards: null, now: null, view: 'changes', shown: 40, hit: null, openGroups: new Set(), openContract: null, lookup: null, live: null,
+        f: { how: 'all', kind: 'all', bucket: 'all', q: '', routine: false, all: false, att: 'all' } };
 
     // ── vocabulary ──────────────────────────────────────────────────────────────────────────────────────────────────
     const KINDS = [['list', 'Reward lists'], ['upgrade', 'Code upgrades'], ['admin', 'Admin (who can upgrade)'], ['role', 'Roles'], ['setting', 'Settings'], ['governance', 'DAO structure'], ['delegation', 'Delegation'], ['reserve', 'Reserves'], ['guard', 'Pause & blacklist'], ['code', 'New code uploaded']];
@@ -316,8 +349,10 @@
         const nm = c ? `<b>${esc(c.name)}</b> ` : '';
         const kindWord = !c && !(opt && opt.bare) ? (isContract(a) ? 'contract ' : 'account ') : '';
         return `${nm}${kindWord}<button type="button" class="cw-addr mono" data-addr="${esc(a)}" title="${esc(a)} — look this address up">${esc(short(a))}</button>` +
-            roles.slice(0, 3).map((r) => ` <span class="cw-role" title="Holds this role in the address book">${esc(r)}</span>`).join('') + (roles.length > 3 ? ` <span class="cw-role">+${roles.length - 3} roles</span>` : '');
+            roles.slice(0, 3).map((r) => ` <span class="cw-role" title="Holds this role in the address book">${esc(r)}</span>`).join('') + (roles.length > 3 ? ` <span class="cw-role">+${roles.length - 3} roles</span>` : '') +
+            (opt && (opt.plain || opt.bare) ? '' : (() => { const n = adminCount(a); return n ? ` <span class="cw-role" title="The chain names this address as the admin of ${n} watched contract${n === 1 ? '' : 's'}: it can upgrade ${n === 1 ? 'it' : 'them'}">admin of ${num(n)}</span>` : ''; })());
     }
+    function adminCount(a) { if (!S._adminOf) { S._adminOf = new Map(); const cs = (S.st && S.st.contracts) || {}; for (const k of Object.keys(cs)) if (cs[k].admin) S._adminOf.set(cs[k].admin, (S._adminOf.get(cs[k].admin) || 0) + 1); } return S._adminOf.get(a) || 0; }
     const bare = (d) => String(d || '').replace(/^(cw20|native):/, '');
     function assetName(a) {   // 'cw20:terra1…' | 'native:denom' → a name when the token catalog knows one, never a guess
         if (S.tokens && S.tokens.has(bare(a))) return S.tokens.get(bare(a));   // a token the catalog knows by its own symbol (ampCAPA) is that token, also when it sits on a reward list
@@ -337,6 +372,18 @@
     function bookPairs(r) { const a = r && r.sent && r.sent.msg && r.sent.msg.set_addresses && r.sent.msg.set_addresses.addresses; return Array.isArray(a) && a.every((x) => Array.isArray(x) && x.length === 2 && typeof x[0] === 'string' && typeof x[1] === 'string') ? a : null; }
     // the change on record that set a role to an address (the newest one whose own message names that pair)
     function setBy(role, holder) { return S.recs.find((r) => !r.observed && (bookPairs(r) || []).some((p) => p[0] === role && p[1] === holder)) || null; }
+
+    // Who held a role before a change: the archive's read of the block before it when the record has that (state/history),
+    // else the state read whose two reads span the change. No source → nothing is shown; never a guess.
+    function roleBefore(r, role) {
+        const hb = ((S.hist.book && S.hist.book.changes) || []).find((c) => c.height === r.height && c.before);
+        if (hb) return { addr: hb.before[role] || null, basis: 'block' };
+        const t = Date.parse(r.timestamp);
+        const o = S.recs.find((x) => x.observed && x.action === 'address_book' && x.contract === r.contract && x.detail && x.detail.role === role && Date.parse(x.detail.seen_after) < t && t <= Date.parse(x.detail.seen_by));
+        return o ? { addr: o.detail.before || null, basis: 'read', at: o.detail.seen_after } : null;
+    }
+    const moves = (r) => (bookPairs(r) || []).map(([role, after]) => ({ role, after, before: roleBefore(r, role) }));
+    const basisWords = (b) => (b.basis === 'block' ? 'the block before this change, read from an archive node' : `the state read of ${day(b.at)}, the last one before this change`);
 
     // ── a record in plain words ─────────────────────────────────────────────────────────────────────────────────────
     function describe(r) {
@@ -410,6 +457,95 @@
         return out.sort((x, y) => (x.end || 0) - (y.end || 0));
     }
 
+    // ── does a change need a look? ──────────────────────────────────────────────────────────────────────────────────
+    // Only what the record itself states, each reason a sentence that can be checked. No motive and no person.
+    //   to_key      control moved from a contract (a DAO) to an account: a role in the address book, or an admin key
+    //   new_route   sent directly, where every earlier change of that kind to that contract came by proposal (three or more)
+    //   vote        sent directly while a proposal for the same kind of change on that contract was open, or after one did not pass
+    //   unexplained a state read found a difference, the record is complete for the time between the reads, and holds no transaction for it
+    const daoAt = (a) => S.lib.daos.find((d) => d.core === a) || null;
+    const keyWords = (a) => { const k = S.st && S.st.accounts && S.st.accounts[a]; return k && k.keys === 1 ? 'an account with one key' : k && k.keys > 1 ? `an account that needs ${num(k.threshold)} of its ${num(k.keys)} keys` : 'an account'; };
+    function holderHtml(a) { const d = daoAt(a); return d ? `<b>${esc(d.short || d.name)}</b> (a DAO: its members vote)` : isContract(a) ? `the contract ${who(a, { plain: true, bare: true })}` : `${keyWords(a)} (${who(a, { plain: true, bare: true })})`; }
+    const holderShort = (a) => { const d = daoAt(a); return d ? (d.short || d.name) : isContract(a) ? 'a contract' : 'an account'; };
+    const isKey = (a) => isAddr(a) && !isContract(a);
+    // complete for the time between two reads: the one-time archive read reaches past the later read, or both reads are after the live stream began
+    function covered(fromIso, toIso) { const ar = S.idx && S.idx.archive, fs = S.idx && S.idx.forward_since; return !!((ar && ar.complete && ar.to_time && Date.parse(toIso) <= Date.parse(ar.to_time)) || (fs && fs.day && Date.parse(fromIso) >= Date.parse(fs.day + 'T00:00:00Z') + 864e5)); }
+    function prevAdmin(r) {   // who could upgrade the contract before this admin change: the admin change before it on record, else the archive's read of the block the contract was created in
+        const e = S.recs.find((x) => !x.observed && x.kind === 'admin' && x.contract === r.contract && (x.height < r.height || (x.height === r.height && String(x.k) < String(r.k))));   // S.recs is newest first
+        if (e) return { addr: e.action === 'clear_admin' ? null : (e.detail && e.detail.new_admin_address) || null };
+        const h = S.hist.contracts && S.hist.contracts.contracts && S.hist.contracts.contracts[r.contract];
+        return h && h.admin_at_creation !== undefined && h.admin_at_creation !== 'not held' ? { addr: h.admin_at_creation || null } : null;
+    }
+    function attention(r) {
+        if (r._att) return r._att;
+        const why = [];
+        if (r._how !== 'routine' && !r.observed) {
+            for (const m of moves(r)) if (m.before && m.before.addr && isContract(m.before.addr) && isKey(m.after)) why.push({ code: 'to_key', move: { role: m.role, from: m.before.addr, to: m.after, basis: basisWords(m.before), own: m.after === r.signer } });
+            if (r.action === 'update_admin' && r.detail && isKey(r.detail.new_admin_address)) { const p = prevAdmin(r); if (p && p.addr && isContract(p.addr)) why.push({ code: 'to_key', short: `the admin key moved from ${holderShort(p.addr)} to an account`, html: `<b>The admin — the address that can upgrade this contract — moved from ${holderHtml(p.addr)} to ${holderHtml(r.detail.new_admin_address)}.</b> Whoever holds that account’s key can now replace the contract’s code alone.` }); }
+            if (r._first) why.push({ code: 'new_route', short: `sent directly; all ${num(r._first)} earlier changes of this kind came by proposal`, html: `<b>Not the route this took before.</b> Every earlier change of this kind to this contract on record — ${num(r._first)} of them — came through a passed proposal. This one was sent directly.` });
+            const t = Date.parse(r.timestamp);
+            for (const x of relatedProps(r)) {
+                const id = propId(x.p), lab = `<a href="${esc(propUrl(x.dao, id))}" target="_blank" rel="noopener"><b>${esc(propLabel(x.dao, id))}</b></a>`, end = isFinite(x.end) ? day(x.p.expiration.at_time_iso) : null;
+                const share = x.of && x.theirs ? `, naming ${num(x.same)} of the ${plural(x.of, 'asset')} in this change` : '';
+                const head = `${lab} of ${esc(x.dao.short || x.dao.name)} asked for the same kind of change on this contract${share}`;
+                if (x.p.live || x.p.status === 'Open') why.push({ code: 'vote', short: `a vote on the same kind of change is still open (${propLabel(x.dao, id)})`, html: `<b>A vote on this is still open.</b> ${head}${end ? `; voting ends ${esc(end)}` : ''}. This change was sent directly before the vote ended.` });
+                else if (/^(Rejected|Closed|Execution Failed)$/.test(x.p.status)) why.push({ code: 'vote', short: `a proposal for the same kind of change did not pass (${propLabel(x.dao, id)})`, html: isFinite(x.end) && x.end >= t ? `<b>A vote on this was open when this was sent.</b> ${head}; its voting ended ${esc(end)}: ${esc(PSTAT[x.p.status] || x.p.status)}.` : `<b>A vote on this did not pass.</b> ${head}: ${esc(PSTAT[x.p.status] || x.p.status)}${end ? `, voting ended ${esc(end)}` : ''}. This change was sent directly afterwards.` });
+            }
+        } else if (r.observed) {
+            const d = r.detail || {};
+            if ((r.action === 'address_book' || r.action === 'admin') && d.before && isContract(d.before) && isKey(d.after)) {
+                const told = r.action === 'address_book' ? setBy(d.role, d.after) : S.recs.find((x) => !x.observed && x.kind === 'admin' && x.contract === r.contract && x.detail && x.detail.new_admin_address === d.after);
+                if (!told) why.push(r.action === 'address_book' ? { code: 'to_key', move: { role: d.role, from: d.before, to: d.after, basis: `the state read of ${day(d.seen_after)}`, seen: true } }
+                    : { code: 'to_key', short: `the admin key moved from ${holderShort(d.before)} to an account`, html: `<b>The admin — the address that can upgrade this contract — moved from ${holderHtml(d.before)} to ${holderHtml(d.after)}.</b> Whoever holds that account’s key can now replace the contract’s code alone. No transaction on record shows who sent this change.` });
+            }
+            const near = S.recs.some((x) => !x.observed && x.contract === r.contract && x.kind === r.kind && Date.parse(x.timestamp) > Date.parse(d.seen_after) && Date.parse(x.timestamp) <= Date.parse(d.seen_by));
+            if (!near && !why.length && d.seen_after && d.seen_by && covered(d.seen_after, d.seen_by)) why.push({ code: 'unexplained', short: 'no transaction on record explains this difference', html: '<b>No transaction on record explains this difference</b>, and the record is complete for the time between the two reads. A change can reach a contract without a transaction of its own: through chain governance, or through another contract that reports nothing.' });
+        }
+        return (r._att = { level: why.length ? 'look' : 'plain', why });
+    }
+    // the reasons of one row (or of the records one card shows), role moves between the same two holders said once
+    function reasons(list) {
+        const out = [], groups = new Map(), seen = new Set();
+        for (const r of list) for (const w of attention(r).why) {
+            if (w.move) { const k = [w.move.from, w.move.to, w.move.basis, !!w.move.seen].join('|'); if (!groups.has(k)) { groups.set(k, { ...w.move, roles: [], rec: r }); out.push(groups.get(k)); } groups.get(k).roles.push(w.move.role); if (!w.move.own) groups.get(k).own = false; continue; }
+            if (seen.has(w.html)) continue; seen.add(w.html); out.push(w);
+        }
+        return out.map((w) => {
+            if (!w.roles) return w;
+            const n = w.roles.length, it = n === 1 ? 'it' : 'them', what = n === 1 ? `The role ${esc(w.roles[0])}` : `${num(n)} roles`;
+            return { code: 'to_key', to: w.to, rec: w.rec, short: `${n === 1 ? `the role ${w.roles[0]}` : `${num(n)} roles`} moved from ${holderShort(w.from)} to an account`,
+                html: `<b>${what} moved from ${holderHtml(w.from)} to ${holderHtml(w.to)}.</b>${n > 1 ? ` ${w.roles.map((x) => `<span class="mono">${esc(x)}</span>`).join(' · ')}.` : ''} Using ${it} took a passed vote before; now whoever holds that account’s key can use ${it} alone.${w.own ? ' It is the account that sent this change.' : ''}${w.seen ? ' No transaction on record shows who sent this change.' : ''} <span class="id">Who held ${it} before: ${esc(w.basis)}.</span>` };
+        });
+    }
+    // what a role guards, in the contracts' own words (contract-watch/guards.json, once the cron has read it): each contract refused that message from an address without the role
+    function guardWords(role) {
+        const g = ((S.guards && S.guards.guards) || []).filter((x) => x && x.guard && x.guard.kind === 'role' && x.guard.role === role); if (!g.length) return '';
+        const by = new Map(); for (const x of g) { const k = lastSeg(x.action); if (!by.has(k)) by.set(k, new Set()); by.get(k).add(x.contract); }
+        const phrase = { whitelist_assets: 'add assets to a reward list', remove_assets: 'remove assets from a reward list', remove_asset: 'remove an asset from a reward list', update_asset_config: 'change an asset’s settings on a reward list', set_addresses: 'change the address book', set_address: 'change the address book', update_config: 'change the contract’s settings', update_blacklist: 'change the blacklist', alliance_delegate: 'delegate the Alliance’s stake', alliance_redelegate: 'move the Alliance’s stake between validators', alliance_undelegate: 'undelegate the Alliance’s stake', withdraw_reserves: 'withdraw from the reserve' };
+        return [...by].map(([k, cs]) => `${phrase[k] || `send <span class="mono">${esc(k)}</span>`} (${plural(cs.size, 'contract')})`).join('; ');
+    }
+    function attnHtml(list) {
+        const why = reasons(list); if (!why.length) return '';
+        const extra = [];
+        for (const w of why.filter((x) => x.code === 'to_key' && x.to && x.rec)) {
+            const since = S.recs.filter((x) => !x.observed && x._how !== 'routine' && howGroup(x._how) === 'direct' && x.signer === w.to && !list.includes(x) && x.contract && S.lib.byAddr.has(x.contract) && (x.height > w.rec.height || (x.txhash && x.txhash === w.rec.txhash)));
+            if (since.length) extra.push(`<p class="cw-line">Sent directly by that account since: ${since.slice(0, 3).map((x) => `<a href="#k=${encodeURIComponent(x.k)}" data-jump="${esc(x.k)}">${esc(day(x.timestamp))} — ${esc(describe(x).title)}</a>`).join(' · ')}${since.length > 3 ? ` · and ${num(since.length - 3)} more` : ''}.</p>`);
+        }
+        const roles = [...new Set(list.flatMap((r) => attention(r).why.filter((w) => w.move).map((w) => w.move.role)))].map((role) => [role, guardWords(role)]).filter((x) => x[1]);
+        if (roles.length) extra.push(`<p class="cw-line">What the contracts themselves require these roles for: ${roles.map(([role, w]) => `<span class="mono">${esc(role)}</span> — to ${w}`).join(' · ')}. <span class="id">Read from the contracts: each refused that message from an address without the role.</span></p>`);
+        return `<div class="cw-flag"><div class="cw-flag-h"><i class="fas fa-triangle-exclamation"></i>Why this needs a look</div>${why.length === 1 ? `<p>${why[0].html}</p>` : `<ul>${why.map((w) => `<li>${w.html}</li>`).join('')}</ul>`}${extra.join('')}</div>`;
+    }
+    // a change of the address book that carries its message: who held each role before, and who holds it now
+    function movesHtml(r) {
+        const mv = moves(r).filter((m) => m.before); if (!mv.length) return '';
+        return `<table class="cw-table cw-was-now"><caption>Before: ${esc(basisWords(mv[0].before))}.</caption><thead><tr><th>Role</th><th>Before</th><th>Now</th></tr></thead><tbody>${mv.map((m) => `<tr><td><span class="mono" style="font-size:.92rem">${esc(m.role)}</span></td><td data-l="Before">${m.before.addr ? who(m.before.addr, { plain: true }) : 'not in the address book'}</td><td data-l="Now">${who(m.after, { plain: true })}</td></tr>`).join('')}</tbody></table>`;
+    }
+    // a contract's settings in the block before and the block of a change, where the archive read them and they differ
+    function cfgDiffHtml(r) {
+        const c = ((S.hist.config && S.hist.config.changes) || []).find((x) => Array.isArray(x.records) && x.records.includes(r.k) && Array.isArray(x.diff)); if (!c) return '';
+        return `<div class="cw-sent"><b>The contract’s settings, before and after</b> <span class="id">— its own answer in the block before and in the block of this change</span><ul class="cw-items">${c.diff.map((x) => `<li><span class="mono">${esc(x.path)}</span>: ${x.before == null ? '<span class="id">not set</span>' : (isAddr(x.before) ? who(x.before, { plain: true }) : `<b>${esc(x.before)}</b>`)} → ${x.after == null ? '<span class="id">not set</span>' : (isAddr(x.after) ? who(x.after, { plain: true }) : `<b>${esc(x.after)}</b>`)}</li>`).join('')}${c.paths_changed > c.diff.length ? `<li><span class="id">…and ${num(c.paths_changed - c.diff.length)} more</span></li>` : ''}</ul></div>`;
+    }
+
     // ── load ────────────────────────────────────────────────────────────────────────────────────────────────────────
     function monthsToRead(idx) {
         const set = new Set(Object.keys((idx && idx.months) || {}));
@@ -451,7 +587,11 @@
         S.loadFailed = !idx && !S.recs.length;
         S.ready = true; readHash(); renderAll();
         // then, without holding the page: the votes behind the proposals, asset names, the live stream's last read
-        for (const dao of S.lib.daos) { S.props.set(dao.capture, { status: 'loading', data: null }); getJson(`${DAOO}/${dao.capture}/governance/proposals.json${bust(36e5)}`).then((d) => { S.props.set(dao.capture, { status: d ? 'ok' : 'failed', data: d }); for (const r of S.recs) r._hay = null; renderAll(); }); }
+        const again = () => { for (const r of S.recs) { r._hay = null; r._att = null; } renderAll(); };
+        for (const dao of S.lib.daos) { S.props.set(dao.capture, { status: 'loading', data: null }); getJson(`${DAOO}/${dao.capture}/governance/proposals.json${bust(36e5)}`).then((d) => { S.props.set(dao.capture, { status: d ? 'ok' : 'failed', data: d }); again(); }); }
+        // what the one-time archive read gave: the address book and each contract's settings around a change, each contract's admin at creation
+        if (idx && idx.archive && idx.archive.state && idx.archive.state.done) for (const [k, f] of [['book', 'address-book'], ['config', 'config-changes'], ['contracts', 'contracts']]) getJson(`${CORE}/contract-watch/state/history/${f}.json${bust(36e5)}`).then((d) => { if (!d) return; S.hist[k] = d; again(); });
+        if (st && st.guards_read) getJson(`${CORE}/contract-watch/guards.json${bust(36e5)}`).then((d) => { if (!d) return; S.guards = d; again(); });
         getJson(`${CORE}/token-catalog/snapshots/current.json${bust(36e5)}`).then((cat) => { if (!cat) return; ingestCatalog(cat); for (const r of S.recs) r._hay = null; renderAll(); });
         getJson(`${CORE}/tla-flows/events/heartbeat.json${bust(3e5)}`).then((hb) => { S.hb = hb; renderCoverage(); });
     }
@@ -473,7 +613,7 @@
     function base() { return S.recs.filter((r) => inScope(r) && (S.f.routine || r._how !== 'routine')); }
     function visible() {
         const q = S.f.q.trim().toLowerCase();
-        return base().filter((r) => (S.f.how === 'all' || howGroup(r._how) === S.f.how) && (S.f.kind === 'all' || r.kind === S.f.kind) &&
+        return base().filter((r) => (S.f.att !== 'look' || attention(r).level === 'look') && (S.f.how === 'all' || howGroup(r._how) === S.f.how) && (S.f.kind === 'all' || r.kind === S.f.kind) &&
             (S.f.bucket === 'all' || (S.f.bucket === 'none' ? !S.lib.byAddr.has(r.contract) : cinfo(r.contract).bucket === S.f.bucket)) && (!q || hay(r).includes(q)));
     }
     const changesOnly = () => S.recs.filter((r) => r._how !== 'routine' && r.contract && S.lib.byAddr.has(r.contract));
@@ -497,10 +637,6 @@
         }
         return `<p class="cw-line dim">Sent by ${who(r.signer, { bare: true })} — the same call every week.</p>`;
     }
-    function flagHtml(r) {
-        if (!r._first) return '';
-        return `<div class="cw-flag"><b>Not the route this took before.</b> Every earlier change of this kind to this contract on record — ${num(r._first)} of them — came through a passed proposal.</div>`;
-    }
     function relatedHtml(r) {
         const rel = relatedProps(r); if (!rel.length) return '';
         return `<div class="cw-rel"><b>Proposals that asked for this kind of change on this contract</b><ul>${rel.map((x) => {
@@ -521,12 +657,13 @@
     const rowsHtml = (list, compact) => groupRows(list).map((x) => (x.group ? bookHtml(x.recs, compact) : rowHtml(x, compact))).join('');
     function bookHtml(recs, compact) {
         const r = recs[0], c = cinfo(r.contract), b = c.bucket ? bucketOf(c.bucket) : null, rs = recs.slice().sort((x, y) => String(x.detail.role).localeCompare(String(y.detail.role)));
-        return `<article class="glass-card cw-row how-observed${recs.some((x) => x.k === S.hit) ? ' hit' : ''}" id="${rid(r)}" data-k="${esc(r.k)}" data-ks="${esc(recs.map((x) => x.k).join(' '))}">
-            <div class="cw-row-top"><span class="cw-when">${esc(day(r.timestamp))} · ${esc(hm(r.timestamp))}</span><span class="cw-how observed">${esc(HOW_LABEL.observed)}</span></div>
+        const look = recs.some((x) => attention(x).level === 'look');
+        return `<article class="glass-card cw-row how-observed${look ? ' att-look' : ''}${recs.some((x) => x.k === S.hit) ? ' hit' : ''}" id="${rid(r)}" data-k="${esc(r.k)}" data-ks="${esc(recs.map((x) => x.k).join(' '))}">
+            <div class="cw-row-top"><span class="cw-when">${esc(day(r.timestamp))} · ${esc(hm(r.timestamp))}</span><span class="cw-chips">${look ? '<span class="cw-look">Needs a look</span>' : ''}<span class="cw-how observed">${esc(HOW_LABEL.observed)}</span></span></div>
             <h3 class="cw-title">The address book is different in ${plural(rs.length, 'role')}</h3>
             ${compact ? '' : `<div class="cw-on"><a href="#contract=${esc(r.contract)}" data-contract="${esc(r.contract)}"><b>${esc(c.name)}</b></a>${b ? `<span class="cw-bucket">${esc(b.label)}</span>` : ''}</div>`}
             <table class="cw-table" style="margin-top:.6rem"><thead><tr><th>Role</th><th>Held by now</th><th>Before</th></tr></thead><tbody>${rs.map((x) => `<tr><td><span class="mono" style="font-size:.92rem">${esc(x.detail.role)}</span></td><td data-l="Held by now">${x.detail.after ? who(x.detail.after, { plain: true }) : 'no longer in the address book'}</td><td data-l="Before">${x.detail.before ? who(x.detail.before, { plain: true }) : 'not in the address book'}</td></tr>`).join('')}</tbody></table>
-            ${howLine(r)}
+            ${howLine(r)}${attnHtml(recs)}
             <div class="cw-acts"><button type="button" class="cw-btn" data-copy="${esc(location.origin + location.pathname + '#k=' + encodeURIComponent(r.k))}"><i class="fas fa-link"></i>Copy link</button><a class="cw-btn" href="#view=roles" data-view="roles"><i class="fas fa-key"></i>The whole address book</a><span class="cw-line dim" style="margin:0;align-self:center">${esc(r.action)}${r.height ? ' · block ' + num(r.height) : ''}</span></div>
         </article>`;
     }
@@ -558,15 +695,36 @@
     function rowHtml(r, compact) {
         const d = describe(r), c = cinfo(r.contract), b = c.bucket ? bucketOf(c.bucket) : null;
         const on = r.contract ? `<a href="#contract=${esc(r.contract)}" data-contract="${esc(r.contract)}"><b>${esc(c.name)}</b></a>${b ? `<span class="cw-bucket">${esc(b.label)}</span>` : ''}${c.role ? `<span class="cw-role" title="This contract’s role in the address book">${esc(c.role)}</span>` : ''}` : '';
-        return `<article class="glass-card cw-row how-${r._how}${r.k === S.hit ? ' hit' : ''}" id="${rid(r)}" data-k="${esc(r.k)}">
-            <div class="cw-row-top"><span class="cw-when">${esc(day(r.timestamp))} · ${esc(hm(r.timestamp))}</span><span class="cw-how ${r._how}">${esc(HOW_LABEL[r._how])}</span></div>
+        const look = attention(r).level === 'look', was = r.observed ? '' : movesHtml(r);
+        return `<article class="glass-card cw-row how-${r._how}${look ? ' att-look' : ''}${r.k === S.hit ? ' hit' : ''}" id="${rid(r)}" data-k="${esc(r.k)}">
+            <div class="cw-row-top"><span class="cw-when">${esc(day(r.timestamp))} · ${esc(hm(r.timestamp))}</span><span class="cw-chips">${look ? '<span class="cw-look">Needs a look</span>' : ''}<span class="cw-how ${r._how}">${esc(HOW_LABEL[r._how])}</span></span></div>
             <h3 class="cw-title">${esc(d.title)}</h3>
             ${compact || !on ? '' : `<div class="cw-on">${on}</div>`}
             ${d.items.length ? `<ul class="cw-items">${d.items.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
             ${d.note ? `<p class="cw-line dim">${esc(d.note)}</p>` : ''}
-            ${sentHtml(r, d.items.length > 0)}${howLine(r)}${flagHtml(r)}${relatedHtml(r)}
+            ${was}${cfgDiffHtml(r)}${sentHtml(r, d.items.length > 0 || !!was)}${howLine(r)}${attnHtml([r])}${relatedHtml(r)}
             <div class="cw-acts">${r.txhash ? `<a class="cw-btn" href="${EXPLORER}/tx/${esc(r.txhash)}" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i>Transaction</a>` : ''}<button type="button" class="cw-btn" data-copy="${esc(location.origin + location.pathname + '#k=' + encodeURIComponent(r.k))}"><i class="fas fa-link"></i>Copy link</button><span class="cw-line dim" style="margin:0;align-self:center">${esc(r.action)}${r.height ? ' · block ' + num(r.height) : ''}</span></div>
         </article>`;
+    }
+
+    // ── render: needs a look ────────────────────────────────────────────────────────────────────────────────────────
+    // Calm when the last 30 days hold nothing out of the ordinary; otherwise each change that needs a look, with its reason.
+    function renderAttn() {
+        const el = $('cw-attn'); if (!S.ready || S.loadFailed) { el.innerHTML = ''; return; }
+        const now = S.now || Date.now(), from = now - 30 * 864e5, all = changesOnly();
+        const recent = all.filter((r) => { const t = Date.parse(r.timestamp); return t >= from && t <= now; });
+        const n = (h) => recent.filter((r) => howGroup(r._how) === h).length;
+        const counts = recent.length ? `${plural(recent.length, 'change')} in the last 30 days: ${num(n('proposal'))} through a passed proposal · ${num(n('direct'))} sent directly · ${num(n('observed'))} seen in a state read.` : 'No change to a watched contract is on record for the last 30 days.';
+        const loud = groupRows(recent.filter((r) => attention(r).level === 'look')).sort((a, b) => { const x = a.group ? a.recs[0] : a, y = b.group ? b.recs[0] : b; return (y.height - x.height) || String(x.k).localeCompare(String(y.k)); });   // newest first; the changes of one transaction in the order they were sent
+        const item = (x) => { const recs = x.group ? x.recs : [x], r = recs[0]; return { r, recs, title: x.group ? `The address book is different in ${plural(recs.length, 'role')}` : describe(r).title }; };
+        if (loud.length) {
+            el.innerHTML = `<section class="glass-card cw-attn look" aria-label="Changes that need a look"><h2><i class="fas fa-triangle-exclamation"></i>${plural(loud.length, 'change')} in the last 30 days need${loud.length === 1 ? 's' : ''} a look</h2>
+                <ul class="cw-attn-list">${loud.map(item).map((x) => `<li data-jump="${esc(x.r.k)}" role="button" tabindex="0"><div class="what"><b>${esc(day(x.r.timestamp))}</b> — ${esc(x.title)}<span class="on">${esc(cinfo(x.r.contract).name)}</span></div><div class="why">${reasons(x.recs).map((w) => esc(w.short.charAt(0).toUpperCase() + w.short.slice(1))).join(' · ')}</div></li>`).join('')}</ul>
+                <p class="cw-line dim" style="margin:0">${esc(counts)} The mark is not a verdict: <a href="#cw-look-means">what “needs a look” means</a>.</p></section>`;
+            return;
+        }
+        const last = all.find((r) => Date.parse(r.timestamp) <= now && attention(r).level === 'look');
+        el.innerHTML = `<section class="glass-card cw-attn calm" aria-label="Nothing out of the ordinary"><p><i class="fas fa-circle-check ok"></i><b>Nothing out of the ordinary in the last 30 days.</b> ${esc(counts)}</p>${last ? `<p class="cw-line dim" style="margin:.45rem 0 0">The last change that needed a look: <a href="#k=${encodeURIComponent(last.k)}" data-jump="${esc(last.k)}">${esc(day(last.timestamp))} — ${esc(describe(last).title)}</a>. <a href="#att=look" data-att="only">All of them</a> · <a href="#cw-look-means">what the mark means</a></p>` : ''}</section>`;
     }
 
     // ── render: top ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -602,9 +760,11 @@
     function jobPct(j) { const start = j.pruned_to != null ? Number(j.pruned_to) + 1 : Number(j.from), span = Number(j.to) - start + 1; const done = Math.max(0, Number(j.next != null ? j.next : start) - start); return span > 0 ? Math.min(100, Math.round((done / span) * 100)) : 0; }
     function renderCoverLine() {
         const rep = S.report, parts = [], hist = histSpan();
-        if (hist) parts.push(`<b>${esc(day(hist.from))} → ${esc(day(hist.to))}</b> from stored walks`);
+        const ar = S.idx && S.idx.archive;
+        if (ar && ar.complete && hist) parts.push(`<b>${esc(day(hist.from))} → ${esc(day(ar.to_time || hist.to))}</b> read in full from the chain’s history`);
+        else if (hist) parts.push(`<b>${esc(day(hist.from))} → ${esc(day(hist.to))}</b> from stored walks`);
         if (S.idx && S.idx.forward_since) parts.push(`<b>live since ${esc(day(S.idx.forward_since.day))}</b>, read every 15 minutes`);
-        const pct = catchUpPct(); if (pct != null) parts.push(`the months before the live stream are being read again now (${pct}% done)`);
+        const pct = catchUpPct(); if (pct != null && !(ar && ar.complete)) parts.push(`the months before the live stream are being read again now (${pct}% done)`);
         $('cw-cover-line').innerHTML = parts.length ? `On record: ${parts.join(' · ')}. <a href="#cw-coverage">What is and is not covered</a>` : '';
     }
     function openProps() {
@@ -636,7 +796,9 @@
     function renderFilters() {
         const b = base(), count = (f) => b.filter(f).length;
         const chip = (grp, val, label, n) => `<button type="button" class="cw-chip${S.f[grp] === val ? ' on' : ''}" data-f="${grp}" data-v="${val}" aria-pressed="${S.f[grp] === val}">${esc(label)}${n != null ? `<span class="n">${num(n)}</span>` : ''}</button>`;
-        $('f-how').innerHTML = chip('how', 'all', 'All', b.length) + HOWS.map(([v, l]) => chip('how', v, l, count((r) => howGroup(r._how) === v))).join('');
+        const looks = count((r) => attention(r).level === 'look');
+        $('f-how').innerHTML = chip('how', 'all', 'All', b.length) + HOWS.map(([v, l]) => chip('how', v, l, count((r) => howGroup(r._how) === v))).join('') +
+            (looks || S.f.att === 'look' ? `<button type="button" class="cw-chip${S.f.att === 'look' ? ' on' : ''}" data-att="1" aria-pressed="${S.f.att === 'look'}"><i class="fas fa-triangle-exclamation" style="margin-right:.35rem;color:var(--amber)"></i>Needs a look<span class="n">${num(looks)}</span></button>` : '');
         const kinds = KINDS.filter(([v]) => count((r) => r.kind === v) > 0 || S.f.kind === v);
         $('f-kind').innerHTML = chip('kind', 'all', 'Everything', null) + kinds.map(([v, l]) => chip('kind', v, l, count((r) => r.kind === v))).join('') + (S.f.routine ? chip('kind', 'epoch', 'Weekly distribution', count((r) => r.kind === 'epoch')) : '');
         const sel = $('f-bucket'), per = {}; for (const r of b) { const id = cinfo(r.contract).bucket || 'none'; per[id] = (per[id] || 0) + 1; }
@@ -769,6 +931,7 @@
                 <dt>Holds</dt><dd>${roles.length ? roles.map((r) => `<span class="cw-role">${esc(r)}</span>`).join(' ') + ' in the address book' : 'no role in the address book'}${held.length ? `<div class="cw-was">Held before: ${[...new Set(held)].map((r) => esc(r)).join(' · ')}</div>` : ''}</dd>
                 <dt>Admin of</dt><dd>${adminOf.length ? `<b>${plural(adminOf.length, 'watched contract')}</b> — can upgrade ${adminOf.length === 1 ? 'it' : 'them'}<div class="cw-was">${list(adminOf)}</div>` : 'no watched contract'}</dd>
                 <dt>Creator of</dt><dd>${creatorOf.length ? `<b>${plural(creatorOf.length, 'watched contract')}</b><div class="cw-was">${list(creatorOf)}</div>` : 'no watched contract'}</dd>
+                ${votesOf(q).map((v) => `<dt>Votes in</dt><dd><b>${esc(v.dao.short || v.dao.name)}</b> — voted on ${plural(v.n, 'proposal')}${v.last ? `, last on ${esc(propLabel(v.dao, propId(v.last)))} with ${num(v.power)} of ${num(v.last.totalPower)} voting power` : ''}</dd>`).join('')}
                 ${made.length ? `<dt>Made admin</dt><dd>of ${plural(new Set(made.map((r) => r.contract)).size, 'contract')} by a recorded change</dd>` : ''}
                 ${routine.length ? `<dt>Routine</dt><dd>sent the weekly distribution ${num(routine.length)} times</dd>` : ''}
             </dl>
@@ -779,12 +942,27 @@
         ${!sent.length && !exec.length ? '<div class="glass-card cw-empty">No change on record was sent by this address.</div>' : ''}`;
     }
 
+    // the proposals an address voted on, from the DAOs' own vote records (the address and its weight; never a name)
+    function votesOf(a) {
+        const out = [];
+        for (const dao of S.lib.daos) { const cap = S.props.get(dao.capture); if (!cap || !cap.data) continue;
+            const ps = Object.values(cap.data.proposals || {}).filter((p) => (p.voters || []).some((v) => v && v.address === a)); if (!ps.length) continue;
+            const last = ps.sort((x, y) => Number(propId(y)) - Number(propId(x)))[0], mine = last.voters.find((v) => v.address === a);
+            out.push({ dao, n: ps.length, last, power: mine ? mine.power : 0 }); }
+        return out;
+    }
+
     // ── render: coverage ────────────────────────────────────────────────────────────────────────────────────────────
     function renderCoverage() {
-        const li = [], rep = S.report, jobs = (S.rewalk && S.rewalk.jobs) || [], hist = histSpan();
-        if (hist) li.push(`<b>${esc(day(hist.from))} → ${esc(day(hist.to))}</b> — taken from the walks already stored${rep && rep.transactions_read ? ` (${num(rep.transactions_read)} transactions re-read)` : ''}. Complete for the contracts the capture followed in those months.`);
+        const li = [], rep = S.report, jobs = (S.rewalk && S.rewalk.jobs) || [], hist = histSpan(), ar = S.idx && S.idx.archive;
+        if (hist && !(ar && ar.complete)) li.push(`<b>${esc(day(hist.from))} → ${esc(day(hist.to))}</b> — taken from the walks already stored${rep && rep.transactions_read ? ` (${num(rep.transactions_read)} transactions re-read)` : ''}. Complete for the contracts the capture followed in those months.`);
         const big = jobs.filter((j) => j && j.pruned_to != null && j.first_walked).sort((a, b) => b.to - a.to)[0];
-        if (hist) li.push(`<b>${esc(day(hist.to))} → ${big ? esc(day(big.first_walked.time)) : 'the first block public nodes still hold'}</b> — <b>not on record.</b> In those months the capture kept deposits and withdrawals only, and public nodes no longer hold the blocks${big ? '' : ' (the catch-up below finds where they begin)'}.`);
+        if (ar) {
+            const v = ar.verified, proofs = v ? [v.code_history ? `every upgrade in the code history of ${esc(v.code_history)} contracts is on record` : '', v.admin ? `the admin of ${esc(v.admin)} contracts is what the record gives` : '', v.address_book_unbroken === true ? 'the address book’s changes join up with no gap' : v.address_book_unbroken === false ? '<b>the address book changed at least once with no transaction on record</b>' : '', v.earlier_records_not_found != null ? (v.earlier_records_not_found ? `${plural(v.earlier_records_not_found, 'earlier record')} not shown again by the node` : 'every earlier record was shown again by the node') : ''].filter(Boolean) : [];
+            li.push(ar.complete ? `<b>The whole history, read once from an archive node</b>${ar.to_time ? ` (to ${esc(day(ar.to_time))})` : ''} — every watched contract since the chain began: upgrades, admin changes, and the changes the contracts report, each with the message as sent.${ar.state && ar.state.done ? ' The address book and each contract’s settings were read in the block before and the block of a change.' : ''}${proofs.length ? ` Checked against the chain: ${proofs.join(' · ')}.` : ''}`
+                : `<b>The whole history, being read once from an archive node</b> — ${num((ar.searches || 0) - (ar.searches_left || 0))} of ${num(ar.searches || 0)} searches read so far. It is started by hand and reads slowly on purpose.`);
+        }
+        if (hist && !(ar && ar.complete)) li.push(`<b>${esc(day(hist.to))} → ${big ? esc(day(big.first_walked.time)) : 'the first block public nodes still hold'}</b> — <b>not on record.</b> In those months the capture kept deposits and withdrawals only, and public nodes no longer hold the blocks${big ? '' : ' (the catch-up below finds where they begin)'}.`);
         for (const j of stretches()) {
             const begin = j.pruned_to != null ? Number(j.pruned_to) + 1 : Number(j.from);
             const fw = j.first_walked && Number(j.first_walked.height) === begin ? j.first_walked : null, lw = j.last_walked, sameDay = fw && lw && day(fw.time) === day(lw.time);   // a first block recorded part-way through a job is not the job's start
@@ -808,11 +986,11 @@
     // ── view + hash ─────────────────────────────────────────────────────────────────────────────────────────────────
     function setView(v) { S.view = v; document.querySelectorAll('.cw-view[data-view]').forEach((b) => { const on = b.dataset.view === v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); for (const id of ['changes', 'contracts', 'roles', 'lookup']) $('view-' + id).hidden = id !== v; }
     function renderView() { if (S.view === 'changes') renderChanges(); else if (S.view === 'contracts') renderContracts(); else if (S.view === 'roles') renderRoles(); else renderLookup(); }
-    function renderAll() { renderGlance(); renderCoverLine(); renderOpen(); renderView(); renderCoverage(); if (S._jump) jumpTo(S._jump); }
+    function renderAll() { renderAttn(); renderGlance(); renderCoverLine(); renderOpen(); renderView(); renderCoverage(); if (S._jump) jumpTo(S._jump); }
     function jumpTo(k) {
         S._jump = null; const r = S.recs.find((x) => x.k === k); if (!r) return;
         if (S.view !== 'changes') setView('changes');
-        if (!visible().includes(r)) { S.f = { how: 'all', kind: 'all', bucket: 'all', q: '', routine: r._how === 'routine', all: !S.lib.byAddr.has(r.contract) }; }
+        if (!visible().includes(r)) { S.f = { how: 'all', kind: 'all', bucket: 'all', q: '', routine: r._how === 'routine', all: !S.lib.byAddr.has(r.contract), att: 'all' }; }
         S.hit = r.k; S.shown = Math.max(S.shown, visible().indexOf(r) + 5); renderChanges();   // the row stays marked through later re-renders (votes and names arrive after the first paint)
         const el = $(rid(r)) || [...document.querySelectorAll('#cw-list [data-ks]')].find((x) => x.dataset.ks.split(' ').includes(r.k)); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
     }
@@ -825,6 +1003,7 @@
         if (p.get('contract')) { const a = p.get('contract'); if (S.lib.byAddr.has(a)) { S.openContract = a; S.openGroups.add(S.lib.byAddr.get(a).bucket); setView('contracts'); } else { S.lookup = a; setView('lookup'); } return; }
         const v = p.get('view'); if (['changes', 'contracts', 'roles', 'lookup'].includes(v)) setView(v);
         for (const k of ['how', 'kind', 'bucket', 'q']) if (p.get(k) != null) S.f[k] = p.get(k);
+        if (p.get('att') === 'look') S.f.att = 'look';
         if (p.get('routine') === '1') S.f.routine = true;
     }
     const setHash = (h) => { try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch (e) {} };
@@ -835,11 +1014,12 @@
         let el;
         if ((el = t.closest('[data-view]'))) { setView(el.dataset.view); setHash(el.dataset.view === 'changes' ? '' : 'view=' + el.dataset.view); renderView(); return; }
         if ((el = t.closest('[data-f]'))) { S.f[el.dataset.f] = el.dataset.v; S.shown = 40; S.hit = null; renderChanges(); return; }
+        if ((el = t.closest('[data-att]'))) { ev.preventDefault(); S.f.att = el.dataset.att === 'only' ? 'look' : (S.f.att === 'look' ? 'all' : 'look'); if (el.dataset.att === 'only') { S.f.how = 'all'; S.f.kind = 'all'; S.f.bucket = 'all'; S.f.q = ''; } S.shown = 40; S.hit = null; setView('changes'); renderChanges(); if (el.dataset.att === 'only' && $('view-changes').scrollIntoView) $('view-changes').scrollIntoView({ block: 'start' }); return; }
         if ((el = t.closest('[data-set-how]'))) { S.f.how = el.dataset.setHow; S.shown = 40; setView('changes'); renderChanges(); $('view-changes').scrollIntoView && $('view-changes').scrollIntoView({ block: 'start' }); return; }
         if ((el = t.closest('[data-jump]'))) { ev.preventDefault(); setHash('k=' + encodeURIComponent(el.dataset.jump)); jumpTo(el.dataset.jump); return; }
         if ((el = t.closest('[data-copy]'))) { const txt = el.dataset.copy, old = el.innerHTML; (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => { el.innerHTML = '<i class="fas fa-check"></i>Copied'; setTimeout(() => { el.innerHTML = old; }, 1300); }, () => { el.textContent = txt; }); return; }
         if ((el = t.closest('[data-addr]'))) { S.lookup = el.dataset.addr; setHash('address=' + el.dataset.addr); setView('lookup'); renderLookup(); $('view-lookup').scrollIntoView && $('view-lookup').scrollIntoView({ block: 'start' }); return; }
-        if ((el = t.closest('[data-q]'))) { ev.preventDefault(); S.f = { how: 'all', kind: 'all', bucket: 'all', q: el.dataset.q, routine: el.dataset.routine === '1', all: false }; S.shown = 40; setView('changes'); renderChanges(); return; }
+        if ((el = t.closest('[data-q]'))) { ev.preventDefault(); S.f = { how: 'all', kind: 'all', bucket: 'all', q: el.dataset.q, routine: el.dataset.routine === '1', all: false, att: 'all' }; S.shown = 40; setView('changes'); renderChanges(); return; }
         if ((el = t.closest('[data-contract]'))) { ev.preventDefault(); setHash('contract=' + el.dataset.contract); openContract(el.dataset.contract); return; }
         if ((el = t.closest('[data-toggle-group]'))) { const id = el.dataset.toggleGroup; if (S.openGroups.has(id)) S.openGroups.delete(id); else S.openGroups.add(id); renderContracts(); return; }
         if ((el = t.closest('[data-toggle-contract]'))) { const a = el.dataset.toggleContract; S.openContract = S.openContract === a ? null : a; setHash(S.openContract ? 'contract=' + a : 'view=contracts'); renderContracts(); return; }
@@ -856,7 +1036,7 @@
     $('l-form').addEventListener('submit', (e) => { e.preventDefault(); S.lookup = $('l-q').value.trim(); setHash(S.lookup ? (/^[0-9A-Fa-f]{64}$/.test(S.lookup) ? 'tx=' : 'address=') + S.lookup : 'view=lookup'); renderLookup(); });
     window.addEventListener('hashchange', () => { if (!S.ready) return; readHash(); renderAll(); });
 
-    window.__cw = { S, REV, REV_DATE, CHANGE_RE, howOf, describe, sentHtml, relatedProps, openProps, cinfo, visible, load, ingestCatalog, liveBook, renderAll };
+    window.__cw = { S, REV, REV_DATE, CHANGE_RE, howOf, describe, sentHtml, relatedProps, openProps, cinfo, visible, load, ingestCatalog, liveBook, renderAll, attention, reasons, covered, votesOf };
     load();
 })();
 </script>
@@ -864,6 +1044,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '1.2', revDate: '2026-11-25', page: 'contract-watch' });</script>
+<script>SiteFooter.mount({ rev: '1.3', revDate: '2026-11-25', page: 'contract-watch' });</script>
 </body>
 </html>
