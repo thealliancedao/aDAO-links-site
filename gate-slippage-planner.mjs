@@ -8,6 +8,7 @@
 import { JSDOM } from 'jsdom';
 import fs from 'fs';
 import path from 'path';
+import { realHeader, isTlaBar } from './gate-header.mjs';   // the page builds its tab bar from the site's one list (lib/site-header.js)
 const CORE = process.env.TLA_CORE_DIR; if (!CORE) { console.error('TLA_CORE_DIR required'); process.exit(1); }
 const here = path.dirname(new URL(import.meta.url).pathname);
 let PASS = 0, FAIL = 0;
@@ -19,7 +20,7 @@ const CAPA_CW20 = 'terra1t4p3u8khpd7f8qzurwyafxt648dya6mp6vur3vaapswt6m24gkuqrfd
 async function boot(search = '') {
   const html = fs.readFileSync(path.join(here, 'slippage.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '');
   const dom = new JSDOM(html, { url: 'https://thealliancedao.com/slippage.html' + search, runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
-    w.SiteHeader = { mount() {} }; w.SiteFooter = { mount() {} }; w.AddressPicker = undefined;
+    w.SiteHeader = { mount() {}, subnav(items, o) { w.__subnav = { items, o }; }, tlaTabs: realHeader().tlaTabs }; w.SiteFooter = { mount() {} }; w.AddressPicker = undefined;
     w.fetch = async (url) => { const u = String(url).split('?')[0]; const ok = (b) => ({ ok: true, status: 200, json: async () => JSON.parse(b), text: async () => b }); const nope = { ok: false, status: 404, json: async () => { throw new Error('404'); }, text: async () => '' };
       const m = /tla-core\/main\/(.+)$/.exec(u); if (m) { const b = read(m[1]); return b == null ? nope : ok(b); }
       if (u.includes('/cosmos/bank/v1beta1/balances/')) return ok(JSON.stringify({ balances: [{ denom: 'uluna', amount: '100000000' }] }));   // 100 LUNA
@@ -35,7 +36,8 @@ const num = (s) => Number(String(s).replace(/[^0-9.]/g, ''));
 console.log('=== slippage Rev 3.0 — trade planner on committed reserves ===');
 {
   const w = await boot(); const d = w.document; const T = w.__zapTest;
-  check('S1 rev 3.0 + both chip rows rendered (FROM + TO), TO excludes FROM', T.REV === '3.0' && d.querySelectorAll('#tok-chips .tok-chip').length > 20 && d.querySelectorAll('#to-chips .tok-chip').length > 20 && ![...d.querySelectorAll('#to-chips .tok-chip')].some(b => b.dataset.to === T.store.token));
+  check('S0 the TLA tab bar sits under the header — the site\'s one list, Slippage Simulator lit (3.0.1)', w.__subnav && isTlaBar(w.__subnav.items, 'slippage'), w.__subnav && w.__subnav.items.map((t) => t.label));
+  check('S1 rev 3.0.x + both chip rows rendered (FROM + TO), TO excludes FROM', /^3\.0(\.\d+)?$/.test(T.REV) && d.querySelectorAll('#tok-chips .tok-chip').length > 20 && d.querySelectorAll('#to-chips .tok-chip').length > 20 && ![...d.querySelectorAll('#to-chips .tok-chip')].some(b => b.dataset.to === T.store.token));
   // the owner's question
   T.store.token = 'CAPA'; T.store.to = 'ASTRO'; T.renderTokenChips(); T.setAmount(150);
   const r = T.planRoutes('CAPA', 'ASTRO', 150);

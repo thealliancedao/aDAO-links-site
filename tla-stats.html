@@ -754,7 +754,7 @@
          (kept, hidden) so the page's member overlay code is untouched. -->
     <div id="site-header"></div>
     <script src="/lib/collection-context.js"></script>
-    <script src="/lib/site-header.js"></script>
+    <script src="/lib/site-header.js?v=1.14.0"></script>
     <script src="/lib/address-picker.js"></script>
     <script src="/lib/vote-market.js?v=1.6.0"></script>
     <script src="/lib/vote-market-tile.js?v=1.5.0"></script>
@@ -766,15 +766,10 @@
     // info tiles), in the shared style. Clicks are forwarded to the hidden legacy
     // .tab-btn elements so switchToTab(), hash links and analytics are unchanged.
     (function () {
-        var nav = SiteHeader.subnav([
-            { id: 'overview', label: 'Overview',         icon: 'fa-chart-pie',       active: true },
-            { id: 'portfolio', label: 'Member Portfolio', icon: 'fa-user-astronaut',  href: 'member-portfolio.html', badge: 'NEW' },   // T6.13.5 (owner 2026-09-27): live — P&L v3, positions trip by trip, NFTs paid vs worth (was greyed 'SOON' since Batch A 2026-08-24)
-            { id: 'slippage',  label: 'Slippage Simulator', icon: 'fa-arrows-turn-to-dots', href: 'slippage.html' },   // 2026-08-25 (owner): the Trade Planner, one tab away
-            { id: 'docs',      label: 'Docs',               icon: 'fa-book',                href: 'tla-docs.html' },   // 2026-08-25: docs hub rebuilt — back in the tab bar
-            { id: 'grades',   label: 'LP Grades',        icon: 'fa-graduation-cap' },
-            { id: 'pools',    label: 'Pools',            icon: 'fa-water' },   // 2026-08-25: LP Stats + TLA Stats merged into one tab (Docs removed earlier — Test 2 on Tools)
-            { id: 'watch',    label: 'Contract Watch',   icon: 'fa-binoculars',      href: 'contract-watch.html', badge: 'NEW' },   // T8.15 (owner 2026-11-25): who changed a TLA contract, what, when — by proposal or sent directly
-        ], { onSelect: function (id) { var b = document.querySelector('#tla-legacy-tabs .tab-btn[data-tab="' + id + '"]'); if (b) b.click(); },
+        // T8.16 (owner 2026-11-25): the bar is the one list in lib/site-header.js — Overview · Member Portfolio · Slippage Simulator ·
+        // Vote Simulator · LP Grades · Contract Watch · PD Watch. Pools is off the bar (its section still opens at #pools); Docs is off the
+        // bar (the docs hub is in the footer). This page's own sections (Overview, LP Grades, PD Watch) are buttons here, links elsewhere.
+        var nav = SiteHeader.subnav(SiteHeader.tlaTabs('overview', { inPage: 'tla-stats' }), { onSelect: function (id) { var b = document.querySelector('#tla-legacy-tabs .tab-btn[data-tab="' + id + '"]'); if (b) b.click(); },
              right: '<span id="sh-epoch-slot"></span>', attach: '#tla-top-tile' });
         var syncActive = function () {
             var cur = (location.hash.slice(1) || 'overview');
@@ -975,6 +970,9 @@
             </a>
             <div class="tab-btn" data-tab="grades">
                 <i class="fas fa-graduation-cap mr-2"></i>LP Grades
+            </div>
+            <div class="tab-btn" data-tab="pdwatch">
+                <i class="fas fa-magnifying-glass-chart mr-2"></i>PD Watch
             </div>
             <div class="tab-btn" data-tab="pools">
                 <i class="fas fa-water mr-2"></i>LP Stats
@@ -1482,6 +1480,12 @@
         <!-- LP SCORECARD (2026-10-15): replaces the Vote Advisor, the PD Bribe Tracker and the v1/v2 grade rows. Rendered by renderScorecard() from lp-grades/series + grading_config.json → scorecard via /lib/lp-scorecard.js -->
         <div id="tab-grades" class="tab-content" data-cron-source="lp-grades">
             <div id="lps-root"><div class="glass-card p-6 text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Loading the LP Scorecard…</div></div>
+        </div>
+
+        <!-- PD WATCH (T8.16, owner 2026-11-25): the PD placements audit, moved out of LP Grades to its own main tab. Same renderer
+             (renderScorecard), same data; it draws into #pdw-root when this tab is open and into #lps-root when LP Grades is. -->
+        <div id="tab-pdwatch" class="tab-content" data-cron-source="lp-grades">
+            <div id="pdw-root"><div class="glass-card p-6 text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Loading PD Watch…</div></div>
         </div>
 
         <div id="tab-docs" class="tab-content">
@@ -5620,11 +5624,21 @@
         return out;
     }
 
+    // T8.16 (owner 2026-11-25): the PD placements audit is its own main tab, PD Watch (#pdwatch); LP Grades (#grades) keeps the pools view.
+    // The tab decides the view (switchToTab sets lpsState.view), and one view is on the page at a time — the two roots share their inner ids.
+    const lpsRootId = (view) => view === 'pd' ? 'pdw-root' : 'lps-root';
     async function renderScorecard() {
-        const root = document.getElementById('lps-root'); if (!root) return;
-        let D; try { D = await lpsLoad(); } catch (e) { root.innerHTML = `<div class="glass-card p-6 text-sm text-gray-400"><i class="fas fa-circle-info mr-1"></i>LP Scorecard: ${lpsEsc(e.message)}.</div>`; return; }
+        if (!document.getElementById('lps-root') && !document.getElementById('pdw-root')) return;
+        let D; try { D = await lpsLoad(); } catch (e) { const r0 = document.getElementById(lpsRootId(lpsState.view)); if (r0) r0.innerHTML = `<div class="glass-card p-6 text-sm text-gray-400"><i class="fas fa-circle-info mr-1"></i>${lpsState.view === 'pd' ? 'PD Watch' : 'LP Scorecard'}: ${lpsEsc(e.message)}.</div>`; return; }
+        const pd = lpsState.view === 'pd';
+        const root = document.getElementById(lpsRootId(lpsState.view)); if (!root) return;
+        const other = document.getElementById(lpsRootId(pd ? 'pools' : 'pd')); if (other && other.firstChild) other.innerHTML = '';
+        if (pd && !root.querySelector('#lps-bribe-card')) {   // the audit takes a moment the first time: say so, let the tab paint, then work
+            root.innerHTML = '<div class="glass-card p-6 mb-4 text-sm text-gray-400"><i class="fas fa-circle-notch fa-spin mr-2 text-amber-300"></i>Loading PD Watch — every placement, checked against the pool data…</div>';
+            await new Promise(r => setTimeout(r, 30)); if (lpsState.view !== 'pd') return;
+        }
         const { series: S, config: C } = D; const sc = C.scorecard;
-        if (!lpsState._urlRead) {   // shareable links: tla-stats.html?prop=262&win=30d&lens=workhorses&asof=2026-09-20&bucket=stable#grades
+        if (!lpsState._urlRead) {   // shareable links: tla-stats.html?win=30d&lens=workhorses&asof=2026-09-20&bucket=stable#grades · tla-stats.html?prop=262#pdwatch (older links with #grades still open PD Watch — see pdWatchLink)
             lpsState._urlRead = true; try { const q = new URLSearchParams(location.search);
                 if (q.get('win') && sc.windows[q.get('win')]) lpsState.window = q.get('win');
                 if (q.get('lens') && sc.presets.some(p => p.id === q.get('lens'))) lpsState.preset = q.get('lens');
@@ -5632,9 +5646,8 @@
                 if (['stable', 'project', 'bluechip', 'single'].includes(q.get('bucket'))) lpsState.bucket = q.get('bucket');
                 if (['volume', 'fees', 'grade'].includes(q.get('earn'))) lpsState.earnBy = q.get('earn');
                 if (['all', 'pd', 'others'].includes(q.get('funder'))) lpsState.funder = q.get('funder');
-                if (q.get('view') === 'pd') lpsState.view = 'pd';
-                if (q.get('prop')) { lpsState.placement = Number(q.get('prop')); lpsState.view = 'pd'; lpsState._scrollTo = 'lps-bribe-card'; }
-                if (q.get('sec')) { lpsState.view = 'pd'; if (['sizing', 'formula', 'field'].includes(q.get('sec'))) lpsState.moreOpen = true; lpsState._scrollTo = 'lps-sec-' + q.get('sec'); }
+                if (q.get('prop')) { lpsState.placement = Number(q.get('prop')); if (pd) lpsState._scrollTo = 'lps-bribe-card'; }
+                if (q.get('sec')) { if (['sizing', 'formula', 'field'].includes(q.get('sec'))) lpsState.moreOpen = true; if (pd) lpsState._scrollTo = 'lps-sec-' + q.get('sec'); }
             } catch (e) { } }
         if (!lpsState.window) lpsState.window = sc.default_window; if (!lpsState.preset) lpsState.preset = (LPScorecard.presetOf(C) || {}).id; if (!lpsState.asOf) lpsState.asOf = S.days[S.days.length - 1];
         root.innerHTML = `<div id="lps-head">${lpsHeaderHtml(D)}</div><div id="lps-table-card"></div><div id="lps-bribe-card" class="scroll-mt-20"></div>` + lpsMethodHtml(D);
@@ -5647,7 +5660,7 @@
         if (kind === 'prop') { q.set('prop', lpsState.placement || ''); }
         else if (kind && kind.indexOf('sec:') === 0) { q.set('prop', lpsState.placement || ''); q.set('sec', kind.slice(4)); }
         else { q.set('win', lpsState.window); q.set('lens', lpsState.preset); if (lpsState.asOf && lpsState.asOf !== last) q.set('asof', lpsState.asOf); if (lpsState.bucket !== 'all') q.set('bucket', lpsState.bucket); if (lpsState.earnBy !== 'volume') q.set('earn', lpsState.earnBy); if (lpsState.funder !== 'all') q.set('funder', lpsState.funder); }
-        const url = location.origin + location.pathname + '?' + q.toString() + '#grades';
+        const url = location.origin + location.pathname + '?' + q.toString() + (kind === 'prop' || (kind && kind.indexOf('sec:') === 0) ? '#pdwatch' : '#grades');
         const done = () => { if (btn) { const t = btn.innerHTML; btn.innerHTML = '<i class="fas fa-check"></i> copied'; setTimeout(() => { btn.innerHTML = t; }, 1600); } };
         try { navigator.clipboard.writeText(url).then(done, () => { prompt('Copy this link', url); }); } catch (e) { prompt('Copy this link', url); }
     };
@@ -5658,12 +5671,13 @@
         const grp = (label, inner) => `<div class="flex items-center gap-1 flex-wrap"><span class="text-[10px] uppercase tracking-wider text-gray-600 mr-1">${label}</span>${inner}</div>`;
         return `<div class="glass-card p-5 mb-4">
             <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-                <h3 class="font-semibold text-lg flex items-center gap-2"><i class="fas fa-scale-balanced text-cyan-400"></i> LP Scorecard <span class="text-xs font-normal text-gray-500">what each pool earns · what it receives · who pays</span></h3>
+                ${lpsState.view === 'pd'
+                    ? `<h3 class="font-semibold text-lg flex items-center gap-2"><i class="fas fa-magnifying-glass-chart text-amber-400"></i> PD Watch <span class="text-xs font-normal text-gray-500">Phoenix Directive bribe placements · where the LUNA went · checked against the pool data</span></h3>`
+                    : `<h3 class="font-semibold text-lg flex items-center gap-2"><i class="fas fa-scale-balanced text-cyan-400"></i> LP Scorecard <span class="text-xs font-normal text-gray-500">what each pool earns · what it receives · who pays</span></h3>`}
                 <div class="flex items-center gap-1.5 text-[10px]"><span class="px-2 py-0.5 rounded bg-white/5 text-gray-400" title="the rubric version every grade on this page used">rubric ${lpsEsc(sc.config_version)}</span><span class="px-2 py-0.5 rounded bg-white/5 text-gray-400" title="facts series ${lpsEsc(S.version)}, generated ${lpsEsc((S.generatedAt || '').slice(0, 16).replace('T', ' '))} UTC">data to ${lpsEsc(S.days[S.days.length - 1])}</span></div>
             </div>
-            <div class="flex gap-1 mb-3 p-1 rounded-xl bg-white/[0.04] w-fit">${[['pools', 'fa-table-list', 'Pools — earns vs receives'], ['pd', 'fa-magnifying-glass-chart', 'PD placements — audit']].map(([v, ic, l]) => `<button type="button" onclick="lpsSet('view','${v}')" class="px-4 py-1.5 rounded-lg text-[12px] font-medium ${lpsState.view === v ? 'bg-cyan-500/25 text-cyan-100' : 'text-gray-400 hover:text-gray-200'}"><i class="fas ${ic} mr-1.5"></i>${l}</button>`).join('')}</div>
-            ${lpsState.view === 'pd' ? `<p class="text-xs text-gray-400">Every Phoenix Directive bribe placement, decoded from its proposal and verified on chain, checked against the formula PD uses to choose and weight pools — gauge by gauge, with the pool data from before each placement. So PD and anyone else can verify it. The numbers decide; the page does not.</p>` : ''}
-            <p class="text-xs text-gray-400 mb-3 ${lpsState.view === 'pd' ? 'hidden' : ''}">For anyone deciding where votes or bribes go — voters, projects, DAOs, bribers. Every pool is measured against the others <b class="text-gray-200">in its bucket</b>: how much of the bucket's trading it carries (<span class="text-cyan-300">earns</span>) versus how much of the bucket's votes — and so emissions — it gets (<span class="text-gray-200">receives</span>), with this epoch's bribes beside it. All from on-chain and DEX data under the <a class="text-cyan-400 hover:underline" href="${LPS_URLS.configView}" target="_blank" rel="noopener">published rubric ↗</a>.</p>
+            ${lpsState.view === 'pd' ? `<p class="text-xs text-gray-400">Every Phoenix Directive bribe placement, decoded from its proposal and verified on chain, checked against the formula PD uses to choose and weight pools — gauge by gauge, with the pool data from before each placement. So PD and anyone else can verify it. The numbers decide; the page does not.</p>` : `<p class="text-xs text-gray-400 mb-3">For anyone deciding where votes or bribes go — voters, projects, DAOs, bribers. Every pool is measured against the others <b class="text-gray-200">in its bucket</b>: how much of the bucket's trading it carries (<span class="text-cyan-300">earns</span>) versus how much of the bucket's votes — and so emissions — it gets (<span class="text-gray-200">receives</span>), with this epoch's bribes beside it. All from on-chain and DEX data under the <a class="text-cyan-400 hover:underline" href="${LPS_URLS.configView}" target="_blank" rel="noopener">published rubric ↗</a>.</p>
+            <p class="text-xs text-gray-500 mb-3"><i class="fas fa-magnifying-glass-chart text-amber-400/80 mr-1"></i>The audit of Phoenix Directive's bribe placements has its own tab now: <a href="#pdwatch" onclick="lpsSet('view','pd'); return false;" class="text-cyan-400 hover:underline">PD Watch →</a></p>`}
             ${D.errors.length ? `<div class="text-[11px] text-red-300 mb-2"><i class="fas fa-triangle-exclamation mr-1"></i>Rubric check: ${lpsEsc(D.errors.join('; '))}</div>` : ''}
             <div class="${lpsState.view === 'pd' ? 'hidden' : ''}"><div class="flex flex-wrap items-center gap-x-5 gap-y-2">
                 ${grp('Window', Object.keys(sc.windows).map(w => btn(lpsState.window === w, w, `lpsSet('window','${w}')`, 'average of the last ' + sc.windows[w] + ' day(s)')).join(''))}
@@ -5683,7 +5697,7 @@
         lpsState[k] = v;
         if (k === 'placement') { lpsState.crit = null; lpsState.critWin = null; }
         if (k === 'crit') { const [c, w] = String(v).split('|'); lpsState.crit = c; lpsState.critWin = w; }
-        if (k === 'view') { const bc = document.getElementById('lps-bribe-card'), tc = document.getElementById('lps-table-card'); const msg = '<div class="glass-card p-6 mb-4 text-sm text-gray-400"><i class="fas fa-circle-notch fa-spin mr-2 text-amber-300"></i>Loading the ' + (v === 'pd' ? 'PD placements audit' : 'pools view') + '…</div>'; if (v === 'pd' && bc) { bc.innerHTML = msg; if (tc) tc.innerHTML = ''; } else if (tc) { tc.innerHTML = msg; if (bc) bc.innerHTML = ''; } setTimeout(renderScorecard, 30); return; }
+        if (k === 'view') { const tab = v === 'pd' ? 'pdwatch' : 'grades'; switchToTab(tab); try { history.pushState(null, '', '#' + tab); } catch (e) { } return; }   // T8.16: each view is its own main tab
         if (['steerMode', 'steerBucket', 'steerFunder'].includes(k)) { const el = document.getElementById('lps-sec-steer'); if (el) el.outerHTML = lpsSteerHtml(store.lps.series); return; }
         if (['placement', 'crit', 'after', 'fieldOpen', 'fWin', 'sMet', 'sWin', 'placementsOpen', 'aWin', 'moreOpen'].includes(k)) { lpsRenderBribe(store.lps); return; }
         if (['funder'].includes(k)) { lpsRenderTable(store.lps); const hh = document.getElementById('lps-head'); if (hh) hh.innerHTML = lpsHeaderHtml(store.lps); return; }
@@ -6041,7 +6055,7 @@
         const ub = ae.unbribed_median;
         host.innerHTML = `<div class="glass-card p-5 mb-4">
             <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-                <div class="text-sm font-semibold text-gray-200 flex items-center gap-2"><i class="fas fa-magnifying-glass-chart text-amber-400"></i> PD placements — audit <span class="text-[11px] font-normal text-gray-500">every placement the data can check, reverse-engineered against the formula PD uses</span></div>
+                <div class="text-sm font-semibold text-gray-200 flex items-center gap-2"><i class="fas fa-magnifying-glass-chart text-amber-400"></i> Placements — audit <span class="text-[11px] font-normal text-gray-500">every placement the data can check, reverse-engineered against the formula PD uses</span></div>
             </div>
             ${lpsPickerHtml(usable, pl, 'top')}
             ${lpsSteerHtml(S)}
@@ -12464,7 +12478,9 @@
     // Switch to a specific tab
     function switchToTab(tabName) {
         if (tabName === 'tla') tabName = 'pools';   // 2026-08-25: TLA Stats merged into Pools (old links keep working)
-        const validTabs = ['overview', 'pools', 'grades', 'docs'];  // rankings + dao retired 2026-07 (rankings merged into LP Grades; aDAO has dedicated pages)
+        // T8.16 (owner 2026-11-25): pdwatch = PD Watch, the PD placements audit as its own main tab. Pools and Docs are off the tab bar;
+        // their sections still open by link (#pools, #docs), so nothing that points at them breaks.
+        const validTabs = ['overview', 'pools', 'grades', 'pdwatch', 'docs'];  // rankings + dao retired 2026-07 (rankings merged into LP Grades; aDAO has dedicated pages)
         if (!validTabs.includes(tabName)) tabName = 'overview';
         
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -12480,14 +12496,25 @@
         document.querySelectorAll('.sh-subtab[data-tab]').forEach(x => x.classList.toggle('active', x.getAttribute('data-tab') === tabName));
         // LP Grades renders lazily on first visit (and re-renders on later visits so
         // the member-lens star column stays in sync with the header dropdown).
-        if (tabName === 'grades') {
+        if (tabName === 'grades' || tabName === 'pdwatch') {
+            lpsState.view = tabName === 'pdwatch' ? 'pd' : 'pools';   // T8.16: the tab decides which view the scorecard draws
             try { renderLpGrades(); } catch (err) { console.warn('renderLpGrades:', err); }
         }
+    }
+
+    // T8.16: a link to one placement (tla-stats.html?prop=262#grades — what the page, the lp-grades product and the help bot handed out
+    // before PD Watch was its own tab), or one written without a tab at all, opens PD Watch.
+    function pdWatchLink(hash) {
+        let q; try { q = new URLSearchParams(location.search); } catch (e) { return hash; }
+        const pd = q.get('prop') || q.get('sec') || q.get('view') === 'pd';
+        if (!pd || (hash && hash !== 'grades')) return hash;
+        try { history.replaceState(null, '', location.pathname + location.search + '#pdwatch'); } catch (e) { }
+        return 'pdwatch';
     }
     
     // Check URL hash on page load
     function initTabFromHash() {
-        const hash = window.location.hash.slice(1);
+        const hash = pdWatchLink(window.location.hash.slice(1));
         if (hash) {
             switchToTab(hash);
         }
@@ -14026,7 +14053,7 @@
     <!-- Vercel Web Analytics (auto-enabled for Vercel-hosted sites) -->
     <script defer src="/_vercel/insights/script.js"></script>
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T8.15', revDate: '2026-11-25', page: 'tla-stats' });   // T8.15 (2026-11-25): a Contract Watch tab in the tab bar (contract-watch.html) — nothing else on this page changed   // T8.14 (2026-11-24, checked number by number against the owner's captures of Eris's page and votion.money): Total VP is the lock contract's own total, the figure Eris prints (36.68M; the page had the largest gauge's boost-only votes, 33.98M) — from the next snapshot that carries it; Votion's VP counts its two Claim vaults (0.68M); the Vote Market tile uses every Votion vault (engine 1.6.0, tile 1.5.0)   // T8.13 (2026-11-24, owner: "this is super messy and I am still lost — how can Votion just not include these LPs?"): the Vote Market tile's This round board in far fewer words (tile 1.4.0) — four columns (pool · pot · Votion's votes · APR), one short caption a row, the rule in one line. The pools Votion's optimizer is not including are a group of their own, said once: no bribe there, of any size, moves its votes until it includes them — with one link to see the round as if it did. A bribe's effect is three short lines; a bribe that moves nothing adds no figures. Vault-by-vault % fold under "Check against Votion's own page".   // T8.12.1 (2026-11-24): the tile's "Votion's next move" tab shows the same votes as This round — where they end up once both vaults have cast, not the two published plans added together (a pool both planned to enter was counted twice) — lib 1.5.1, tile 1.3.1   // T8.12 (2026-11-24, owner: "a place you can see all of the LPs being bribed… the current APR… what Votion plans to do with its votes, the projected resulting APR… what if I added an additional xxx… the winner against the losers" and "I don't get 'not on Votion's list this round'… why does 'no Votion' exist?"): the Vote Market tile opens on THIS ROUND (tile 1.3.0, lib 1.5.0) — one bucket, every pot: what it pays per vote, Votion's votes now → after it casts, the APR now → next epoch, the reason in a sentence and each vault's % as Votion's page shows it; tap a pool to add a bribe and every row gains a third figure, with who gains, who pays and the totals that do not change. A funded pool Votion's optimizer is not counting says so as a state ("not counted by Votion now"), not a rule, and the round can be read the other way (every pot counted). "A vote costs" is the rate Votion's pools end on (it was the bigger vault's own level).   // T8.11 (2026-11-24, owner: "how much do I need to add to attract Votion… you don't see why"): the Vote Market tile explains itself (tile 1.2.0 on lib 1.4.0) — how Votion decides, in one paragraph with the bucket's going rate, and under every pool where it stands: how much more before Votion adds a vote, the price of the next 1M VP, or that Votion's list leaves the pool out this round. The numbers behind it now follow Votion's own rule (they assumed it took the best split), boost + fixed votes, and the reward list.   // T8.10.1 (2026-11-24): the Epoch Bribes tile says what it counts — last round's pots, paying out now ($587 today) — beside the Vote Market's "Bribes this round" ($424, the pots on offer for the vote now open). Two true numbers that read as one disagreement under the label "active this epoch".   // T8.10 (2026-11-24, pre-promotion health check): the footer rev had stayed at T6.13.5 through T7.0–T8.9.1; the tab title no longer ends in "TEST"; link-preview image is an absolute URL; a pool off its bucket's reward list (tla-snapshot 1.2.0) is listed under Currently inactive as "off the reward list" whatever its vote share; the asset notice is the curated one-liner only ("Terra has moved to USDC.inj" — owner); the unused August bribe-state download is gone · T6.13.5: the Member Portfolio tab is live (was greyed SOON) · T6.13.4: Noble USDC sweep — the Pools tab's wind-down pill reads lp-grades' alerts (the tla-snapshot row it was handed carries none, so it never showed) · T6.13.3: tile 1.1.1 — "Voting closes in" names the real deadline (Sun 23:59 UTC), not Votion's ~21:20 cast · T6.13.2: Vote Market tile 1.1.0 — the footer bar is gone; the filters are one compact toolbar ($ segments · Bucket · Rank by) · T6.13.1: a stray </div> after the Vote Market card closed its row early, so Movers This Epoch fell below it — Movers sits beside the tile again · T6.13: the Vote Market tile runs on the simulator's engine (lib/vote-market-tile.js 1.0.0) — Where $ does the most · Votion's next move (real VP) · Pots & rates, one pot total with the planner, the cast time from Votion's timing, a best-split teaser for the selected wallet, and the simulator one click from the header, every row and the footer · T6.12: the Vote Market tile shows Votion's next move only (the $X chips and their fine print are gone — the planner does that) + wind-down pills on its pool names · T6.11: the tile opens the planner (/vote-market.html) ·    // T6.10: the Pools tab's bucket charts plot votes — every pool in the bucket, its TLA VP or share of the bucket over the last 13 epochs (a 1% line on the share view; click an epoch for its whole vote); Liquidity & volume is still one pick away.   // T6.9: the Vote Breakdown shows any past epoch (Past epochs… picker, change vs the epoch before); bars never run off the card (the scale covers the locked-in outline; labels sit inside when long); the pool drill-down charts give each epoch's exact number on hover and jump to that epoch's whole vote.   // T6.8: every pool named before anything keys on names (Votion plan title / catalog underlyings for raw-address pools; a dewhitelisted twin gauge is "(old)" instead of hiding the live one)
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T8.16', revDate: '2026-11-25', page: 'tla-stats' });   // T8.16 (2026-11-25, owner): the tab bar is Overview · Member Portfolio · Slippage Simulator · Vote Simulator · LP Grades · Contract Watch · PD Watch, from the one list in lib/site-header.js — PD WATCH is the PD placements audit as its own main tab (#pdwatch; it was a view inside LP Grades, and older links to a placement still open it), VOTE SIMULATOR opens the Vote Market planner, Pools is off the bar (its section still opens at #pools) and Docs is off the bar (the docs hub is in the footer)   // T8.15 (2026-11-25): a Contract Watch tab in the tab bar (contract-watch.html) — nothing else on this page changed   // T8.14 (2026-11-24, checked number by number against the owner's captures of Eris's page and votion.money): Total VP is the lock contract's own total, the figure Eris prints (36.68M; the page had the largest gauge's boost-only votes, 33.98M) — from the next snapshot that carries it; Votion's VP counts its two Claim vaults (0.68M); the Vote Market tile uses every Votion vault (engine 1.6.0, tile 1.5.0)   // T8.13 (2026-11-24, owner: "this is super messy and I am still lost — how can Votion just not include these LPs?"): the Vote Market tile's This round board in far fewer words (tile 1.4.0) — four columns (pool · pot · Votion's votes · APR), one short caption a row, the rule in one line. The pools Votion's optimizer is not including are a group of their own, said once: no bribe there, of any size, moves its votes until it includes them — with one link to see the round as if it did. A bribe's effect is three short lines; a bribe that moves nothing adds no figures. Vault-by-vault % fold under "Check against Votion's own page".   // T8.12.1 (2026-11-24): the tile's "Votion's next move" tab shows the same votes as This round — where they end up once both vaults have cast, not the two published plans added together (a pool both planned to enter was counted twice) — lib 1.5.1, tile 1.3.1   // T8.12 (2026-11-24, owner: "a place you can see all of the LPs being bribed… the current APR… what Votion plans to do with its votes, the projected resulting APR… what if I added an additional xxx… the winner against the losers" and "I don't get 'not on Votion's list this round'… why does 'no Votion' exist?"): the Vote Market tile opens on THIS ROUND (tile 1.3.0, lib 1.5.0) — one bucket, every pot: what it pays per vote, Votion's votes now → after it casts, the APR now → next epoch, the reason in a sentence and each vault's % as Votion's page shows it; tap a pool to add a bribe and every row gains a third figure, with who gains, who pays and the totals that do not change. A funded pool Votion's optimizer is not counting says so as a state ("not counted by Votion now"), not a rule, and the round can be read the other way (every pot counted). "A vote costs" is the rate Votion's pools end on (it was the bigger vault's own level).   // T8.11 (2026-11-24, owner: "how much do I need to add to attract Votion… you don't see why"): the Vote Market tile explains itself (tile 1.2.0 on lib 1.4.0) — how Votion decides, in one paragraph with the bucket's going rate, and under every pool where it stands: how much more before Votion adds a vote, the price of the next 1M VP, or that Votion's list leaves the pool out this round. The numbers behind it now follow Votion's own rule (they assumed it took the best split), boost + fixed votes, and the reward list.   // T8.10.1 (2026-11-24): the Epoch Bribes tile says what it counts — last round's pots, paying out now ($587 today) — beside the Vote Market's "Bribes this round" ($424, the pots on offer for the vote now open). Two true numbers that read as one disagreement under the label "active this epoch".   // T8.10 (2026-11-24, pre-promotion health check): the footer rev had stayed at T6.13.5 through T7.0–T8.9.1; the tab title no longer ends in "TEST"; link-preview image is an absolute URL; a pool off its bucket's reward list (tla-snapshot 1.2.0) is listed under Currently inactive as "off the reward list" whatever its vote share; the asset notice is the curated one-liner only ("Terra has moved to USDC.inj" — owner); the unused August bribe-state download is gone · T6.13.5: the Member Portfolio tab is live (was greyed SOON) · T6.13.4: Noble USDC sweep — the Pools tab's wind-down pill reads lp-grades' alerts (the tla-snapshot row it was handed carries none, so it never showed) · T6.13.3: tile 1.1.1 — "Voting closes in" names the real deadline (Sun 23:59 UTC), not Votion's ~21:20 cast · T6.13.2: Vote Market tile 1.1.0 — the footer bar is gone; the filters are one compact toolbar ($ segments · Bucket · Rank by) · T6.13.1: a stray </div> after the Vote Market card closed its row early, so Movers This Epoch fell below it — Movers sits beside the tile again · T6.13: the Vote Market tile runs on the simulator's engine (lib/vote-market-tile.js 1.0.0) — Where $ does the most · Votion's next move (real VP) · Pots & rates, one pot total with the planner, the cast time from Votion's timing, a best-split teaser for the selected wallet, and the simulator one click from the header, every row and the footer · T6.12: the Vote Market tile shows Votion's next move only (the $X chips and their fine print are gone — the planner does that) + wind-down pills on its pool names · T6.11: the tile opens the planner (/vote-market.html) ·    // T6.10: the Pools tab's bucket charts plot votes — every pool in the bucket, its TLA VP or share of the bucket over the last 13 epochs (a 1% line on the share view; click an epoch for its whole vote); Liquidity & volume is still one pick away.   // T6.9: the Vote Breakdown shows any past epoch (Past epochs… picker, change vs the epoch before); bars never run off the card (the scale covers the locked-in outline; labels sit inside when long); the pool drill-down charts give each epoch's exact number on hover and jump to that epoch's whole vote.   // T6.8: every pool named before anything keys on names (Votion plan title / catalog underlyings for raw-address pools; a dewhitelisted twin gauge is "(old)" instead of hiding the live one)
     //   // T6.7: pots price off the feed by the catalog symbol (network-and-prices 3.1.0); the T6.5 page bridge is gone · T6.6 (step 5): the Vote Market's +$X cell carries Votion's own threshold flags for the bucket (moves / holds, its published gain) and the per-bucket back-test error; a header chip shows the mean model-vs-plan error. Words + one derived number; no layout change.   // T6.5: live pots price through the catalog's own price when the feed keys a symbol differently (USDC.n vs USDC); a pot with tokens is never 'not funded' — the LUNA-EURe $10 pot for p203 was funded all along.   // T6.4: the Top-by-APR subline names the LUNA price the product is on (live / day price, as-of) and the trading-leg caveat for the four pools that read lower than Eris. Words only.   // T6.3: the Bribes popup reads the rollup too (1.1.0 oracle join); footer says why an epoch can be missing.   // T6.2: hero-tile popups read member-data/tla-snapshot/epoch-history.json (every epoch since E184 for pools / TVL / rewards / voting VP, APR from E196, on the tiles' own basis; bribes keep their live point until the oracle join); the band product is used only for epochs the rollup lacks — no mixed definitions. In place under the freeze.   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
 </body>
 </html>

@@ -4,6 +4,7 @@
 // stampAssetAlerts → lp-grades applyAlerts) from the committed registry — no third copy of either rule.
 // Usage: TLA_CORE_DIR=<tla-core (with docs/curated/alerts.json)> CRONS_DIR=<platform-crons> node gate-tla-stats-alerts.mjs
 import { JSDOM } from 'jsdom'; import fs from 'fs'; import path from 'path'; import os from 'os'; import { createRequire } from 'module';
+import { realHeader } from './gate-header.mjs';   // the page builds its tab bar from the site's one list (lib/site-header.js)
 const CORE_REAL = process.env.TLA_CORE_DIR, CRONS = process.env.CRONS_DIR; if (!CORE_REAL || !CRONS) { console.error('TLA_CORE_DIR and CRONS_DIR required'); process.exit(1); }
 const require = createRequire(import.meta.url);
 const { stampAssetAlerts } = require(path.join(CRONS, 'token-catalog/token-catalog.js'));
@@ -29,7 +30,7 @@ console.log(`staged: ${assetAlerted.length} asset-alerted pools, ${forumAlerted.
 const read = (rel) => { const p = path.join(CORE, rel); return fs.existsSync(p) ? fs.readFileSync(p) : null; };
 const html = fs.readFileSync(path.join(here, 'tla-stats.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '');
 const dom = new JSDOM(html, { url: 'https://thealliancedao.com/tla-stats.html', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
-  w.SiteHeader = { mount() {}, subnav() { return { querySelectorAll: () => [] }; } }; w.SiteFooter = { mount() {} }; w.AddressPicker = undefined;
+  w.SiteHeader = { mount() {}, subnav() { return { querySelectorAll: () => [] }; }, tlaTabs: realHeader().tlaTabs }; w.SiteFooter = { mount() {} }; w.AddressPicker = undefined;
   w.Chart = class { constructor() { this.data = { datasets: [] }; } update() {} destroy() {} }; w.HTMLCanvasElement.prototype.getContext = () => ({ canvas: {}, createLinearGradient: () => ({ addColorStop() {} }), fillRect() {}, clearRect() {}, measureText: () => ({ width: 0 }) });
   w.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }); w.scrollTo = () => {}; w.IntersectionObserver = class { observe() {} disconnect() {} unobserve() {} };
   w.console.log = () => {}; w.console.warn = () => {}; w.console.error = () => {};

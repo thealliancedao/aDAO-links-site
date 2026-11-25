@@ -14,6 +14,7 @@
 //   P2 Pools tab: two pools that share a name (LUNA-EURe on Astroport and SkeletonSwap) each show their own stake
 //   P3 Pools tab: the largest pool shows a dollar stake (it read "$0.00 · 0% in TLA" while USDC.inj was unnamed)
 import { JSDOM } from 'jsdom'; import fs from 'fs'; import path from 'path'; import os from 'os'; import { createRequire } from 'module';
+import { realHeader } from './gate-header.mjs';   // the page builds its tab bar from the site's one list (lib/site-header.js)
 const CORE_REAL = process.env.TLA_CORE_DIR, CRONS = process.env.CRONS_DIR; if (!CORE_REAL || !CRONS) { console.error('TLA_CORE_DIR and CRONS_DIR required'); process.exit(1); }
 const require = createRequire(import.meta.url);
 const S = require(path.join(CRONS, 'member-data/tla-snapshot.js'))._internals;
@@ -65,7 +66,7 @@ const expActiveTile = active.filter(p => /astro|skeleton/i.test(p.dex || '')).le
 // --- page ---
 const html = fs.readFileSync(path.join(here, 'tla-stats.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '');
 const dom = new JSDOM(html, { url: 'https://theadao.com/tla-stats.html', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
-  w.SiteHeader = { mount() {}, subnav() { return { querySelectorAll: () => [] }; } }; w.SiteFooter = { mount() {} }; w.AddressPicker = undefined;
+  w.SiteHeader = { mount() {}, subnav() { return { querySelectorAll: () => [] }; }, tlaTabs: realHeader().tlaTabs }; w.SiteFooter = { mount() {} }; w.AddressPicker = undefined;
   w.Chart = class { constructor() { this.data = { datasets: [] }; } update() {} destroy() {} }; w.HTMLCanvasElement.prototype.getContext = () => ({ canvas: {}, createLinearGradient: () => ({ addColorStop() {} }), fillRect() {}, clearRect() {}, measureText: () => ({ width: 0 }) });
   w.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }); w.scrollTo = () => {}; w.IntersectionObserver = class { observe() {} disconnect() {} unobserve() {} };
   w.console.log = () => {}; w.console.warn = () => {}; w.console.error = () => {};

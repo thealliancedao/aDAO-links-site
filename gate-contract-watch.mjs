@@ -8,6 +8,7 @@
 //   PLATFORM_CRONS_DIR (optional) — compares the page's change rule with the classifier's
 // Usage: NODE_PATH=… TLA_CORE_DIR=… CW_DIR=… DAOO_DIR=… node gate-contract-watch.mjs
 import { JSDOM } from 'jsdom'; import fs from 'fs'; import path from 'path';
+import { realHeader, isTlaBar } from './gate-header.mjs';   // 1.4.1: the page builds its tab bar from the site's one list (lib/site-header.js)
 const CORE = process.env.TLA_CORE_DIR, CW = process.env.CW_DIR || CORE, DAOO = process.env.DAOO_DIR, PC = process.env.PLATFORM_CRONS_DIR;
 if (!CORE || !DAOO) { console.error('TLA_CORE_DIR and DAOO_DIR required'); process.exit(1); }
 const here = path.dirname(new URL(import.meta.url).pathname);
@@ -49,7 +50,7 @@ function mkFetch(opts = {}) {
 }
 async function page(hash = '', opts = {}) {
   const dom = new JSDOM(html.replace(/<script[^>]*src=[^>]*><\/script>/g, '').replace(/<link[^>]*>/g, ''), { url: 'https://theadao.com/contract-watch.html' + hash, runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
-    w.SiteHeader = { mount(o) { w.__mount = o; }, subnav(items, o) { w.__subnav = { items, o }; } }; w.SiteFooter = { mount(o) { w.__footer = o; } };
+    w.SiteHeader = { mount(o) { w.__mount = o; }, subnav(items, o) { w.__subnav = { items, o }; }, tlaTabs: realHeader().tlaTabs }; w.SiteFooter = { mount(o) { w.__footer = o; } };
     w.fetch = mkFetch(opts); w.Element.prototype.scrollIntoView = function () { w.__scrolled = this.id; }; w.__errors = []; w.addEventListener('error', (e) => w.__errors.push(String(e.message)));
     Object.defineProperty(w.navigator, 'clipboard', { value: { writeText: async (t) => { w.__copied = t; } }, configurable: true }); } });
   const w = dom.window; const settle = async (n = 12) => { for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 15)); };
@@ -65,7 +66,7 @@ const P = await page();
   check('no address is typed in the page (they come from the record, the groups file and the state read)', !/terra1[0-9a-z]{20,}/.test(html));
   check('the page is neutral in its own words: no judgement vocabulary in the source', !/\b(shady|scam|rug\w*|malicious|fraud\w*|illegal|stole\w*|attack\w*|hostile|improper\w*|unauthori[sz]ed|suspicious|abuse\w*|theft)\b/i.test(html));
   check('no script error while loading and rendering', P.w.__errors.length === 0, P.w.__errors);
-  const sn = P.w.__subnav; check('the TLA Stats tab bar: seven tabs, Contract Watch lit, the others link to their pages', sn && sn.items.length === 7 && sn.items.filter((t) => t.active).map((t) => t.label).join() === 'Contract Watch' && sn.items.find((t) => t.id === 'portfolio').href === 'member-portfolio.html' && sn.items.find((t) => t.id === 'grades').href === 'tla-stats.html#grades' && sn.o.attach === '#cw-top-tile' && P.w.__mount.page === 'contract-watch', sn && sn.items.map((t) => t.label));
+  const sn = P.w.__subnav; check('the TLA tab bar is the site\'s one list — Overview · Member Portfolio · Slippage Simulator · Vote Simulator · LP Grades · Contract Watch · PD Watch — with Contract Watch lit, every other tab a link to its page, no Pools and no Docs', sn && isTlaBar(sn.items, 'watch') && sn.o.attach === '#cw-top-tile' && P.w.__mount.page === 'contract-watch' && !/id: 'overview'/.test(html), sn && sn.items.map((t) => t.label));
   check('the footer carries the page rev and its own changelog key', P.w.__footer && P.w.__footer.rev === P.w.__cw.REV && P.w.__footer.revDate === P.w.__cw.REV_DATE && P.w.__footer.page === 'contract-watch', P.w.__footer);
   if (PC) { const src = fs.readFileSync(path.join(PC, 'tla-flows/lib/admin-classifier.js'), 'utf8'); const m = src.match(/const CHANGE_RE = (\/.+\/);/); check('the page\'s rule for "this action changes a contract" is the classifier\'s, character for character', m && m[1] === String(P.w.__cw.CHANGE_RE), m && m[1].length); }
   else console.log('  (PLATFORM_CRONS_DIR not set — the change-rule comparison skipped)'); }

@@ -42,9 +42,11 @@
 <!-- Site header + global address picker (SPEC-unified-header step 5, 2026-08-21).
      The picker is the zap planner's wallet input; the inline box is retired (kept hidden). -->
 <div id="site-header"></div>
-<script src="/lib/site-header.js"></script>
+<script src="/lib/site-header.js?v=1.14.0"></script>
 <script src="/lib/address-picker.js"></script>
-<script>SiteHeader.mount({ page: 'slippage' });</script>
+<script>SiteHeader.mount({ page: 'slippage' });
+SiteHeader.subnav(SiteHeader.tlaTabs('slippage'));   // 3.0.1 (owner 2026-11-25): the TLA tab bar — the one list in lib/site-header.js, this tab lit (the page had no bar: its tab led out of the bar)
+</script>
 
 <main class="max-w-4xl mx-auto px-4 pb-10">
     <div class="text-center mt-6 mb-6">
@@ -171,7 +173,7 @@
     // Rev footer (DeFi_Patriot 2026-08-03): bump BOTH on every change; #page-rev renders
     // from these constants so the footer can never drift from the code.
     // Changelog: tla-core/docs/changelogs/slippage-log.md
-    const REV = '3.0', REV_DATE = '2026-08-24';
+    const REV = '3.0.1', REV_DATE = '2026-11-25';   // 3.0.1: the TLA tab bar under the header (Overview · Member Portfolio · Slippage Simulator · Vote Simulator · LP Grades · Contract Watch · PD Watch) — nothing else on this page changed
 
     const DEX_URLS = [
         ['astroport', 'https://raw.githubusercontent.com/thealliancedao/tla-core/main/dex-data/astroport/snapshots/current.json'],
@@ -968,6 +970,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '3.0', revDate: '2026-08-24', page: 'slippage' });</script>
+<script>SiteFooter.mount({ rev: '3.0.1', revDate: '2026-11-25', page: 'slippage' });</script>
 </body>
 </html>

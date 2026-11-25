@@ -211,15 +211,17 @@ for (const b of VM.BUCKETS) {
 
 console.log('P. the page (vote-market.html in jsdom, captured pots — the LCD is not reachable)');
 let JSDOM; try { ({ JSDOM } = require('jsdom')); } catch (e) { console.log('  (jsdom not installed — page checks skipped)'); }
+let realHeader = () => ({ tlaTabs: () => [] }), isTlaBar = () => false; if (JSDOM) ({ realHeader, isTlaBar } = await import('./gate-header.mjs'));   // VM1.10.4: the page builds its tab bar from the site's one list (lib/site-header.js)
 if (JSDOM) {
   const html = fs.readFileSync(path.join(here, 'vote-market.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '').replace('<script>if (window.SiteFooter)', '<script>if (false)');
   let onSel = null;
   const dom = new JSDOM(html, { url: 'https://thealliancedao.com/vote-market.html', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
-    w.SiteHeader = { mount() {} }; w.AddressPicker = { mount(o) { onSel = o.onSelect; }, get() { return null; } }; w.scrollTo = () => {}; w.HTMLElement.prototype.scrollIntoView = function () {};
+    w.SiteHeader = { mount() {}, subnav(items, o) { w.__subnav = { items, o }; }, tlaTabs: realHeader().tlaTabs }; w.AddressPicker = { mount(o) { onSel = o.onSelect; }, get() { return null; } }; w.scrollTo = () => {}; w.HTMLElement.prototype.scrollIntoView = function () {};
     w.fetch = async (u) => { const mm = /tla-core\/main\/(.+)$/.exec(String(u).split('?')[0]); if (mm && fs.existsSync(path.join(CORE, mm[1]))) { const t = fs.readFileSync(path.join(CORE, mm[1]), 'utf8'); return { ok: true, status: 200, json: async () => JSON.parse(t) }; } return { ok: false, status: 404, json: async () => ({}) }; };
   } });
   const w = dom.window; w.eval(fs.readFileSync(path.join(here, 'lib/vote-market.js'), 'utf8'));   // the lib inside the page's window — its fetch is the stub, never the network
   w.document.dispatchEvent(new w.Event('DOMContentLoaded')); const d = w.document; await new Promise(r => setTimeout(r, 4000));
+  check('P0 the TLA tab bar sits under the header — the site\'s one list, this page lit as Vote Simulator (VM1.10.4)', w.__subnav && isTlaBar(w.__subnav.items, 'votesim'), w.__subnav && w.__subnav.items.map((t) => t.label));
   const rows = [...d.querySelectorAll('#vm-list .row[data-pk]')]; const top = VM.lens(m, { lens: 'impact', usd: 50, limit: 10 });
   check('P1 the overview lists the engine\'s top 10 for $50, in order', rows.length === 10 && rows.every((r, i) => r.dataset.pk === top[i].pool.pk), rows.map(r => r.dataset.pk).slice(0, 3));
   const t0 = top[0]; const cellTxt = rows[0].children[2].textContent.replace(/\s+/g, '');
@@ -338,7 +340,7 @@ if (JSDOM) {
   // the simulator honours the tile's deep link
   const html2 = fs.readFileSync(path.join(here, 'vote-market.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '').replace('<script>if (window.SiteFooter)', '<script>if (false)');
   const tpk = top[0].pool.pk; const ddom = new JSDOM(html2, { url: 'https://thealliancedao.com/vote-market.html?pool=' + encodeURIComponent(tpk) + '&bribe=50', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
-    w.SiteHeader = { mount() {} }; w.AddressPicker = { mount() {}, get() { return null; } }; w.scrollTo = () => {}; w.HTMLElement.prototype.scrollIntoView = function () {};
+    w.SiteHeader = { mount() {}, subnav(items, o) { w.__subnav = { items, o }; }, tlaTabs: realHeader().tlaTabs }; w.AddressPicker = { mount() {}, get() { return null; } }; w.scrollTo = () => {}; w.HTMLElement.prototype.scrollIntoView = function () {};
     w.fetch = async (u) => { const mm = /tla-core\/main\/(.+)$/.exec(String(u).split('?')[0]); if (mm && fs.existsSync(path.join(CORE, mm[1]))) { const t = fs.readFileSync(path.join(CORE, mm[1]), 'utf8'); return { ok: true, status: 200, json: async () => JSON.parse(t) }; } return { ok: false, status: 404, json: async () => { throw new Error('404'); } }; };
   } });
   const dw = ddom.window; dw.eval(fs.readFileSync(path.join(here, 'lib/vote-market.js'), 'utf8')); dw.document.dispatchEvent(new dw.Event('DOMContentLoaded')); await new Promise(r => setTimeout(r, 4000));

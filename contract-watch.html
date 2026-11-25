@@ -32,6 +32,7 @@
         background-attachment: fixed; min-height: 100vh; }
     .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
     .cw-wrap a { color: var(--cyan); text-decoration: none; } .cw-wrap a:hover { text-decoration: underline; }
+    .cw-wrap .sh-subtab { color: #94a3b8; } .cw-wrap .sh-subtab:hover { color: #e2e8f0; text-decoration: none; } .cw-wrap .sh-subtab.active { color: var(--t-accent, #67e8f9); }   /* 1.4.1: the tab bar keeps the site's tab colours here too (the page's link colour was painting every tab cyan) */
     .cw-wrap button, .cw-wrap input, .cw-wrap select { font-family: inherit; }
     .cw-wrap b { font-weight: 600; }
     .cw-wrap { max-width: 72rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
@@ -188,20 +189,11 @@
 </head>
 <body>
 <div id="site-header"></div>
-<script src="/lib/site-header.js"></script>
+<script src="/lib/site-header.js?v=1.14.0"></script>
 <script src="/lib/address-picker.js"></script>
 <script>SiteHeader.mount({ page: 'contract-watch' }); if (window.AddressPicker && AddressPicker.mount) AddressPicker.mount({});
-(function () {   // the TLA Stats tab bar — same tabs, this one lit
-  SiteHeader.subnav([
-    { id: 'overview',  label: 'Overview',           icon: 'fa-chart-pie',           href: 'tla-stats.html#overview' },
-    { id: 'portfolio', label: 'Member Portfolio',   icon: 'fa-user-astronaut',      href: 'member-portfolio.html' },
-    { id: 'slippage',  label: 'Slippage Simulator', icon: 'fa-arrows-turn-to-dots', href: 'slippage.html' },
-    { id: 'docs',      label: 'Docs',               icon: 'fa-book',                href: 'tla-docs.html' },
-    { id: 'grades',    label: 'LP Grades',          icon: 'fa-graduation-cap',      href: 'tla-stats.html#grades' },
-    { id: 'pools',     label: 'Pools',              icon: 'fa-water',               href: 'tla-stats.html#pools' },
-    { id: 'watch',     label: 'Contract Watch',     icon: 'fa-binoculars',          active: true, href: 'contract-watch.html' },
-  ], { attach: '#cw-top-tile' });
-  document.addEventListener('DOMContentLoaded', function () { var a = document.querySelector('#cw-top-tile .sh-subtab.active'), row = a && a.parentNode; if (a && row && row.scrollWidth > row.clientWidth) row.scrollLeft = Math.max(0, a.offsetLeft - 16); });
+(function () {   // the TLA tab bar — the one list in lib/site-header.js (1.14.0), this tab lit
+  SiteHeader.subnav(SiteHeader.tlaTabs('watch'), { attach: '#cw-top-tile' });
 })();
 </script>
 
@@ -300,7 +292,7 @@
 <script>
 (function () {
     'use strict';
-    const REV = '1.4', REV_DATE = '2026-11-25';   // 1.4: how many keys an account needs (contract-watch/accounts.json: the chain's own account record) said where control moves to an account, in the look-up and beside an admin · WHAT A ROLE IS FOR, in the contracts' own words (contract-watch/guards.json: each contract's answer to a real message simulated from an address without any role) — beside a marked change, on a change that needed a role, and role by role in "Who holds the keys" · 1.3: NEEDS A LOOK — a banner that is calm when the last 30 days hold nothing out of the ordinary and names what does (control moved from a DAO to an account · a change sent directly that had always taken a vote · sent directly while a vote on it was open or after one did not pass · a difference no transaction explains), each with its reason; who held a role before a change; the one-time archive read in the coverage · 1.2: a role says which change on record set it to its holder (from that change's own message) · 1.1.2: the catch-up as stretches of the chain, oldest first (November is read before September–October) · 1.1.1: the Latest line and the catch-up line read as one item / one stretch · 1.1: the message as sent, beside a change that was sent directly
+    const REV = '1.4.1', REV_DATE = '2026-11-25';   // 1.4.1 (owner): the tab bar is the one list in lib/site-header.js — Overview · Member Portfolio · Slippage Simulator · Vote Simulator · LP Grades · Contract Watch · PD Watch (Pools and Docs are off the bar) — in the site's tab colours; nothing else on this page changed   // 1.4: how many keys an account needs (contract-watch/accounts.json: the chain's own account record) said where control moves to an account, in the look-up and beside an admin · WHAT A ROLE IS FOR, in the contracts' own words (contract-watch/guards.json: each contract's answer to a real message simulated from an address without any role) — beside a marked change, on a change that needed a role, and role by role in "Who holds the keys" · 1.3: NEEDS A LOOK — a banner that is calm when the last 30 days hold nothing out of the ordinary and names what does (control moved from a DAO to an account · a change sent directly that had always taken a vote · sent directly while a vote on it was open or after one did not pass · a difference no transaction explains), each with its reason; who held a role before a change; the one-time archive read in the coverage · 1.2: a role says which change on record set it to its holder (from that change's own message) · 1.1.2: the catch-up as stretches of the chain, oldest first (November is read before September–October) · 1.1.1: the Latest line and the catch-up line read as one item / one stretch · 1.1: the message as sent, beside a change that was sent directly
     const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
     const DAOO = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main';
     const TREE = 'https://github.com/thealliancedao/tla-core/tree/main';
@@ -1072,6 +1064,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '1.4', revDate: '2026-11-25', page: 'contract-watch' });</script>
+<script>SiteFooter.mount({ rev: '1.4.1', revDate: '2026-11-25', page: 'contract-watch' });</script>
 </body>
 </html>

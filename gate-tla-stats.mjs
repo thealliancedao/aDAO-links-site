@@ -3,6 +3,7 @@
 // APR from Eris's product · Votion VP repointed · bribes keyed by gauge+bucket ·
 // dead loader gone · token overrides parsed · tabs. Usage: TLA_CORE_DIR=... node gate-tla-stats.mjs
 import { JSDOM } from 'jsdom'; import fs from 'fs'; import path from 'path';
+import { realHeader } from './gate-header.mjs';   // the page builds its tab bar from the site's one list (lib/site-header.js)
 const CORE = process.env.TLA_CORE_DIR; if (!CORE) { console.error('TLA_CORE_DIR required'); process.exit(1); }
 const here = path.dirname(new URL(import.meta.url).pathname);
 let PASS = 0, FAIL = 0; const check = (n, ok, x) => { if (ok) { PASS++; console.log('  ✓ ' + n); } else { FAIL++; console.log('  ✗ ' + n + (x != null ? '  ← ' + JSON.stringify(x) : '')); } };
@@ -10,7 +11,7 @@ const read = (rel) => { const p = path.join(CORE, rel); return fs.existsSync(p) 
 const html = fs.readFileSync(path.join(here, 'tla-stats.html'), 'utf8').replace(/<script[^>]*src=[^>]*><\/script>/g, '');
 const logs = []; let subnavItems = null;
 const dom = new JSDOM(html, { url: 'https://thealliancedao.com/tla-stats.html', runScripts: 'dangerously', pretendToBeVisual: true, beforeParse(w) {
-  w.SiteHeader = { mount() {}, subnav(items) { subnavItems = items; return { querySelectorAll: () => [] }; } }; w.SiteFooter = { mount() {} }; w.AddressPicker = undefined;
+  w.SiteHeader = { mount() {}, subnav(items) { subnavItems = items; return { querySelectorAll: () => [] }; }, tlaTabs: realHeader().tlaTabs }; w.SiteFooter = { mount() {} }; w.AddressPicker = undefined;
   w.Chart = class { constructor() { this.data = { datasets: [] }; } update() {} destroy() {} }; w.HTMLCanvasElement.prototype.getContext = () => ({ canvas: {}, createLinearGradient: () => ({ addColorStop() {} }), fillRect() {}, clearRect() {}, measureText: () => ({ width: 0 }) });
   w.matchMedia = () => ({ matches: false, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {} }); w.scrollTo = () => {}; w.IntersectionObserver = class { observe() {} disconnect() {} unobserve() {} };
   w.console.log = (...a) => logs.push(a.join(' ')); w.console.warn = () => {}; w.console.error = (...a) => logs.push('ERR ' + a.join(' '));

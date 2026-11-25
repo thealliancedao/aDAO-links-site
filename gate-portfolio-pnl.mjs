@@ -25,6 +25,7 @@
 //   P8 fallback: with no v3 block in the ledger the page renders the Phase A story (no crash, no v3 cards)
 // Usage: TLA_CORE_DIR=<tla-core> PNL_OUT=<dir holding tla-flows/pnl> NFTC_DIR=<nft-collections> DAOO_DIR=<dao-originations> node gate-portfolio-pnl.mjs
 import { JSDOM, VirtualConsole } from 'jsdom'; import fs from 'fs'; import path from 'path'; import { createRequire } from 'module';
+import { realHeader, isTlaBar } from './gate-header.mjs';   // the page builds its tab bar from the site's one list (lib/site-header.js)
 const OVERLAY = process.env.OVERLAY_DIR || '';
 const CORE = process.env.TLA_CORE_DIR, OUT = process.env.PNL_OUT, NFTC = process.env.NFTC_DIR || '', DAOO = process.env.DAOO_DIR || '';
 if (!CORE || !OUT) { console.error('TLA_CORE_DIR and PNL_OUT required'); process.exit(1); }
@@ -64,7 +65,7 @@ async function run(wallet, opts = {}) {
   const vc = new VirtualConsole(); vc.on('jsdomError', (e) => { if (process.env.GATE_DEBUG) console.log('   [page error]', String(e && (e.detail || e.message || e)).slice(0, 400)); }); if (process.env.GATE_DEBUG) { vc.on('error', (...a) => console.log('   [console.error]', a.map(String).join(' ').slice(0, 300))); vc.on('warn', (...a) => console.log('   [console.warn]', a.map(String).join(' ').slice(0, 300))); }
   const dom = new JSDOM(html, { url: pageUrl, runScripts: 'dangerously', pretendToBeVisual: true, virtualConsole: vc, beforeParse(win) {
     win.matchMedia = () => ({ matches: false, addListener() {}, addEventListener() {} }); win.scrollTo = () => {}; win.requestAnimationFrame = (f) => setTimeout(f, 0); win.Element.prototype.scrollIntoView = () => {};
-    win.HTMLCanvasElement.prototype.getContext = () => null; win.SiteHeader = { mount() {}, subnav() {} }; win.SiteFooter = { mount() {} };
+    win.HTMLCanvasElement.prototype.getContext = () => null; win.SiteHeader = { mount() {}, subnav(items, o) { win.__subnav = { items, o }; }, tlaTabs: realHeader().tlaTabs }; win.SiteFooter = { mount() {} };
     if (opts.links) for (const [k, v] of Object.entries(opts.links)) win.localStorage.setItem('mp_link:' + wallet + ':' + k, v);
     win.fetch = (u) => { const url = String(u).split('?')[0]; let f = null;
       if (opts.lcd) { const a = opts.lcd(decodeURIComponent(String(u))); if (a !== undefined) return Promise.resolve(a === null ? { ok: false, status: 404, json: async () => ({}) } : { ok: true, status: 200, json: async () => a }); }   /* 4.0: live reads (unbonding, authz, pfpk, DAO claims) */
