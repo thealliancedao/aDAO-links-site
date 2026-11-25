@@ -266,7 +266,7 @@
 <script>
 (function () {
     'use strict';
-    const REV = '1.1.1', REV_DATE = '2026-11-25';   // 1.1.1: the Latest line and the catch-up line read as one item / one stretch · 1.1: the message as sent, beside a change that was sent directly
+    const REV = '1.1.2', REV_DATE = '2026-11-25';   // 1.1.2: the catch-up as stretches of the chain, oldest first (November is read before September–October) · 1.1.1: the Latest line and the catch-up line read as one item / one stretch · 1.1: the message as sent, beside a change that was sent directly
     const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
     const DAOO = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main';
     const TREE = 'https://github.com/thealliancedao/tla-core/tree/main';
@@ -579,13 +579,25 @@
     }
     // the stored walks: from the first record they hold to the day they end (the index states the end; the report the first record)
     function histSpan() { const rep = S.report, h = S.idx && S.idx.history; const from = (rep && rep.first && rep.first.day) || (h && h.first_record), to = (h && h.walks_end) || (rep && rep.last && rep.last.day); return from && to ? { from, to } : null; }
-    function mainJob() { const jobs = (S.rewalk && S.rewalk.jobs) || []; return jobs.filter((j) => j && !j.done).sort((a, b) => (b.to - b.from) - (a.to - a.from))[0] || null; }
+    // the catch-up jobs as stretches of the chain, oldest first; a job that only re-reads blocks inside another job's span is not a stretch of its own
+    function stretches() { const jobs = ((S.rewalk && S.rewalk.jobs) || []).filter((j) => j && isFinite(Number(j.from)) && isFinite(Number(j.to))); return jobs.filter((x) => !jobs.some((y) => y !== x && Number(y.from) <= Number(x.from) && Number(y.to) >= Number(x.to) && (y.to - y.from) > (x.to - x.from))).sort((a, b) => a.from - b.from); }
+    function catchUpPct() {   // how much of everything the catch-up has to read is read (blocks no node holds any more are not counted)
+        let total = 0, done = 0, open = false;
+        for (const j of stretches()) { const start = j.pruned_to != null ? Number(j.pruned_to) + 1 : Number(j.from), span = Math.max(0, Number(j.to) - start + 1); total += span; done += j.done ? span : Math.max(0, Math.min(span, Number(j.next != null ? j.next : start) - start)); if (!j.done) open = true; }
+        return open && total ? Math.floor((done / total) * 100) : null;
+    }
+    function stretchEnd(j) {   // the day an unfinished stretch ends, when the record states it exactly: the first block read of the span that follows it
+        const next = stretches().find((x) => Number(x.from) === Number(j.to) + 1);
+        if (next && next.first_walked) return day(next.first_walked.time);
+        if (S.idx && S.idx.forward_since && Number(S.idx.forward_since.height) === Number(j.to) + 1) return day(S.idx.forward_since.day);
+        return null;
+    }
     function jobPct(j) { const start = j.pruned_to != null ? Number(j.pruned_to) + 1 : Number(j.from), span = Number(j.to) - start + 1; const done = Math.max(0, Number(j.next != null ? j.next : start) - start); return span > 0 ? Math.min(100, Math.round((done / span) * 100)) : 0; }
     function renderCoverLine() {
         const rep = S.report, parts = [], hist = histSpan();
         if (hist) parts.push(`<b>${esc(day(hist.from))} → ${esc(day(hist.to))}</b> from stored walks`);
         if (S.idx && S.idx.forward_since) parts.push(`<b>live since ${esc(day(S.idx.forward_since.day))}</b>, read every 15 minutes`);
-        const j = mainJob(); if (j) parts.push(`the months before the live stream are being read again now (${jobPct(j)}% done)`);
+        const pct = catchUpPct(); if (pct != null) parts.push(`the months before the live stream are being read again now (${pct}% done)`);
         $('cw-cover-line').innerHTML = parts.length ? `On record: ${parts.join(' · ')}. <a href="#cw-coverage">What is and is not covered</a>` : '';
     }
     function openProps() {
@@ -766,16 +778,17 @@
         if (hist) li.push(`<b>${esc(day(hist.from))} → ${esc(day(hist.to))}</b> — taken from the walks already stored${rep && rep.transactions_read ? ` (${num(rep.transactions_read)} transactions re-read)` : ''}. Complete for the contracts the capture followed in those months.`);
         const big = jobs.filter((j) => j && j.pruned_to != null && j.first_walked).sort((a, b) => b.to - a.to)[0];
         if (hist) li.push(`<b>${esc(day(hist.to))} → ${big ? esc(day(big.first_walked.time)) : 'the first block public nodes still hold'}</b> — <b>not on record.</b> In those months the capture kept deposits and withdrawals only, and public nodes no longer hold the blocks${big ? '' : ' (the catch-up below finds where they begin)'}.`);
-        for (const j of jobs) {
-            if (!j) continue;
-            const fw = j.first_walked, lw = j.last_walked, sameDay = fw && lw && day(fw.time) === day(lw.time);
-            const span = fw && lw ? (sameDay ? `${esc(day(fw.time))}, ${esc(hm(fw.time).replace(' UTC', ''))} → ${esc(hm(lw.time))}` : `${esc(day(fw.time))} → ${esc(day(lw.time))}`) : `blocks ${num(j.pruned_to != null ? Number(j.pruned_to) + 1 : j.from)}–${num(j.to)}`;
+        for (const j of stretches()) {
+            const begin = j.pruned_to != null ? Number(j.pruned_to) + 1 : Number(j.from);
+            const fw = j.first_walked && Number(j.first_walked.height) === begin ? j.first_walked : null, lw = j.last_walked, sameDay = fw && lw && day(fw.time) === day(lw.time);   // a first block recorded part-way through a job is not the job's start
+            const words = j.label ? esc(j.label) : `blocks ${num(j.pruned_to != null ? Number(j.pruned_to) + 1 : j.from)}–${num(j.to)}`;   // the span in words (the file's own label) until the exact times exist
+            const span = fw && lw ? (sameDay ? `${esc(day(fw.time))}, ${esc(hm(fw.time).replace(' UTC', ''))} → ${esc(hm(lw.time))}` : `${esc(day(fw.time))} → ${esc(day(lw.time))}`) : words;
             if (j.done) li.push(`<b>${span}</b> — read again for contract changes: done, ${plural(Number(j.found) || 0, 'change')} found.`);
             else if (j.next != null) {   // the whole stretch it has to read, and how far it is
-                const end = S.idx && S.idx.forward_since ? esc(day(S.idx.forward_since.day)) : 'block ' + num(j.to);
-                li.push(`<b>${fw ? esc(day(fw.time)) : 'block ' + num(j.from)} → ${end}</b> — being read again now: done up to ${lw ? esc(day(lw.time)) : 'block ' + num(Number(j.next) - 1)} (${jobPct(j)}% of the stretch), ${plural(Number(j.found) || 0, 'change')} found so far. It reads a little every 15 minutes.`);
+                const end = stretchEnd(j);
+                li.push(`<b>${fw && end ? `${esc(day(fw.time))} → ${esc(end)}` : words}</b> — being read again now: done up to ${lw ? esc(day(lw.time)) : 'block ' + num(Number(j.next) - 1)} (${jobPct(j)}% of the stretch), ${plural(Number(j.found) || 0, 'change')} found so far. It reads a little every 15 minutes.`);
             }
-            else li.push(`<b>blocks ${num(j.from)}–${num(j.to)}</b> — queued to be read again.`);
+            else li.push(`<b>${words}</b> — queued to be read again.`);
         }
         if (S.idx && S.idx.forward_since) li.push(`<b>${esc(day(S.idx.forward_since.day))} → now</b> — live. Every block is read; upgrades and admin changes are kept for every contract on the chain, the other changes for the watched contracts.${S.hb && S.hb.capturedAt ? ` Last run: ${esc(day(S.hb.capturedAt))}, ${esc(hm(S.hb.capturedAt))}${S.hb.last_heights && S.hb.last_heights.cursor ? `, read to block ${num(S.hb.last_heights.cursor)}` : ''}.` : ''}`);
         if (S.st && S.st.capturedAt) li.push(`<b>State read</b> — each watched contract’s admin and code id and the address book, once a day and whenever a change is recorded. Last read: ${esc(day(S.st.capturedAt))}${S.st.height ? ', ' + esc(hm(S.st.capturedAt)) : ' (a stored read; the first live read is due)'}.`);
@@ -844,6 +857,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '1.1.1', revDate: '2026-11-25', page: 'contract-watch' });</script>
+<script>SiteFooter.mount({ rev: '1.1.2', revDate: '2026-11-25', page: 'contract-watch' });</script>
 </body>
 </html>
