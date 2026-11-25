@@ -85,6 +85,12 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://theadao.com/contract-watch.html</loc>
+    <lastmod>2026-11-25</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://theadao.com/tla-docs.html</loc>
     <lastmod>2026-05-08</lastmod>
     <changefreq>monthly</changefreq>

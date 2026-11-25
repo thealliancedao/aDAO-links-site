@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contract Watch — The Alliance DAO</title>
+<link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png">
+<meta name="description" content="Who changed a Liquidity Alliance contract, what they changed and when — and how the change arrived: through a passed proposal, or sent directly. Read from the chain; every row can be checked.">
+<meta property="og:title" content="Contract Watch — The Alliance DAO">
+<meta property="og:description" content="Who changed a Liquidity Alliance contract, what, when — and whether it came through a passed proposal or was sent directly.">
+<meta property="og:image" content="https://theadao.com/assets/images/android-chrome-512x512.png">
+<meta property="og:url" content="https://theadao.com/contract-watch.html">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script>window.va = window.va || function () { (window.va.q = window.va.q || []).push(arguments); };</script>
+<script src="/_vercel/insights/script.js" defer></script>
+<style>
+    /* The page carries its own styles (it reads the same with or without the utility CDN). Same surface as TLA Stats and
+       Member Portfolio: dark, glass cards, cyan accent. Nothing below 0.82rem — the site's readability rule. */
+    :root { --bg: #0a0e14; --card: rgba(255,255,255,.028); --line: rgba(255,255,255,.075); --ink: #e5e7eb; --dim: #9ca3af; --faint: #6b7280;
+            --cyan: #22d3ee; --green: #34d399; --amber: #fbbf24; --violet: #a78bfa; --sky: #7dd3fc; --red: #f87171; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--ink); font-size: 16px; line-height: 1.5;
+        background-image: radial-gradient(ellipse at 20% -10%, rgba(34,211,238,.07), transparent 55%), radial-gradient(ellipse at 90% 10%, rgba(168,85,247,.05), transparent 50%);
+        background-attachment: fixed; min-height: 100vh; }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .cw-wrap a { color: var(--cyan); text-decoration: none; } .cw-wrap a:hover { text-decoration: underline; }
+    .cw-wrap button, .cw-wrap input, .cw-wrap select { font-family: inherit; }
+    .cw-wrap b { font-weight: 600; }
+    .cw-wrap { max-width: 72rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+    .glass-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+    #cw-top-tile { padding: .6rem .75rem; margin-bottom: 1.25rem; }
+    .cw-wrap .cw-head h1 { font-size: 2rem; font-weight: 700; margin: 0 0 .35rem; letter-spacing: -.01em; line-height: 1.2; }
+    .cw-head h1 i { color: var(--cyan); margin-right: .5rem; font-size: .85em; }
+    .cw-lead { color: #c3c9d3; font-size: 1.05rem; max-width: 46rem; margin: 0 0 1.25rem; }
+    .cw-wrap h2 { font-size: 1.2rem; font-weight: 700; margin: 0 0 .5rem; }
+    .cw-sub { color: var(--dim); font-size: .92rem; margin: 0 0 .9rem; }
+
+    /* at a glance */
+    .cw-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+    .cw-tile { padding: .9rem 1rem; }
+    .cw-tile .k { font-size: .82rem; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+    .cw-tile .v { font-size: 1.9rem; font-weight: 700; line-height: 1.15; margin-top: .15rem; }
+    .cw-tile .s { font-size: .86rem; color: var(--dim); margin-top: .1rem; }
+    .cw-tile.t-prop .v { color: var(--green); } .cw-tile.t-direct .v { color: var(--violet); }
+    button.cw-tile { text-align: left; color: inherit; cursor: pointer; width: 100%; font-size: inherit; }
+    button.cw-tile:hover { border-color: rgba(34,211,238,.4); }
+    .cw-latest { padding: .9rem 1rem; margin-bottom: 1rem; display: flex; gap: .9rem; align-items: center; flex-wrap: wrap; cursor: pointer; }
+    .cw-latest:hover { border-color: rgba(34,211,238,.4); }
+    .cw-latest .tag { font-size: .82rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--cyan); }
+    .cw-latest .txt { flex: 1 1 18rem; font-size: 1rem; }
+    .cw-latest .txt b { font-weight: 600; }
+    .cw-cover-line { color: var(--dim); font-size: .9rem; margin: 0 0 1.25rem; }
+    .cw-cover-line b { color: #cbd5e1; font-weight: 600; }
+
+    /* open proposals */
+    .cw-open { padding: 1rem; margin-bottom: 1.25rem; border-color: rgba(125,211,252,.25); }
+    .cw-open-row { padding: .7rem 0; border-top: 1px solid var(--line); }
+    .cw-open-row:first-of-type { border-top: 0; padding-top: .2rem; }
+
+    /* view switch */
+    .cw-views { display: flex; gap: .4rem; flex-wrap: wrap; margin: 0 0 1rem; }
+    .cw-view { padding: .6rem 1rem; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--dim); font-weight: 600; font-size: 1rem; cursor: pointer; }
+    .cw-view:hover { color: var(--ink); }
+    .cw-view.on { color: #06131a; background: var(--cyan); border-color: var(--cyan); }
+    .cw-view i { margin-right: .45rem; }
+    [hidden] { display: none !important; }
+
+    /* filters */
+    .cw-filters { padding: .9rem 1rem; margin-bottom: 1rem; display: grid; gap: .7rem; }
+    .cw-frow { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+    .cw-flabel { font-size: .82rem; color: var(--faint); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; min-width: 3.4rem; }
+    .cw-chip { padding: .35rem .75rem; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.03); color: #cbd5e1; font-size: .9rem; cursor: pointer; white-space: nowrap; }
+    .cw-chip:hover { border-color: rgba(34,211,238,.45); }
+    .cw-chip.on { background: rgba(34,211,238,.16); border-color: rgba(34,211,238,.55); color: #a5f3fc; }
+    .cw-chip .n { color: var(--faint); margin-left: .3rem; font-size: .82rem; }
+    .cw-chip.on .n { color: #67e8f9; }
+    select.cw-sel, input.cw-in { background: rgba(255,255,255,.04); border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: .5rem .7rem; font-size: .95rem; font-family: inherit; }
+    input.cw-in { flex: 1 1 14rem; min-width: 0; }
+    input.cw-in:focus, select.cw-sel:focus { outline: 2px solid rgba(34,211,238,.5); outline-offset: 1px; }
+    select.cw-sel option { background: #111827; }
+    .cw-check { display: inline-flex; align-items: center; gap: .4rem; font-size: .9rem; color: #cbd5e1; cursor: pointer; }
+    .cw-count { color: var(--dim); font-size: .92rem; margin: 0 0 .6rem; }
+
+    /* a change */
+    .cw-row { padding: 1rem 1.1rem; margin-bottom: .7rem; border-left: 3px solid var(--line); scroll-margin-top: 5rem; }
+    .cw-row.how-proposal { border-left-color: var(--green); } .cw-row.how-direct { border-left-color: var(--violet); }
+    .cw-row.how-observed { border-left-color: var(--sky); } .cw-row.how-authz { border-left-color: var(--violet); } .cw-row.how-routine { border-left-color: #4b5563; }
+    .cw-row.hit { box-shadow: 0 0 0 2px rgba(34,211,238,.55); }
+    .cw-row-top { display: flex; gap: .6rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .cw-when { color: var(--dim); font-size: .9rem; }
+    .cw-how { font-size: .82rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: .2rem .6rem; border-radius: 999px; white-space: nowrap; }
+    .cw-how.proposal { background: rgba(52,211,153,.14); color: var(--green); } .cw-how.direct, .cw-how.authz { background: rgba(167,139,250,.16); color: #c4b5fd; }
+    .cw-how.observed { background: rgba(125,211,252,.14); color: var(--sky); } .cw-how.routine { background: rgba(255,255,255,.07); color: var(--dim); }
+    .cw-wrap .cw-title { font-size: 1.15rem; font-weight: 600; margin: .35rem 0 .15rem; }
+    .cw-on { font-size: .95rem; color: #cbd5e1; display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+    .cw-bucket { font-size: .82rem; padding: .1rem .5rem; border-radius: 6px; background: rgba(255,255,255,.06); color: var(--dim); white-space: nowrap; }
+    .cw-items { margin: .5rem 0 0; padding: 0; list-style: none; display: grid; gap: .25rem; }
+    .cw-items li { font-size: .95rem; padding-left: 1rem; position: relative; word-break: break-word; }
+    .cw-items li::before { content: '•'; position: absolute; left: 0; color: var(--faint); }
+    .cw-items .id { color: var(--faint); font-size: .84rem; }
+    .cw-line { font-size: .95rem; margin: .55rem 0 0; color: #d1d5db; }
+    .cw-line.dim { color: var(--dim); }
+    .cw-flag { margin: .6rem 0 0; padding: .5rem .7rem; border-left: 3px solid var(--amber); background: rgba(251,191,36,.07); border-radius: 0 8px 8px 0; font-size: .95rem; color: #fde68a; }
+    .cw-rel { margin: .6rem 0 0; padding: .5rem .7rem; border-left: 3px solid var(--sky); background: rgba(125,211,252,.06); border-radius: 0 8px 8px 0; font-size: .95rem; }
+    .cw-rel ul { margin: .3rem 0 0; padding-left: 1.1rem; list-style: disc; } .cw-rel li { margin: .15rem 0; }
+    .cw-acts { margin-top: .65rem; display: flex; gap: .45rem; flex-wrap: wrap; }
+    .cw-btn { font-size: .86rem; padding: .3rem .7rem; border-radius: 999px; background: rgba(255,255,255,.05); border: 1px solid var(--line); color: #cbd5e1; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: .35rem; }
+    .cw-wrap a.cw-btn { color: #cbd5e1; }
+    .cw-wrap .cw-btn:hover { color: var(--cyan); border-color: rgba(34,211,238,.45); text-decoration: none; }
+    .cw-addr { font-size: .88rem; color: #d1d5db; background: rgba(255,255,255,.05); border-radius: 6px; padding: .05rem .35rem; white-space: nowrap; cursor: pointer; border: 0; }
+    .cw-addr:hover { color: var(--cyan); }
+    .cw-role { font-size: .82rem; padding: .08rem .45rem; border-radius: 6px; background: rgba(34,211,238,.1); color: #67e8f9; white-space: nowrap; }
+    .cw-more { display: block; margin: 1rem auto 0; padding: .6rem 1.2rem; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--ink); font-size: .95rem; cursor: pointer; }
+    .cw-empty { padding: 2rem 1rem; text-align: center; color: var(--dim); }
+
+    /* contracts */
+    .cw-group { margin-bottom: .7rem; }
+    .cw-ghead { width: 100%; text-align: left; background: transparent; border: 0; color: inherit; padding: .9rem 1.1rem; cursor: pointer; display: flex; gap: .75rem; align-items: center; font-size: 1rem; }
+    .cw-ghead .gname { font-weight: 700; font-size: 1.08rem; }
+    .cw-ghead .gmeta { color: var(--dim); font-size: .9rem; margin-left: auto; text-align: right; }
+    .cw-ghead .chev { color: var(--faint); transition: transform .15s; } .cw-group.open .chev { transform: rotate(90deg); }
+    .cw-gbody { padding: 0 1.1rem 1rem; }
+    .cw-gblurb { color: var(--dim); font-size: .92rem; margin: 0 0 .7rem; }
+    .cw-c { border-top: 1px solid var(--line); padding: .75rem 0; scroll-margin-top: 5rem; }
+    .cw-c-top { display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap; cursor: pointer; }
+    .cw-c-name { font-weight: 600; font-size: 1rem; }
+    .cw-c-meta { color: var(--dim); font-size: .9rem; margin-left: auto; }
+    .cw-facts { display: grid; grid-template-columns: max-content 1fr; gap: .25rem .9rem; font-size: .93rem; margin: .6rem 0 .2rem; }
+    .cw-facts dt { color: var(--dim); } .cw-facts dd { margin: 0; word-break: break-word; }
+    .cw-timeline { margin-top: .7rem; }
+
+    /* roles */
+    .cw-table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+    .cw-table th { text-align: left; color: var(--dim); font-size: .82rem; text-transform: uppercase; letter-spacing: .06em; padding: .45rem .6rem; border-bottom: 1px solid var(--line); font-weight: 600; }
+    .cw-table td { padding: .6rem; border-bottom: 1px solid rgba(255,255,255,.045); vertical-align: top; }
+    .cw-table tr.changed td { background: rgba(251,191,36,.05); }
+    .cw-was { color: var(--dim); font-size: .9rem; margin-top: .2rem; }
+    .cw-pad { padding: 1rem 1.1rem; margin-bottom: 1rem; }
+    .cw-holders { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; margin-top: .5rem; }
+    .cw-holder { padding: .8rem .9rem; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.02); }
+    .cw-chips { display: flex; gap: .35rem; flex-wrap: wrap; margin-top: .45rem; }
+    .cw-wrap p.cw-was { margin: .5rem 0 0; }
+    .cw-live { margin-top: .8rem; font-size: .95rem; }
+    .cw-ok { color: var(--green); } .cw-warn { color: var(--amber); } .cw-err { color: var(--red); }
+
+    /* legend + coverage */
+    .cw-legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .9rem; }
+    .cw-legend p { margin: .35rem 0 0; font-size: .93rem; color: #cbd5e1; }
+    .cw-list { margin: 0; padding-left: 1.1rem; list-style: disc; font-size: .95rem; color: #d1d5db; } .cw-list li { margin: .3rem 0; }
+    .cw-links { display: flex; gap: .45rem; flex-wrap: wrap; margin-top: .8rem; }
+    .loading-pulse { animation: cwpulse 1.6s ease-in-out infinite; } @keyframes cwpulse { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+    @media (max-width: 900px) { .cw-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cw-legend { grid-template-columns: 1fr; } .cw-holders { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { .cw-wrap .cw-head h1 { font-size: 1.6rem; } .cw-tile .v { font-size: 1.5rem; } .cw-table thead { display: none; } .cw-table td { display: block; border: 0; padding: .15rem .6rem; } .cw-table td[data-l]::before { content: attr(data-l); display: block; color: var(--faint); font-size: .82rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; margin-top: .25rem; } .cw-table tr { display: block; padding: .55rem 0; border-bottom: 1px solid var(--line); } .cw-c-meta, .cw-ghead .gmeta { margin-left: 0; text-align: left; } .cw-ghead { flex-wrap: wrap; } }
+</style>
+</head>
+<body>
+<div id="site-header"></div>
+<script src="/lib/site-header.js"></script>
+<script src="/lib/address-picker.js"></script>
+<script>SiteHeader.mount({ page: 'contract-watch' }); if (window.AddressPicker && AddressPicker.mount) AddressPicker.mount({});
+(function () {   // the TLA Stats tab bar — same tabs, this one lit
+  SiteHeader.subnav([
+    { id: 'overview',  label: 'Overview',           icon: 'fa-chart-pie',           href: 'tla-stats.html#overview' },
+    { id: 'portfolio', label: 'Member Portfolio',   icon: 'fa-user-astronaut',      href: 'member-portfolio.html' },
+    { id: 'slippage',  label: 'Slippage Simulator', icon: 'fa-arrows-turn-to-dots', href: 'slippage.html' },
+    { id: 'docs',      label: 'Docs',               icon: 'fa-book',                href: 'tla-docs.html' },
+    { id: 'grades',    label: 'LP Grades',          icon: 'fa-graduation-cap',      href: 'tla-stats.html#grades' },
+    { id: 'pools',     label: 'Pools',              icon: 'fa-water',               href: 'tla-stats.html#pools' },
+    { id: 'watch',     label: 'Contract Watch',     icon: 'fa-binoculars',          active: true, href: 'contract-watch.html' },
+  ], { attach: '#cw-top-tile' });
+  document.addEventListener('DOMContentLoaded', function () { var a = document.querySelector('#cw-top-tile .sh-subtab.active'), row = a && a.parentNode; if (a && row && row.scrollWidth > row.clientWidth) row.scrollLeft = Math.max(0, a.offsetLeft - 16); });
+})();
+</script>
+
+<main class="cw-wrap">
+    <div id="cw-top-tile" class="glass-card"></div>
+
+    <header class="cw-head">
+        <h1><i class="fas fa-binoculars"></i>Contract Watch</h1>
+        <p class="cw-lead">Who changed a Liquidity Alliance contract, what they changed and when — and how the change arrived: through a passed proposal, or sent directly.</p>
+    </header>
+
+    <section id="cw-glance" class="cw-tiles" aria-label="At a glance"><div class="glass-card cw-tile loading-pulse" style="grid-column:1/-1">Reading the record…</div></section>
+    <div id="cw-latest"></div>
+    <p id="cw-cover-line" class="cw-cover-line"></p>
+    <div id="cw-open"></div>
+
+    <nav class="cw-views" aria-label="Views">
+        <button class="cw-view on" data-view="changes" type="button"><i class="fas fa-list-ul"></i>Changes</button>
+        <button class="cw-view" data-view="contracts" type="button"><i class="fas fa-cubes"></i>Contracts</button>
+        <button class="cw-view" data-view="roles" type="button"><i class="fas fa-key"></i>Who holds the keys</button>
+        <button class="cw-view" data-view="lookup" type="button"><i class="fas fa-magnifying-glass"></i>Look up an address</button>
+    </nav>
+
+    <!-- CHANGES -->
+    <section id="view-changes">
+        <div class="glass-card cw-filters">
+            <div class="cw-frow"><span class="cw-flabel">How</span><span id="f-how" class="cw-frow"></span></div>
+            <div class="cw-frow"><span class="cw-flabel">What</span><span id="f-kind" class="cw-frow"></span></div>
+            <div class="cw-frow">
+                <span class="cw-flabel">Where</span>
+                <select id="f-bucket" class="cw-sel" aria-label="Group"></select>
+                <input id="f-q" class="cw-in" type="search" placeholder="Search a contract, an address, a transaction, an asset, a proposal (A117)…" aria-label="Search the changes">
+            </div>
+            <div class="cw-frow">
+                <label class="cw-check"><input type="checkbox" id="f-routine"> Show the weekly distribution (routine)</label>
+                <label class="cw-check"><input type="checkbox" id="f-all"> Include contracts outside the groups</label>
+            </div>
+        </div>
+        <p id="cw-count" class="cw-count"></p>
+        <div id="cw-list"></div>
+        <button id="cw-more" class="cw-more" type="button" hidden>Show more</button>
+    </section>
+
+    <!-- CONTRACTS -->
+    <section id="view-contracts" hidden>
+        <div class="glass-card cw-filters"><div class="cw-frow"><input id="c-q" class="cw-in" type="search" placeholder="Find a contract by name or address…" aria-label="Find a contract"></div></div>
+        <div id="cw-groups"></div>
+    </section>
+
+    <!-- ROLES -->
+    <section id="view-roles" hidden>
+        <div id="cw-roles"></div>
+    </section>
+
+    <!-- LOOK UP -->
+    <section id="view-lookup" hidden>
+        <div class="glass-card cw-filters">
+            <form id="l-form" class="cw-frow">
+                <input id="l-q" class="cw-in mono" type="search" placeholder="Paste an address (terra1…) or a transaction hash" aria-label="Address or transaction hash" autocomplete="off" spellcheck="false">
+                <button class="cw-view on" type="submit">Look up</button>
+            </form>
+            <div class="cw-sub" style="margin:0">Everything on record that an address changed, the passed proposals it executed, the contracts it can upgrade, and the roles it holds.</div>
+        </div>
+        <div id="cw-lookup"></div>
+    </section>
+
+    <!-- HOW TO READ -->
+    <section class="glass-card cw-pad" style="margin-top:1.5rem">
+        <h2>How to read a change</h2>
+        <div class="cw-legend">
+            <div><span class="cw-how proposal">Passed proposal</span><p>The change is a DAO proposal being executed. The vote is shown and linked.</p></div>
+            <div><span class="cw-how direct">Sent directly</span><p>An account sent the change itself; no proposal was executed in that transaction. Some powers belong to an account (the admin that can upgrade a contract), so this is the usual route for those. A change that leaves the route every earlier change of its kind took is marked.</p></div>
+            <div><span class="cw-how observed">Seen in a state read</span><p>The chain gave one value at one read and another at the next. It shows before and after — not who sent it.</p></div>
+        </div>
+        <p class="cw-sub" style="margin:.9rem 0 0">This page states what the chain shows: what changed, when, who sent it and how. It does not say why.</p>
+    </section>
+
+    <!-- COVERAGE -->
+    <section class="glass-card cw-pad" id="cw-coverage">
+        <h2>What this record covers</h2>
+        <ul id="cw-cover" class="cw-list"><li class="loading-pulse">Reading…</li></ul>
+        <div class="cw-links" id="cw-data"></div>
+    </section>
+</main>
+
+<script>
+(function () {
+    'use strict';
+    const REV = '1.0', REV_DATE = '2026-11-25';
+    const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
+    const DAOO = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main';
+    const TREE = 'https://github.com/thealliancedao/tla-core/tree/main';
+    const EXPLORER = 'https://chainsco.pe/terra2';
+    const LCDS = ['https://terra-lcd.publicnode.com', 'https://terra-rest.publicnode.com'];
+    // the classifier's own rule for "this action changes a contract" (platform-crons tla-flows/lib/admin-classifier.js CHANGE_RE) — the gate compares the two
+    const CHANGE_RE = /(^|[/_-])(whitelist\w*|remove_assets?|update_(config|asset_config|params|parameters|owner\w*|admin|members|bridges|fees?|blacklist|proposal_modules|voting_module|sub_daos_list|minter|marketing|allowed\w*|limits?|rates?)|set_(config|address(es)?|admin|owner|fees?|item|take_rate|params|limits?)|(transfer|accept|claim|propose|drop)_(ownership|owner|new_owner)|accept_admin_nomination|nominate_admin|withdraw_admin_nomination|admin_msgs|(add|remove)_hook|remove_item|blacklist\w*|unpause|pause|initialize_asset|alliance_(re|un)?delegate|deregister|upload_logo|withdraw_reserves?)$/;
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const isAddr = (a) => /^terra1(?:[0-9a-z]{38}|[0-9a-z]{58})$/.test(a || '');
+    const isContract = (a) => /^terra1[0-9a-z]{58}$/.test(a || '');
+    const short = (a) => (a && a.length > 20 ? a.slice(0, 10) + '…' + a.slice(-6) : (a || ''));
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = (iso) => { const d = new Date(iso); return isNaN(d) ? '—' : `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`; };
+    const hm = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')} UTC`; };
+    const num = (n) => Number(n || 0).toLocaleString('en-US');
+    const plural = (n, w) => `${num(n)} ${w}${n === 1 ? '' : 's'}`;
+    const lastSeg = (a) => String(a || '').split('/').pop();
+    const bust = (ms) => '?t=' + Math.floor(Date.now() / ms);
+    const getJson = (url) => fetch(url).then((r) => (r && r.ok ? r.json() : null)).catch(() => null);
+
+    const S = { ready: false, recs: [], lib: { buckets: [], byAddr: new Map(), daos: [] }, st: null, idx: null, rewalk: null, report: null, hb: null,
+        props: new Map(), pools: null, tokens: null, wide: null, view: 'changes', shown: 40, hit: null, openGroups: new Set(), openContract: null, lookup: null, live: null,
+        f: { how: 'all', kind: 'all', bucket: 'all', q: '', routine: false, all: false } };
+
+    // ── vocabulary ──────────────────────────────────────────────────────────────────────────────────────────────────
+    const KINDS = [['list', 'Reward lists'], ['upgrade', 'Code upgrades'], ['admin', 'Admin (who can upgrade)'], ['role', 'Roles'], ['setting', 'Settings'], ['governance', 'DAO structure'], ['delegation', 'Delegation'], ['reserve', 'Reserves'], ['guard', 'Pause & blacklist'], ['code', 'New code uploaded']];
+    const HOWS = [['proposal', 'Passed proposal'], ['direct', 'Sent directly'], ['observed', 'Seen in a state read']];
+    const HOW_LABEL = { proposal: 'Passed proposal', direct: 'Sent directly', authz: 'Sent through a grant', observed: 'Seen in a state read', routine: 'Weekly routine' };
+    const howOf = (r) => (r.observed ? 'observed' : r.routine ? 'routine' : r.via && r.via.kind === 'dao_proposal' ? 'proposal' : r.via && r.via.kind === 'authz' ? 'authz' : 'direct');
+    const howGroup = (h) => (h === 'authz' ? 'direct' : h);
+
+    // ── names ───────────────────────────────────────────────────────────────────────────────────────────────────────
+    const bucketOf = (id) => S.lib.buckets.find((b) => b.id === id) || null;
+    function cinfo(a) {   // a contract as this page knows it: the curated name and group, then the chain's own label
+        const c = S.lib.byAddr.get(a), ch = S.st && S.st.contracts && S.st.contracts[a];
+        return { address: a, grouped: !!c, bucket: c ? c.bucket : null, role: c ? c.role : null, chain: ch || null,
+            name: c ? c.name : ch && ch.label ? `“${ch.label}”` : (isContract(a) ? 'Contract ' : 'Account ') + short(a) };
+    }
+    const bookNow = () => (S.st && S.st.address_book && S.st.address_book.entries) || {};
+    function rolesOf(a) { const out = []; const b = bookNow(); for (const role of Object.keys(b)) if (b[role] === a) out.push(role); return out; }
+    function who(a, opt) {   // an address, shown: its name when it is a grouped contract, the roles it holds, always the address itself
+        if (!a) return '<span class="cw-line dim">not recorded</span>';
+        const c = S.lib.byAddr.get(a), roles = opt && opt.plain ? [] : rolesOf(a).filter((r) => !(c && c.role === r));
+        const nm = c ? `<b>${esc(c.name)}</b> ` : '';
+        const kindWord = !c && !(opt && opt.bare) ? (isContract(a) ? 'contract ' : 'account ') : '';
+        return `${nm}${kindWord}<button type="button" class="cw-addr mono" data-addr="${esc(a)}" title="${esc(a)} — look this address up">${esc(short(a))}</button>` +
+            roles.slice(0, 3).map((r) => ` <span class="cw-role" title="Holds this role in the address book">${esc(r)}</span>`).join('') + (roles.length > 3 ? ` <span class="cw-role">+${roles.length - 3} roles</span>` : '');
+    }
+    const bare = (d) => String(d || '').replace(/^(cw20|native):/, '');
+    function assetName(a) {   // 'cw20:terra1…' | 'native:denom' → a name when the token catalog knows one, never a guess
+        if (S.tokens && S.tokens.has(bare(a))) return S.tokens.get(bare(a));   // a token the catalog knows by its own symbol (ampCAPA) is that token, also when it sits on a reward list
+        if (S.pools && S.pools.has(a)) return S.pools.get(a);
+        const m = bare(a).match(/\/(\d+)\/(stable|project|bluechip|single)\/amplp$/); if (m) return `ampLP vault ${m[1]} (${m[2]})`;
+        return null;
+    }
+    const shortAsset = (a) => { const b = bare(a); return b.replace(/terra1[0-9a-z]{58}/g, (x) => short(x)).replace(/^ibc\/([0-9A-F]{6})[0-9A-F]+([0-9A-F]{4})$/, 'ibc/$1…$2'); };
+    function assetHtml(a) { const n = assetName(a); return (n ? `<b>${esc(n)}</b> ` : '') + `<span class="id mono" title="${esc(bare(a))}">${esc(shortAsset(a))}</span>`; }
+    function assetsOf(r) {   // the event's own list; a list cut by the capture (1,500 characters) says so
+        const s = r.detail && r.detail.assets; if (!s) return { items: [], cut: false };
+        const cut = /…$/.test(s); const items = String(s).replace(/…$/, '').split(',').map((x) => x.trim()).filter(Boolean);
+        if (cut) items.pop();
+        return { items, cut };
+    }
+
+    // ── a record in plain words ─────────────────────────────────────────────────────────────────────────────────────
+    function describe(r) {
+        const d = r.detail || {}, act = lastSeg(r.action), o = { title: '', items: [], note: '' };
+        const as = assetsOf(r), n = as.items.length;
+        if (r.observed) {
+            if (r.action === 'address_book') { o.title = `Role ${d.role}: ${d.after ? 'now held by another address' : 'no longer in the address book'}`; o.items.push(`Now: ${d.after ? who(d.after, { plain: true }) : '—'}`); o.items.push(`Before: ${d.before ? who(d.before, { plain: true }) : 'not in the address book'}`); }
+            else if (r.action === 'admin') { o.title = d.after ? 'The admin — the address that can upgrade this contract — is different' : 'The admin was removed: this contract can no longer be upgraded'; o.items.push(`Now: ${d.after ? who(d.after, { plain: true }) : 'no admin'}`); o.items.push(`Before: ${d.before ? who(d.before, { plain: true }) : 'no admin'}`); }
+            else if (r.action === 'code_id') { o.title = 'The contract runs different code'; o.items.push(`Code id now <b>${esc(d.after)}</b> — before <b>${esc(d.before)}</b>`); }
+            else o.title = 'Changed: ' + r.action;
+            return o;
+        }
+        if (act === 'whitelist_assets') { o.title = `Added ${plural(n, 'asset')} to the reward list`; o.items = as.items.map(assetHtml); }
+        else if (act === 'remove_assets' || act === 'remove_asset') { o.title = `Removed ${plural(n, 'asset')} from the reward list`; o.items = as.items.map(assetHtml); }
+        else if (act === 'initialize_asset') { o.title = 'Set up an auto-compounding vault for an LP asset'; if (d.amplp) o.items.push(`Vault token: ${assetHtml('native:' + d.amplp)}`); if (d.staking) o.items.push(`Staked in: ${who(d.staking)}`); }
+        else if (r.kind === 'upgrade') {
+            o.title = 'Upgraded the contract’s code';
+            if (d.code_id) o.items.push(`New code id <b>${esc(d.code_id)}</b>`);
+            if (d.new_contract_version || d.previous_contract_version) o.items.push(`${esc(d.new_contract_name || d.previous_contract_name || 'version')}: <b>${esc(d.previous_contract_version || '?')}</b> → <b>${esc(d.new_contract_version || '?')}</b>`);
+        }
+        else if (r.action === 'update_admin') { o.title = 'Changed the admin — the address that can upgrade this contract'; o.items.push(`New admin: ${who(d.new_admin_address)}`); }
+        else if (r.action === 'clear_admin') { o.title = 'Removed the admin: this contract can no longer be upgraded'; }
+        else if (r.kind === 'code') { o.title = 'New contract code uploaded to the chain'; if (d.code_id) o.items.push(`Code id <b>${esc(d.code_id)}</b>`); }
+        else if (act === 'set_addresses' || act === 'set_address') { o.title = 'Changed the address book — which address holds each role'; o.note = 'The transaction’s events do not say which role changed. The state read does: look for “Seen in a state read” on the address book.'; }
+        else if (act === 'update_asset_config') { o.title = 'Changed the settings of one asset on the reward list'; if (d.asset) o.items.push(assetHtml(d.asset)); }
+        else if (r.kind === 'setting') { o.title = 'Changed a setting'; o.note = Object.keys(d).length ? '' : 'The transaction’s events do not carry the new values.'; }
+        else if (act === 'update_members') { o.title = 'Changed the DAO’s member list'; o.items.push(`${esc(d.added || '0')} added · ${esc(d.removed || '0')} removed`); }
+        else if (act === 'execute_update_sub_daos_list') o.title = 'Changed the DAO’s list of sub-DAOs';
+        else if (act === 'execute_set_item' || act === 'set_item') { o.title = 'Set an item in the DAO’s storage'; if (d.key) o.items.push(`Key <span class="mono">${esc(d.key)}</span>${d.addr ? ' → ' + who(d.addr) : ''}`); }
+        else if (act === 'remove_item') { o.title = 'Removed an item from the DAO’s storage'; if (d.key) o.items.push(`Key <span class="mono">${esc(d.key)}</span>`); }
+        else if (act === 'add_hook' || act === 'remove_hook') { o.title = act === 'add_hook' ? 'Added a hook to the DAO’s voting module' : 'Removed a hook from the DAO’s voting module'; if (d.hook) o.items.push(who(d.hook)); }
+        else if (act === 'execute_accept_admin_nomination') { o.title = 'A new admin accepted the DAO'; if (d.new_admin) o.items.push(`New admin: ${who(d.new_admin)}`); }
+        else if (act === 'execute_admin_msgs') o.title = 'The admin acted on the DAO';
+        else if (r.kind === 'delegation') o.title = /undelegate/.test(act) ? 'Undelegated Alliance stake from a validator' : /redelegate/.test(act) ? 'Moved Alliance stake to another validator' : 'Delegated Alliance stake to a validator';
+        else if (r.kind === 'reserve') { o.title = 'Withdrew from the reserve'; o.items = as.items.map((x) => { const m = x.match(/^(.*):(\d+)$/); return m ? `${assetHtml(m[1])} <span class="id">· raw amount ${esc(num(m[2]))}</span>` : assetHtml(x); }); }
+        else if (r.kind === 'guard') o.title = /unpause/.test(act) ? 'Unpaused the contract' : /pause/.test(act) ? 'Paused the contract' : 'Changed the blacklist';
+        else if (r.kind === 'epoch') { o.title = 'Set the weekly distribution'; if (Array.isArray(d.gauge)) o.items.push(esc(d.gauge.join(' · '))); }
+        else if (r.kind === 'role') o.title = 'Changed an owner or a role';
+        else o.title = 'Changed: ' + r.action;
+        if (as.cut) o.items.push('<span class="id">…and more (the stored list was cut at 1,500 characters; the transaction has all of it)</span>');
+        return o;
+    }
+
+    // ── proposals ───────────────────────────────────────────────────────────────────────────────────────────────────
+    const daoOf = (via) => S.lib.daos.find((x) => x.core === via.dao || x.proposal_module === via.proposal_module) || null;
+    function propOf(via) { const dao = daoOf(via); if (!dao) return { dao: null, p: null }; const cap = S.props.get(dao.capture); const p = cap && cap.data && cap.data.proposals ? cap.data.proposals[(dao.id_prefix || '') + via.proposal_id] : null; return { dao, p: p || null, state: cap ? cap.status : 'none' }; }
+    const propLabel = (dao, id) => `${(dao && dao.label_prefix) || '#'}${id}`;
+    const propUrl = (dao, id) => (dao ? `https://daodao.zone/dao/${dao.core}/proposals/${(dao.label_prefix || '')}${id}` : null);
+    const PSTAT = { Executed: 'passed and executed', Rejected: 'rejected', Open: 'open', Passed: 'passed, not executed yet', Closed: 'closed without executing', 'Execution Failed': 'passed; its execution failed' };
+    function votesLine(p) { const v = p.votes || {}; return `Yes ${num(v.yes)} · No ${num(v.no)} · Abstain ${num(v.abstain)} of ${num(p.totalPower)} voting power; passes at ${num(p.voting && p.voting.passThreshold)}%`; }
+    const propId = (p) => String(p.id || '').replace(/^[a-z]+/i, '');
+    function propActions(p) { return (p.decodedActions || []).filter((a) => a && a.type === 'wasm.execute' && a.contract && a.action); }
+    const argAssets = (a) => (Array.isArray(a.args) ? a.args : []).map((x) => (x && x.cw20 ? 'cw20:' + x.cw20 : x && x.native ? 'native:' + x.native : null)).filter(Boolean);
+    function relatedProps(r) {   // proposals that asked for the same kind of change on the same contract and did not execute — for a change that was sent directly
+        if (howGroup(howOf(r)) !== 'direct' || !r.contract) return [];
+        const out = [], t = Date.parse(r.timestamp), mine = new Set(assetsOf(r).items);
+        for (const dao of S.lib.daos) {
+            const cap = S.props.get(dao.capture); if (!cap || !cap.data) continue;
+            for (const p of Object.values(cap.data.proposals || {})) {
+                if (p.status === 'Executed') continue;
+                const end = p.expiration && p.expiration.at_time_iso ? Date.parse(p.expiration.at_time_iso) : NaN;
+                if (!(p.live || (isFinite(end) && end > t - 45 * 864e5 && end < t + 30 * 864e5))) continue;
+                for (const a of propActions(p)) {
+                    if (a.contract !== r.contract || lastSeg(a.action) !== lastSeg(r.action)) continue;
+                    const theirs = argAssets(a), same = theirs.filter((x) => mine.has(x)).length;
+                    if (mine.size && theirs.length && !same) continue;
+                    out.push({ dao, p, same, of: mine.size, theirs: theirs.length, end });
+                }
+            }
+        }
+        return out.sort((x, y) => (x.end || 0) - (y.end || 0));
+    }
+
+    // ── load ────────────────────────────────────────────────────────────────────────────────────────────────────────
+    function monthsToRead(idx) {
+        const set = new Set(Object.keys((idx && idx.months) || {}));
+        const now = new Date(), mk = (d) => `${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+        set.add(mk(now)); set.add(mk(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))));   // a new month is read even before the index lists it
+        return [...set].sort();
+    }
+    function prepare(recs) {
+        const seen = new Set(), out = [];
+        for (const r of recs) { if (!r || !r.k || seen.has(r.k)) continue; seen.add(r.k); out.push(r); }
+        const rk = (r) => (r.observed ? ({ role: 3, admin: 2, upgrade: 1 }[r.kind] || 0) : 0);   // one state read: the roles lead, then admins, then code
+        out.sort((a, b) => (a.height - b.height) || String(a.timestamp).localeCompare(String(b.timestamp)) || (rk(a) - rk(b)) || String(a.k).localeCompare(String(b.k)));
+        const hist = new Map();   // contract|kind → how the earlier changes of that kind arrived
+        for (const r of out) {
+            r._how = howOf(r);
+            if (r._how === 'routine' || r._how === 'observed' || !r.contract) continue;
+            const key = r.contract + '|' + r.kind, h = hist.get(key) || { proposal: 0, direct: 0 };
+            if (howGroup(r._how) === 'direct' && h.proposal >= 3 && h.direct === 0) r._first = h.proposal;
+            h[howGroup(r._how)]++; hist.set(key, h);
+        }
+        return out.reverse();   // newest first
+    }
+    function hay(r) {
+        if (r._hay) return r._hay;
+        const c = cinfo(r.contract), parts = [c.name, r.contract, r.signer, r.txhash, r.action, r.kind, JSON.stringify(r.detail || {})];
+        if (r.via && r.via.kind === 'dao_proposal') { const dao = daoOf(r.via); parts.push(propLabel(dao, r.via.proposal_id), 'proposal ' + r.via.proposal_id, dao ? dao.name : ''); const pr = propOf(r.via).p; if (pr) parts.push(pr.title); }
+        for (const a of assetsOf(r).items) { const nm = assetName(a); if (nm) parts.push(nm); }
+        return (r._hay = parts.filter(Boolean).join(' ').toLowerCase());
+    }
+    async function load() {
+        const [idx, lib, st, rewalk, report] = await Promise.all([
+            getJson(`${CORE}/contract-watch/index.json${bust(3e5)}`), getJson(`${CORE}/docs/curated/contract-watch.json${bust(3e5)}`),
+            getJson(`${CORE}/contract-watch/state/current.json${bust(3e5)}`), getJson(`${CORE}/contract-watch/rewalk.json${bust(3e5)}`), getJson(`${CORE}/contract-watch/backfill-report.json${bust(36e5)}`)]);
+        S.idx = idx; S.st = st; S.rewalk = rewalk; S.report = report;
+        if (lib) { S.lib.buckets = lib.buckets || []; S.lib.daos = lib.daos || []; for (const c of lib.contracts || []) if (c && c.address) S.lib.byAddr.set(c.address, c); }
+        const months = monthsToRead(idx);
+        const parts = await Promise.all(months.map((m) => getJson(`${CORE}/contract-watch/events/${m}.json${bust(3e5)}`)));
+        S.recs = prepare(parts.flatMap((p) => (Array.isArray(p) ? p : [])));
+        S.loadFailed = !idx && !S.recs.length;
+        S.ready = true; readHash(); renderAll();
+        // then, without holding the page: the votes behind the proposals, asset names, the live stream's last read
+        for (const dao of S.lib.daos) { S.props.set(dao.capture, { status: 'loading', data: null }); getJson(`${DAOO}/${dao.capture}/governance/proposals.json${bust(36e5)}`).then((d) => { S.props.set(dao.capture, { status: d ? 'ok' : 'failed', data: d }); for (const r of S.recs) r._hay = null; renderAll(); }); }
+        getJson(`${CORE}/token-catalog/snapshots/current.json${bust(36e5)}`).then((cat) => { if (!cat) return; ingestCatalog(cat); for (const r of S.recs) r._hay = null; renderAll(); });
+        getJson(`${CORE}/tla-flows/events/heartbeat.json${bust(3e5)}`).then((hb) => { S.hb = hb; renderCoverage(); });
+    }
+    function ingestCatalog(cat) {
+        S.tokens = new Map(); S.pools = new Map();
+        for (const t of cat.tokens || []) { const e = t.effective || {}, g = t.discovered || {}; const sym = e.symbol || g.symbol; if (t.denom && sym) S.tokens.set(bare(t.denom), sym); }
+        if (!S.tokens.has('uluna')) S.tokens.set('uluna', 'LUNA');
+        for (const p of cat.pools || []) {
+            if (!p.gauge_pool_id) continue;
+            const syms = (p.underlyings || []).map((u) => S.tokens.get(bare(u)) || null);
+            if (!syms.length || syms.some((x) => !x)) continue;   // a pool is named only when every side is known
+            const dex = p.architecture && p.architecture.dex;
+            S.pools.set(p.gauge_pool_id, (syms.length > 1 ? syms.join('–') + ' LP' : syms[0]) + (dex && syms.length > 1 ? ' · ' + dex : ''));
+        }
+    }
+
+    // ── filters ─────────────────────────────────────────────────────────────────────────────────────────────────────
+    const inScope = (r) => (S.f.all ? true : !!(r.contract && S.lib.byAddr.has(r.contract)));
+    function base() { return S.recs.filter((r) => inScope(r) && (S.f.routine || r._how !== 'routine')); }
+    function visible() {
+        const q = S.f.q.trim().toLowerCase();
+        return base().filter((r) => (S.f.how === 'all' || howGroup(r._how) === S.f.how) && (S.f.kind === 'all' || r.kind === S.f.kind) &&
+            (S.f.bucket === 'all' || (S.f.bucket === 'none' ? !S.lib.byAddr.has(r.contract) : cinfo(r.contract).bucket === S.f.bucket)) && (!q || hay(r).includes(q)));
+    }
+    const changesOnly = () => S.recs.filter((r) => r._how !== 'routine' && r.contract && S.lib.byAddr.has(r.contract));
+
+    // ── render: a change ────────────────────────────────────────────────────────────────────────────────────────────
+    const rid = (r) => 'r-' + String(r.k).replace(/[^A-Za-z0-9]/g, '_');
+    function howLine(r) {
+        const h = r._how;
+        if (h === 'proposal') {
+            const { dao, p, state } = propOf(r.via), lab = propLabel(dao, r.via.proposal_id), url = propUrl(dao, r.via.proposal_id);
+            const head = `Proposal ${url ? `<a href="${esc(url)}" target="_blank" rel="noopener"><b>${esc(lab)}</b></a>` : `<b>${esc(lab)}</b>`} of ${dao ? esc(dao.name) : who(r.via.dao)}`;
+            const vote = p ? ` — “${esc(String(p.title || '').trim().slice(0, 110))}” — ${esc(PSTAT[p.status] || p.status)}. ${esc(votesLine(p))}.` : state === 'loading' ? ' <span class="loading-pulse">— reading the vote…</span>' : state === 'failed' ? ' — the vote could not be read just now; the link shows it.' : '.';
+            return `<p class="cw-line">${head}${vote}</p><p class="cw-line dim">Executed by ${who(r.signer, { bare: true })}.</p>`;
+        }
+        if (h === 'direct') return `<p class="cw-line">Sent by ${who(r.signer)}. No proposal was executed in this transaction.</p>`;
+        if (h === 'authz') return `<p class="cw-line">Sent through a permission grant (authz) by ${who(r.signer)}. No proposal was executed in this transaction.</p>`;
+        if (h === 'observed') {
+            const d = r.detail || {}, near = S.recs.filter((x) => !x.observed && x.contract === r.contract && x.kind === r.kind && Date.parse(x.timestamp) > Date.parse(d.seen_after) && Date.parse(x.timestamp) <= Date.parse(d.seen_by));
+            return `<p class="cw-line">Different at the read of <b>${esc(day(d.seen_by))}, ${esc(hm(d.seen_by))}</b> from the read of <b>${esc(day(d.seen_after))}</b>. A state read shows before and after — not who sent it.</p>` +
+                `<p class="cw-line dim">${near.length ? `On record between the two reads for this contract: ${near.slice(0, 4).map((x) => `<a href="#k=${encodeURIComponent(x.k)}" data-jump="${esc(x.k)}">${esc(day(x.timestamp))} — ${esc(HOW_LABEL[x._how].toLowerCase())}</a>`).join(' · ')}${near.length > 4 ? ` · and ${near.length - 4} more` : ''}.` : 'No transaction of this kind is on record for this contract between the two reads.'}</p>`;
+        }
+        return `<p class="cw-line dim">Sent by ${who(r.signer, { bare: true })} — the same call every week.</p>`;
+    }
+    function flagHtml(r) {
+        if (!r._first) return '';
+        return `<div class="cw-flag"><b>Not the route this took before.</b> Every earlier change of this kind to this contract on record — ${num(r._first)} of them — came through a passed proposal.</div>`;
+    }
+    function relatedHtml(r) {
+        const rel = relatedProps(r); if (!rel.length) return '';
+        return `<div class="cw-rel"><b>Proposals that asked for this kind of change on this contract</b><ul>${rel.map((x) => {
+            const id = propId(x.p), lab = propLabel(x.dao, id), end = isFinite(x.end) ? (x.p.live ? `voting ends ${day(x.p.expiration.at_time_iso)}` : `voting ended ${day(x.p.expiration.at_time_iso)}`) : '';
+            const share = x.of && x.theirs ? ` It names ${x.same} of the ${plural(x.of, 'asset')} in this change${x.theirs > x.same ? ` and ${num(x.theirs - x.same)} other` : ''}.` : '';
+            return `<li><a href="${esc(propUrl(x.dao, id))}" target="_blank" rel="noopener"><b>${esc(lab)}</b></a> — ${esc(PSTAT[x.p.status] || x.p.status)}${end ? ', ' + esc(end) : ''}. ${esc(votesLine(x.p))}.${esc(share)}</li>`; }).join('')}</ul></div>`;
+    }
+    // Differences one state read found in the address book are one card: the roles side by side read better than a row each.
+    function groupRows(list) {
+        const out = [];
+        for (const r of list) {
+            const g = out[out.length - 1];
+            if (r.observed && r.action === 'address_book' && g && g.group && g.recs[0].contract === r.contract && g.recs[0].timestamp === r.timestamp) { g.recs.push(r); continue; }
+            out.push(r.observed && r.action === 'address_book' ? { group: true, recs: [r] } : r);
+        }
+        return out.map((x) => (x.group && x.recs.length === 1 ? x.recs[0] : x));
+    }
+    const rowsHtml = (list, compact) => groupRows(list).map((x) => (x.group ? bookHtml(x.recs, compact) : rowHtml(x, compact))).join('');
+    function bookHtml(recs, compact) {
+        const r = recs[0], c = cinfo(r.contract), b = c.bucket ? bucketOf(c.bucket) : null, rs = recs.slice().sort((x, y) => String(x.detail.role).localeCompare(String(y.detail.role)));
+        return `<article class="glass-card cw-row how-observed${recs.some((x) => x.k === S.hit) ? ' hit' : ''}" id="${rid(r)}" data-k="${esc(r.k)}" data-ks="${esc(recs.map((x) => x.k).join(' '))}">
+            <div class="cw-row-top"><span class="cw-when">${esc(day(r.timestamp))} · ${esc(hm(r.timestamp))}</span><span class="cw-how observed">${esc(HOW_LABEL.observed)}</span></div>
+            <h3 class="cw-title">The address book is different in ${plural(rs.length, 'role')}</h3>
+            ${compact ? '' : `<div class="cw-on"><a href="#contract=${esc(r.contract)}" data-contract="${esc(r.contract)}"><b>${esc(c.name)}</b></a>${b ? `<span class="cw-bucket">${esc(b.label)}</span>` : ''}</div>`}
+            <table class="cw-table" style="margin-top:.6rem"><thead><tr><th>Role</th><th>Held by now</th><th>Before</th></tr></thead><tbody>${rs.map((x) => `<tr><td><span class="mono" style="font-size:.92rem">${esc(x.detail.role)}</span></td><td data-l="Held by now">${x.detail.after ? who(x.detail.after, { plain: true }) : 'no longer in the address book'}</td><td data-l="Before">${x.detail.before ? who(x.detail.before, { plain: true }) : 'not in the address book'}</td></tr>`).join('')}</tbody></table>
+            ${howLine(r)}
+            <div class="cw-acts"><button type="button" class="cw-btn" data-copy="${esc(location.origin + location.pathname + '#k=' + encodeURIComponent(r.k))}"><i class="fas fa-link"></i>Copy link</button><a class="cw-btn" href="#view=roles" data-view="roles"><i class="fas fa-key"></i>The whole address book</a><span class="cw-line dim" style="margin:0;align-self:center">${esc(r.action)}${r.height ? ' · block ' + num(r.height) : ''}</span></div>
+        </article>`;
+    }
+    function rowHtml(r, compact) {
+        const d = describe(r), c = cinfo(r.contract), b = c.bucket ? bucketOf(c.bucket) : null;
+        const on = r.contract ? `<a href="#contract=${esc(r.contract)}" data-contract="${esc(r.contract)}"><b>${esc(c.name)}</b></a>${b ? `<span class="cw-bucket">${esc(b.label)}</span>` : ''}${c.role ? `<span class="cw-role" title="This contract’s role in the address book">${esc(c.role)}</span>` : ''}` : '';
+        return `<article class="glass-card cw-row how-${r._how}${r.k === S.hit ? ' hit' : ''}" id="${rid(r)}" data-k="${esc(r.k)}">
+            <div class="cw-row-top"><span class="cw-when">${esc(day(r.timestamp))} · ${esc(hm(r.timestamp))}</span><span class="cw-how ${r._how}">${esc(HOW_LABEL[r._how])}</span></div>
+            <h3 class="cw-title">${esc(d.title)}</h3>
+            ${compact || !on ? '' : `<div class="cw-on">${on}</div>`}
+            ${d.items.length ? `<ul class="cw-items">${d.items.map((x) => `<li>${x}</li>`).join('')}</ul>` : ''}
+            ${d.note ? `<p class="cw-line dim">${esc(d.note)}</p>` : ''}
+            ${howLine(r)}${flagHtml(r)}${relatedHtml(r)}
+            <div class="cw-acts">${r.txhash ? `<a class="cw-btn" href="${EXPLORER}/tx/${esc(r.txhash)}" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i>Transaction</a>` : ''}<button type="button" class="cw-btn" data-copy="${esc(location.origin + location.pathname + '#k=' + encodeURIComponent(r.k))}"><i class="fas fa-link"></i>Copy link</button><span class="cw-line dim" style="margin:0;align-self:center">${esc(r.action)}${r.height ? ' · block ' + num(r.height) : ''}</span></div>
+        </article>`;
+    }
+
+    // ── render: top ─────────────────────────────────────────────────────────────────────────────────────────────────
+    function renderGlance() {
+        const all = changesOnly(), n = (h) => all.filter((r) => howGroup(r._how) === h).length;
+        if (S.loadFailed) { $('cw-glance').innerHTML = '<div class="glass-card cw-tile" style="grid-column:1/-1"><span class="cw-err">The record could not be read just now.</span> Refresh to try again.</div>'; return; }
+        const first = all.length ? all[all.length - 1].timestamp : null, grouped = S.lib.byAddr.size;
+        const tile = (cls, k, v, s, f) => `<button type="button" class="glass-card cw-tile ${cls}" ${f ? `data-set-how="${f}"` : 'data-set-how="all"'}><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></button>`;
+        $('cw-glance').innerHTML =
+            tile('', 'Changes on record', num(all.length), first ? `since ${esc(day(first))} · ${num(grouped)} contracts in ${num(S.lib.buckets.length)} groups` : '') +
+            tile('t-prop', 'Through a passed proposal', num(n('proposal')), 'a DAO vote, executed', 'proposal') +
+            tile('t-direct', 'Sent directly', num(n('direct')), 'by an account, no proposal', 'direct') +
+            tile('', 'Seen in a state read', num(n('observed')), S.st && S.st.capturedAt ? `last read ${esc(day(S.st.capturedAt))}` : 'before and after', 'observed');
+        const last = all[0];
+        $('cw-latest').innerHTML = last ? `<div class="glass-card cw-latest" data-jump="${esc(last.k)}" role="button" tabindex="0"><span class="tag">Latest</span><span class="txt"><b>${esc(day(last.timestamp))}</b> — ${esc(describe(last).title)} · ${esc(cinfo(last.contract).name)}</span><span class="cw-how ${last._how}">${esc(HOW_LABEL[last._how])}</span></div>` : '';
+    }
+    // the stored walks: from the first record they hold to the day they end (the index states the end; the report the first record)
+    function histSpan() { const rep = S.report, h = S.idx && S.idx.history; const from = (rep && rep.first && rep.first.day) || (h && h.first_record), to = (h && h.walks_end) || (rep && rep.last && rep.last.day); return from && to ? { from, to } : null; }
+    function mainJob() { const jobs = (S.rewalk && S.rewalk.jobs) || []; return jobs.filter((j) => j && !j.done).sort((a, b) => (b.to - b.from) - (a.to - a.from))[0] || null; }
+    function jobPct(j) { const start = j.pruned_to != null ? Number(j.pruned_to) + 1 : Number(j.from), span = Number(j.to) - start + 1; const done = Math.max(0, Number(j.next != null ? j.next : start) - start); return span > 0 ? Math.min(100, Math.round((done / span) * 100)) : 0; }
+    function renderCoverLine() {
+        const rep = S.report, parts = [], hist = histSpan();
+        if (hist) parts.push(`<b>${esc(day(hist.from))} → ${esc(day(hist.to))}</b> from stored walks`);
+        if (S.idx && S.idx.forward_since) parts.push(`<b>live since ${esc(day(S.idx.forward_since.day))}</b>, read every 15 minutes`);
+        const j = mainJob(); if (j) parts.push(`the months before the live stream are being read again now (${jobPct(j)}% done)`);
+        $('cw-cover-line').innerHTML = parts.length ? `On record: ${parts.join(' · ')}. <a href="#cw-coverage">What is and is not covered</a>` : '';
+    }
+    function openProps() {
+        const out = [];
+        for (const dao of S.lib.daos) {
+            const cap = S.props.get(dao.capture); if (!cap || !cap.data) continue;
+            for (const p of Object.values(cap.data.proposals || {})) {
+                if (!(p.live || p.status === 'Open' || p.status === 'Passed')) continue;
+                const acts = propActions(p).filter((a) => S.lib.byAddr.has(a.contract) && CHANGE_RE.test(a.action));
+                if (acts.length) out.push({ dao, p, acts });
+            }
+        }
+        return out.sort((a, b) => Number(propId(b.p)) - Number(propId(a.p)));
+    }
+    function actWords(a) { const n = argAssets(a).length, s = lastSeg(a.action); return s === 'remove_assets' ? `remove ${plural(n, 'asset')} from the reward list` : s === 'whitelist_assets' ? `add ${plural(n, 'asset')} to the reward list` : `call ${a.action}`; }
+    function renderOpen() {
+        const rows = openProps();
+        if (!rows.length) { $('cw-open').innerHTML = ''; return; }
+        $('cw-open').innerHTML = `<section class="glass-card cw-open"><h2><i class="fas fa-scale-balanced" style="color:var(--sky);margin-right:.45rem"></i>Votes that would change a watched contract</h2>${rows.map(({ dao, p, acts }) => {
+            const id = propId(p), end = p.expiration && p.expiration.at_time_iso;
+            const since = S.recs.filter((r) => howGroup(r._how) === 'direct' && acts.some((a) => a.contract === r.contract && lastSeg(a.action) === lastSeg(r.action)) && r.height > Number(p.startHeight || Infinity));
+            return `<div class="cw-open-row"><div class="cw-line" style="margin:0"><a href="${esc(propUrl(dao, id))}" target="_blank" rel="noopener"><b>${esc(propLabel(dao, id))}</b></a> · ${esc(dao.name)} — ${esc(PSTAT[p.status] || p.status)}${end ? `, voting ${p.live ? 'ends' : 'ended'} ${esc(day(end))}` : ''}</div>
+                <ul class="cw-items">${acts.map((a) => `<li>Would ${esc(actWords(a))} on <a href="#contract=${esc(a.contract)}" data-contract="${esc(a.contract)}"><b>${esc(cinfo(a.contract).name)}</b></a></li>`).join('')}</ul>
+                <p class="cw-line dim">${esc(votesLine(p))}.</p>
+                ${since.length ? `<p class="cw-line">Since this vote opened, a change of the same kind to the same contract was sent directly: ${since.slice(0, 3).map((r) => `<a href="#k=${encodeURIComponent(r.k)}" data-jump="${esc(r.k)}">${esc(day(r.timestamp))}</a>`).join(' · ')}.</p>` : ''}</div>`; }).join('')}</section>`;
+    }
+
+    // ── render: changes ─────────────────────────────────────────────────────────────────────────────────────────────
+    function renderFilters() {
+        const b = base(), count = (f) => b.filter(f).length;
+        const chip = (grp, val, label, n) => `<button type="button" class="cw-chip${S.f[grp] === val ? ' on' : ''}" data-f="${grp}" data-v="${val}" aria-pressed="${S.f[grp] === val}">${esc(label)}${n != null ? `<span class="n">${num(n)}</span>` : ''}</button>`;
+        $('f-how').innerHTML = chip('how', 'all', 'All', b.length) + HOWS.map(([v, l]) => chip('how', v, l, count((r) => howGroup(r._how) === v))).join('');
+        const kinds = KINDS.filter(([v]) => count((r) => r.kind === v) > 0 || S.f.kind === v);
+        $('f-kind').innerHTML = chip('kind', 'all', 'Everything', null) + kinds.map(([v, l]) => chip('kind', v, l, count((r) => r.kind === v))).join('') + (S.f.routine ? chip('kind', 'epoch', 'Weekly distribution', count((r) => r.kind === 'epoch')) : '');
+        const sel = $('f-bucket'), per = {}; for (const r of b) { const id = cinfo(r.contract).bucket || 'none'; per[id] = (per[id] || 0) + 1; }
+        sel.innerHTML = `<option value="all">Every group</option>` + S.lib.buckets.filter((x) => per[x.id]).map((x) => `<option value="${esc(x.id)}">${esc(x.label)} (${num(per[x.id])})</option>`).join('') + (per.none ? `<option value="none">Outside the groups (${num(per.none)})</option>` : '');
+        sel.value = [...sel.options].some((o) => o.value === S.f.bucket) ? S.f.bucket : 'all';
+        $('f-routine').checked = S.f.routine; $('f-all').checked = S.f.all; if ($('f-q').value !== S.f.q) $('f-q').value = S.f.q;
+    }
+    function renderChanges() {
+        renderFilters();
+        const v = visible(), show = v.slice(0, S.shown);
+        $('cw-count').textContent = S.ready ? `${plural(v.length, 'change')}${v.length !== base().length ? ` of ${num(base().length)}` : ''} — newest first` : '';
+        $('cw-list').innerHTML = show.length ? rowsHtml(show) : `<div class="glass-card cw-empty">${S.ready ? 'Nothing on record matches these filters.' : 'Reading the record…'}</div>`;
+        $('cw-more').hidden = v.length <= S.shown; $('cw-more').textContent = `Show more (${num(v.length - S.shown)} left)`;
+    }
+
+    // ── render: contracts ───────────────────────────────────────────────────────────────────────────────────────────
+    const recsOf = (a) => S.recs.filter((r) => r.contract === a && r._how !== 'routine');
+    function contractHtml(c) {
+        const info = cinfo(c.address), ch = info.chain, rs = recsOf(c.address), open = S.openContract === c.address;
+        const meta = rs.length ? `${plural(rs.length, 'change')} · last ${esc(day(rs[0].timestamp))}` : 'no change on record';
+        let body = '';
+        if (open) {
+            const asOf = ch && ch.capturedAt ? day(ch.capturedAt) : null;
+            body = `<dl class="cw-facts">
+                <dt>Address</dt><dd><span class="mono" style="font-size:.88rem">${esc(c.address)}</span> <button type="button" class="cw-btn" data-copy="${esc(c.address)}"><i class="fas fa-copy"></i>Copy</button> <a class="cw-btn" href="${EXPLORER}/address/${esc(c.address)}" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i>Explorer</a></dd>
+                ${c.role ? `<dt>Role</dt><dd><span class="cw-role">${esc(c.role)}</span> in the address book</dd>` : ''}
+                ${ch ? `<dt>Admin</dt><dd>${ch.admin ? who(ch.admin, { plain: true }) + ' — can upgrade this contract' : 'none — this contract cannot be upgraded'}</dd>
+                <dt>Code id</dt><dd>${esc(ch.code_id)}</dd>
+                <dt>Created by</dt><dd>${ch.creator ? who(ch.creator, { plain: true }) : '—'}</dd>
+                <dt>Chain label</dt><dd>${ch.label ? '“' + esc(ch.label) + '”' : '—'}</dd>
+                <dt>As read</dt><dd>${esc(asOf)}</dd>` : '<dt>State</dt><dd>not read from the chain yet</dd>'}
+            </dl>
+            <div class="cw-timeline">${rs.length ? rowsHtml(rs.slice(0, 60), true) + (rs.length > 60 ? `<p class="cw-line dim">Showing the newest 60 of ${num(rs.length)}. <a href="#view=changes&q=${esc(c.address)}" data-q="${esc(c.address)}">All of them in Changes</a></p>` : '') : '<p class="cw-line dim">No change to this contract is on record. See what the record covers at the foot of the page.</p>'}
+            ${S.recs.some((r) => r.contract === c.address && r._how === 'routine') ? `<p class="cw-line dim">The weekly distribution is left out here. <a href="#view=changes&q=${esc(c.address)}&routine=1" data-q="${esc(c.address)}" data-routine="1">Show it in Changes</a></p>` : ''}</div>`;
+        }
+        return `<div class="cw-c" id="c-${esc(c.address)}"><div class="cw-c-top" data-toggle-contract="${esc(c.address)}" role="button" tabindex="0" aria-expanded="${open}">
+            <span class="cw-c-name">${esc(info.name)}</span>${c.role ? `<span class="cw-role">${esc(c.role)}</span>` : ''}<span class="mono cw-line dim" style="margin:0;font-size:.86rem">${esc(short(c.address))}</span><span class="cw-c-meta">${meta}</span></div>${body}</div>`;
+    }
+    function renderContracts() {
+        const q = $('c-q').value.trim().toLowerCase(), per = new Map();
+        for (const c of S.lib.byAddr.values()) { if (q && !(String(c.name).toLowerCase().includes(q) || c.address.includes(q) || String(c.role || '').toLowerCase().includes(q))) continue; (per.get(c.bucket) || per.set(c.bucket, []).get(c.bucket)).push(c); }
+        const html = S.lib.buckets.filter((b) => per.has(b.id)).map((b) => {
+            const cs = per.get(b.id), open = !!q || S.openGroups.has(b.id) || cs.some((c) => c.address === S.openContract);
+            const ch = cs.reduce((n, c) => n + recsOf(c.address).length, 0), last = cs.map((c) => recsOf(c.address)[0]).filter(Boolean).sort((x, y) => y.height - x.height)[0];
+            return `<section class="glass-card cw-group${open ? ' open' : ''}" data-group="${esc(b.id)}"><button type="button" class="cw-ghead" data-toggle-group="${esc(b.id)}" aria-expanded="${open}"><i class="fas fa-chevron-right chev"></i><span class="gname">${esc(b.label)}</span>
+                <span class="gmeta">${plural(cs.length, 'contract')} · ${ch ? `${plural(ch, 'change')} · last ${esc(day(last.timestamp))}` : 'no change on record'}</span></button>
+                ${open ? `<div class="cw-gbody"><p class="cw-gblurb">${esc(b.blurb || '')}</p>${cs.map(contractHtml).join('')}</div>` : ''}</section>`; }).join('');
+        $('cw-groups').innerHTML = html || `<div class="glass-card cw-empty">${S.ready ? 'No contract matches.' : 'Reading…'}</div>`;
+    }
+
+    // ── render: who holds the keys ──────────────────────────────────────────────────────────────────────────────────
+    function roleHistory() { const h = {}; for (const r of S.recs) if (r.observed && r.action === 'address_book' && r.detail && r.detail.role) (h[r.detail.role] ||= []).push(r); return h; }
+    function renderRoles() {
+        const ab = S.st && S.st.address_book, el = $('cw-roles');
+        if (!ab || !ab.entries) { el.innerHTML = `<div class="glass-card cw-empty">${S.ready ? 'The address book has not been read yet.' : 'Reading…'}</div>`; return; }
+        const hist = roleHistory(), roles = Object.keys(ab.entries).sort();
+        const isPointer = (role) => { const c = S.lib.byAddr.get(ab.entries[role]); return !!(c && c.role === role); };
+        const row = (role) => { const h = hist[role], last = h && h[0]; return `<tr class="${last ? 'changed' : ''}"><td><span class="mono" style="font-size:.92rem">${esc(role)}</span></td><td data-l="Now">${who(ab.entries[role], { plain: true })}</td><td data-l="Before">${last ? `${last.detail.before ? who(last.detail.before, { plain: true }) : 'not in the address book'}<div class="cw-was">at the read of ${esc(day(last.detail.seen_after))} · <a href="#k=${encodeURIComponent(last.k)}" data-jump="${esc(last.k)}">see the difference</a></div>` : '<span class="cw-line dim" style="margin:0">no difference on record</span>'}</td></tr>`; };
+        const ctl = roles.filter((r) => !isPointer(r)), ptr = roles.filter(isPointer);
+        // the same roles, by holder
+        const movedLine = (b, t, moved, total) => {
+            if (!b) return `Not in the address book at the read of ${esc(day(t))}: ${moved.map(esc).join(', ')}.`;
+            const subject = moved.length === total ? (total === 1 ? 'this role was' : `all ${num(total)} were`) : `${num(moved.length)} of them ${moved.length === 1 ? 'was' : 'were'}`;
+            return `At the read of ${esc(day(t))}, ${subject} held by ${who(b, { plain: true })}${moved.length < total ? ' — ' + moved.map(esc).join(', ') : ''}.`;
+        };
+        const holders = new Map(); for (const role of ctl) (holders.get(ab.entries[role]) || holders.set(ab.entries[role], []).get(ab.entries[role])).push(role);
+        const holderHtml = [...holders.entries()].sort((x, y) => y[1].length - x[1].length || x[0].localeCompare(y[0])).map(([a, rs]) => {
+            const from = new Map(); for (const role of rs) { const last = hist[role] && hist[role][0]; if (last && last.detail.after === a) { const k = (last.detail.before || '') + '|' + last.detail.seen_after; (from.get(k) || from.set(k, []).get(k)).push(role); } }
+            return `<div class="cw-holder"><div class="cw-line" style="margin:0">${who(a, { plain: true })} — <b>${plural(rs.length, 'role')}</b></div><div class="cw-chips">${rs.map((r) => `<span class="cw-role">${esc(r)}</span>`).join('')}</div>${[...from.entries()].map(([k, moved]) => { const [b, t] = k.split('|'); return `<p class="cw-was">${movedLine(b, t, moved, rs.length)}</p>`; }).join('')}</div>`; }).join('');
+        const gone = Object.keys(hist).filter((r) => !(r in ab.entries));
+        // who can upgrade the contracts of the alliance itself
+        const core = new Set(S.lib.buckets.filter((b) => b.core).map((b) => b.id)), byAdmin = new Map(); let unread = 0;
+        for (const c of S.lib.byAddr.values()) { if (!core.has(c.bucket)) continue; const ch = S.st.contracts && S.st.contracts[c.address]; if (!ch) { unread++; continue; } const k = ch.admin || ''; (byAdmin.get(k) || byAdmin.set(k, []).get(k)).push(c); }
+        const asOfC = (() => { const ts = [...S.lib.byAddr.values()].filter((c) => core.has(c.bucket)).map((c) => S.st.contracts && S.st.contracts[c.address] && S.st.contracts[c.address].capturedAt).filter(Boolean).sort(); return ts.length ? ts[0] : null; })();
+        el.innerHTML = `
+        <section class="glass-card cw-pad"><h2>The address book</h2>
+            <p class="cw-sub">The Alliance’s global config holds one address per role. A contract of the system asks it who may do what. Role names are the contract’s own. As read from the chain on <b>${esc(day(ab.capturedAt))}${S.st.height ? ', ' + esc(hm(ab.capturedAt)) : ''}</b>.</p>
+            <h3 class="cw-title" style="font-size:1rem">Controllers and recipients — by holder</h3>
+            <div class="cw-holders">${holderHtml}</div>
+            <h3 class="cw-title" style="font-size:1rem;margin-top:1.2rem">Controllers and recipients — role by role</h3>
+            <table class="cw-table"><thead><tr><th style="width:32%">Role</th><th>Held by now</th><th>Before</th></tr></thead><tbody>${ctl.map(row).join('')}${gone.map((role) => `<tr class="changed"><td><span class="mono" style="font-size:.92rem">${esc(role)}</span></td><td data-l="Now">no longer in the address book</td><td data-l="Before">${hist[role][0].detail.before ? who(hist[role][0].detail.before, { plain: true }) : '—'}</td></tr>`).join('')}</tbody></table>
+            <h3 class="cw-title" style="font-size:1rem;margin-top:1.2rem">Contracts the system uses</h3>
+            <table class="cw-table"><thead><tr><th style="width:32%">Role</th><th>Points at now</th><th>Before</th></tr></thead><tbody>${ptr.map(row).join('')}</tbody></table>
+            <div class="cw-acts" style="margin-top:1rem"><button type="button" class="cw-btn" id="cw-livebtn"><i class="fas fa-satellite-dish"></i>Read the address book from the chain now</button><a class="cw-btn" href="${EXPLORER}/address/${esc(ab.contract)}" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i>The contract on the explorer</a></div>
+            <div id="cw-liveout" class="cw-live">${S.live || ''}</div>
+        </section>
+        <section class="glass-card cw-pad"><h2>Who can upgrade the Alliance’s contracts</h2>
+            <p class="cw-sub">A contract’s admin can replace its code. These are the contracts of the groups that make up the Alliance itself${asOfC ? `, as read on <b>${esc(day(asOfC))}</b>` : ''}.</p>
+            <table class="cw-table"><thead><tr><th style="width:32%">Admin</th><th>Can upgrade</th></tr></thead><tbody>${[...byAdmin.entries()].sort((a, b) => b[1].length - a[1].length).map(([a, cs]) => `<tr><td data-l="Admin">${a ? who(a, { plain: true }) : 'No admin'}</td><td data-l="Can upgrade"><b>${plural(cs.length, 'contract')}</b>${a ? '' : ' — cannot be upgraded'}<div class="cw-was">${cs.map((c) => `<a href="#contract=${esc(c.address)}" data-contract="${esc(c.address)}">${esc(c.name)}</a>`).join(' · ')}</div></td></tr>`).join('')}</tbody></table>
+            ${unread ? `<p class="cw-line dim">${plural(unread, 'contract')} of these groups not read from the chain yet.</p>` : ''}
+        </section>`;
+    }
+    async function liveBook() {
+        const ab = S.st && S.st.address_book; if (!ab) return;
+        const out = (h) => { S.live = h; const o = $('cw-liveout'); if (o) o.innerHTML = h; };
+        out('<span class="loading-pulse">Asking a public node…</span>');
+        const q = btoa(JSON.stringify({ all_addresses: {} })); let data = null;
+        for (const base of LCDS) { const r = await getJson(`${base}/cosmwasm/wasm/v1/contract/${ab.contract}/smart/${q}`); if (r && Array.isArray(r.data)) { data = r.data; break; } }
+        if (!data || !data.every((p) => Array.isArray(p) && p.length === 2)) { out('<span class="cw-err">No public node answered just now.</span> Try again in a moment, or open the contract on the explorer.'); return; }
+        const now = Object.fromEntries(data), diff = [...new Set([...Object.keys(now), ...Object.keys(ab.entries)])].sort().filter((role) => now[role] !== ab.entries[role]);
+        out(diff.length ? `<span class="cw-warn"><b>The chain differs from this page’s last read in ${plural(diff.length, 'role')}.</b></span><ul class="cw-items">${diff.map((role) => `<li><span class="mono">${esc(role)}</span>: on chain now ${now[role] ? who(now[role]) : 'absent'} — this page’s read: ${ab.entries[role] ? who(ab.entries[role]) : 'absent'}</li>`).join('')}</ul><p class="cw-line dim">The next state read files the difference.</p>`
+            : `<span class="cw-ok"><i class="fas fa-check"></i> <b>Same as shown.</b></span> A public node answered just now with the same ${plural(data.length, 'role')} and addresses.`);
+    }
+
+    // ── render: look up ─────────────────────────────────────────────────────────────────────────────────────────────
+    function renderLookup() {
+        const q = (S.lookup || '').trim(), el = $('cw-lookup'); if ($('l-q').value !== q) $('l-q').value = q;
+        if (!q) { el.innerHTML = ''; return; }
+        if (/^[0-9A-Fa-f]{64}$/.test(q)) {
+            const rs = S.recs.filter((r) => r.txhash === q.toUpperCase());
+            el.innerHTML = rs.length ? `<p class="cw-count">${plural(rs.length, 'change')} in this transaction</p>${rs.map((r) => rowHtml(r)).join('')}` : `<div class="glass-card cw-empty">This transaction is not in the record. It may not have changed a watched contract, or it lies in a stretch the record does not cover. <a href="${EXPLORER}/tx/${esc(q.toUpperCase())}" target="_blank" rel="noopener">Open it on the explorer</a></div>`;
+            return;
+        }
+        if (!isAddr(q)) { el.innerHTML = '<div class="glass-card cw-empty">That is not a terra1… address or a transaction hash.</div>'; return; }
+        const sent = S.recs.filter((r) => r.signer === q && howGroup(r._how) === 'direct'), exec = S.recs.filter((r) => r.signer === q && r._how === 'proposal'), routine = S.recs.filter((r) => r.signer === q && r._how === 'routine');
+        const cs = (S.st && S.st.contracts) || {}, adminOf = Object.keys(cs).filter((a) => cs[a].admin === q), creatorOf = Object.keys(cs).filter((a) => cs[a].creator === q);
+        const roles = rolesOf(q), held = S.recs.filter((r) => r.observed && r.action === 'address_book' && r.detail && r.detail.before === q && bookNow()[r.detail.role] !== q).map((r) => r.detail.role);
+        const made = S.recs.filter((r) => r.kind === 'admin' && !r.observed && r.detail && r.detail.new_admin_address === q);
+        const c = S.lib.byAddr.get(q), list = (arr) => arr.map((a) => `<a href="#contract=${esc(a)}" data-contract="${esc(a)}">${esc(cinfo(a).name)}</a>`).join(' · ');
+        const wide = S.wide && S.wide.data ? (() => { const w = S.wide.data.contracts || {}, ad = Object.keys(w).filter((a) => w[a].admin === q), cr = Object.keys(w).filter((a) => w[a].creator === q); const nm = (a) => S.lib.byAddr.has(a) ? cinfo(a).name : w[a].label ? `“${w[a].label}”` : short(a);
+            return `<p class="cw-line">Among the ${num(Object.keys(w).length)} contracts of the wider inventory (read ${esc(day(S.wide.data.day))}): admin of <b>${num(ad.length)}</b>, creator of <b>${num(cr.length)}</b>.</p>${ad.length ? `<p class="cw-line dim">Admin of: ${ad.slice(0, 80).map((a) => esc(nm(a))).join(' · ')}${ad.length > 80 ? ' · …' : ''}</p>` : ''}${cr.length ? `<p class="cw-line dim">Creator of: ${cr.slice(0, 80).map((a) => esc(nm(a))).join(' · ')}${cr.length > 80 ? ' · …' : ''}</p>` : ''}`; })()
+            : S.wide && S.wide.status === 'loading' ? '<p class="cw-line loading-pulse">Reading the wider inventory…</p>' : S.wide && S.wide.status === 'failed' ? '<p class="cw-line cw-err">The wider inventory could not be read just now.</p>'
+            : '<button type="button" class="cw-btn" id="cw-wide"><i class="fas fa-layer-group"></i>Also search the wider inventory (1,700+ contracts)</button>';
+        el.innerHTML = `<section class="glass-card cw-pad">
+            <h2>${c ? esc(c.name) : isContract(q) ? 'A contract' : 'An account'}</h2>
+            <p class="cw-line" style="margin-top:0"><span class="mono" style="font-size:.88rem;word-break:break-all">${esc(q)}</span> <button type="button" class="cw-btn" data-copy="${esc(q)}"><i class="fas fa-copy"></i>Copy</button> <a class="cw-btn" href="${EXPLORER}/address/${esc(q)}" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i>Explorer</a>${c ? ` <a class="cw-btn" href="#contract=${esc(q)}" data-contract="${esc(q)}"><i class="fas fa-cube"></i>Its page in Contracts</a>` : ''}</p>
+            <dl class="cw-facts">
+                <dt>Sent directly</dt><dd><b>${plural(sent.length, 'change')}</b> on record</dd>
+                <dt>Executed</dt><dd><b>${plural(new Set(exec.map((r) => r.via.proposal_module + ':' + r.via.proposal_id)).size, 'passed proposal')}</b> (${plural(exec.length, 'change')})</dd>
+                <dt>Holds</dt><dd>${roles.length ? roles.map((r) => `<span class="cw-role">${esc(r)}</span>`).join(' ') + ' in the address book' : 'no role in the address book'}${held.length ? `<div class="cw-was">Held before: ${[...new Set(held)].map((r) => esc(r)).join(' · ')}</div>` : ''}</dd>
+                <dt>Admin of</dt><dd>${adminOf.length ? `<b>${plural(adminOf.length, 'watched contract')}</b> — can upgrade ${adminOf.length === 1 ? 'it' : 'them'}<div class="cw-was">${list(adminOf)}</div>` : 'no watched contract'}</dd>
+                <dt>Creator of</dt><dd>${creatorOf.length ? `<b>${plural(creatorOf.length, 'watched contract')}</b><div class="cw-was">${list(creatorOf)}</div>` : 'no watched contract'}</dd>
+                ${made.length ? `<dt>Made admin</dt><dd>of ${plural(new Set(made.map((r) => r.contract)).size, 'contract')} by a recorded change</dd>` : ''}
+                ${routine.length ? `<dt>Routine</dt><dd>sent the weekly distribution ${num(routine.length)} times</dd>` : ''}
+            </dl>
+            <div class="cw-acts">${wide}</div>
+        </section>
+        ${sent.length ? `<h2 style="margin:1.2rem 0 .6rem">Changes it sent directly</h2>${rowsHtml(sent.slice(0, 100))}${sent.length > 100 ? `<p class="cw-line dim">Showing the newest 100 of ${num(sent.length)}.</p>` : ''}` : ''}
+        ${exec.length ? `<h2 style="margin:1.2rem 0 .6rem">Passed proposals it executed</h2>${rowsHtml(exec.slice(0, 60))}${exec.length > 60 ? `<p class="cw-line dim">Showing the newest 60 of ${num(exec.length)}.</p>` : ''}` : ''}
+        ${!sent.length && !exec.length ? '<div class="glass-card cw-empty">No change on record was sent by this address.</div>' : ''}`;
+    }
+
+    // ── render: coverage ────────────────────────────────────────────────────────────────────────────────────────────
+    function renderCoverage() {
+        const li = [], rep = S.report, jobs = (S.rewalk && S.rewalk.jobs) || [], hist = histSpan();
+        if (hist) li.push(`<b>${esc(day(hist.from))} → ${esc(day(hist.to))}</b> — taken from the walks already stored${rep && rep.transactions_read ? ` (${num(rep.transactions_read)} transactions re-read)` : ''}. Complete for the contracts the capture followed in those months.`);
+        const big = jobs.filter((j) => j && j.pruned_to != null && j.first_walked).sort((a, b) => b.to - a.to)[0];
+        if (hist) li.push(`<b>${esc(day(hist.to))} → ${big ? esc(day(big.first_walked.time)) : 'the first block public nodes still hold'}</b> — <b>not on record.</b> In those months the capture kept deposits and withdrawals only, and public nodes no longer hold the blocks${big ? '' : ' (the catch-up below finds where they begin)'}.`);
+        for (const j of jobs) {
+            if (!j) continue;
+            const span = j.first_walked && j.last_walked ? `${esc(day(j.first_walked.time))} → ${esc(day(j.last_walked.time))}` : `blocks ${num(j.pruned_to != null ? Number(j.pruned_to) + 1 : j.from)}–${num(j.to)}`;
+            if (j.done) li.push(`<b>${span}</b> — read again for contract changes: done, ${plural(Number(j.found) || 0, 'change')} found.`);
+            else if (j.next != null) li.push(`<b>${span}</b> — being read again now: ${jobPct(j)}% of the stretch done, ${plural(Number(j.found) || 0, 'change')} found so far. It runs a little every 15 minutes.`);
+            else li.push(`<b>blocks ${num(j.from)}–${num(j.to)}</b> — queued to be read again.`);
+        }
+        if (S.idx && S.idx.forward_since) li.push(`<b>${esc(day(S.idx.forward_since.day))} → now</b> — live. Every block is read; upgrades and admin changes are kept for every contract on the chain, the other changes for the watched contracts.${S.hb && S.hb.capturedAt ? ` Last run: ${esc(day(S.hb.capturedAt))}, ${esc(hm(S.hb.capturedAt))}${S.hb.last_heights && S.hb.last_heights.cursor ? `, read to block ${num(S.hb.last_heights.cursor)}` : ''}.` : ''}`);
+        if (S.st && S.st.capturedAt) li.push(`<b>State read</b> — each watched contract’s admin and code id and the address book, once a day and whenever a change is recorded. Last read: ${esc(day(S.st.capturedAt))}${S.st.height ? ', ' + esc(hm(S.st.capturedAt)) : ' (a stored read; the first live read is due)'}.`);
+        li.push('Not seen by a walk: a change made by chain governance at the end of a block, and a setting whose contract reports no action. The state read catches what it compares — the address book, each admin, each code id.');
+        $('cw-cover').innerHTML = li.map((x) => `<li>${x}</li>`).join('');
+        const link = (href, icon, label) => `<a class="cw-btn" href="${href}" target="_blank" rel="noopener"><i class="fas ${icon}"></i>${label}</a>`;
+        $('cw-data').innerHTML = link(`${TREE}/contract-watch`, 'fa-database', 'The records (raw data)') + link(`${CORE}/contract-watch/state/current.json`, 'fa-file-code', 'The state file') + link(`${CORE}/docs/curated/contract-watch.json`, 'fa-layer-group', 'The groups') + link(`${TREE}/contract-watch/README.md`, 'fa-book', 'How a record is built');
+    }
+
+    // ── view + hash ─────────────────────────────────────────────────────────────────────────────────────────────────
+    function setView(v) { S.view = v; document.querySelectorAll('.cw-view[data-view]').forEach((b) => { const on = b.dataset.view === v; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); for (const id of ['changes', 'contracts', 'roles', 'lookup']) $('view-' + id).hidden = id !== v; }
+    function renderView() { if (S.view === 'changes') renderChanges(); else if (S.view === 'contracts') renderContracts(); else if (S.view === 'roles') renderRoles(); else renderLookup(); }
+    function renderAll() { renderGlance(); renderCoverLine(); renderOpen(); renderView(); renderCoverage(); if (S._jump) jumpTo(S._jump); }
+    function jumpTo(k) {
+        S._jump = null; const r = S.recs.find((x) => x.k === k); if (!r) return;
+        if (S.view !== 'changes') setView('changes');
+        if (!visible().includes(r)) { S.f = { how: 'all', kind: 'all', bucket: 'all', q: '', routine: r._how === 'routine', all: !S.lib.byAddr.has(r.contract) }; }
+        S.hit = r.k; S.shown = Math.max(S.shown, visible().indexOf(r) + 5); renderChanges();   // the row stays marked through later re-renders (votes and names arrive after the first paint)
+        const el = $(rid(r)) || [...document.querySelectorAll('#cw-list [data-ks]')].find((x) => x.dataset.ks.split(' ').includes(r.k)); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+    }
+    function openContract(a) { const c = S.lib.byAddr.get(a); if (!c) { S.lookup = a; setView('lookup'); renderLookup(); return; } S.openContract = a; S.openGroups.add(c.bucket); $('c-q').value = ''; setView('contracts'); renderContracts(); const el = $('c-' + a); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' }); }
+    function readHash() {
+        const p = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+        if (p.get('k')) { S._jump = p.get('k'); return; }
+        if (p.get('tx')) { S.lookup = p.get('tx'); setView('lookup'); return; }
+        if (p.get('address')) { S.lookup = p.get('address'); setView('lookup'); return; }
+        if (p.get('contract')) { const a = p.get('contract'); if (S.lib.byAddr.has(a)) { S.openContract = a; S.openGroups.add(S.lib.byAddr.get(a).bucket); setView('contracts'); } else { S.lookup = a; setView('lookup'); } return; }
+        const v = p.get('view'); if (['changes', 'contracts', 'roles', 'lookup'].includes(v)) setView(v);
+        for (const k of ['how', 'kind', 'bucket', 'q']) if (p.get(k) != null) S.f[k] = p.get(k);
+        if (p.get('routine') === '1') S.f.routine = true;
+    }
+    const setHash = (h) => { try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch (e) {} };
+
+    // ── events ──────────────────────────────────────────────────────────────────────────────────────────────────────
+    document.addEventListener('click', (ev) => {
+        const t = ev.target.closest ? ev.target : null; if (!t) return;
+        let el;
+        if ((el = t.closest('[data-view]'))) { setView(el.dataset.view); setHash(el.dataset.view === 'changes' ? '' : 'view=' + el.dataset.view); renderView(); return; }
+        if ((el = t.closest('[data-f]'))) { S.f[el.dataset.f] = el.dataset.v; S.shown = 40; S.hit = null; renderChanges(); return; }
+        if ((el = t.closest('[data-set-how]'))) { S.f.how = el.dataset.setHow; S.shown = 40; setView('changes'); renderChanges(); $('view-changes').scrollIntoView && $('view-changes').scrollIntoView({ block: 'start' }); return; }
+        if ((el = t.closest('[data-jump]'))) { ev.preventDefault(); setHash('k=' + encodeURIComponent(el.dataset.jump)); jumpTo(el.dataset.jump); return; }
+        if ((el = t.closest('[data-copy]'))) { const txt = el.dataset.copy, old = el.innerHTML; (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => { el.innerHTML = '<i class="fas fa-check"></i>Copied'; setTimeout(() => { el.innerHTML = old; }, 1300); }, () => { el.textContent = txt; }); return; }
+        if ((el = t.closest('[data-addr]'))) { S.lookup = el.dataset.addr; setHash('address=' + el.dataset.addr); setView('lookup'); renderLookup(); $('view-lookup').scrollIntoView && $('view-lookup').scrollIntoView({ block: 'start' }); return; }
+        if ((el = t.closest('[data-q]'))) { ev.preventDefault(); S.f = { how: 'all', kind: 'all', bucket: 'all', q: el.dataset.q, routine: el.dataset.routine === '1', all: false }; S.shown = 40; setView('changes'); renderChanges(); return; }
+        if ((el = t.closest('[data-contract]'))) { ev.preventDefault(); setHash('contract=' + el.dataset.contract); openContract(el.dataset.contract); return; }
+        if ((el = t.closest('[data-toggle-group]'))) { const id = el.dataset.toggleGroup; if (S.openGroups.has(id)) S.openGroups.delete(id); else S.openGroups.add(id); renderContracts(); return; }
+        if ((el = t.closest('[data-toggle-contract]'))) { const a = el.dataset.toggleContract; S.openContract = S.openContract === a ? null : a; setHash(S.openContract ? 'contract=' + a : 'view=contracts'); renderContracts(); return; }
+        if (t.closest('#cw-more')) { S.shown += 60; renderChanges(); return; }
+        if (t.closest('#cw-livebtn')) { liveBook(); return; }
+        if (t.closest('#cw-wide')) { S.wide = { status: 'loading', data: null }; renderLookup(); getJson(`${CORE}/docs/deep-history/contracts-seen.json${bust(864e5)}`).then((d) => { S.wide = { status: d ? 'ok' : 'failed', data: d }; renderLookup(); }); return; }
+    });
+    document.addEventListener('keydown', (ev) => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches && ev.target.matches('[role="button"]')) { ev.preventDefault(); ev.target.click(); } });
+    let qt = null; $('f-q').addEventListener('input', (e) => { clearTimeout(qt); qt = setTimeout(() => { S.f.q = e.target.value; S.shown = 40; renderChanges(); }, 180); });
+    $('f-bucket').addEventListener('change', (e) => { S.f.bucket = e.target.value; S.shown = 40; renderChanges(); });
+    $('f-routine').addEventListener('change', (e) => { S.f.routine = e.target.checked; if (!S.f.routine && S.f.kind === 'epoch') S.f.kind = 'all'; S.shown = 40; renderChanges(); });
+    $('f-all').addEventListener('change', (e) => { S.f.all = e.target.checked; S.shown = 40; renderChanges(); });
+    let ct = null; $('c-q').addEventListener('input', () => { clearTimeout(ct); ct = setTimeout(renderContracts, 180); });
+    $('l-form').addEventListener('submit', (e) => { e.preventDefault(); S.lookup = $('l-q').value.trim(); setHash(S.lookup ? (/^[0-9A-Fa-f]{64}$/.test(S.lookup) ? 'tx=' : 'address=') + S.lookup : 'view=lookup'); renderLookup(); });
+    window.addEventListener('hashchange', () => { if (!S.ready) return; readHash(); renderAll(); });
+
+    window.__cw = { S, REV, REV_DATE, CHANGE_RE, howOf, describe, relatedProps, openProps, cinfo, visible, load, ingestCatalog, liveBook, renderAll };
+    load();
+})();
+</script>
+
+<div id="site-footer"></div>
+<script src="/lib/cron-registry.js"></script>
+<script src="/lib/site-footer.js"></script>
+<script>SiteFooter.mount({ rev: '1.0', revDate: '2026-11-25', page: 'contract-watch' });</script>
+</body>
+</html>
