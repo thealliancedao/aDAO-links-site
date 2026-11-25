@@ -623,7 +623,7 @@
                 <dt>Code id</dt><dd>${esc(ch.code_id)}</dd>
                 <dt>Created by</dt><dd>${ch.creator ? who(ch.creator, { plain: true }) : '—'}</dd>
                 <dt>Chain label</dt><dd>${ch.label ? '“' + esc(ch.label) + '”' : '—'}</dd>
-                <dt>As read</dt><dd>${esc(asOf)}</dd>` : '<dt>State</dt><dd>not read from the chain yet</dd>'}
+                <dt>As read</dt><dd>${esc(asOf)}</dd>` : `<dt>State</dt><dd>${S.st && S.st.height ? `the last state read (${esc(day(S.st.capturedAt))}) got no answer for this address as a contract` : 'not read from the chain yet'}</dd>`}
             </dl>
             <div class="cw-timeline">${rs.length ? rowsHtml(rs.slice(0, 60), true) + (rs.length > 60 ? `<p class="cw-line dim">Showing the newest 60 of ${num(rs.length)}. <a href="#view=changes&q=${esc(c.address)}" data-q="${esc(c.address)}">All of them in Changes</a></p>` : '') : '<p class="cw-line dim">No change to this contract is on record. See what the record covers at the foot of the page.</p>'}
             ${S.recs.some((r) => r.contract === c.address && r._how === 'routine') ? `<p class="cw-line dim">The weekly distribution is left out here. <a href="#view=changes&q=${esc(c.address)}&routine=1" data-q="${esc(c.address)}" data-routine="1">Show it in Changes</a></p>` : ''}</div>`;

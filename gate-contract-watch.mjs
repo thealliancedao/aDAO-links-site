@@ -139,6 +139,9 @@ console.log('— F contracts —');
 { await P.click(P.d.querySelector('.cw-view[data-view="contracts"]'));
   const groups = [...P.d.querySelectorAll('#cw-groups .cw-group')];
   check(`the groups of the groups file, in its order (${lib.buckets.length}), each with its contracts and its changes counted`, groups.map((g) => g.dataset.group).join() === lib.buckets.filter((b) => lib.contracts.some((c) => c.bucket === b.id)).map((b) => b.id).join() && groups.every((g) => /\d+ contracts?/.test(g.textContent)), groups.map((g) => g.dataset.group));
+  { const named = lib.daos.flatMap((dao) => lib.contracts.filter((c) => c.name.startsWith(dao.short + ' — ')).map((c) => ({ c, dao })));
+    const bad = named.filter(({ c, dao }) => !(st.contracts[c.address] && st.contracts[c.address].admin === dao.core));
+    check(`a contract carries a DAO's name only where that DAO is its admin on chain (${named.length} such names, checked against the state read)`, named.length > 0 && bad.length === 0, bad.map((x) => x.c.name)); }
   await P.click(P.d.querySelector('[data-toggle-group="gauge-single"]'));
   const g = P.d.querySelector('.cw-group[data-group="gauge-single"]'), cs = lib.contracts.filter((c) => c.bucket === 'gauge-single');
   check('opening the Single bucket lists its contracts with their role names', g.classList.contains('open') && g.querySelectorAll('.cw-c').length === cs.length && /ASSET_STAKING__single/.test(g.textContent) && /CONNECTOR__single/.test(g.textContent), g.querySelectorAll('.cw-c').length);
