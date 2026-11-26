@@ -49,6 +49,11 @@
    "source": "/app-test.html",
    "destination": "/app.html",
    "permanent": false
+  },
+  {
+   "source": "/social",
+   "destination": "/social/",
+   "permanent": false
   }
  ],
  "headers": [
@@ -76,6 +81,14 @@
   }
  ],
  "rewrites": [
+  {
+   "source": "/social/",
+   "destination": "https://cdn.jsdelivr.net/gh/thealliancedao/tla-core@main/social-board/public/index.html"
+  },
+  {
+   "source": "/social/:path*",
+   "destination": "https://cdn.jsdelivr.net/gh/thealliancedao/tla-core@main/social-board/public/:path*"
+  },
   {
    "source": "/liondao",
    "destination": "/liondao/index.html"
