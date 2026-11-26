@@ -83,11 +83,11 @@
  "rewrites": [
   {
    "source": "/social/",
-   "destination": "https://cdn.jsdelivr.net/gh/thealliancedao/tla-core@main/social-board/public/index.html"
+   "destination": "/api/social?path=index.html"
   },
   {
    "source": "/social/:path*",
-   "destination": "https://cdn.jsdelivr.net/gh/thealliancedao/tla-core@main/social-board/public/:path*"
+   "destination": "/api/social?path=:path*"
   },
   {
    "source": "/liondao",
