@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Optimizer Watch | Alliance DAO</title>
+<meta name="description" content="What a vote optimizer could show: which pools get its votes and why, which bribed pools get none and why, every pool on the list, and a live view of the round's bribes beside the two deadlines that matter.">
+<link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  * { font-family: 'Outfit', sans-serif; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  :root { --bg: #0a0b0f; --card: rgba(255,255,255,.03); --line: rgba(255,255,255,.08); --ink: #f1f5f9; --ink2: #a3b1c6; --ink3: #7c8aa0;
+          --cyan: #22d3ee; --amber: #fbbf24; --up: #34d399; --down: #f87171; --violet: #a78bfa; }
+  body { background: var(--bg); color: var(--ink); min-height: 100vh; font-size: 16px; line-height: 1.5; }
+  .bg-mesh { position: fixed; inset: 0; z-index: -1; background: radial-gradient(ellipse 80% 50% at 20% 30%, rgba(6,182,212,.10), transparent), radial-gradient(ellipse 60% 40% at 85% 70%, rgba(167,139,250,.06), transparent); }
+  .ow-wrap { max-width: 76rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 1.1rem 1.2rem; margin-bottom: 1rem; }
+  main.ow-wrap h1 { font-size: 1.7rem; font-weight: 800; line-height: 1.2; margin: 0 0 .35rem; }
+  main.ow-wrap h2 { font-size: 1.25rem; font-weight: 700; margin: 0 0 .2rem; display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
+  main.ow-wrap h2 .n { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 999px; background: rgba(34,211,238,.15); color: #a5f3fc; font-size: .95rem; }
+  .sub { color: var(--ink2); font-size: .95rem; margin: 0 0 .8rem; }
+  .notice { border: 1px solid rgba(167,139,250,.4); background: rgba(167,139,250,.07); border-radius: 12px; padding: .7rem .9rem; font-size: .95rem; color: #ddd6fe; }
+  .pill { padding: .4rem .9rem; border-radius: 999px; font-size: .95rem; background: rgba(255,255,255,.05); color: var(--ink2); border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
+  .pill:hover { color: var(--ink); } .pill.on { background: rgba(34,211,238,.14); color: #a5f3fc; border-color: rgba(34,211,238,.35); }
+  .up { color: var(--up); } .down { color: var(--down); } .flat { color: var(--ink3); } .amber { color: #fde68a; } .dim { color: var(--ink2); }
+  /* the two clocks */
+  .clocks { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  .clock { border: 1px solid var(--line); border-radius: 14px; padding: .9rem 1rem; background: rgba(255,255,255,.02); }
+  .clock.cast { border-color: rgba(251,191,36,.45); } .clock.flip { border-color: rgba(34,211,238,.4); }
+  .clock .k { font-size: .85rem; letter-spacing: .05em; text-transform: uppercase; color: var(--ink2); font-weight: 600; }
+  .clock .t { font-size: 1.9rem; font-weight: 700; line-height: 1.15; margin: .15rem 0; }
+  .clock .w { font-size: .95rem; color: var(--ink2); }
+  .gapline { margin: .8rem 0 0; font-size: .95rem; color: var(--ink); padding: .6rem .8rem; border-left: 3px solid var(--amber); background: rgba(251,191,36,.06); border-radius: 0 10px 10px 0; }
+  /* rows */
+  .tbl { display: grid; gap: 0; }
+  .tr { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1.7fr) minmax(0,1.2fr) minmax(0,1.1fr) minmax(0,1.1fr); gap: .8rem; align-items: center; padding: .7rem .2rem; border-top: 1px solid var(--line); }
+  .tr.head { border-top: 0; padding: .2rem; font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--ink3); font-weight: 600; }
+  .tr .name { font-weight: 700; font-size: 1.02rem; } .tr .s { font-size: .9rem; color: var(--ink2); }
+  .tr .v { font-size: 1rem; } .tr .lbl { display: none; font-size: .82rem; color: var(--ink3); text-transform: uppercase; letter-spacing: .04em; }
+  .tag { display: inline-block; font-size: .82rem; padding: .08rem .5rem; border-radius: 999px; background: rgba(255,255,255,.07); color: var(--ink2); white-space: nowrap; }
+  .tag.gain { background: rgba(52,211,153,.14); color: #6ee7b7; } .tag.lose { background: rgba(248,113,113,.14); color: #fca5a5; } .tag.warn { background: rgba(251,191,36,.15); color: #fde68a; } .tag.off { background: rgba(148,163,184,.14); color: #cbd5e1; }
+  .bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.07); position: relative; margin-top: .3rem; overflow: hidden; }
+  .bar i { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 4px; } .bar i.now { background: rgba(148,163,184,.55); } .bar i.plan { background: var(--cyan); opacity: .75; height: 4px; top: 2px; }
+  .vaults { margin-top: .7rem; font-size: .92rem; color: var(--ink2); display: grid; gap: .25rem; }
+  details.why { border-top: 1px solid var(--line); padding: .7rem .2rem; }
+  details.why > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; gap: .4rem .8rem; align-items: baseline; }
+  details.why > summary::-webkit-details-marker { display: none; }
+  details.why > summary:before { content: '\25B8'; color: var(--ink3); } details.why[open] > summary:before { content: '\25BE'; }
+  details.why .body { margin: .55rem 0 .1rem 1.1rem; font-size: .97rem; color: var(--ink); display: grid; gap: .35rem; }
+  details.why .body .fact { color: var(--ink2); font-size: .92rem; }
+  .scroll { max-height: 26rem; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; padding: 0 .7rem; }
+  .tr.all { grid-template-columns: minmax(0,1.5fr) minmax(0,1fr) minmax(0,.9fr) minmax(0,.9fr) minmax(0,1.3fr); }
+  .feed { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  main.ow-wrap .feed h3 { font-size: 1.02rem; font-weight: 700; margin: 0 0 .15rem; } .feed .cap { font-size: .9rem; color: var(--ink2); margin: 0 0 .5rem; }
+  .li { border-top: 1px solid var(--line); padding: .5rem 0; font-size: .96rem; } .li .when { font-size: .88rem; color: var(--ink2); } .li a { color: #67e8f9; text-decoration: none; } .li a:hover { text-decoration: underline; }
+  .li.new { background: rgba(251,191,36,.07); border-radius: 8px; padding-left: .5rem; padding-right: .5rem; }
+  .dot { display: inline-block; width: .6rem; height: .6rem; border-radius: 999px; background: var(--up); margin-right: .4rem; animation: pulse 2s ease-in-out infinite; } .dot.stale { background: var(--ink3); animation: none; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } } @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+  a.link { color: #67e8f9; text-decoration: none; } a.link:hover { text-decoration: underline; }
+  @media (max-width: 760px) {
+    main.ow-wrap h1 { font-size: 1.4rem; } .clocks, .feed { grid-template-columns: 1fr; } .clock .t { font-size: 1.6rem; }
+    .tr, .tr.all { grid-template-columns: 1fr 1fr; gap: .45rem .8rem; } .tr.head { display: none; } .tr > :first-child { grid-column: 1 / -1; } .tr .lbl { display: block; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+<div id="site-header"></div>
+<script src="/lib/site-header.js?v=1.14.0"></script>
+<script>SiteHeader.mount({ page: 'optimizer-watch' });</script>
+
+<main class="ow-wrap">
+  <div class="card">
+    <h1>Optimizer Watch</h1>
+    <p class="sub" style="margin-bottom:.7rem">A vote optimizer decides where a large block of Alliance votes goes each week. This page shows that decision in full: where the votes go and why, which bribed pools get none and why, every pool on the list, and the round's bribes as they change.</p>
+    <p class="notice" id="ow-notice"><i class="fas fa-circle-info" style="margin-right:.4rem"></i><b>This is aDAO's page, not Votion's, and aDAO is not affiliated with Votion or Eris.</b> It is an example of what an optimizer's own page could show, built only from public data: the plan Votion publishes (read hourly), the bribe contract on chain (read live in your browser) and aDAO's public records. Where the public data gives no reason, the page says so and does not guess.</p>
+    <div id="ow-buckets" style="display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.9rem" role="tablist" aria-label="Bucket"></div>
+  </div>
+
+  <div class="card" id="ow-clocks"><p class="sub" style="margin:0">Reading the round…</p></div>
+  <div class="card" id="ow-plan"></div>
+  <div class="card" id="ow-left"></div>
+  <div class="card" id="ow-all"></div>
+  <div class="card" id="ow-feed"></div>
+  <div class="card" id="ow-how"></div>
+</main>
+
+<script src="/lib/cron-registry.js"></script>
+<script src="/lib/site-footer.js"></script>
+<script src="/lib/vote-market.js?v=1.6.1"></script>
+<script>
+(function () {
+    'use strict';
+    const REV = '1.0.0', REV_DATE = '2026-11-26';   // 1.0.0 (owner 2026-11-26: "build an example of what trust and transparency would look like"): four parts — the plan (who gains and loses Votion's votes, the APR that follows), the bribed pools the plan leaves without votes and the reason for each, every pool of the bucket, and the round's bribes live beside the two deadlines (Votion's cast and the end of the round)
+    const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
+    const EXPLORER = 'https://chainsco.pe/terra2';
+    const LIVE_EVERY = 60000;
+    const VM = window.VoteMarket; const $ = (id) => document.getElementById(id);
+    const S = { m: null, bucket: 'project', failed: false, live: { at: null, ok: null, first: null, last: null, changes: [] }, events: null, log: null, now: null };
+    const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const num = (x, d = 0) => (Number(x) || 0).toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
+    const vp = (x) => { x = Number(x) || 0; const a = Math.abs(x); return a >= 1e6 ? (x / 1e6).toFixed(2) + 'M' : a >= 1e3 ? Math.round(x / 1e3) + 'K' : String(Math.round(x)); };
+    const usd = (x) => (x == null ? '—' : '$' + num(x, Math.abs(x) < 100 ? 2 : 0));
+    const pct = (x) => (x == null ? '—' : num(x, 1) + '%');
+    const short = (a) => (a && a.length > 16 ? a.slice(0, 8) + '…' + a.slice(-4) : a || '');
+    const utc = (iso, o) => new Date(iso).toLocaleString('en-US', Object.assign({ timeZone: 'UTC', hour12: false }, o));
+    const dayTime = (iso) => utc(iso, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' UTC';
+    const clockT = (iso) => utc(iso, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' UTC';
+    const left = (ms) => { if (ms <= 0) return 'now'; const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), mi = Math.floor(s % 3600 / 60), se = s % 60; return d ? `${d}d ${h}h ${mi}m` : h ? `${h}h ${mi}m ${String(se).padStart(2, '0')}s` : `${mi}m ${String(se).padStart(2, '0')}s`; };
+    const now = () => S.now || Date.now();
+    const tokens = (ts) => (ts || []).map((t) => `${num(t.amount, t.amount < 100 ? 2 : 0)} ${esc(t.sym)}`).join(' + ');
+    const pool = (pk) => S.m.pools[pk];
+
+    // Votion's weekly cast: the middle of its casts on record (hours before the round's deadline), shown as the hour that ends there —
+    // the same reading as the Vote Market tile. The round ends at the gauge's flip: Monday 00:00 UTC.
+    function times() { const m = S.m; const casts = (m.moveRuleDoc && m.moveRuleDoc.timing && m.moveRuleDoc.timing.casts) || [];
+        const hs = casts.filter((c) => c.hours_before_deadline > 0 && c.hours_before_deadline < 6).map((c) => c.hours_before_deadline).sort((a, b) => a - b); const hb = hs.length ? hs[Math.floor(hs.length / 2)] : null;
+        const flip = Date.UTC(2022, 9, 31) + Number(m.period) * 7 * 864e5;   // the gauge's rounds are weeks from 2022-10-31 00:00 UTC; round N begins — and the round being voted on is settled — at that moment
+        const castEnd = hb != null ? Date.parse(m.voteBefore) - hb * 36e5 : null;
+        return { flip, castFrom: castEnd != null ? castEnd - 36e5 : null, castTo: castEnd, n: hs.length }; }
+
+    function renderClocks() { const el = $('ow-clocks'); if (!S.m) return; const t = times(), n = now();
+        const castState = t.castFrom == null ? null : n < t.castFrom ? 'before' : n <= t.castTo ? 'in' : 'after';
+        const gapH = t.castTo != null ? (t.flip - t.castTo) / 36e5 : null;
+        el.innerHTML = `<h2><span class="n">⏱</span>Two deadlines, not one — round ${esc(S.m.period)}</h2>
+          <p class="sub">A bribe only moves Votion's votes if it is there when Votion casts. The round itself ends later.</p>
+          <div class="clocks">
+            <div class="clock cast" data-ow="cast"><div class="k">1 · Votion casts its votes</div>
+              <div class="t mono amber" id="ow-cast-t">${t.castFrom == null ? 'not known' : castState === 'before' ? esc(left(t.castFrom - n)) : castState === 'in' ? 'casting about now' : 'done for this round'}</div>
+              <div class="w">${t.castFrom == null ? 'No cast times on record.' : `Expected ${esc(dayTime(new Date(t.castFrom).toISOString()))} to ${esc(utc(new Date(t.castTo).toISOString(), { hour: '2-digit', minute: '2-digit' }))} — the hour its weekly cast fell in on ${num(t.n)} rounds on record. It is one cast a week; the time is Votion's to choose and is not published.`}</div></div>
+            <div class="clock flip" data-ow="flip"><div class="k">2 · The round ends</div>
+              <div class="t mono" style="color:#a5f3fc" id="ow-flip-t">${t.flip > n ? esc(left(t.flip - n)) : 'ended'}</div>
+              <div class="w">${esc(dayTime(new Date(t.flip).toISOString()))}${t.flip > n ? '' : ' — the next round’s data has not been read yet'}. Votes are counted and the round's bribes are owed to whoever is voting each pool at this moment.</div></div>
+          </div>
+          ${gapH != null ? `<p class="gapline" data-ow="gap"><b>About ${num(gapH, 1)} hours lie between the two.</b> A bribe added after the cast is not seen by it. A bribe taken back in that time was seen by the cast and is not paid. The feed below shows every change to the round's bribes, so the last hours can be watched.</p>` : ''}`;
+    }
+    function tick() { if (!S.m) return; const t = times(), n = now(); const c = $('ow-cast-t'), f = $('ow-flip-t'); if (f) f.textContent = t.flip > n ? left(t.flip - n) : 'ended';
+        const st = t.castFrom == null ? 'none' : n < t.castFrom ? 'before' : n <= t.castTo ? 'in' : 'after'; if (st !== S.castState) { S.castState = st; renderClocks(); } else if (c && st === 'before') c.textContent = left(t.castFrom - n); }
+
+    function renderBuckets() { $('ow-buckets').innerHTML = VM.BUCKETS.map((b) => `<button type="button" class="pill ${S.bucket === b ? 'on' : ''}" data-b="${b}" role="tab" aria-selected="${S.bucket === b}">${esc(VM.BUCKET_LABEL[b])}</button>`).join(''); }
+
+    // ── 1. the plan ──────────────────────────────────────────────────────────────────────────────────────────────
+    const inPlan = (r) => r.votionNow >= 50000 || r.votionPlan >= 50000;
+    function renderPlan(B) { const el = $('ow-plan'); const rows = B.rows.filter(inPlan).sort((a, b) => (b.votionPlan - a.votionPlan) || (b.votionNow - a.votionNow)); const tot = B.votionVp || 1;
+        const max = Math.max(1, ...rows.map((r) => Math.max(r.votionNow, r.votionPlan)));
+        const row = (r) => { const d = r.votionPlan - r.votionNow; const cls = d > 5e4 ? 'gain' : d < -5e4 ? 'lose' : ''; const p = r.pool;
+            return `<div class="tr" data-pk="${esc(r.pk)}">
+              <div><div class="name">${esc(r.name)}</div><div class="s">${esc(p.dex || '')}${r.offList ? ' · <span class="tag off">off the reward list</span>' : ''}${r.excluded && !r.offList ? ' · <span class="tag warn">not offered — see part 2</span>' : ''}</div></div>
+              <div><span class="lbl">Votion's votes</span><div class="v mono">${vp(r.votionNow)} → <b>${vp(r.votionPlan)}</b> ${cls ? `<span class="tag ${cls}">${d > 0 ? '+' : '−'}${vp(Math.abs(d))}</span>` : '<span class="tag">no change</span>'}</div>
+                <div class="bar" aria-hidden="true"><i class="now" style="width:${(r.votionNow / max * 100).toFixed(1)}%"></i><i class="plan" style="width:${(r.votionPlan / max * 100).toFixed(1)}%"></i></div>
+                <div class="s">${pct(r.votionPlan / tot * 100)} of Votion's ${esc(VM.BUCKET_LABEL[S.bucket])} vote after the cast</div></div>
+              <div><span class="lbl">The bribe</span><div class="v">${r.potUsd > 0.5 ? usd(r.potUsd) : '<span class="dim">none</span>'}</div><div class="s">${r.potUsd > 0.5 ? esc(tokens(r.tokens)) + (r.ratePlan != null ? ` · ${usd(r.ratePlan)} per 1M votes after` : '') : 'Votion holds votes here from an earlier round'}</div></div>
+              <div><span class="lbl">Pool APR</span><div class="v mono">${pct(r.aprNow)} → <b class="${r.aprPlan > r.aprNow + .05 ? 'up' : r.aprPlan < r.aprNow - .05 ? 'down' : ''}">${pct(r.aprPlan)}</b></div><div class="s">this round → next</div></div>
+              <div><span class="lbl">LPs earn a week</span><div class="v mono">${usd(r.weeklyNow)} → <b>${usd(r.weeklyPlan)}</b></div><div class="s">${r.activePlan ? 'from the Alliance’s emissions' : 'under the 1% line: earns nothing'}</div></div>
+            </div>`; };
+        const vaults = B.vaults.filter((v) => v.vp >= 1000).sort((a, b) => b.vp - a.vp).map((v) => { const vb = (S.m.vaults.find((x) => x.key === v.key) || {}).byBucket; const msg = vb && vb[S.bucket] && vb[S.bucket].diff && vb[S.bucket].diff.message;
+            return `<div data-vault="${esc(v.key)}"><b style="color:var(--ink)">${esc(VM.vaultName(v.key))}</b> · ${vp(v.vp)} votes · ${v.moves ? '<span class="tag gain">will re-cast</span>' : '<span class="tag">keeps its votes</span>'}${msg ? ` <span class="dim">— Votion's own note: “${esc(msg)}”</span>` : ''}</div>`; }).join('');
+        el.innerHTML = `<h2><span class="n">1</span>What Votion plans to do — ${esc(VM.BUCKET_LABEL[S.bucket])}</h2>
+          <p class="sub">${vp(tot)} votes in this bucket. Votion's rule, read off its published plans: it spreads them so every pool it uses pays the same bribe per vote${B.level != null ? ` — about <b style="color:var(--ink)">${usd(B.level)} per 1M votes</b> right now` : ''}. Votes already on a pool count against it.</p>
+          ${rows.length ? `<div class="tbl"><div class="tr head"><div>Pool</div><div>Votion's votes: now → after its cast</div><div>The bribe</div><div>Pool APR</div><div>LPs earn a week</div></div>${rows.map(row).join('')}</div>` : '<p class="sub">Votion has no votes in this bucket and plans none.</p>'}
+          <div class="vaults" data-ow="vaults">${vaults}</div>`;
+    }
+
+    // ── 2. bribed, and no votes in the plan: the reason for each ────────────────────────────────────────────────
+    function reason(r, B) { const p = r.pool; const w = VM.whatItTakes(S.m, r.pk); const votes = `${vp(r.votesNow)} votes are on the pool now`;
+        if (r.offList) return { tag: ['off', 'off the reward list'], head: 'This pool is not on its bucket’s reward list on chain.', lines: ['Votes on it earn the pool nothing, so there is nothing for an optimizer to move toward. The bribe is still paid to whoever votes it.'] };
+        if (r.excluded) { const o = r.other; const would = o && o.votionPlan >= 50000;
+            return { tag: ['warn', 'not offered — no reason published'], head: 'Votion’s published plan lists this bribe but does not offer the pool as a place to vote.',
+                lines: [`Its output names the bribe (${tokens(r.tokens) || 'a pot'}) and reports no token it could not price. It gives no reason for leaving the pool out. This page does not know the reason either.`,
+                    would ? `<b>If the pool were offered,</b> Votion’s own rule would put about <b>${vp(o.votionPlan)}</b> votes here (${pct(o.votionPlan / (B.votionVp || 1) * 100)} of its ${esc(VM.BUCKET_LABEL[S.bucket])} vote), and the pool’s APR next round would be about ${pct(o.aprPlan)} instead of ${pct(r.aprPlan)}.`
+                          : `<b>If the pool were offered,</b> the rule would still give it no votes at this size: ${votes}, so the bribe pays ${usd(r.rateNow)} per 1M votes${w.ifOffered && w.ifOffered.entryUsd ? ` — it would need about ${usd(w.ifOffered.entryUsd)} more` : ''}.`] }; }
+        const lines = [`${votes[0].toUpperCase() + votes.slice(1)} (${vp(r.othersNow)} from other voters), so this bribe pays <b>${usd(r.rateNow)} per 1M votes</b>. Votion’s going rate in this bucket is ${usd(B.level)} per 1M.`];
+        if (w.entryUsd) lines.push(`It needs about <b>${usd(w.entryUsd)} more</b> in the pot before the rule adds a first vote${w.nextMillionUsd ? `; after that about ${usd(w.nextMillionUsd)} for each further 1M votes` : ''}.`);
+        else if (w.entryUsd === 0) lines.push('It is at the line: a small change in the other pots decides it.');
+        return { tag: ['', 'offered — the bribe is under the going rate'], head: 'Offered, and the rule gives it no votes at this size.', lines }; }
+    function renderLeft(B) { const el = $('ow-left'); const rows = B.rows.filter((r) => r.potUsd > 0.5 && r.votionPlan < 50000).sort((a, b) => b.potUsd - a.potUsd);   // a bribe, and no votes after the cast — also when Votion still holds votes there from an earlier cast
+        const item = (r) => { const x = reason(r, B); return `<details class="why" data-pk="${esc(r.pk)}" ${r.excluded ? 'open' : ''}><summary><b>${esc(r.name)}</b><span>${usd(r.potUsd)} bribe</span><span class="tag ${x.tag[0]}">${esc(x.tag[1])}</span></summary>
+            <div class="body"><div><b>${x.head}</b></div>${x.lines.map((l) => `<div>${l}</div>`).join('')}${r.votionNow >= 50000 ? `<div>Votion still holds <b>${vp(r.votionNow)}</b> votes here from an earlier cast. Its plan takes them to zero at the next one${r.aprPlan != null && r.aprNow != null ? `, and the pool’s APR goes from ${pct(r.aprNow)} to about ${pct(r.aprPlan)}` : ''}.</div>` : ''}<div class="fact">Now: ${vp(r.votesNow)} votes on the pool · Votion ${vp(r.votionNow)} · pool APR ${pct(r.aprNow)} · ${esc(r.pool.dex || '')}</div></div></details>`; };
+        el.innerHTML = `<h2><span class="n">2</span>Bribed, and no votes from Votion — why</h2>
+          <p class="sub">Every pool in ${esc(VM.BUCKET_LABEL[S.bucket])} that has a bribe this round and ends up with no votes from Votion after its cast, each with the reason the data gives.</p>
+          ${rows.length ? rows.map(item).join('') : '<p class="sub" style="margin:0"><i class="fas fa-circle-check up" style="margin-right:.4rem"></i>None. Every bribed pool in this bucket is in the plan.</p>'}`;
+    }
+
+    // ── 3. every pool of the bucket ──────────────────────────────────────────────────────────────────────────────
+    function renderAll() { const el = $('ow-all'); const m = S.m; const pks = m.buckets[S.bucket].pks.slice().sort((a, b) => pool(b).vp - pool(a).vp);
+        const state = (p) => p.offList ? ['off', 'off the reward list'] : p.status === 'active' ? ['gain', 'earning'] : p.vp > 0 ? ['', 'under the 1% line'] : ['', 'no votes'];
+        const row = (pk) => { const p = pool(pk), s = state(p); return `<div class="tr all" data-pk="${esc(pk)}">
+            <div><div class="name">${esc(p.name)}</div><div class="s">${esc(p.dex || '')}</div></div>
+            <div><span class="lbl">Status</span><span class="tag ${s[0]}">${s[1]}</span></div>
+            <div><span class="lbl">Votes</span><div class="v mono">${vp(p.vp)}</div></div>
+            <div><span class="lbl">Votion's votes</span><div class="v mono">${p.votionNow >= 1 ? vp(p.votionNow) : '<span class="dim">0</span>'}</div></div>
+            <div><span class="lbl">Bribe this round</span><div class="v">${p.potUsd > 0.5 ? `${usd(p.potUsd)} <span class="s">${esc(tokens(p.pot && p.pot.tokens))}</span>` : '<span class="dim">none — nothing to optimize toward</span>'}</div></div></div>`; };
+        const bribed = pks.filter((pk) => pool(pk).potUsd > 0.5).length;
+        el.innerHTML = `<h2><span class="n">3</span>Every pool in ${esc(VM.BUCKET_LABEL[S.bucket])}</h2>
+          <p class="sub">${num(pks.length)} pools across every DEX, ${num(bribed)} with a bribe this round. Votion's vaults can vote any pool on the reward list; a pool with no bribe gives its rule nothing to move toward.</p>
+          <div class="scroll" tabindex="0" aria-label="All pools"><div class="tbl"><div class="tr all head"><div>Pool</div><div>Status</div><div>Votes</div><div>Votion's votes</div><div>Bribe this round</div></div>${pks.map(row).join('')}</div></div>`;
+    }
+
+    // ── 4. the round's bribes: live pots, recorded adds and withdrawals, Votion's list ──────────────────────────
+    const potKey = (live) => { const o = {}; Object.keys(live.pots || {}).forEach((pk) => (live.pots[pk].tokens || []).forEach((t) => { const k = pk + '§' + t.sym; o[k] = (o[k] || 0) + t.amount; })); return o; };
+    function diffLive(a, b, at) { const A = potKey(a), Bq = potKey(b), out = []; new Set([...Object.keys(A), ...Object.keys(Bq)]).forEach((k) => { const x = A[k] || 0, y = Bq[k] || 0; if (Math.abs(x - y) > Math.max(1e-6, x * 1e-9)) { const [pk, sym] = k.split('§'); out.push({ at, pk, sym, from: x, to: y }); } }); return out; }
+    function eventRows() { const m = S.m, P = m._P; const evs = (S.events || []).filter((e) => e && e.timestamp).sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1)).slice(0, 14);
+        const coin = (c) => { const den = String(c.denom || '').replace(/^(native|cw20):/, ''); const sym = P.symOf(den) || short(den); const amt = Number(c.amount) / Math.pow(10, P.decOf(den)); return `${num(amt, amt < 100 ? 2 : 0)} ${esc(sym)}`; };
+        return evs.map((e) => { const wd = /withdraw/.test(e.type); const pk = e.gauge && e.pool ? e.gauge + '|' + String(e.pool).replace(/^(native|cw20):/, '') : null; const p = pk && m.pools[pk]; const per = e.args && e.args.period;
+            const what = wd ? `<span class="tag lose">taken back</span> every bribe this account had posted for round ${esc(per != null ? per : '?')}`
+                : `<span class="tag gain">added</span> <b>${(e.coins || []).map(coin).join(' + ')}</b> ${p ? 'on <b>' + esc(p.name) + '</b>' : e.gauge ? 'in ' + esc(e.gauge) : ''} · round${e.epoch_end > e.epoch_start ? 's ' + esc(e.epoch_start) + '–' + esc(e.epoch_end) : ' ' + esc(e.epoch_start)}`;
+            const mine = Number(wd ? per : e.epoch_start) <= Number(m.period) && Number(wd ? per : e.epoch_end) >= Number(m.period);
+            return `<div class="li${mine ? '' : ' past'}" data-ev="${esc(e.tx_hash || '')}"><div class="when">${esc(dayTime(e.timestamp))}${mine ? '' : ' · another round'}</div><div>${what}</div><div class="when">by ${esc(short(e.briber))}${e.tx_hash ? ` · <a href="${EXPLORER}/tx/${esc(e.tx_hash)}" target="_blank" rel="noopener">transaction</a>` : ''}</div></div>`; }).join(''); }
+    function renderFeed() { const el = $('ow-feed'); const m = S.m, L = S.live; const nameOf = (pk) => (m.pools[pk] ? m.pools[pk].name : short(pk.split('|')[1]));
+        const pots = L.last ? Object.keys(L.last.pots).filter((pk) => (L.last.pots[pk].tokens || []).length).sort((a, b) => (L.last.pots[b].usd || 0) - (L.last.pots[a].usd || 0)) : [];
+        const changed = new Set(L.changes.map((c) => c.pk));
+        const potRow = (pk) => { const p = m.pools[pk]; const st = !p ? '' : p.offList ? '<span class="tag off">off the reward list</span>' : p.votionExcluded ? '<span class="tag warn">not offered by Votion</span>' : p.inVotion ? '<span class="tag gain">offered by Votion</span>' : '';
+            return `<div class="li${changed.has(pk) ? ' new' : ''}" data-pot="${esc(pk)}"><div><b>${esc(nameOf(pk))}</b> <span class="when">${esc(pk.split('|')[0])}</span> ${st}</div><div>${esc(tokens(L.last.pots[pk].tokens))}${L.last.pots[pk].usd ? ` <span class="when">≈ ${usd(L.last.pots[pk].usd)}</span>` : ''}</div></div>`; };
+        const chg = L.changes.slice().reverse().map((c) => `<div class="li new" data-chg="1"><div class="when">seen ${esc(clockT(c.at))}</div><div><b>${esc(nameOf(c.pk))}</b>: ${esc(c.sym)} ${num(c.from, c.from < 100 ? 2 : 0)} → <b>${num(c.to, c.to < 100 ? 2 : 0)}</b> <span class="tag ${c.to > c.from ? 'gain' : 'lose'}">${c.to > c.from ? 'added' : c.to === 0 ? 'taken back' : 'reduced'}</span></div></div>`).join('');
+        const log = (S.log && Array.isArray(S.log.changes) ? S.log.changes : []).slice().reverse().slice(0, 12).map((c) => { const lp = m.pools[c.bucket + '|' + c.pool]; return `<div class="li" data-log="1"><div class="when">${c.after ? `between ${esc(dayTime(c.after))} and ${esc(dayTime(c.by))}` : `by ${esc(dayTime(c.by))}`} · round ${esc(c.round)}</div><div><b>${esc(lp ? lp.name : short(c.pool))}</b> <span class="when">${esc(c.bucket)}</span>: ${c.to === 'offered' ? '<span class="tag gain">offered again</span>' : c.from === null ? '<span class="tag warn">has a bribe, not offered</span>' : '<span class="tag warn">no longer offered</span>'} <span class="when">while it had a bribe</span></div></div>`; }).join('');
+        el.innerHTML = `<h2><span class="n">4</span>The round's bribes, as they change</h2>
+          <p class="sub">Watch this toward the end of the round: a bribe that appears or disappears after Votion's cast changes who is paid, not where Votion voted.</p>
+          <div class="feed">
+            <div><h3><span class="dot${L.ok === false ? ' stale' : ''}"></span>On chain right now — round ${esc(m.period)}</h3>
+              <p class="cap" data-ow="live-cap">${L.last ? `Read from the bribe contract at ${esc(clockT(L.last.at))}, again every minute while this page is open. ` : L.ok === false ? 'The live read did not answer; showing the last recorded pots instead. ' : 'Reading the bribe contract… '}${L.first && L.changes.length ? `<b class="amber">${num(L.changes.length)} change${L.changes.length === 1 ? '' : 's'} since you opened the page.</b>` : L.first ? 'No change since you opened the page.' : ''}</p>
+              ${chg}${pots.map(potRow).join('') || (L.last ? '<div class="li dim">No bribes are posted for this round.</div>' : '')}</div>
+            <div><h3>Added and taken back — the record</h3>
+              <p class="cap">Every bribe transaction aDAO has on record, newest first, written about once an hour. The sender is the account that signed it.</p>
+              <div data-ow="events">${S.events ? (eventRows() || '<div class="li dim">Nothing on record this month.</div>') : '<div class="li dim">Reading the record…</div>'}</div>
+              <h3 style="margin-top:1rem">Votion's list — when a bribed pool left it or came back</h3>
+              <p class="cap">Votion's published plan is read once an hour (last: ${esc(m.votionAt ? dayTime(m.votionAt) : 'not known')}). Each time a pool with a bribe stops being offered, or is offered again, it is written down here.</p>
+              <div data-ow="log">${S.log ? (log || '<div class="li dim">No change on record yet.</div>') : '<div class="li dim">No log yet.</div>'}</div></div>
+          </div>`;
+    }
+    function renderHow() { $('ow-how').innerHTML = `<h2>Where every number comes from</h2>
+        <div class="sub" style="display:grid;gap:.4rem;margin:0;color:var(--ink)">
+          <div><b>Votion's plan and its list of pools:</b> the answer its own optimizer serves, saved hourly — <a class="link" href="${CORE.replace('raw.githubusercontent.com', 'github.com').replace('/main', '/blob/main')}/votion/optimization/current.json" target="_blank" rel="noopener">votion/optimization/current.json</a>.</div>
+          <div><b>Votes, APR and the reward lists:</b> read from the Alliance's contracts hourly — member-data/tla-snapshot. <b>Bribes right now:</b> the bribe contract, read by your browser from a public node. <b>Adds and withdrawals:</b> tla-voting/events/bribes.</div>
+          <div><b>"After its cast" figures</b> are worked out here with the rule Votion's published plans follow (same bribe per vote on every pool it uses). They are estimates of what a cast would do with the bribes as they stand now; other voters can still move.</div>
+          <div><b>What this page cannot show:</b> why a pool is not offered, when exactly Votion will cast, and anything Votion's server decides that it does not publish. An optimizer's own page could show all three.</div>
+          <div class="dim">Want to try a bribe before placing one? <a class="link" href="/vote-market.html">Open the Vote Simulator →</a></div>
+        </div>`; }
+
+    function renderAllParts() { if (S.failed) { $('ow-clocks').innerHTML = '<p class="sub" style="margin:0"><b>The public data could not be read just now.</b> Refresh to try again.</p>'; ['ow-plan', 'ow-left', 'ow-all', 'ow-feed', 'ow-how'].forEach((id) => { $(id).style.display = 'none'; }); return; }
+        if (!S.m) return; const B = VM.board(S.m, S.bucket, {}); renderBuckets(); renderClocks(); renderPlan(B); renderLeft(B); renderAll(); renderFeed(); renderHow(); }
+
+    async function liveOnce() { const m = S.m; if (!m) return; let live = null; try { live = await VM.fetchLivePots(m); } catch (e) { live = null; }
+        if (!live) { S.live.ok = false; renderFeed(); return; }
+        if (S.live.last) S.live.changes.push(...diffLive(S.live.last, live, live.at)); else S.live.first = live;
+        S.live.last = live; S.live.ok = true; VM.applyLivePots(m, live); renderAllParts(); }
+    const getJson = (u) => fetch(u, { cache: 'no-cache' }).then((r) => (r && r.ok ? r.json() : null)).catch(() => null);
+    async function loadEvents() { const d = new Date(now()); const ym = (x) => `${x.getUTCFullYear()}/${String(x.getUTCMonth() + 1).padStart(2, '0')}`; const prev = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1));
+        const bust = '?t=' + Math.floor(now() / 3e5); const [a, b, log] = await Promise.all([getJson(`${CORE}/tla-voting/events/bribes/${ym(d)}.json${bust}`), d.getUTCDate() <= 8 ? getJson(`${CORE}/tla-voting/events/bribes/${ym(prev)}.json${bust}`) : null, getJson(`${CORE}/votion/options-log.json${bust}`)]);
+        S.events = [...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])]; S.log = log; if (S.m) renderFeed(); }
+    async function load() { try { S.m = await VM.load({ bust: true }); } catch (e) { S.failed = true; renderAllParts(); return; }
+        renderAllParts(); loadEvents(); await liveOnce(); S.timer = setInterval(liveOnce, LIVE_EVERY); S.clock = setInterval(tick, 1000); S.reload = setInterval(loadEvents, 5 * 60000); }
+    document.addEventListener('click', (ev) => { const b = ev.target.closest('[data-b]'); if (b) { S.bucket = b.dataset.b; renderAllParts(); } });
+    window.__ow = { S, REV, REV_DATE, times, reason, diffLive, renderAllParts, liveOnce, load, loadEvents };
+    load();
+})();
+</script>
+<div id="site-footer"></div>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: '1.0.0', revDate: '2026-11-26', page: 'optimizer-watch' });</script>
+</body>
+</html>
