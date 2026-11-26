@@ -38,6 +38,22 @@
   .vb .pr { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1.2fr); gap: .6rem; align-items: center; padding: .2rem 0; font-size: .98rem; }
   .vb .lo { margin-top: .6rem; padding: .6rem .7rem; border-radius: 10px; border: 1px dashed rgba(167,139,250,.5); background: rgba(167,139,250,.05); display: grid; gap: .4rem; font-size: .96rem; }
   @media (max-width: 760px) { .vb { grid-template-columns: 1fr; gap: .4rem; } .tr.vt { grid-template-columns: 1fr 1fr; } }
+  details.fold > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .8rem; } details.fold > summary::-webkit-details-marker { display: none; }
+  details.fold > summary:before { content: '\25B8'; color: var(--cyan); font-size: 1.1rem; } details.fold[open] > summary:before { content: '\25BE'; } details.fold[open] > summary { margin-bottom: .9rem; }
+  .ft { font-size: 1.2rem; font-weight: 700; } .fs { font-size: .93rem; color: var(--ink2); }
+  .lp { border-top: 1px solid var(--line); } .lp > summary { cursor: pointer; list-style: none; display: grid; grid-template-columns: minmax(0,1.25fr) minmax(0,2.2fr) minmax(0,1.35fr); gap: 1rem; align-items: center; padding: .6rem .3rem; border-radius: 10px; }
+  .lp > summary::-webkit-details-marker { display: none; } .lp > summary:hover { background: rgba(255,255,255,.03); } .lp[open] > summary { background: rgba(255,255,255,.04); }
+  .lp .nm { font-weight: 700; font-size: 1.03rem; display: flex; flex-wrap: wrap; gap: .3rem .5rem; align-items: center; } .lp .num { font-size: .95rem; white-space: nowrap; } .lp .cap { font-size: .82rem; color: var(--ink3); text-transform: uppercase; letter-spacing: .04em; }
+  .lp .more { padding: .2rem .4rem .8rem 1rem; display: grid; gap: .3rem; font-size: .96rem; } .lp .more .fact { color: var(--ink2); font-size: .92rem; }
+  .b2 { position: relative; height: 14px; border-radius: 7px; background: rgba(255,255,255,.06); overflow: hidden; margin: .25rem 0; } .b2.thin { height: 8px; border-radius: 4px; }
+  .b2 i { position: absolute; top: 0; bottom: 0; } .b2 .base { left: 0; background: #7c8799; } .b2 .gain { background: var(--up); } .b2 .loss { background: var(--down); background-image: repeating-linear-gradient(135deg, rgba(0,0,0,.28) 0 4px, transparent 4px 8px); }
+  .b2 .exp { left: 0; border: 2px dashed #c4b5fd; border-radius: 7px; background: rgba(167,139,250,.14); box-sizing: border-box; }
+  .legend { display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; font-size: .9rem; color: var(--ink2); margin: 0 0 .5rem; } .legend span { display: inline-flex; align-items: center; gap: .4rem; } .legend i { display: inline-block; width: 1.4rem; height: .7rem; border-radius: 3px; }
+  .ar { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1.1fr) minmax(0,2.6fr); gap: .8rem; align-items: baseline; padding: .45rem .2rem; border-top: 1px solid var(--line); font-size: .95rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: .5rem; } .chipx { border: 1px solid rgba(248,113,113,.45); background: rgba(248,113,113,.08); border-radius: 12px; padding: .5rem .75rem; min-width: 14rem; flex: 1 1 14rem; }
+  .chipx .t { font-weight: 700; font-size: 1.02rem; } .chipx .r { display: flex; justify-content: space-between; gap: .8rem; font-size: .93rem; color: var(--ink2); } .chipx .r b { color: var(--ink); }
+  .clock .t { font-size: 1.5rem !important; } .clock { padding: .6rem .9rem !important; }
+  @media (max-width: 760px) { .lp > summary { grid-template-columns: 1fr; gap: .25rem; } .ar { grid-template-columns: 1fr; gap: .15rem; } }
   .notice { border: 1px solid rgba(167,139,250,.4); background: rgba(167,139,250,.07); border-radius: 12px; padding: .7rem .9rem; font-size: .95rem; color: #ddd6fe; }
   .pill { padding: .4rem .9rem; border-radius: 999px; font-size: .95rem; background: rgba(255,255,255,.05); color: var(--ink2); border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
   .pill:hover { color: var(--ink); } .pill.on { background: rgba(34,211,238,.14); color: #a5f3fc; border-color: rgba(34,211,238,.35); }
@@ -91,20 +107,17 @@
 <main class="ow-wrap">
   <div class="card">
     <h1>What Votion's page could show</h1>
-    <p class="sub" style="margin-bottom:.7rem">Votion's own pages show, vault by vault, where its votes go. They do not show the pools that were left out, or why, and there is no view of all eight vaults together. This is a worked example of those missing parts, on this round's real numbers. It follows the layout of Votion's vault pages so each part can be compared; everything marked <span class="added">added</span> is not on Votion's page today.</p>
-    <p class="notice" id="ow-notice"><i class="fas fa-circle-info" style="margin-right:.4rem"></i><b>This is aDAO's page, not Votion's, and aDAO is not affiliated with Votion or Eris.</b> It is a suggestion for Votion's page, built only from public data: the plan Votion publishes (read hourly), the bribe contract on chain (read live in your browser) and aDAO's public records. Where the public data gives no reason, the page says so and does not guess.</p>
+    <p class="sub" style="margin-bottom:.7rem">All eight vaults in one picture: which pools gain or lose Votion's votes, what that does to their APR, and which bribed pools are left out. A worked example on this round's real numbers.</p>
+    <p class="notice" id="ow-notice"><i class="fas fa-circle-info" style="margin-right:.4rem"></i><b>This is aDAO's page, not Votion's, and aDAO is not affiliated with Votion or Eris.</b> A suggestion for Votion's page, from public data only. Where the data gives no reason, it says so and does not guess.</p>
     <div id="ow-buckets" style="display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.9rem" role="tablist" aria-label="Bucket"></div>
   </div>
 
   <div class="card" id="ow-clocks"><p class="sub" style="margin:0">Reading the round…</p></div>
   <div class="card alert" id="ow-alert" style="display:none"></div>
-  <div class="card" id="ow-vaults"></div>
-  <div class="card" id="ow-vault"></div>
   <div class="card" id="ow-plan"></div>
-  <div class="card" id="ow-left"></div>
-  <div class="card" id="ow-all"></div>
-  <div class="card" id="ow-feed"></div>
-  <div class="card" id="ow-how"></div>
+  <details class="card fold" id="ow-byvault"><summary><span class="ft">Vault by vault</span><span class="fs">all eight side by side, and each one as Votion's own page shows it</span></summary><div id="ow-vaults"></div><div id="ow-vault" style="margin-top:1rem"></div></details>
+  <details class="card fold" id="ow-feedfold" open><summary><span class="ft">The round's bribes, live</span><span class="fs">what is on chain now, what was added or taken back, when a pool left Votion's list</span></summary><div id="ow-feed"></div></details>
+  <details class="card fold" id="ow-howfold"><summary><span class="ft">Where every number comes from</span><span class="fs">and what this page cannot show</span></summary><div id="ow-how"></div></details>
 </main>
 
 <script src="/lib/cron-registry.js"></script>
@@ -113,7 +126,7 @@
 <script>
 (function () {
     'use strict';
-    const REV = '1.1.0', REV_DATE = '2026-11-26';   // 1.1.0 (owner, the same day: "I'm not trying to build our own version, I'm trying to provide an example of what Votion can do … you see the winner but you don't see the ones left out or why … there isn't a combined view of all of them"): reframed as a suggestion for Votion's page. Added on top: the alert (a bribe, and not among the options — expected by the rule vs shown), ALL EIGHT VAULTS in one view (voting power, change / keep and gain per bucket, expected rewards), and one vault in the layout of Votion's own vault page (current → optimized per bucket) with the pools its page leaves out added under each bucket, each with the reason the data gives   // 1.0.0 was: 1.0.0 (owner 2026-11-26: "build an example of what trust and transparency would look like"): four parts — the plan (who gains and loses Votion's votes, the APR that follows), the bribed pools the plan leaves without votes and the reason for each, every pool of the bucket, and the round's bribes live beside the two deadlines (Votion's cast and the end of the round)
+    const REV = '1.2.0', REV_DATE = '2026-11-26';   // 1.2.0 (owner: "we could do a way better job of adding visual elements and compacting text … easy to scan … the tiles following, I am confused by the layout"): ONE main card — Votion as a whole, every vault added together, one row a pool with a bar (grey stays · green gains · red over the grey loses · dashed = what the rule would give a pool that is not offered) and a second bar for the pool's APR this round → next; tap a row for the detail; at the bottom every pool of the bucket with why it does or does not get votes. The alert is three compact cards. Vault by vault, the live bribes and the sources are folds. The separate "bribed and no votes" and "every pool" cards are gone (merged)   // 1.1.0 was: 1.1.0 (owner, the same day: "I'm not trying to build our own version, I'm trying to provide an example of what Votion can do … you see the winner but you don't see the ones left out or why … there isn't a combined view of all of them"): reframed as a suggestion for Votion's page. Added on top: the alert (a bribe, and not among the options — expected by the rule vs shown), ALL EIGHT VAULTS in one view (voting power, change / keep and gain per bucket, expected rewards), and one vault in the layout of Votion's own vault page (current → optimized per bucket) with the pools its page leaves out added under each bucket, each with the reason the data gives   // 1.0.0 was: 1.0.0 (owner 2026-11-26: "build an example of what trust and transparency would look like"): four parts — the plan (who gains and loses Votion's votes, the APR that follows), the bribed pools the plan leaves without votes and the reason for each, every pool of the bucket, and the round's bribes live beside the two deadlines (Votion's cast and the end of the round)
     const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
     const EXPLORER = 'https://chainsco.pe/terra2';
     const LIVE_EVERY = 60000;
@@ -144,17 +157,16 @@
     function renderClocks() { const el = $('ow-clocks'); if (!S.m) return; const t = times(), n = now();
         const castState = t.castFrom == null ? null : n < t.castFrom ? 'before' : n <= t.castTo ? 'in' : 'after';
         const gapH = t.castTo != null ? (t.flip - t.castTo) / 36e5 : null;
-        el.innerHTML = `<h2><span class="n">⏱</span>Two deadlines, not one — round ${esc(S.m.period)}</h2>
-          <p class="sub">A bribe only moves Votion's votes if it is there when Votion casts. The round itself ends later.</p>
+        el.innerHTML = `<h2>Round ${esc(S.m.period)} — two deadlines</h2>
           <div class="clocks">
             <div class="clock cast" data-ow="cast"><div class="k">1 · Votion casts its votes</div>
               <div class="t mono amber" id="ow-cast-t">${t.castFrom == null ? 'not known' : castState === 'before' ? esc(left(t.castFrom - n)) : castState === 'in' ? 'casting about now' : 'done for this round'}</div>
-              <div class="w">${t.castFrom == null ? 'No cast times on record.' : `Expected ${esc(dayTime(new Date(t.castFrom).toISOString()))} to ${esc(utc(new Date(t.castTo).toISOString(), { hour: '2-digit', minute: '2-digit' }))} — the hour its weekly cast fell in on ${num(t.n)} rounds on record. It is one cast a week; the time is Votion's to choose and is not published.`}</div></div>
+              <div class="w">${t.castFrom == null ? 'No cast times on record.' : `Expected ${esc(dayTime(new Date(t.castFrom).toISOString()))} to ${esc(utc(new Date(t.castTo).toISOString(), { hour: '2-digit', minute: '2-digit' }))} (from ${num(t.n)} casts on record; not published). A bribe must be in by then.`}</div></div>
             <div class="clock flip" data-ow="flip"><div class="k">2 · The round ends</div>
               <div class="t mono" style="color:#a5f3fc" id="ow-flip-t">${t.flip > n ? esc(left(t.flip - n)) : 'ended'}</div>
-              <div class="w">${esc(dayTime(new Date(t.flip).toISOString()))}${t.flip > n ? '' : ' — the next round’s data has not been read yet'}. Votes are counted and the round's bribes are owed to whoever is voting each pool at this moment.</div></div>
+              <div class="w">${esc(dayTime(new Date(t.flip).toISOString()))}${t.flip > n ? '' : ' — the next round’s data has not been read yet'}. Votes are counted; bribes are paid.</div></div>
           </div>
-          ${gapH != null ? `<p class="gapline" data-ow="gap"><b>About ${num(gapH, 1)} hours lie between the two.</b> A bribe added after the cast is not seen by it. A bribe taken back in that time was seen by the cast and is not paid. The feed below shows every change to the round's bribes, so the last hours can be watched.</p>` : ''}`;
+          ${gapH != null ? `<p class="gapline" data-ow="gap"><b>About ${num(gapH, 1)} hours lie between the two.</b> A bribe added in that gap is not seen by the cast; one taken back was seen and is not paid.</p>` : ''}`;
     }
     function tick() { if (!S.m) return; const t = times(), n = now(); const c = $('ow-cast-t'), f = $('ow-flip-t'); if (f) f.textContent = t.flip > n ? left(t.flip - n) : 'ended';
         const st = t.castFrom == null ? 'none' : n < t.castFrom ? 'before' : n <= t.castTo ? 'in' : 'after'; if (st !== S.castState) { S.castState = st; renderClocks(); } else if (c && st === 'before') c.textContent = left(t.castFrom - n); }
@@ -174,11 +186,12 @@
     // ── the alert: a bribe, and not among the options ────────────────────────────────────────────────────────────
     function renderAlert() { const el = $('ow-alert'); const items = []; VM.BUCKETS.forEach((b) => { const B = VM.board(S.m, b, {}); excludedIn(b).forEach((r) => items.push({ b, r, B })); });
         if (!items.length) { el.style.display = 'none'; el.innerHTML = ''; return; } el.style.display = '';
-        el.innerHTML = `<h2><i class="fas fa-triangle-exclamation" style="color:#fca5a5"></i>${num(items.length)} pool${items.length === 1 ? '' : 's'} with a bribe ${items.length === 1 ? 'is' : 'are'} not among Votion's voting options <span class="added">added</span></h2>
-          <p class="sub">Votion's published plan lists each of these bribes and reports no token it could not price, yet the pool is not offered as a place to vote. No reason is published. Until one is, this reads as an error — and it is the first thing an optimizer's page should show.</p>
-          ${items.map(({ b, r, B }) => { const o = r.other; return `<div class="ai" data-alert="${esc(r.pk)}"><b>${esc(r.name)}</b> <span class="tag">${esc(VM.BUCKET_LABEL[b])}</span> <span class="tag err">possible error</span>
-            <div><b>Bribe:</b> ${usd(r.potUsd)} (${esc(tokens(r.tokens))}) · <b>Shown by Votion:</b> not offered, 0 votes after its cast · <b>Expected by its own rule:</b> ${o && o.votionPlan >= 50000 ? `about <b>${vp(o.votionPlan)}</b> votes (${pct(o.votionPlan / (B.votionVp || 1) * 100)} of its ${esc(VM.BUCKET_LABEL[b])} vote)` : 'no votes at this size, but the pool should still be listed'}</div>
-            <div class="x">${o && o.aprPlan != null ? `Pool APR next round: about ${pct(o.aprPlan)} if offered, ${pct(r.aprPlan)} as it stands.` : ''}</div></div>`; }).join('')}`;
+        el.innerHTML = `<h2><i class="fas fa-triangle-exclamation" style="color:#fca5a5"></i>${num(items.length)} bribed pool${items.length === 1 ? ' is' : 's are'} not among Votion's voting options <span class="added">added</span></h2>
+          <p class="sub">Votion lists each bribe and reports no unpriced token, yet does not offer the pool. No reason is published — until one is, this reads as an error.</p>
+          <div class="chips">${items.map(({ b, r, B }) => { const o = r.other; const ok = o && o.votionPlan >= 50000; return `<div class="chipx" data-alert="${esc(r.pk)}"><div class="t">${esc(r.name)} <span class="tag err">possible error</span></div>
+            <div class="r"><span>Bribe</span><b>${usd(r.potUsd)}</b></div><div class="r"><span>Votion shows</span><b class="down">not offered · 0 votes</b></div>
+            <div class="r"><span>Its own rule gives</span><b class="up">${ok ? `${vp(o.votionPlan)} votes · ${pct(o.votionPlan / (B.votionVp || 1) * 100)}` : 'listed, 0 votes at this size'}</b></div>
+            <div class="r"><span>Pool APR next round</span><b>${pct(r.aprPlan)}${ok && o.aprPlan != null ? ` <span class="dim">vs</span> ${pct(o.aprPlan)} if offered` : ''}</b></div></div>`; }).join('')}</div>`;
     }
 
     // ── all eight vaults, one view ───────────────────────────────────────────────────────────────────────────────
@@ -186,8 +199,7 @@
         const cell = (x, b) => { const op = x.ops[b]; if (!op || !op.diff) return '<span class="dim">—</span>'; const g = gainOf(op); const er = op.optimization ? Number(op.optimization.totalExpectedReward) || 0 : 0;
             return `${op.diff.isWorthChanging ? `<span class="tag gain">✓ change +${usd(g)}</span>` : '<span class="tag">✕ keeps</span>'}<div class="s">expects ${usd(er)}</div>`; };
         const totVp = rows.reduce((t, x) => t + x.vp, 0), totUsd = rows.reduce((t, x) => t + (x.total || 0), 0);
-        el.innerHTML = `<h2>All eight vaults, one view <span class="added">added</span></h2>
-          <p class="sub">On Votion's site each vault has its own page and they differ. Here they are side by side: each vault's voting power, whether it will change its vote in each bucket (with the gain Votion's plan gives), and what it expects to collect. Pick a vault to open it below.</p>
+        el.innerHTML = `<p class="sub"><span class="added">added</span> Each vault's voting power, whether it changes or keeps its vote in each bucket (with the gain Votion's plan gives), and what it expects to collect. Pick a vault to open it below.</p>
           <div class="tbl"><div class="tr vt head" style="cursor:default"><div>Vault</div><div>Voting power</div>${VM.BUCKETS.map((b) => `<div>${esc(VM.BUCKET_LABEL[b])}</div>`).join('')}<div>Expected rewards</div></div>
           ${rows.map((x) => `<div class="tr vt${S.vault === x.k ? ' on' : ''}" data-vault-row="${esc(x.k)}" role="button" tabindex="0"><div><div class="name">${esc(vaultLabel(x.k))}</div><div class="s">${esc(vaultSub(x.k))}</div></div>
               <div><span class="lbl">Voting power</span><div class="v mono">${vp(x.vp)}</div><div class="s">${pct(totVp ? x.vp / totVp * 100 : 0)} of Votion</div></div>
@@ -207,7 +219,7 @@
             const under = (op.votingOptions || []).filter((o) => !(Number(nw[o.id]) > 0) && Number(o.usdIncentives) > 0.5).map((o) => { const r = pubB.rows.find((q) => q.pk === b + '|' + o.id); return { id: o.id, usd: Number(o.usdIncentives), others: Number(o.votingPower) || 0, rate: r ? r.rateNow : null }; });
             return `<div class="vb" data-vb="${b}">
               <div><div class="k" style="font-size:.82rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em">Change vote</div><div>${op.diff && op.diff.isWorthChanging ? `<span class="tag gain">✓ + ${usd(g)}</span>` : '<span class="tag">✕</span>'}</div>${op.diff && op.diff.message ? `<div class="s" style="font-size:.9rem;color:var(--ink2);margin-top:.3rem">${esc(op.diff.message)}</div>` : ''}</div>
-              <div>${ids.length ? ids.map((id) => `<div class="pr" data-vp="${esc(id)}"><div>${esc(nameOf(id))}</div><div class="mono">${num(Number(cur[id]) || 0, 2)}% → <b>${num(Number(nw[id]) || 0, 2)}%</b><div class="bar"><i class="now" style="width:${Math.min(100, Number(cur[id]) || 0)}%"></i><i class="plan" style="width:${Math.min(100, Number(nw[id]) || 0)}%"></i></div></div></div>`).join('') : '<div class="dim">No votes now and none planned.</div>'}
+              <div>${ids.length ? ids.map((id) => `<div class="pr" data-vp="${esc(id)}"><div>${esc(nameOf(id))}</div><div class="mono">${num(Number(cur[id]) || 0, 2)}% → <b>${num(Number(nw[id]) || 0, 2)}%</b>${bar2(Number(cur[id]) || 0, Number(nw[id]) || 0, 100, 0, true)}</div></div>`).join('') : '<div class="dim">No votes now and none planned.</div>'}
                 ${leftOut.length || under.length ? `<div class="lo" data-lo="${b}"><div><span class="added">added</span> <b>Not in this vault's plan, and why</b></div>
                   ${leftOut.map((l) => `<div data-lo-pool="${esc(l.pk)}"><b>${esc(l.p ? l.p.name : short(l.id))}</b> ${l.off ? '<span class="tag off">off the reward list</span>' : '<span class="tag err">possible error — not offered</span>'}<div>${l.usd != null ? `Bribe ${usd(l.usd)}${l.tok ? ' (' + esc(l.tok) + ')' : ''}. ` : ''}${l.off ? 'The pool is not on this bucket’s reward list on chain, so a vote earns it nothing.' : `Listed under this vault’s bribes, not among its voting options; no reason published.${l.pct != null && l.pct >= 0.5 ? ` By the rule the rest of this plan follows, this vault would put about <b>${num(l.pct, 1)}%</b> of its ${esc(VM.BUCKET_LABEL[b])} vote here.` : ''}`}</div></div>`).join('')}
                   ${under.map((u) => `<div data-lo-under="${esc(u.id)}"><b>${esc(nameOf(u.id))}</b> <span class="tag">offered — under the going rate</span><div>Bribe ${usd(u.usd)} against ${vp(u.others)} votes already on the pool${u.rate != null ? `: ${usd(u.rate)} per 1M votes` : ''}. The plan’s other pools pay more per vote, so it gets 0%.</div></div>`).join('')}</div>` : ''}</div>
@@ -218,29 +230,11 @@
           ${VM.BUCKETS.map(bucket).join('')}`;
     }
 
-    // ── 1. the plan ──────────────────────────────────────────────────────────────────────────────────────────────
+    // ── Votion as a whole: every vault together, one row a pool ─────────────────────────────────────────────────
     const inPlan = (r) => r.votionNow >= 50000 || r.votionPlan >= 50000;
-    function renderPlan(B) { const el = $('ow-plan'); const rows = B.rows.filter(inPlan).sort((a, b) => (b.votionPlan - a.votionPlan) || (b.votionNow - a.votionNow)); const tot = B.votionVp || 1;
-        const max = Math.max(1, ...rows.map((r) => Math.max(r.votionNow, r.votionPlan)));
-        const row = (r) => { const d = r.votionPlan - r.votionNow; const cls = d > 5e4 ? 'gain' : d < -5e4 ? 'lose' : ''; const p = r.pool;
-            return `<div class="tr" data-pk="${esc(r.pk)}">
-              <div><div class="name">${esc(r.name)}</div><div class="s">${esc(p.dex || '')}${r.offList ? ' · <span class="tag off">off the reward list</span>' : ''}${r.excluded && !r.offList ? ' · <span class="tag warn">not offered — see part 2</span>' : ''}</div></div>
-              <div><span class="lbl">Votion's votes</span><div class="v mono">${vp(r.votionNow)} → <b>${vp(r.votionPlan)}</b> ${cls ? `<span class="tag ${cls}">${d > 0 ? '+' : '−'}${vp(Math.abs(d))}</span>` : '<span class="tag">no change</span>'}</div>
-                <div class="bar" aria-hidden="true"><i class="now" style="width:${(r.votionNow / max * 100).toFixed(1)}%"></i><i class="plan" style="width:${(r.votionPlan / max * 100).toFixed(1)}%"></i></div>
-                <div class="s">${pct(r.votionPlan / tot * 100)} of Votion's ${esc(VM.BUCKET_LABEL[S.bucket])} vote after the cast</div></div>
-              <div><span class="lbl">The bribe</span><div class="v">${r.potUsd > 0.5 ? usd(r.potUsd) : '<span class="dim">none</span>'}</div><div class="s">${r.potUsd > 0.5 ? esc(tokens(r.tokens)) + (r.ratePlan != null ? ` · ${usd(r.ratePlan)} per 1M votes after` : '') : 'Votion holds votes here from an earlier round'}</div></div>
-              <div><span class="lbl">Pool APR</span><div class="v mono">${pct(r.aprNow)} → <b class="${r.aprPlan > r.aprNow + .05 ? 'up' : r.aprPlan < r.aprNow - .05 ? 'down' : ''}">${pct(r.aprPlan)}</b></div><div class="s">this round → next</div></div>
-              <div><span class="lbl">LPs earn a week</span><div class="v mono">${usd(r.weeklyNow)} → <b>${usd(r.weeklyPlan)}</b></div><div class="s">${r.activePlan ? 'from the Alliance’s emissions' : 'under the 1% line: earns nothing'}</div></div>
-            </div>`; };
-        const vaults = B.vaults.filter((v) => v.vp >= 1000).sort((a, b) => b.vp - a.vp).map((v) => { const vb = (S.m.vaults.find((x) => x.key === v.key) || {}).byBucket; const msg = vb && vb[S.bucket] && vb[S.bucket].diff && vb[S.bucket].diff.message;
-            return `<div data-vault="${esc(v.key)}"><b style="color:var(--ink)">${esc(VM.vaultName(v.key))}</b> · ${vp(v.vp)} votes · ${v.moves ? '<span class="tag gain">will re-cast</span>' : '<span class="tag">keeps its votes</span>'}${msg ? ` <span class="dim">— Votion's own note: “${esc(msg)}”</span>` : ''}</div>`; }).join('');
-        el.innerHTML = `<h2><span class="n">1</span>All vaults together: what Votion plans to do — ${esc(VM.BUCKET_LABEL[S.bucket])} <span class="added">added</span></h2>
-          <p class="sub">${vp(tot)} votes in this bucket. Votion's rule, read off its published plans: it spreads them so every pool it uses pays the same bribe per vote${B.level != null ? ` — about <b style="color:var(--ink)">${usd(B.level)} per 1M votes</b> right now` : ''}. Votes already on a pool count against it.</p>
-          ${rows.length ? `<div class="tbl"><div class="tr head"><div>Pool</div><div>Votion's votes: now → after its cast</div><div>The bribe</div><div>Pool APR</div><div>LPs earn a week</div></div>${rows.map(row).join('')}</div>` : '<p class="sub">Votion has no votes in this bucket and plans none.</p>'}
-          <div class="vaults" data-ow="vaults">${vaults}</div>`;
-    }
-
-    // ── 2. bribed, and no votes in the plan: the reason for each ────────────────────────────────────────────────
+    // one bar: grey = what stays, green = votes gained, red (striped) over the grey = votes lost, dashed outline = what the rule would give if offered
+    function bar2(nowV, afterV, max, exp, thin) { const w = (x) => (Math.max(0, x) / (max || 1) * 100).toFixed(1); const lo = Math.min(nowV, afterV);
+        return `<div class="b2${thin ? ' thin' : ''}" aria-hidden="true"><i class="base" style="width:${w(lo)}%"></i>${afterV > nowV ? `<i class="gain" style="left:${w(nowV)}%;width:${w(afterV - nowV)}%"></i>` : afterV < nowV ? `<i class="loss" style="left:${w(afterV)}%;width:${w(nowV - afterV)}%"></i>` : ''}${exp > 0 ? `<i class="exp" style="width:${w(exp)}%"></i>` : ''}</div>`; }
     function reason(r, B) { const p = r.pool; const w = VM.whatItTakes(S.m, r.pk); const votes = `${vp(r.votesNow)} votes are on the pool now`;
         if (r.offList) return { tag: ['off', 'off the reward list'], head: 'This pool is not on its bucket’s reward list on chain.', lines: ['Votes on it earn the pool nothing, so there is nothing for an optimizer to move toward. The bribe is still paid to whoever votes it.'] };
         if (r.excluded) { const o = r.other; const would = o && o.votionPlan >= 50000;
@@ -252,27 +246,35 @@
         if (w.entryUsd) lines.push(`It needs about <b>${usd(w.entryUsd)} more</b> in the pot before the rule adds a first vote${w.nextMillionUsd ? `; after that about ${usd(w.nextMillionUsd)} for each further 1M votes` : ''}.`);
         else if (w.entryUsd === 0) lines.push('It is at the line: a small change in the other pots decides it.');
         return { tag: ['', 'offered — the bribe is under the going rate'], head: 'Offered, and the rule gives it no votes at this size.', lines }; }
-    function renderLeft(B) { const el = $('ow-left'); const rows = B.rows.filter((r) => r.potUsd > 0.5 && r.votionPlan < 50000).sort((a, b) => b.potUsd - a.potUsd);   // a bribe, and no votes after the cast — also when Votion still holds votes there from an earlier cast
-        const item = (r) => { const x = reason(r, B); return `<details class="why" data-pk="${esc(r.pk)}" ${r.excluded ? 'open' : ''}><summary><b>${esc(r.name)}</b><span>${usd(r.potUsd)} bribe</span><span class="tag ${x.tag[0]}">${esc(x.tag[1])}</span></summary>
-            <div class="body"><div><b>${x.head}</b></div>${x.lines.map((l) => `<div>${l}</div>`).join('')}${r.votionNow >= 50000 ? `<div>Votion still holds <b>${vp(r.votionNow)}</b> votes here from an earlier cast. Its plan takes them to zero at the next one${r.aprPlan != null && r.aprNow != null ? `, and the pool’s APR goes from ${pct(r.aprNow)} to about ${pct(r.aprPlan)}` : ''}.</div>` : ''}<div class="fact">Now: ${vp(r.votesNow)} votes on the pool · Votion ${vp(r.votionNow)} · pool APR ${pct(r.aprNow)} · ${esc(r.pool.dex || '')}</div></div></details>`; };
-        el.innerHTML = `<h2><span class="n">2</span>Bribed, and no votes from Votion — why <span class="added">added</span></h2>
-          <p class="sub">Every pool in ${esc(VM.BUCKET_LABEL[S.bucket])} that has a bribe this round and ends up with no votes from Votion after its cast, each with the reason the data gives.</p>
-          ${rows.length ? rows.map(item).join('') : '<p class="sub" style="margin:0"><i class="fas fa-circle-check up" style="margin-right:.4rem"></i>None. Every bribed pool in this bucket is in the plan.</p>'}`;
-    }
-
-    // ── 3. every pool of the bucket ──────────────────────────────────────────────────────────────────────────────
-    function renderAll() { const el = $('ow-all'); const m = S.m; const pks = m.buckets[S.bucket].pks.slice().sort((a, b) => pool(b).vp - pool(a).vp);
-        const state = (p) => p.offList ? ['off', 'off the reward list'] : p.status === 'active' ? ['gain', 'earning'] : p.vp > 0 ? ['', 'under the 1% line'] : ['', 'no votes'];
-        const row = (pk) => { const p = pool(pk), s = state(p); return `<div class="tr all" data-pk="${esc(pk)}">
-            <div><div class="name">${esc(p.name)}</div><div class="s">${esc(p.dex || '')}</div></div>
-            <div><span class="lbl">Status</span><span class="tag ${s[0]}">${s[1]}</span></div>
-            <div><span class="lbl">Votes</span><div class="v mono">${vp(p.vp)}</div></div>
-            <div><span class="lbl">Votion's votes</span><div class="v mono">${p.votionNow >= 1 ? vp(p.votionNow) : '<span class="dim">0</span>'}</div></div>
-            <div><span class="lbl">Bribe this round</span><div class="v">${p.potUsd > 0.5 ? `${usd(p.potUsd)} <span class="s">${esc(tokens(p.pot && p.pot.tokens))}</span>` : '<span class="dim">none — nothing to optimize toward</span>'}</div></div></div>`; };
-        const bribed = pks.filter((pk) => pool(pk).potUsd > 0.5).length;
-        el.innerHTML = `<h2><span class="n">3</span>Every pool in ${esc(VM.BUCKET_LABEL[S.bucket])} <span class="added">added</span></h2>
-          <p class="sub">${num(pks.length)} pools across every DEX, ${num(bribed)} with a bribe this round. Votion's vaults can vote any pool on the reward list; a pool with no bribe gives its rule nothing to move toward.</p>
-          <div class="scroll" tabindex="0" aria-label="All pools"><div class="tbl"><div class="tr all head"><div>Pool</div><div>Status</div><div>Votes</div><div>Votion's votes</div><div>Bribe this round</div></div>${pks.map(row).join('')}</div></div>`;
+    // every pool of the bucket in one line: recognised, and why it does or does not get votes
+    function why(p, r, B) { const pot = p.potUsd > 0.5;
+        if (p.offList) return ['off', 'off the reward list', `${pot ? `Bribe ${usd(p.potUsd)}. ` : ''}Not on this bucket’s reward list on chain — votes earn the pool nothing.`];
+        if (!pot) return ['', 'no bribe', p.votionNow >= 50000 ? `Votion holds ${vp(p.votionNow)} here from an earlier cast and its plan takes them away — nothing to optimize toward.` : 'Nothing to optimize toward.'];
+        if (p.votionExcluded) return ['err', 'possible error — not offered', `Bribe ${usd(p.potUsd)} is listed by Votion; the pool is not among its options and no reason is published.${r && r.other && r.other.votionPlan >= 50000 ? ` Its rule would give about ${vp(r.other.votionPlan)} votes.` : ''}`];
+        if (r && r.votionPlan >= 50000) return ['gain', 'gets votes', `Bribe ${usd(p.potUsd)} pays ${usd(r.ratePlan)} per 1M votes after the cast — Votion’s going rate.`];
+        const w = VM.whatItTakes(S.m, p.pk); return ['', 'offered — under the going rate', `Bribe ${usd(p.potUsd)} pays ${usd(r ? r.rateNow : null)} per 1M votes against Votion’s ${usd(B.level)}.${w.entryUsd ? ` Needs about ${usd(w.entryUsd)} more.` : ''}`]; }
+    function renderPlan(B) { const el = $('ow-plan'); const m = S.m; const tot = B.votionVp || 1;
+        const rows = B.rows.filter((r) => inPlan(r) || r.potUsd > 0.5).sort((a, b) => (b.votionPlan - a.votionPlan) || ((b.other ? b.other.votionPlan : 0) - (a.other ? a.other.votionPlan : 0)) || (b.votionNow - a.votionNow) || (b.potUsd - a.potUsd));
+        const expOf = (r) => (r.excluded && !r.offList && r.other && r.other.votionPlan >= 50000 ? r.other.votionPlan : 0);
+        const max = Math.max(1, ...rows.map((r) => Math.max(r.votionNow, r.votionPlan, expOf(r)))); const aprMax = Math.max(1, ...rows.map((r) => Math.max(r.aprNow || 0, r.aprPlan || 0, r.excluded && r.other ? r.other.aprPlan || 0 : 0)));
+        const row = (r) => { const d = r.votionPlan - r.votionNow; const cls = d > 5e4 ? 'up' : d < -5e4 ? 'down' : 'flat'; const noVotes = r.potUsd > 0.5 && r.votionPlan < 50000; const x = noVotes ? reason(r, B) : null; const e = expOf(r);
+            const tag = r.offList ? '<span class="tag off">off the reward list</span>' : r.excluded ? '<span class="tag err">possible error</span>' : noVotes ? '<span class="tag">under the rate</span>' : d > 5e4 ? '<span class="tag gain">gains</span>' : d < -5e4 ? '<span class="tag lose">loses</span>' : '<span class="tag">holds</span>';
+            const apr = r.aprNow == null && r.aprPlan == null ? '<span class="dim">no APR (too little staked)</span>' : `${bar2(r.aprNow || 0, r.aprPlan || 0, aprMax, e ? r.other.aprPlan || 0 : 0, true)}<div class="num mono">${pct(r.aprNow)} → <b class="${r.aprPlan > r.aprNow + .05 ? 'up' : r.aprPlan < r.aprNow - .05 ? 'down' : ''}">${pct(r.aprPlan)}</b>${e && r.other.aprPlan != null ? ` <span class="dim">· ${pct(r.other.aprPlan)} if offered</span>` : ''}</div>`;
+            return `<details class="lp" data-pk="${esc(r.pk)}"><summary>
+                <div class="nm">${esc(r.name)} ${tag}</div>
+                <div><div class="cap">Votion's votes</div>${bar2(r.votionNow, r.votionPlan, max, e)}<div class="num mono">${vp(r.votionNow)} → <b>${vp(r.votionPlan)}</b> <span class="${cls}">${Math.abs(d) > 5e4 ? (d > 0 ? '+' : '−') + vp(Math.abs(d)) : 'no change'}</span> <span class="dim">· ${pct(r.votionPlan / tot * 100)} of its vote${e ? ` · rule: ${pct(e / tot * 100)}` : ''}</span></div></div>
+                <div><div class="cap">Pool APR, this round → next</div>${apr}</div></summary>
+              <div class="more">${x ? `<div><b>${x.head}</b></div>${x.lines.map((l) => `<div>${l}</div>`).join('')}` : ''}${r.votionNow >= 50000 && r.votionPlan < 50000 && r.potUsd > 0.5 ? `<div>Votion still holds <b>${vp(r.votionNow)}</b> votes here from an earlier cast. Its plan takes them to zero at the next one.</div>` : ''}
+                <div class="fact">Bribe: ${r.potUsd > 0.5 ? `${usd(r.potUsd)} (${esc(tokens(r.tokens))})${r.ratePlan != null ? ` · ${usd(r.ratePlan)} per 1M votes after the cast` : ''}` : 'none — Votion holds votes here from an earlier round'} · LPs earn ${usd(r.weeklyNow)} → ${usd(r.weeklyPlan)} a week · ${vp(r.votesNow)} votes on the pool now · ${esc(r.pool.dex || '')}</div>
+                ${r.vaults.some((v) => v.nowPct > 0.005 || v.publishedPct > 0.005) ? `<div class="fact">By vault, as Votion publishes it: ${r.vaults.filter((v) => v.nowPct > 0.005 || v.publishedPct > 0.005).map((v) => `${esc(vaultLabel(v.key))} ${num(v.nowPct, 1)}% → ${v.publishedPct == null ? '—' : num(v.publishedPct, 1) + '%'}`).join(' · ')}</div>` : ''}</div></details>`; };
+        const pks = m.buckets[S.bucket].pks.slice().sort((a, b) => pool(b).vp - pool(a).vp); const bribed = pks.filter((pk) => pool(pk).potUsd > 0.5).length;
+        const allRow = (pk) => { const p = pool(pk), r = B.rows.find((q) => q.pk === pk), y = why(p, r, B); return `<div class="ar" data-pk="${esc(pk)}"><div><b>${esc(p.name)}</b> <span class="dim">${esc(p.dex || '')}</span></div><div><span class="tag ${y[0]}">${esc(y[1])}</span></div><div>${y[2]} <span class="dim">${vp(p.vp)} votes · Votion ${vp(p.votionNow)}</span></div></div>`; };
+        el.innerHTML = `<h2>Votion as a whole — ${esc(VM.BUCKET_LABEL[S.bucket])} <span class="added">added</span></h2>
+          <p class="sub">All eight vaults added together: ${vp(tot)} votes${B.level != null ? `, going where the bribe per vote is highest (about ${usd(B.level)} per 1M now)` : ''}. Tap a pool for the detail.</p>
+          <div class="legend"><span><i style="background:#7c8799"></i>stays</span><span><i style="background:var(--up)"></i>gains</span><span><i style="background:var(--down)"></i>loses</span><span><i style="border:2px dashed #c4b5fd;background:rgba(167,139,250,.14)"></i>what its rule would give — not offered</span></div>
+          ${rows.length ? rows.map(row).join('') : '<p class="sub">Votion has no votes in this bucket, plans none, and no pool has a bribe.</p>'}
+          <details class="lp" id="ow-allp" style="margin-top:.4rem"><summary style="grid-template-columns:1fr"><div class="nm"><i class="fas fa-list" style="color:var(--cyan)"></i>All ${num(pks.length)} pools in ${esc(VM.BUCKET_LABEL[S.bucket])}, and why each does or does not get votes <span class="dim" style="font-weight:400">(${num(bribed)} with a bribe)</span></div></summary>
+            <div class="more" style="padding-left:.3rem"><div class="scroll" tabindex="0" aria-label="All pools">${pks.map(allRow).join('')}</div></div></details>`;
     }
 
     // ── 4. the round's bribes: live pots, recorded adds and withdrawals, Votion's list ──────────────────────────
@@ -292,8 +294,7 @@
             return `<div class="li${changed.has(pk) ? ' new' : ''}" data-pot="${esc(pk)}"><div><b>${esc(nameOf(pk))}</b> <span class="when">${esc(pk.split('|')[0])}</span> ${st}</div><div>${esc(tokens(L.last.pots[pk].tokens))}${L.last.pots[pk].usd ? ` <span class="when">≈ ${usd(L.last.pots[pk].usd)}</span>` : ''}</div></div>`; };
         const chg = L.changes.slice().reverse().map((c) => `<div class="li new" data-chg="1"><div class="when">seen ${esc(clockT(c.at))}</div><div><b>${esc(nameOf(c.pk))}</b>: ${esc(c.sym)} ${num(c.from, c.from < 100 ? 2 : 0)} → <b>${num(c.to, c.to < 100 ? 2 : 0)}</b> <span class="tag ${c.to > c.from ? 'gain' : 'lose'}">${c.to > c.from ? 'added' : c.to === 0 ? 'taken back' : 'reduced'}</span></div></div>`).join('');
         const log = (S.log && Array.isArray(S.log.changes) ? S.log.changes : []).slice().reverse().slice(0, 12).map((c) => { const lp = m.pools[c.bucket + '|' + c.pool]; return `<div class="li" data-log="1"><div class="when">${c.after ? `between ${esc(dayTime(c.after))} and ${esc(dayTime(c.by))}` : `by ${esc(dayTime(c.by))}`} · round ${esc(c.round)}</div><div><b>${esc(lp ? lp.name : short(c.pool))}</b> <span class="when">${esc(c.bucket)}</span>: ${c.to === 'offered' ? '<span class="tag gain">offered again</span>' : c.from === null ? '<span class="tag warn">has a bribe, not offered</span>' : '<span class="tag warn">no longer offered</span>'} <span class="when">while it had a bribe</span></div></div>`; }).join('');
-        el.innerHTML = `<h2><span class="n">4</span>The round's bribes, as they change <span class="added">added</span></h2>
-          <p class="sub">Watch this toward the end of the round: a bribe that appears or disappears after Votion's cast changes who is paid, not where Votion voted.</p>
+        el.innerHTML = `<p class="sub"><span class="added">added</span> Watch this toward the end of the round: a bribe that appears or disappears after Votion's cast changes who is paid, not where Votion voted.</p>
           <div class="feed">
             <div><h3><span class="dot${L.ok === false ? ' stale' : ''}"></span>On chain right now — round ${esc(m.period)}</h3>
               <p class="cap" data-ow="live-cap">${L.last ? `Read from the bribe contract at ${esc(clockT(L.last.at))}, again every minute while this page is open. ` : L.ok === false ? 'The live read did not answer; showing the last recorded pots instead. ' : 'Reading the bribe contract… '}${L.first && L.changes.length ? `<b class="amber">${num(L.changes.length)} change${L.changes.length === 1 ? '' : 's'} since you opened the page.</b>` : L.first ? 'No change since you opened the page.' : ''}</p>
@@ -306,8 +307,7 @@
               <div data-ow="log">${S.log ? (log || '<div class="li dim">No change on record yet.</div>') : '<div class="li dim">No log yet.</div>'}</div></div>
           </div>`;
     }
-    function renderHow() { $('ow-how').innerHTML = `<h2>Where every number comes from</h2>
-        <div class="sub" style="display:grid;gap:.4rem;margin:0;color:var(--ink)">
+    function renderHow() { $('ow-how').innerHTML = `<div class="sub" style="display:grid;gap:.4rem;margin:0;color:var(--ink)">
           <div><b>Votion's plan and its list of pools:</b> the answer its own optimizer serves, saved hourly — <a class="link" href="${CORE.replace('raw.githubusercontent.com', 'github.com').replace('/main', '/blob/main')}/votion/optimization/current.json" target="_blank" rel="noopener">votion/optimization/current.json</a>.</div>
           <div><b>Votes, APR and the reward lists:</b> read from the Alliance's contracts hourly — member-data/tla-snapshot. <b>Bribes right now:</b> the bribe contract, read by your browser from a public node. <b>Adds and withdrawals:</b> tla-voting/events/bribes.</div>
           <div><b>"After its cast" figures</b> are worked out here with the rule Votion's published plans follow (same bribe per vote on every pool it uses). They are estimates of what a cast would do with the bribes as they stand now; other voters can still move.</div>
@@ -315,8 +315,8 @@
           <div class="dim">Want to try a bribe before placing one? <a class="link" href="/vote-market.html">Open the Vote Simulator →</a></div>
         </div>`; }
 
-    function renderAllParts() { if (S.failed) { $('ow-clocks').innerHTML = '<p class="sub" style="margin:0"><b>The public data could not be read just now.</b> Refresh to try again.</p>'; ['ow-alert', 'ow-vaults', 'ow-vault', 'ow-plan', 'ow-left', 'ow-all', 'ow-feed', 'ow-how'].forEach((id) => { $(id).style.display = 'none'; }); return; }
-        if (!S.m) return; const B = VM.board(S.m, S.bucket, {}); renderBuckets(); renderClocks(); renderAlert(); renderVaults(); renderVault(); renderPlan(B); renderLeft(B); renderAll(); renderFeed(); renderHow(); }
+    function renderAllParts() { if (S.failed) { $('ow-clocks').innerHTML = '<p class="sub" style="margin:0"><b>The public data could not be read just now.</b> Refresh to try again.</p>'; ['ow-alert', 'ow-plan', 'ow-byvault', 'ow-feedfold', 'ow-howfold'].forEach((id) => { $(id).style.display = 'none'; }); return; }
+        if (!S.m) return; const B = VM.board(S.m, S.bucket, {}); renderBuckets(); renderClocks(); renderAlert(); renderPlan(B); renderVaults(); renderVault(); renderFeed(); renderHow(); }
 
     async function liveOnce() { const m = S.m; if (!m) return; let live = null; try { live = await VM.fetchLivePots(m); } catch (e) { live = null; }
         if (!live) { S.live.ok = false; renderFeed(); return; }
@@ -334,6 +334,6 @@
 })();
 </script>
 <div id="site-footer"></div>
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: '1.1.0', revDate: '2026-11-26', page: 'optimizer-watch' });</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: '1.2.0', revDate: '2026-11-26', page: 'optimizer-watch' });</script>
 </body>
 </html>
