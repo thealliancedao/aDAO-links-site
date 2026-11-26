@@ -23,6 +23,7 @@ async function page(o = {}) { let liveAnswer = o.chain === undefined ? chain : o
   const d = w.document, text = (el) => (el ? el.textContent : '').replace(/\s+/g, ' ').trim();
   return { w, d, text, settle, asked, S: w.__ow.S, ow: w.__ow, setChain: (c) => { liveAnswer = c; }, $: (id) => d.getElementById(id), all: (s) => [...d.querySelectorAll(s)] };
 }
+const usd = (x) => (x == null ? '—' : '$' + (Number(x) || 0).toLocaleString('en-US', { maximumFractionDigits: Math.abs(x) < 100 ? 2 : 0, minimumFractionDigits: Math.abs(x) < 100 ? 2 : 0 }));
 const vp = (x) => { x = Number(x) || 0; const a = Math.abs(x); return a >= 1e6 ? (x / 1e6).toFixed(2) + 'M' : a >= 1e3 ? Math.round(x / 1e3) + 'K' : String(Math.round(x)); };
 
 console.log('— A what the page is —');
@@ -156,6 +157,14 @@ console.log('— K a name that needs saying: a deposit token names the asset beh
   check('a pool with no such note is left as it is: no underline, no guess', A.all('#ow-plan details.lp[data-pk]').filter((e) => !pks.includes(e.dataset.pk)).every((e) => !e.querySelector('[data-what]') && !e.querySelector('[data-ow="what"]')));
   const Q = await page({ before: (w) => { const f = w.fetch; w.fetch = async (u) => (/token_overrides/.test(String(u)) ? { ok: false, status: 404 } : f(u)); } });
   check('if the curated file cannot be read the page works as before and says nothing about the token', Q.w.__errors.length === 0 && Q.all('#ow-plan details.lp[data-pk]').length > 0 && Q.all('[data-what]').length === 0); }
+
+console.log('— L other voters: what is already on a pool is on the tile, not only in the sum —');
+{ A.S.now = null; A.ow.renderAllParts(); const VMw = A.w.VoteMarket; const chips = A.all('#ow-alert [data-alert]'); let n = 0;
+  const okAll = chips.length > 0 && chips.every((c) => { const pk = c.dataset.alert, Bd = VMw.board(m, pk.split('|')[0], {}), r = Bd.rows.find((x) => x.pk === pk), box = c.querySelector('[data-ow="others"]'); if (!box || !r) return false; const t = A.text(box); n++;
+    return Math.abs(r.othersNow - (r.votesNow - r.votionNow)) < 1 && t.includes(vp(r.othersNow)) && (r.rateNow == null || t.includes(usd(r.rateNow) + ' per 1M')) && t.includes(usd(Bd.level) + ' per 1M') && (r.rateNow == null || r.rateNow / Bd.level < 1.05 || /pays \d+\.\d×/.test(t)); });
+  check(`each of the ${n} pools on the error tile says how many votes other voters already have there, what the bribe pays a vote with all of them counted, and Votion's going rate beside it`, okAll);
+  const r0 = VMw.board(m, 'project', {}).rows.filter((r) => r.excluded && !r.offList && r.potUsd > 0.5).sort((a, b) => b.othersNow - a.othersNow)[0]; const all = VMw.board(m, 'project', { counted: 'all' }).rows;
+  check(`and the rule does subtract them: the missing pool with the most votes from others (${r0.name}, ${vp(r0.othersNow)}) is the one the rule gives the fewest votes per bribe dollar`, (() => { const per = (r) => { const a = all.find((x) => x.pk === r.pk); return a.votionPlan / r.potUsd; }; const miss = VMw.board(m, 'project', {}).rows.filter((r) => r.excluded && !r.offList && r.potUsd > 0.5); return miss.length < 2 || miss.every((r) => r.pk === r0.pk || per(r) > per(r0)); })()); }
 
 console.log('— H failure, and data as text —');
 { const D = await page({ down: true }); check('if the public data cannot be read the page says so and shows no table', /could not be read just now/.test(D.text(D.$('ow-clocks'))) && D.$('ow-plan').style.display === 'none');
