@@ -292,7 +292,7 @@
 <script>
 (function () {
     'use strict';
-    const REV = '1.4.1', REV_DATE = '2026-11-25';   // 1.4.1 (owner): the tab bar is the one list in lib/site-header.js — Overview · Member Portfolio · Slippage Simulator · Vote Simulator · LP Grades · Contract Watch · PD Watch (Pools and Docs are off the bar) — in the site's tab colours; nothing else on this page changed   // 1.4: how many keys an account needs (contract-watch/accounts.json: the chain's own account record) said where control moves to an account, in the look-up and beside an admin · WHAT A ROLE IS FOR, in the contracts' own words (contract-watch/guards.json: each contract's answer to a real message simulated from an address without any role) — beside a marked change, on a change that needed a role, and role by role in "Who holds the keys" · 1.3: NEEDS A LOOK — a banner that is calm when the last 30 days hold nothing out of the ordinary and names what does (control moved from a DAO to an account · a change sent directly that had always taken a vote · sent directly while a vote on it was open or after one did not pass · a difference no transaction explains), each with its reason; who held a role before a change; the one-time archive read in the coverage · 1.2: a role says which change on record set it to its holder (from that change's own message) · 1.1.2: the catch-up as stretches of the chain, oldest first (November is read before September–October) · 1.1.1: the Latest line and the catch-up line read as one item / one stretch · 1.1: the message as sent, beside a change that was sent directly
+    const REV = '1.4.2', REV_DATE = '2026-11-26';   // 1.4.2 (owner: "thought you said 4 in total, why do I only see 2?"): the box at the top counts the last 30 days; when it is showing, it now says how many OLDER changes also need a look and links to them (before, that link was only there on a calm day). The list of marked changes is one function (lookList / alertsData) that the box, the gate and the home page's Contracts tab all read   // 1.4.1 was: 1.4.1 (owner): the tab bar is the one list in lib/site-header.js — Overview · Member Portfolio · Slippage Simulator · Vote Simulator · LP Grades · Contract Watch · PD Watch (Pools and Docs are off the bar) — in the site's tab colours; nothing else on this page changed   // 1.4: how many keys an account needs (contract-watch/accounts.json: the chain's own account record) said where control moves to an account, in the look-up and beside an admin · WHAT A ROLE IS FOR, in the contracts' own words (contract-watch/guards.json: each contract's answer to a real message simulated from an address without any role) — beside a marked change, on a change that needed a role, and role by role in "Who holds the keys" · 1.3: NEEDS A LOOK — a banner that is calm when the last 30 days hold nothing out of the ordinary and names what does (control moved from a DAO to an account · a change sent directly that had always taken a vote · sent directly while a vote on it was open or after one did not pass · a difference no transaction explains), each with its reason; who held a role before a change; the one-time archive read in the coverage · 1.2: a role says which change on record set it to its holder (from that change's own message) · 1.1.2: the catch-up as stretches of the chain, oldest first (November is read before September–October) · 1.1.1: the Latest line and the catch-up line read as one item / one stretch · 1.1: the message as sent, beside a change that was sent directly
     const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main';
     const DAOO = 'https://raw.githubusercontent.com/thealliancedao/dao-originations/main';
     const TREE = 'https://github.com/thealliancedao/tla-core/tree/main';
@@ -726,17 +726,30 @@
 
     // ── render: needs a look ────────────────────────────────────────────────────────────────────────────────────────
     // Calm when the last 30 days hold nothing out of the ordinary; otherwise each change that needs a look, with its reason.
+    // 1.4.2: the changes that need a look as ONE list, newest first (the changes of one transaction in the order they were sent) — the box
+    // below, the gate, and the home page's Contracts tab (through tla-core contract-watch/alerts.json, which is built by running this page) read it
+    function lookList(list) {
+        return groupRows(list.filter((r) => attention(r).level === 'look')).sort((a, b) => { const x = a.group ? a.recs[0] : a, y = b.group ? b.recs[0] : b; return (y.height - x.height) || String(x.k).localeCompare(String(y.k)); })
+            .map((x) => { const recs = x.group ? x.recs : [x], r = recs[0]; return { r, recs, title: x.group ? `The address book is different in ${plural(recs.length, 'role')}` : describe(r).title }; });
+    }
+    const capFirst = (t) => String(t).charAt(0).toUpperCase() + String(t).slice(1);
+    // plain data, no HTML: every change on record that needs a look — what it is, where, how it was sent, and each reason as a sentence
+    function alertsData() {
+        if (!S.ready || S.loadFailed) return null;
+        return lookList(changesOnly()).map((x) => ({ k: x.r.k, at: x.r.timestamp, height: x.r.height, title: x.title, contract: x.r.contract, on: cinfo(x.r.contract).name, how: HOW_LABEL[x.r._how], why: reasons(x.recs).map((w) => capFirst(w.short)), txhash: x.r.txhash || null }));
+    }
     function renderAttn() {
         const el = $('cw-attn'); if (!S.ready || S.loadFailed) { el.innerHTML = ''; return; }
         const now = S.now || Date.now(), from = now - 30 * 864e5, all = changesOnly();
         const recent = all.filter((r) => { const t = Date.parse(r.timestamp); return t >= from && t <= now; });
         const n = (h) => recent.filter((r) => howGroup(r._how) === h).length;
         const counts = recent.length ? `${plural(recent.length, 'change')} in the last 30 days: ${num(n('proposal'))} through a passed proposal · ${num(n('direct'))} sent directly · ${num(n('observed'))} seen in a state read.` : 'No change to a watched contract is on record for the last 30 days.';
-        const loud = groupRows(recent.filter((r) => attention(r).level === 'look')).sort((a, b) => { const x = a.group ? a.recs[0] : a, y = b.group ? b.recs[0] : b; return (y.height - x.height) || String(x.k).localeCompare(String(y.k)); });   // newest first; the changes of one transaction in the order they were sent
-        const item = (x) => { const recs = x.group ? x.recs : [x], r = recs[0]; return { r, recs, title: x.group ? `The address book is different in ${plural(recs.length, 'role')}` : describe(r).title }; };
+        const loud = lookList(recent);
         if (loud.length) {
+            const older = lookList(all.filter((r) => Date.parse(r.timestamp) < from)).length;   // 1.4.2 (owner: "I only see 2"): the box is the last 30 days — the older ones are said and linked
             el.innerHTML = `<section class="glass-card cw-attn look" aria-label="Changes that need a look"><h2><i class="fas fa-triangle-exclamation"></i>${plural(loud.length, 'change')} in the last 30 days need${loud.length === 1 ? 's' : ''} a look</h2>
-                <ul class="cw-attn-list">${loud.map(item).map((x) => `<li data-jump="${esc(x.r.k)}" role="button" tabindex="0"><div class="what"><b>${esc(day(x.r.timestamp))}</b> — ${esc(x.title)}<span class="on">${esc(cinfo(x.r.contract).name)}</span></div><div class="why">${reasons(x.recs).map((w) => esc(w.short.charAt(0).toUpperCase() + w.short.slice(1))).join(' · ')}</div></li>`).join('')}</ul>
+                <ul class="cw-attn-list">${loud.map((x) => `<li data-jump="${esc(x.r.k)}" role="button" tabindex="0"><div class="what"><b>${esc(day(x.r.timestamp))}</b> — ${esc(x.title)}<span class="on">${esc(cinfo(x.r.contract).name)}</span></div><div class="why">${reasons(x.recs).map((w) => esc(capFirst(w.short))).join(' · ')}</div></li>`).join('')}</ul>
+                ${older ? `<p class="cw-line" style="margin:0 0 .45rem" data-cw="older"><a href="#att=look" data-att="only">${plural(older, 'older change')} on record also need${older === 1 ? 's' : ''} a look</a> — this box is the last 30 days only.</p>` : ''}
                 <p class="cw-line dim" style="margin:0">${esc(counts)} The mark is not a verdict: <a href="#cw-look-means">what “needs a look” means</a>.</p></section>`;
             return;
         }
@@ -1056,7 +1069,7 @@
     $('l-form').addEventListener('submit', (e) => { e.preventDefault(); S.lookup = $('l-q').value.trim(); setHash(S.lookup ? (/^[0-9A-Fa-f]{64}$/.test(S.lookup) ? 'tx=' : 'address=') + S.lookup : 'view=lookup'); renderLookup(); });
     window.addEventListener('hashchange', () => { if (!S.ready) return; readHash(); renderAll(); });
 
-    window.__cw = { S, REV, REV_DATE, CHANGE_RE, howOf, describe, sentHtml, relatedProps, openProps, cinfo, visible, load, ingestCatalog, liveBook, renderAll, attention, reasons, covered, votesOf, guardWords, guardOf };
+    window.__cw = { S, REV, REV_DATE, CHANGE_RE, howOf, describe, sentHtml, relatedProps, openProps, cinfo, visible, load, ingestCatalog, liveBook, renderAll, attention, reasons, covered, votesOf, guardWords, guardOf, lookList, alertsData };
     load();
 })();
 </script>
@@ -1064,6 +1077,6 @@
 <div id="site-footer"></div>
 <script src="/lib/cron-registry.js"></script>
 <script src="/lib/site-footer.js"></script>
-<script>SiteFooter.mount({ rev: '1.4.1', revDate: '2026-11-25', page: 'contract-watch' });</script>
+<script>SiteFooter.mount({ rev: '1.4.2', revDate: '2026-11-26', page: 'contract-watch' });</script>
 </body>
 </html>
