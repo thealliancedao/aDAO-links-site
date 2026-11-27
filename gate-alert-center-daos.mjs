@@ -28,7 +28,7 @@ const openN = cards.filter(isOpen).length;
 console.log(`(capture: ${cards.length} props across 5 DAOs, ${openN} open now: ${cards.filter(isOpen).map(c => c.dao + ' #' + c.id).join(', ') || 'none'})`);
 let store;
 console.log('— the load popup');
-{ const { w, d } = mk(); ok('lib loads: AlertCenter 2.4.0', w.AlertCenter.VERSION === '2.4.0', w.AlertCenter.VERSION);
+{ const { w, d } = mk(); ok('lib loads: AlertCenter 2.5.0', w.AlertCenter.VERSION === '2.5.0', w.AlertCenter.VERSION);
   const R = build(w); const out = w.AlertCenter.render(d.getElementById('ac'), R, { document: d });
   ok(`P1 a prop is open (${openN}) → the props window opens on load, on the props tile`, openN > 0 && out.popped && !!d.getElementById('ac-full') && /Props · every DAO we watch/.test(d.getElementById('ac-full').textContent), { openN, popped: out.popped });
   ok('    with the opt-out button', !!d.getElementById('ac-full-mute'));
