@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TLA Whales | Alliance DAO</title>
+<meta name="description" content="Who holds each pool's staked liquidity in the Terra Liquidity Alliance: every account, largest first, read from the chain — with how long it has been there and what it has done since.">
+<link rel="icon" type="image/x-icon" href="/assets/images/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  * { font-family: 'Outfit', sans-serif; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  :root { --bg: #0a0b0f; --card: rgba(255,255,255,.03); --line: rgba(255,255,255,.08); --ink: #f1f5f9; --ink2: #a3b1c6; --ink3: #7c8aa0; --cyan: #22d3ee; --amber: #fbbf24; --up: #34d399; --down: #f87171; --violet: #a78bfa; }
+  body { background: var(--bg); color: var(--ink); min-height: 100vh; font-size: 16px; line-height: 1.5; }
+  .bg-mesh { position: fixed; inset: 0; z-index: -1; background: radial-gradient(ellipse 80% 50% at 20% 30%, rgba(6,182,212,.10), transparent), radial-gradient(ellipse 60% 40% at 85% 70%, rgba(167,139,250,.06), transparent); }
+  .wh-wrap { max-width: 112rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 1.1rem 1.2rem; margin-bottom: 1rem; }
+  main.wh-wrap h1 { font-size: 1.7rem; font-weight: 800; line-height: 1.2; margin: 0 0 .35rem; }
+  main.wh-wrap h2 { font-size: 1.3rem; font-weight: 800; margin: 0 0 .15rem; display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+  .sub { color: var(--ink2); font-size: .95rem; margin: 0 0 .8rem; } .dim { color: var(--ink2); } .up { color: var(--up); } .down { color: var(--down); } .amber { color: var(--amber); }
+  .tabs { display: flex; gap: .4rem; flex-wrap: wrap; margin: .2rem 0 0; } .tab { font-size: 1rem; font-weight: 600; padding: .4rem .95rem; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--ink2); cursor: pointer; }
+  .tab:hover { color: var(--ink); border-color: rgba(34,211,238,.5); } .tab.on { background: rgba(34,211,238,.14); border-color: rgba(34,211,238,.7); color: #cffafe; }
+  .layout { display: grid; grid-template-columns: 21rem minmax(0,1fr); gap: 1rem; align-items: start; }
+  .rail { position: sticky; top: .6rem; max-height: calc(100vh - 1.2rem); overflow-y: auto; } .rail input { width: 100%; background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 10px; padding: .5rem .7rem; color: var(--ink); font-size: 1rem; margin-bottom: .6rem; }
+  .bk { font-size: .82rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink3); margin: .7rem 0 .25rem; }
+  .pl { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 0 .6rem; width: 100%; text-align: left; padding: .45rem .6rem; border-radius: 10px; border: 1px solid transparent; background: none; color: inherit; cursor: pointer; font: inherit; }
+  .pl:hover { background: rgba(255,255,255,.04); } .pl.on { background: rgba(34,211,238,.10); border-color: rgba(34,211,238,.6); } .pl .n { font-weight: 700; } .pl .v { font-size: .93rem; } .pl .m { grid-column: 1 / -1; font-size: .85rem; color: var(--ink2); }
+  .tiles { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: .6rem; margin: .7rem 0; } .tile { border: 1px solid var(--line); border-radius: 12px; padding: .55rem .7rem; background: rgba(255,255,255,.02); }
+  .tile .k { font-size: .82rem; letter-spacing: .05em; text-transform: uppercase; color: var(--ink2); font-weight: 600; } .tile .v { font-size: 1.45rem; font-weight: 700; line-height: 1.25; } .tile .s { font-size: .85rem; color: var(--ink2); }
+  .conc { display: flex; gap: 2px; height: 34px; margin: .3rem 0 .35rem; } .conc > span { min-width: 3px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: .86rem; font-weight: 700; color: #06202a; overflow: hidden; white-space: nowrap; cursor: default; }
+  .conc > span.oth { background: #556070; color: #fff; } .conc > span.na { background: repeating-linear-gradient(135deg, rgba(251,191,36,.7) 0 5px, rgba(251,191,36,.2) 5px 10px); color: #fff; }
+  .legend { display: flex; flex-wrap: wrap; gap: .3rem 1rem; font-size: .88rem; color: var(--ink2); } .legend i { display: inline-block; width: .85rem; height: .85rem; border-radius: 3px; vertical-align: -1px; margin-right: .3rem; }
+  .note { border-radius: 12px; padding: .55rem .8rem; font-size: .95rem; margin: .5rem 0; } .note.warn { border: 1px solid rgba(251,191,36,.5); background: rgba(251,191,36,.07); } .note.bad { border: 1px solid rgba(248,113,113,.55); background: rgba(248,113,113,.07); }
+  .hd, .row > summary { display: grid; grid-template-columns: 2.6rem minmax(0,1.6fr) minmax(0,1.5fr) minmax(0,.7fr) minmax(0,.9fr) minmax(0,.9fr) minmax(0,1.1fr) minmax(0,1.1fr); gap: .8rem; align-items: center; }
+  .hd { font-size: .82rem; letter-spacing: .05em; text-transform: uppercase; color: var(--ink3); font-weight: 700; padding: .3rem .4rem; }
+  .row { border-top: 1px solid var(--line); } .row > summary { cursor: pointer; list-style: none; padding: .5rem .4rem; border-radius: 10px; } .row > summary::-webkit-details-marker { display: none; } .row > summary:hover { background: rgba(255,255,255,.03); } .row[open] > summary { background: rgba(255,255,255,.04); }
+  .rk { font-weight: 800; font-size: 1.05rem; color: var(--ink2); } .who { font-weight: 700; font-size: 1.02rem; display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .45rem; min-width: 0; } .who .ad { font-weight: 500; font-size: .93rem; color: var(--ink2); }
+  .tag { display: inline-block; font-size: .82rem; font-weight: 600; padding: .02rem .45rem; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--ink2); white-space: nowrap; } .tag.org { background: rgba(167,139,250,.18); color: #ddd6fe; } .tag.nm { background: rgba(34,211,238,.14); color: #a5f3fc; }
+  .tag.adding { background: rgba(52,211,153,.15); color: #6ee7b7; } .tag.reducing { background: rgba(248,113,113,.15); color: #fca5a5; } .tag.both { background: rgba(251,191,36,.15); color: #fde68a; }
+  .bar { position: relative; height: 12px; border-radius: 6px; background: rgba(255,255,255,.07); overflow: hidden; } .bar i { position: absolute; top: 0; bottom: 0; } .bar .d { left: 0; background: var(--cyan); } .bar .a { background: var(--violet); }
+  .num { font-size: .97rem; } .cap { display: none; font-size: .82rem; color: var(--ink3); text-transform: uppercase; letter-spacing: .04em; }
+  .more { padding: .2rem .4rem .9rem 3.4rem; font-size: .96rem; color: var(--ink2); display: grid; gap: .35rem; } .more b { color: var(--ink); } .more a { color: #67e8f9; text-decoration: none; } .more a:hover { text-decoration: underline; }
+  .chip { display: inline-block; font-size: .9rem; padding: .1rem .55rem; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid var(--line); margin: .12rem .25rem .12rem 0; cursor: pointer; color: var(--ink); } .chip:hover { border-color: rgba(34,211,238,.6); }
+  svg.sp { display: block; width: 100%; height: 30px; }
+  .split { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: .6rem; }
+  details.fold > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .8rem; } details.fold > summary::-webkit-details-marker { display: none; }
+  details.fold > summary:before { content: '\25B8'; color: var(--cyan); font-size: 1.1rem; } details.fold[open] > summary:before { content: '\25BE'; } details.fold[open] > summary { margin-bottom: .7rem; } .ft { font-size: 1.15rem; font-weight: 700; } .fs { font-size: .93rem; color: var(--ink2); }
+  #wh-how li { margin: .25rem 0 .25rem 1.1rem; list-style: disc; color: var(--ink2); } #wh-how b { color: var(--ink); }
+  @media (max-width: 1250px) { .hd { display: none; } .row > summary { grid-template-columns: 2.2rem minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr); gap: .35rem .8rem; } .cap { display: block; } .tiles { grid-template-columns: repeat(3, minmax(0,1fr)); } .split { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  @media (max-width: 900px) { .layout { grid-template-columns: minmax(0,1fr); } .rail { position: static; max-height: 19rem; } }
+  @media (max-width: 620px) { .row > summary { grid-template-columns: 2rem minmax(0,1fr) minmax(0,1fr); } .who { grid-column: 2 / -1; } .more { padding-left: .6rem; } .tiles { grid-template-columns: repeat(2, minmax(0,1fr)); } .tile .v { font-size: 1.25rem; } }
+</style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+<script src="/lib/site-header.js?v=1.14.1"></script>
+<script>SiteHeader.mount({ page: 'tla-whales' }); SiteHeader.subnav(SiteHeader.tlaTabs(''));   // the TLA tab bar, no tab lit: this page is reached from Tools</script>
+
+<main class="wh-wrap">
+  <div class="card" id="wh-head">
+    <h1>TLA Whales — who holds each pool's liquidity</h1>
+    <p class="sub" style="margin-bottom:.5rem" id="wh-lead">Every account holding staked liquidity in the Liquidity Alliance, largest first — read from the chain. Pick a pool, or see the largest accounts across all of them.</p>
+    <div class="tabs" role="tablist" id="wh-tabs"><button type="button" class="tab on" data-view="pool" role="tab">By pool</button><button type="button" class="tab" data-view="all" role="tab">Largest accounts, all pools</button></div>
+  </div>
+  <div id="wh-body"><div class="card"><p class="sub" style="margin:0" id="wh-wait">Reading the list…</p></div></div>
+  <details class="card fold" id="wh-howfold"><summary><span class="ft">How this list is made, and what it cannot tell you</span><span class="fs">read this before drawing a conclusion</span></summary><div id="wh-how"></div></details>
+</main>
+
+<script src="/lib/cron-registry.js"></script>
+<script src="/lib/site-footer.js"></script>
+<script>
+(function () {
+    'use strict';
+    const REV = '1.0.0', REV_DATE = '2026-11-27';   // 1.0.0 (owner: "we need a TLA whale list … select an LP and it pulls up all the whales in that LP, highest to lowest … shows handle name and address … current position and sparkline … if they are building liquidity … how long they have held … who is actually participating in TLA"): every account holding a pool's staked liquidity, from tla-core tla-whales/current.json (the chain, not a model); by pool and across all pools; names only where registered or verified; what the read could not explain is shown as "not attributed"
+    const CORE = 'https://raw.githubusercontent.com/thealliancedao/tla-core/main', EXPLORER = 'https://chainsco.pe/terra2';
+    const BUCKETS = ['stable', 'project', 'bluechip', 'single'], BL = { stable: 'Stable', project: 'Project', bluechip: 'Bluechip', single: 'Single' };
+    const S = { doc: null, failed: false, view: 'pool', pool: null, q: '', byAddr: new Map(), now: null };
+    const $ = (id) => document.getElementById(id);
+    const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const num = (x, d = 0) => (Number(x) || 0).toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d });
+    const usd = (x) => (x == null ? '—' : '$' + num(x, Math.abs(x) < 100 ? 2 : 0));
+    const pc = (x) => (x == null ? '—' : num(x, x < 10 ? 2 : 1) + '%');
+    const short = (a) => (a && a.length > 16 ? a.slice(0, 9) + '…' + a.slice(-5) : a || '');
+    const now = () => S.now || Date.now();
+    const epochDate = (n) => new Date(Date.UTC(2022, 9, 31) + n * 7 * 864e5);   // a round starts on a Monday 00:00 UTC
+    const monthYear = (d) => d.toLocaleString('en-US', { timeZone: 'UTC', month: 'short', year: 'numeric' });
+    const dayTime = (iso) => new Date(iso).toLocaleString('en-US', { timeZone: 'UTC', hour12: false, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' UTC';
+    const valueOf = (h, P) => (P.staked_usd == null ? null : h.pct / 100 * P.staked_usd);
+    const display = (h) => h.label || h.name || short(h.a);
+    const pools = () => (S.doc ? S.doc.pools.filter((p) => p.holders && p.holders.length) : []);
+    const poolOf = (k) => pools().find((p) => p.key === k) || null;
+    const topShare = (P, n) => P.holders.slice(0, n).reduce((t, h) => t + h.pct, 0);
+    const whoHtml = (h) => `${h.label ? `<span>${esc(h.label)}</span><span class="tag org" title="A label the address catalog has verified${h.protocol ? ' — ' + esc(h.protocol) : ''}">verified</span>` : h.name ? `<span>${esc(h.name)}</span><span class="tag nm" title="A name this account registered itself">registered name</span>` : ''}<span class="ad mono" title="${esc(h.a)}">${esc(short(h.a))}</span>${h.kind === 'contract' ? '<span class="tag" title="This address is a contract, not a person\'s wallet">contract</span>' : ''}`;
+
+    function index() { S.byAddr = new Map(); for (const P of pools()) for (const h of P.holders) { const e = S.byAddr.get(h.a) || S.byAddr.set(h.a, { a: h.a, name: h.name, label: h.label, protocol: h.protocol, kind: h.kind, usd: 0, rows: [] }).get(h.a); const v = valueOf(h, P) || 0; e.usd += v; e.rows.push({ P, h, v }); } }
+
+    // a small step line of an account's changes in a pool, round by round (direct stake; amp-token mints and burns when it has no direct stake)
+    function spark(h) { const H = h.h || []; if (H.length < 1) return '<span class="dim" style="font-size:.88rem">no moves on record</span>'; const useShares = H.some((x) => x[1] !== '0'); const pts = []; let c = 0;
+        for (const x of H) { c += Number(useShares ? x[1] : x[2]) || 0; pts.push([x[0], c]); } const lo = Math.min(0, ...pts.map((p) => p[1])), hi = Math.max(...pts.map((p) => p[1]), lo + 1); const e0 = pts[0][0] - 1, e1 = Math.max(S.doc.epoch || pts[pts.length - 1][0], pts[pts.length - 1][0]);
+        const X = (e) => 2 + (e - e0) / Math.max(1, e1 - e0) * 196, Y = (v) => 26 - (v - lo) / (hi - lo) * 22; let d = `M${X(e0).toFixed(1)},${Y(0).toFixed(1)}`; let prev = 0;
+        for (const [e, v] of pts) { d += ` L${X(e).toFixed(1)},${Y(prev).toFixed(1)} L${X(e).toFixed(1)},${Y(v).toFixed(1)}`; prev = v; } d += ` L${X(e1).toFixed(1)},${Y(prev).toFixed(1)}`;
+        const last = pts[pts.length - 1][1], first = pts[0][1]; const col = last >= first ? 'var(--up)' : 'var(--down)';
+        return `<svg class="sp" viewBox="0 0 200 30" preserveAspectRatio="none" role="img" aria-label="${H.length} change${H.length === 1 ? '' : 's'} on record between round ${H[0][0]} and round ${H[H.length - 1][0]}"><title>${H.length} deposit / withdrawal round${H.length === 1 ? '' : 's'} on record, round ${H[0][0]} → ${H[H.length - 1][0]} (${useShares ? 'direct stake' : 'amp tokens made or redeemed'})</title><path d="${d}" fill="none" stroke="${col}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`; }
+
+    function rail() { const q = S.q.trim().toLowerCase(); const list = pools().filter((p) => !q || String(p.name || '').toLowerCase().includes(q) || String(p.dex || '').toLowerCase().includes(q));
+        return `<div class="card rail" id="wh-rail"><input type="search" id="wh-q" placeholder="Find a pool…" value="${esc(S.q)}" aria-label="Find a pool">${BUCKETS.map((b) => { const ps = list.filter((p) => p.bucket === b); return ps.length ? `<div class="bk">${BL[b]} · ${ps.length}</div>${ps.map((p) => `<button type="button" class="pl${S.pool === p.key ? ' on' : ''}" data-pool="${esc(p.key)}"><span class="n">${esc(p.name || short(p.key))}</span><span class="v mono">${usd(p.staked_usd)}</span><span class="m">${esc(p.dex || '')} · ${num(p.holders_n)} account${p.holders_n === 1 ? '' : 's'} · largest ${pc(p.holders[0].pct)}</span></button>`).join('')}` : ''; }).join('') || '<p class="sub" style="margin:0">No pool matches.</p>'}</div>`; }
+
+    function poolView() { const P = poolOf(S.pool); if (!P) return '<div class="card"><p class="sub" style="margin:0">Pick a pool on the left.</p></div>'; const na = (P.not_attributed.direct_pct || 0) + (P.not_attributed.amp_pct || 0); const top10 = P.holders.slice(0, 10), othersPct = Math.max(0, P.attributed_pct - topShare(P, 10));
+        const seg = (h, i) => `<span data-seg="${esc(h.a)}" style="flex:${h.pct.toFixed(4)} 1 0;background:rgba(34,211,238,${(0.95 - i * 0.065).toFixed(2)})" title="#${i + 1} ${esc(display(h))} — ${pc(h.pct)} of the pool${P.staked_usd != null ? ', about ' + usd(valueOf(h, P)) : ''}">${h.pct >= 7 ? pc(h.pct) : ''}</span>`;
+        const row = (h, i) => { const v = valueOf(h, P), held = h.since != null && S.doc.epoch ? S.doc.epoch - h.since : null; const e = S.byAddr.get(h.a); const also = e ? e.rows.filter((r) => r.P.key !== P.key).sort((x, y) => y.v - x.v) : [];
+            return `<details class="row" data-a="${esc(h.a)}"><summary>
+                <div class="rk">${i + 1}</div><div class="who">${whoHtml(h)}</div>
+                <div><div class="cap">Share of the pool</div><div class="bar" aria-hidden="true"><i class="d" style="width:${Math.min(100, h.direct_pct || 0).toFixed(2)}%"></i><i class="a" style="left:${Math.min(100, h.direct_pct || 0).toFixed(2)}%;width:${Math.min(100, h.amp_pct || 0).toFixed(2)}%"></i></div><div class="num mono"><b>${pc(h.pct)}</b></div></div>
+                <div><div class="cap">Value</div><div class="num mono">${usd(v)}</div></div>
+                <div><div class="cap">In since</div><div class="num">${h.since != null ? `${esc(monthYear(epochDate(h.since)))}<div class="dim" style="font-size:.86rem">${held != null ? num(held) + ' week' + (held === 1 ? '' : 's') : ''}</div>` : '<span class="dim">not on record</span>'}</div></div>
+                <div><div class="cap">Moves</div><div class="num">${h.dep != null ? `<span title="deposits">${num(h.dep)} in</span> · <span title="withdrawals">${num(h.wdr)} out</span><div class="dim" style="font-size:.86rem">${num(h.clm)} claim${h.clm === 1 ? '' : 's'}</div>` : '<span class="dim">not on record</span>'}</div></div>
+                <div><div class="cap">Last 8 rounds</div>${h.trend ? `<span class="tag ${h.trend}">${h.trend === 'adding' ? 'adding' : h.trend === 'reducing' ? 'taking out' : h.trend === 'both' ? 'in and out' : 'holding'}</span>` : '<span class="dim" style="font-size:.9rem">not on record</span>'}</div>
+                <div><div class="cap">Changes over time</div>${spark(h)}</div></summary>
+              <div class="more"><div><b class="mono" style="word-break:break-all">${esc(h.a)}</b> · <a href="${EXPLORER}/address/${esc(h.a)}" target="_blank" rel="noopener">on the explorer</a> · <a href="/member-portfolio.html?wallet=${esc(h.a)}">its portfolio page</a></div>
+                <div>Held as: ${h.direct_pct ? `<b>${pc(h.direct_pct)}</b> staked directly` : ''}${h.direct_pct && h.amp_pct ? ' + ' : ''}${h.amp_pct ? `<b>${pc(h.amp_pct)}</b> through the pool's amp token (auto-compounding)` : ''}.${h.clm_usd ? ` Rewards claimed from this pool so far: <b>${usd(h.clm_usd)}</b> (valued on the day of each claim).` : ''}</div>
+                ${h.since == null ? '<div>This account has no deposit on the public flow record for this pool — it holds the pool\'s amp token, which can be bought or received without ever depositing here.</div>' : ''}
+                ${also.length ? `<div>Also holds: ${also.slice(0, 12).map((r) => `<button type="button" class="chip" data-pool="${esc(r.P.key)}" data-focus="${esc(h.a)}">${esc(r.P.name)} <b>${pc(r.h.pct)}</b>${r.v ? ' · ' + usd(r.v) : ''}</button>`).join('')}${also.length > 12 ? ` <span class="dim">+ ${num(also.length - 12)} more</span>` : ''}</div>` : '<div class="dim">Holds no other pool on this list.</div>'}</div></details>`; };
+        return `<div class="card" id="wh-pool" data-pool-key="${esc(P.key)}"><h2>${esc(P.name || short(P.key))} <span class="dim" style="font-weight:500;font-size:1rem">${esc(BL[P.bucket] || P.bucket)} bucket · ${esc(P.dex || '')}${P.status && P.status !== 'active' ? ' · ' + esc(P.status) : ''}</span></h2>
+          <div class="tiles">
+            <div class="tile"><div class="k">Staked</div><div class="v mono">${usd(P.staked_usd)}</div><div class="s">in the Alliance</div></div>
+            <div class="tile"><div class="k">Accounts</div><div class="v mono">${num(P.holders_n)}</div><div class="s">holding any of it</div></div>
+            <div class="tile"><div class="k">Largest</div><div class="v mono">${pc(P.holders[0].pct)}</div><div class="s">${esc(display(P.holders[0]))}</div></div>
+            <div class="tile"><div class="k">Top 5</div><div class="v mono">${pc(topShare(P, 5))}</div><div class="s">of the pool</div></div>
+            <div class="tile"><div class="k">Top 10</div><div class="v mono">${pc(topShare(P, 10))}</div><div class="s">of the pool</div></div>
+            <div class="tile"><div class="k">Auto-compounding</div><div class="v mono">${pc(P.amplified_pct)}</div><div class="s">held through the amp token</div></div>
+          </div>
+          <div class="conc" data-ow="conc" role="img" aria-label="The pool by holder: ${esc(top10.map((h, i) => '#' + (i + 1) + ' ' + pc(h.pct)).join(', '))}${othersPct > 0.05 ? ', everyone else ' + pc(othersPct) : ''}${na > 0.05 ? ', not attributed ' + pc(na) : ''}">${top10.map(seg).join('')}${othersPct > 0.05 ? `<span class="oth" style="flex:${othersPct.toFixed(4)} 1 0" title="Everyone else on the list — ${pc(othersPct)}">${othersPct >= 7 ? 'others ' + pc(othersPct) : ''}</span>` : ''}${na > 0.05 ? `<span class="na" data-ow="na" style="flex:${na.toFixed(4)} 1 0" title="Not attributed — ${pc(na)} of the pool is staked by accounts this read did not find">${na >= 9 ? 'not attributed ' + pc(na) : ''}</span>` : ''}</div>
+          <div class="legend"><span><i style="background:rgba(34,211,238,.95)"></i>the ten largest accounts, largest first</span><span><i style="background:#556070"></i>everyone else on the list</span>${na > 0.05 ? '<span><i style="background:repeating-linear-gradient(135deg,rgba(251,191,36,.7) 0 4px,rgba(251,191,36,.2) 4px 8px)"></i>not attributed</span>' : ''}<span><i style="background:var(--cyan)"></i>staked directly</span><span><i style="background:var(--violet)"></i>through the amp token</span></div>
+          ${!P.complete ? `<div class="note bad" data-ow="incomplete"><b>This pool was not read to the end:</b> ${esc((P.why_incomplete || []).join('; '))}. The list below is what was read; an account missing from it may still hold a stake.</div>` : ''}
+          ${na > 0.5 ? `<div class="note warn" data-ow="na-note"><b>${pc(na)} of this pool is not attributed.</b> It is staked by accounts this read did not find${P.not_attributed.direct_pct > 0.5 ? ' — accounts that staked directly and are not in the public flow record' : ''}. It is shown as its own piece and is not spread over the accounts below.</div>` : `<p class="sub" style="margin:.5rem 0 0" data-ow="acc">The accounts below explain <b style="color:var(--ink)">${pc(P.attributed_pct)}</b> of this pool's staked liquidity.</p>`}
+        </div>
+        <div class="card" id="wh-list"><div class="hd"><div>#</div><div>Account</div><div>Share of the pool</div><div>Value</div><div>In since</div><div>Moves</div><div>Last 8 rounds</div><div>Changes over time</div></div>
+          ${P.holders.map(row).join('')}${P.others ? `<p class="sub" style="margin:.7rem 0 0">${num(P.others.n)} smaller account${P.others.n === 1 ? '' : 's'} hold a further ${pc(P.others.pct)} between them.</p>` : ''}</div>`; }
+
+    function allView() { const list = [...S.byAddr.values()].sort((x, y) => y.usd - x.usd); const total = pools().reduce((t, p) => t + (p.staked_usd || 0), 0); const attributed = list.reduce((t, e) => t + e.usd, 0);
+        const cut = (f) => list.filter(f).reduce((t, e) => t + e.usd, 0); const verified = cut((e) => e.label), named = cut((e) => !e.label && e.name), plain = cut((e) => !e.label && !e.name), nA = Math.max(0, total - attributed);
+        const byProt = new Map(); for (const e of list) if (e.label) byProt.set(e.protocol || e.label, (byProt.get(e.protocol || e.label) || 0) + e.usd); const prot = [...byProt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+        const share = (v) => (total ? v / total * 100 : 0); const top = (n) => share(list.slice(0, n).reduce((t, e) => t + e.usd, 0));
+        const row = (e, i) => `<details class="row" data-a="${esc(e.a)}"><summary style="grid-template-columns:2.6rem minmax(0,1.6fr) minmax(0,1.3fr) minmax(0,.8fr) minmax(0,2.6fr)">
+              <div class="rk">${i + 1}</div><div class="who">${whoHtml(e)}</div>
+              <div><div class="cap">Share of all staked liquidity</div><div class="bar" aria-hidden="true"><i class="d" style="width:${Math.min(100, share(e.usd) / Math.max(0.01, share(list[0].usd)) * 100).toFixed(2)}%"></i></div><div class="num mono"><b>${pc(share(e.usd))}</b></div></div>
+              <div><div class="cap">Value</div><div class="num mono">${usd(e.usd)}</div></div>
+              <div><div class="cap">Largest positions</div>${e.rows.slice().sort((x, y) => y.v - x.v).slice(0, 4).map((r) => `<button type="button" class="chip" data-pool="${esc(r.P.key)}" data-focus="${esc(e.a)}">${esc(r.P.name)} <b>${pc(r.h.pct)}</b></button>`).join('')}${e.rows.length > 4 ? `<span class="dim" style="font-size:.9rem">+ ${num(e.rows.length - 4)}</span>` : ''}</div></summary>
+            <div class="more"><div><b class="mono" style="word-break:break-all">${esc(e.a)}</b> · <a href="${EXPLORER}/address/${esc(e.a)}" target="_blank" rel="noopener">on the explorer</a> · <a href="/member-portfolio.html?wallet=${esc(e.a)}">its portfolio page</a></div>
+              <div>In ${num(e.rows.length)} pool${e.rows.length === 1 ? '' : 's'}: ${e.rows.slice().sort((x, y) => y.v - x.v).map((r) => `<button type="button" class="chip" data-pool="${esc(r.P.key)}" data-focus="${esc(e.a)}">${esc(r.P.name)} <b>${pc(r.h.pct)}</b> · ${usd(r.v)}</button>`).join('')}</div></div></details>`;
+        return `<div class="card" id="wh-all"><h2>All pools together <span class="dim" style="font-weight:500;font-size:1rem">${usd(total)} staked in ${num(pools().length)} pools</span></h2>
+          <div class="tiles"><div class="tile"><div class="k">Accounts</div><div class="v mono">${num(list.length)}</div><div class="s">holding staked liquidity</div></div><div class="tile"><div class="k">Largest</div><div class="v mono">${pc(top(1))}</div><div class="s">${list[0] ? esc(display(list[0])) : ''}</div></div><div class="tile"><div class="k">Top 5</div><div class="v mono">${pc(top(5))}</div><div class="s">of all staked value</div></div><div class="tile"><div class="k">Top 10</div><div class="v mono">${pc(top(10))}</div><div class="s">of all staked value</div></div><div class="tile"><div class="k">Top 25</div><div class="v mono">${pc(top(25))}</div><div class="s">of all staked value</div></div><div class="tile"><div class="k">Not attributed</div><div class="v mono">${pc(share(nA))}</div><div class="s">accounts the read did not find</div></div></div>
+          <h2 style="font-size:1.1rem;margin-top:.4rem">Who is it — as far as the chain says</h2>
+          <div class="conc" data-ow="who" role="img" aria-label="Staked value by kind of account">${[['Verified organisations and contracts', verified, 'rgba(167,139,250,.9)'], ['Accounts with a registered name', named, 'rgba(34,211,238,.9)'], ['Accounts with no name', plain, '#7c8799']].map(([t, v, c]) => (share(v) > 0.05 ? `<span data-kind="${esc(t)}" style="flex:${share(v).toFixed(4)} 1 0;background:${c}" title="${esc(t)} — ${pc(share(v))}, ${usd(v)}">${share(v) >= 9 ? pc(share(v)) : ''}</span>` : '')).join('')}${share(nA) > 0.05 ? `<span class="na" style="flex:${share(nA).toFixed(4)} 1 0" title="Not attributed — ${pc(share(nA))}">${share(nA) >= 9 ? pc(share(nA)) : ''}</span>` : ''}</div>
+          <div class="split" data-ow="split"><div class="tile"><div class="k">Verified label</div><div class="v mono">${pc(share(verified))}</div><div class="s">${usd(verified)} · organisations and contracts the address catalog has verified</div></div><div class="tile"><div class="k">Registered name</div><div class="v mono">${pc(share(named))}</div><div class="s">${usd(named)} · accounts that named themselves</div></div><div class="tile"><div class="k">No name</div><div class="v mono">${pc(share(plain))}</div><div class="s">${usd(plain)} · nothing on chain says whose they are</div></div><div class="tile"><div class="k">Not attributed</div><div class="v mono">${pc(share(nA))}</div><div class="s">${usd(nA)} · staked by accounts the read did not find</div></div></div>
+          ${prot.length ? `<p class="sub" style="margin:.7rem 0 0">Verified, by organisation: ${prot.map(([k, v]) => `<b style="color:var(--ink)">${esc(k)}</b> ${pc(share(v))}`).join(' · ')}.</p>` : ''}
+          <div class="note warn" style="margin-top:.7rem"><b>"No name" does not mean "community", and it does not mean "team".</b> It means nothing public ties the account to anyone. One person or one organisation may hold several of them.</div></div>
+        <div class="card" id="wh-list"><div class="hd" style="grid-template-columns:2.6rem minmax(0,1.6fr) minmax(0,1.3fr) minmax(0,.8fr) minmax(0,2.6fr)"><div>#</div><div>Account</div><div>Share of all staked liquidity</div><div>Value</div><div>Largest positions</div></div>${list.slice(0, 150).map(row).join('')}${list.length > 150 ? `<p class="sub" style="margin:.7rem 0 0">${num(list.length - 150)} smaller accounts are not shown here; each is in its pool's list.</p>` : ''}</div>`; }
+
+    function renderHow() { const d = S.doc; if (!d) return; $('wh-how').innerHTML = `<ul>
+          <li><b>Read from the chain ${esc(dayTime(d.capturedAt))}.</b> ${num(d.counts.pools)} pools, ${num(d.counts.requests)} read-only requests to public nodes. This list is refreshed by hand for now, not every hour.</li>
+          <li><b>Staked directly:</b> the staking contract cannot be asked for "everyone", so the accounts asked are those the public flow record shows with stake left (${num(d.counts.direct_accounts_asked)} asked). Each figure is the chain's own answer for that account.</li>
+          <li><b>Through the amp token:</b> the chain lists every holder of a pool's amp token, so this part is complete. Amp tokens × the compounder's own exchange rate = LP tokens.</li>
+          <li><b>The check:</b> for each pool the staking contract's total must equal the compounder's own stake plus the direct stakers. What the accounts found do not explain is shown as <b>not attributed</b> — it is never spread over the others.</li>
+          <li><b>Names:</b> a <span class="tag nm">registered name</span> is one the account gave itself; a <span class="tag org">verified</span> label is one the address catalog has checked. Nobody else is named, and no owner is guessed. A contract (a lending market, a DAO treasury) holds on behalf of others — the people behind it are not on this list.</li>
+          <li><b>Value</b> is the account's share of the pool × the pool's staked value at the last hourly reading.</li>
+          <li><b>"In since", "Moves" and the line</b> come from the public flow record of deposits, withdrawals and claims. An account that only ever bought or received the amp token has none of these.</li>
+          <li><b>Not here yet:</b> what an account does with its rewards after claiming (compounds, sells, leaves Terra), and week-by-week position value. Both need the full transaction history and are being built.</li></ul>`; }
+
+    function render() { const body = $('wh-body'); if (S.failed || !S.doc) { body.innerHTML = `<div class="card"><p class="sub" style="margin:0" id="wh-wait">${S.failed ? 'The list could not be read right now. Nothing is shown, because a partial list would mislead.' : 'Reading the list…'}</p></div>`; return; }
+        const keep = { open: new Set([...document.querySelectorAll('#wh-list details[open]')].map((d) => d.dataset.a)), y: $('wh-rail') ? $('wh-rail').scrollTop : 0, focus: document.activeElement && document.activeElement.id === 'wh-q', sel: S.q.length };
+        $('wh-lead').innerHTML = `Every account holding staked liquidity in the Liquidity Alliance, largest first — read from the chain <b style="color:var(--ink)">${esc(dayTime(S.doc.capturedAt))}</b>. Pick a pool, or see the largest accounts across all of them.`;
+        document.querySelectorAll('#wh-tabs .tab').forEach((t) => { t.classList.toggle('on', t.dataset.view === S.view); t.setAttribute('aria-selected', t.dataset.view === S.view); });
+        body.innerHTML = S.view === 'all' ? allView() : `<div class="layout">${rail()}<div>${poolView()}</div></div>`;
+        document.querySelectorAll('#wh-list details').forEach((d) => { if (keep.open.has(d.dataset.a)) d.open = true; }); if ($('wh-rail')) $('wh-rail').scrollTop = keep.y; if (keep.focus && $('wh-q')) { $('wh-q').focus(); try { $('wh-q').setSelectionRange(keep.sel, keep.sel); } catch (e) { } }
+        if (S.focus) { const el = document.querySelector(`#wh-list details[data-a="${S.focus}"]`); if (el) { el.open = true; if (el.scrollIntoView) el.scrollIntoView({ block: 'center' }); } S.focus = null; }
+        renderHow(); }
+
+    document.addEventListener('click', (ev) => { const t = ev.target.closest('[data-view]'); if (t) { S.view = t.dataset.view; render(); return; }
+        const p = ev.target.closest('[data-pool]'); if (p) { ev.preventDefault(); S.pool = p.dataset.pool; S.view = 'pool'; S.focus = p.dataset.focus || null; render(); if (!S.focus && window.scrollTo && window.innerWidth < 900 && $('wh-pool') && $('wh-pool').scrollIntoView) $('wh-pool').scrollIntoView({ block: 'start' }); try { const P = poolOf(S.pool); history.replaceState(null, '', '?pool=' + encodeURIComponent(P ? P.name : '')); } catch (e) { } } });
+    document.addEventListener('input', (ev) => { if (ev.target && ev.target.id === 'wh-q') { S.q = ev.target.value; render(); } });
+
+    const getJson = (u) => fetch(u, { cache: 'no-cache' }).then((r) => (r && r.ok ? r.json() : null)).catch(() => null);
+    async function load() { const d = await getJson(`${CORE}/tla-whales/current.json?t=${Math.floor(now() / 3e5)}`); if (!d || !Array.isArray(d.pools)) { S.failed = true; render(); return; }
+        S.doc = d; S.failed = false; index(); const want = new URLSearchParams(location.search).get('pool'); const P = (want && pools().find((p) => String(p.name).toLowerCase() === want.toLowerCase())) || pools()[0]; S.pool = P ? P.key : null; if (new URLSearchParams(location.search).get('view') === 'all') S.view = 'all'; render(); }
+    window.__wh = { S, REV, REV_DATE, load, render, pools, poolOf, topShare, valueOf, epochDate };
+    load();
+})();
+</script>
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: '1.0.0', revDate: '2026-11-27', page: 'tla-whales' });</script>
+</body>
+</html>
