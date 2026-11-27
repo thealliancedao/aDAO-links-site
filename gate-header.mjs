@@ -9,8 +9,8 @@ export function realHeader() {
   const d = new JSDOM('<!doctype html><html><head></head><body></body></html>', { url: 'https://thealliancedao.com/', runScripts: 'outside-only' });
   d.window.eval(fs.readFileSync(path.join(here, 'lib/site-header.js'), 'utf8')); H = d.window.SiteHeader; return H;
 }
-export const TLA_BAR = ['Overview', 'Member Portfolio', 'Slippage Simulator', 'Vote Simulator', 'LP Grades', 'Contract Watch', 'PD Watch'];
-export const TLA_HREF = { overview: 'tla-stats.html#overview', portfolio: 'member-portfolio.html', slippage: 'slippage.html', votesim: 'vote-market.html', grades: 'tla-stats.html#grades', watch: 'contract-watch.html', pdwatch: 'tla-stats.html#pdwatch' };
+export const TLA_BAR = ['Overview', 'Member Portfolio', 'Slippage Simulator', 'Vote Simulator', 'LP Grades', 'Contract Watch', 'PD Watch', 'Whales'];   // 2026-11-27: Whales, the eighth, at the owner's request
+export const TLA_HREF = { overview: 'tla-stats.html#overview', portfolio: 'member-portfolio.html', slippage: 'slippage.html', votesim: 'vote-market.html', grades: 'tla-stats.html#grades', watch: 'contract-watch.html', pdwatch: 'tla-stats.html#pdwatch', whales: 'tla-whales.html' };
 /** true when `items` (what a page handed to SiteHeader.subnav) is the TLA bar with `lit` lit; `inPage` lists the ids that are buttons there */
 export function isTlaBar(items, lit, inPage = []) {
   return Array.isArray(items) && items.map((t) => t.label).join('|') === TLA_BAR.join('|') && items.filter((t) => t.active).map((t) => t.id).join() === lit

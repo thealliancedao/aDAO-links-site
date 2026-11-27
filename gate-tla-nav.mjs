@@ -18,7 +18,7 @@ const LIB = src('lib/site-header.js');
 // ---------------------------------------------------------------- A · the list and the bar it draws
 console.log('— A the one list, and the bar the lib draws from it —');
 const H = realHeader();
-check('the list is the owner\'s seven, in the owner\'s order', H.TLA_TABS.map((t) => t.label).join(' · ') === TLA_BAR.join(' · '), H.TLA_TABS.map((t) => t.label));
+check('the list is the owner\'s seven in the owner\'s order, then Whales (the eighth, 27 Nov)', H.TLA_TABS.length === 8 && H.TLA_TABS[7].id === 'whales' && H.TLA_TABS[7].href === 'tla-whales.html' && H.TLA_TABS.map((t) => t.label).join(' · ') === TLA_BAR.join(' · '), H.TLA_TABS.map((t) => t.label));
 check('no Pools, no Docs, no TLA Stats tab in the list', !H.TLA_TABS.some((t) => /pools|docs|^tla$/i.test(t.id) || /^(Pools|Docs|LP Stats|TLA Stats)$/.test(t.label)));
 check('Vote Simulator opens the Vote Market planner; PD Watch and LP Grades are sections of TLA Stats; Contract Watch is its own page', TLA_HREF.votesim === 'vote-market.html' && H.TLA_TABS.find((t) => t.id === 'votesim').href === 'vote-market.html' && H.TLA_TABS.find((t) => t.id === 'pdwatch').href === 'tla-stats.html#pdwatch' && H.TLA_TABS.find((t) => t.id === 'grades').href === 'tla-stats.html#grades' && H.TLA_TABS.find((t) => t.id === 'watch').href === 'contract-watch.html');
 check('every tab\'s page exists in the site folder', H.TLA_TABS.every((t) => fs.existsSync(path.join(here, t.href.split('#')[0]))), H.TLA_TABS.map((t) => t.href));
@@ -30,8 +30,8 @@ check('tlaTabs hands out fresh items (a page cannot edit the list for the next p
   const w = d.window; w.eval(LIB); const picked = [];
   const nav = w.SiteHeader.subnav(w.SiteHeader.tlaTabs('watch'), { attach: '#tile' });
   const tabs = [...nav.querySelectorAll('.sh-subtab')];
-  check('the bar drawn on a page: seven tabs in order, one lit, each a link to its page, inside the page\'s top tile', tabs.map((t) => t.textContent.trim()).join(' · ') === TLA_BAR.join(' · ') && tabs.filter((t) => t.classList.contains('active')).map((t) => t.textContent.trim()).join() === 'Contract Watch' && tabs.every((t) => t.tagName === 'A' && t.getAttribute('href') === TLA_HREF[t.getAttribute('data-tab')]) && nav.parentNode.id === 'tile', tabs.map((t) => t.tagName + ':' + t.getAttribute('href')));
-  check('a bar of seven is marked for the closer fit (so every tab shows on a desktop screen) and the lib carries the wrap rule for it', nav.classList.contains('sh-many') && /\.sh-subnav\.sh-many \.sh-subwrap\{flex-wrap:wrap/.test(LIB) && /\.sh-subnav\.sh-many \.sh-subtab\{/.test(LIB));
+  check('the bar drawn on a page: eight tabs in order, one lit, each a link to its page, inside the page\'s top tile', tabs.map((t) => t.textContent.trim()).join(' · ') === TLA_BAR.join(' · ') && tabs.filter((t) => t.classList.contains('active')).map((t) => t.textContent.trim()).join() === 'Contract Watch' && tabs.every((t) => t.tagName === 'A' && t.getAttribute('href') === TLA_HREF[t.getAttribute('data-tab')]) && nav.parentNode.id === 'tile', tabs.map((t) => t.tagName + ':' + t.getAttribute('href')));
+  check('a bar of eight is marked for the closer fit (so every tab shows on a desktop screen) and the lib carries the wrap rule for it', nav.classList.contains('sh-many') && /\.sh-subnav\.sh-many \.sh-subwrap\{flex-wrap:wrap/.test(LIB) && /\.sh-subnav\.sh-many \.sh-subtab\{/.test(LIB));
   const d2 = new JSDOM('<!doctype html><html><head></head><body><div id="site-header"></div><div id="tile"></div></body></html>', { url: 'https://thealliancedao.com/tla-stats.html', runScripts: 'outside-only', pretendToBeVisual: true });
   const w2 = d2.window; w2.eval(LIB); const nav2 = w2.SiteHeader.subnav(w2.SiteHeader.tlaTabs('overview', { inPage: 'tla-stats' }), { attach: '#tile', onSelect: (id) => picked.push(id) });
   const b = (id) => nav2.querySelector('.sh-subtab[data-tab="' + id + '"]');
@@ -81,7 +81,7 @@ async function boot(urlTail) {
   const click = async (el) => { el.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true })); await wait(60); };
   const pdReady = () => d.querySelector('#pdw-root #lps-bribe-card select[aria-label="PD placement"]');
   const poolsReady = () => d.querySelector('#lps-root #lps-table-card') && d.querySelector('#lps-root #lps-table-card').children.length > 0;
-  await until(() => d.querySelectorAll('.sh-subtab').length === 7 && typeof w.switchToTab === 'function', 30000);
+  await until(() => d.querySelectorAll('.sh-subtab').length === 8 && typeof w.switchToTab === 'function', 30000);
   return { w, d, wait, until, lit, shown, tab, click, pdReady, poolsReady, errors, text: (el) => (el ? el.textContent : '').replace(/\s+/g, ' ').trim() };
 }
 const ids = (P) => ['lps-head', 'lps-table-card', 'lps-bribe-card'].map((i) => P.d.querySelectorAll('#' + i).length).join();
@@ -89,7 +89,7 @@ const [P, O, N, W, PO, DO] = await Promise.all([boot(''), boot('?prop=' + older 
 
 // the bar on the page itself
 { const tabs = [...P.d.querySelectorAll('.sh-subtab')];
-  check('the bar on TLA Stats: the seven, Overview lit; Overview · LP Grades · PD Watch are buttons, the other four are links to their pages', tabs.map((t) => t.textContent.trim()).join(' · ') === TLA_BAR.join(' · ') && P.lit() === 'Overview' && P.shown() === 'tab-overview' && tabs.filter((t) => t.tagName === 'BUTTON').map((t) => t.getAttribute('data-tab')).join() === 'overview,grades,pdwatch' && tabs.filter((t) => t.tagName === 'A').every((t) => t.getAttribute('href') === TLA_HREF[t.getAttribute('data-tab')]), tabs.map((t) => t.tagName + ':' + t.textContent.trim()));
+  check('the bar on TLA Stats: the eight, Overview lit; Overview · LP Grades · PD Watch are buttons, the other five are links to their pages', tabs.map((t) => t.textContent.trim()).join(' · ') === TLA_BAR.join(' · ') && P.lit() === 'Overview' && P.shown() === 'tab-overview' && tabs.filter((t) => t.tagName === 'BUTTON').map((t) => t.getAttribute('data-tab')).join() === 'overview,grades,pdwatch' && tabs.filter((t) => t.tagName === 'A').every((t) => t.getAttribute('href') === TLA_HREF[t.getAttribute('data-tab')]), tabs.map((t) => t.tagName + ':' + t.textContent.trim()));
   check('the bar sits inside the page\'s top tile, with the epoch slot on its right', !!P.d.querySelector('#tla-top-tile > #site-subnav.attached') && !!P.d.querySelector('#site-subnav #sh-epoch-slot'));
 }
 // PD Watch

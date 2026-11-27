@@ -22,7 +22,7 @@ const valueOf = (h, P) => (P.staked_usd == null ? null : h.pct / 100 * P.staked_
 console.log('— A the page and its source —');
 const A = await page();
 check('no page error; it reads tla-core tla-whales/current.json and nothing else', A.w.__errors.length === 0 && A.asked.length === 1 && /raw\.githubusercontent\.com\/thealliancedao\/tla-core\/main\/tla-whales\/current\.json$/.test(A.asked[0]), [A.w.__errors, A.asked]);
-check('the page has the place the site header draws into, ahead of the header script, and asks for the TLA tab bar', /<div id="site-header"><\/div>\s*<script src="\/lib\/site-header\.js/.test(html) && /SiteHeader\.subnav\(SiteHeader\.tlaTabs\(/.test(html));
+check('the page has the place the site header draws into, ahead of the header script, and asks for the TLA tab bar', /<div id="site-header"><\/div>\s*<script src="\/lib\/site-header\.js/.test(html) && /SiteHeader\.subnav\(SiteHeader\.tlaTabs\('whales'\)\)/.test(html) && /site-header\.js\?v=1\.15\.0/.test(html));
 check('it says when the chain was read', A.text(A.$('wh-lead')).includes(new Date(DOC.capturedAt).toLocaleString('en-US', { timeZone: 'UTC', hour12: false, hour: '2-digit', minute: '2-digit' })) && /read from the chain/.test(A.text(A.$('wh-lead'))));
 check('the footer carries the page rev and its changelog key; the header knows the page', A.w.__footer && A.w.__footer.rev === A.wh.REV && A.w.__footer.page === 'tla-whales' && A.w.__header.page === 'tla-whales' && Array.isArray(A.w.__subnav));
 
