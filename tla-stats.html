@@ -1593,6 +1593,9 @@
                 <canvas id="history-chart"></canvas>
             </div>
             
+            <!-- T8.18: what the second and third lines are (TVL history only) -->
+            <div id="history-split-note" class="hidden text-sm text-gray-300 mb-4" style="line-height:1.5"></div>
+
             <!-- Data Table -->
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
@@ -1602,6 +1605,8 @@
                             <th class="text-left py-2 px-3 text-gray-400 font-medium">Date</th>
                             <th class="text-right py-2 px-3 text-gray-400 font-medium">Value</th>
                             <th class="text-right py-2 px-3 text-gray-400 font-medium">Change</th>
+                            <th id="history-table-col-px" class="hidden text-right py-2 px-3 text-gray-400 font-medium" title="How much of the week's change came from prices: last week's staked liquidity valued at this week's prices">From prices</th>
+                            <th id="history-table-col-fl" class="hidden text-right py-2 px-3 text-gray-400 font-medium" title="How much of the week's change came from liquidity being added or taken out, at this week's prices">From deposits &amp; withdrawals</th>
                             <th id="history-table-col5" class="text-right py-2 px-3 text-gray-400 font-medium">LUNA Price</th>
                         </tr>
                     </thead>
@@ -11761,6 +11766,7 @@
         const config = metricConfigs[metric];
         if (!config) return;
         
+        setHistorySplit(false);
         document.getElementById('history-modal-title').textContent = config.title;
         document.getElementById('history-table-col5').textContent = 'LUNA Price';
         
@@ -13031,9 +13037,20 @@
     // Current history modal state
     let historyModalChart = null;
     
+    // T8.18 (owner 2026-11-27, on the TVL history: "is this losing this much or are the tokens losing this much, is it outflows of liquidity or
+    // just prices … add a column for token prices and a second line in the chart"): the TVL history carries the epoch-history rollup's split
+    // (1.2.0) — two more columns, two more lines. Every other use of this popup keeps its five columns.
+    function setHistorySplit(on) {
+        for (const id of ['history-table-col-px', 'history-table-col-fl', 'history-split-note']) { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', !on); }
+        const box = document.querySelector('#history-modal > div'); if (box) { box.classList.toggle('max-w-5xl', !!on); box.classList.toggle('max-w-2xl', !on); }
+        const cc = document.getElementById('history-chart-container'); if (cc) cc.style.height = on ? '300px' : '200px';
+    }
+    const splitUsd = (v) => (v == null ? '—' : (v < 0 ? '−' : '+') + '$' + Math.abs(Math.round(v)).toLocaleString('en-US'));
     function showHistoryModal(metricKey) {
         const metric = historyMetrics[metricKey];
         if (!metric) return;
+        const withSplit = metricKey === 'tla-tvl' && Array.isArray(store.epochHistory) && store.epochHistory.some(r => r.price_index != null);
+        setHistorySplit(withSplit);
         
         const modal = document.getElementById('history-modal');
         document.getElementById('history-modal-title').textContent = `${metric.title} History`;
@@ -13113,17 +13130,24 @@
             missed: false
         });
         
+        // T8.18: the rollup's split, by epoch — the live top row takes its epoch's row too (as of that row's last daily reading)
+        if (withSplit) { const by = new Map(store.epochHistory.map(r => [r.epoch, r])); for (const p of historyPoints) { const r = !p.missed && by.get(p.epoch); if (r) { p.split = r.tvl_split || null; p.priceIndex = r.price_index != null ? r.price_index : null; p.unvalued = r.unvalued_staked || null; p.splitAsOf = r.date || null; p.splitLive = p.source !== 'epoch-history'; } }
+            const first = historyPoints.filter(p => !p.missed && p.priceIndex != null).sort((a, b) => a.epoch - b.epoch)[0], lastP = historyPoints.filter(p => !p.missed && p.priceIndex != null).sort((a, b) => b.epoch - a.epoch)[0];
+            const und = historyPoints.filter(p => p.unvalued && p.unvalued.later_valued).sort((a, b) => a.epoch - b.epoch); const note = document.getElementById('history-split-note');
+            if (note && first && lastP) note.innerHTML = `<b style="color:#c4b5fd">Prices only</b> is what the TVL would be if nobody had deposited or withdrawn since E${first.epoch}: that week's liquidity at each week's prices. Each pool counts by its share of the TVL, so a $60,000 token and a $0.000001 token are never averaged. On prices alone the TVL would be <b>${((lastP.priceIndex / first.priceIndex - 1) * 100).toFixed(1)}%</b> from E${first.epoch}; the rest of the change is liquidity added or taken out.`
+                + (und.length ? ` <span data-hs="understated"><b style="color:#fde68a">E${und[0].epoch}–E${und[und.length - 1].epoch} are understated:</b> ${[...new Set(und.flatMap(p => p.unvalued.later_valued.names))].slice(0, 5).join(', ')} were staked but had no price, so the TVL left them out. The dashed line adds them at the unit price each first got — an estimate.</span>` : ''); }
+
         // Render chart
-        renderHistoryChart(historyPoints, metric);
+        renderHistoryChart(historyPoints, metric, withSplit);
         
         // Render table
-        renderHistoryTable(historyPoints, metric);
+        renderHistoryTable(historyPoints, metric, withSplit);
         
         modal.classList.remove('hidden');
         modal.classList.add('flex');
     }
     
-    function renderHistoryChart(points, metric) {
+    function renderHistoryChart(points, metric, withSplit) {
         const ctx = document.getElementById('history-chart');
         if (!ctx) return;
         
@@ -13155,13 +13179,13 @@
                     pointBorderColor: pointBorderColors,
                     pointBorderWidth: 2,
                     spanGaps: false // Don't connect across null values
-                }]
+                }].concat(withSplit ? historySplitDatasets(points) : [])
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false },
+                    legend: { display: !!withSplit, labels: { color: '#cbd5e1', boxWidth: 22, font: { size: 13 } } },
                     tooltip: {
                         callbacks: {
                             label: (ctx) => {
@@ -13169,8 +13193,9 @@
                                 if (point.missed) {
                                     return 'Snapshot Missed';
                                 }
-                                return metric.format(ctx.raw);
-                            }
+                                return (withSplit ? ctx.dataset.label + ': ' : '') + metric.format(ctx.raw);
+                            },
+                            afterBody: (items) => { if (!withSplit || !items.length) return []; const p = points[items[0].dataIndex], sp = p && p.split; if (!sp) return []; const out = [`vs E${sp.vs_epoch}: prices ${sp.prices_pct >= 0 ? '+' : ''}${sp.prices_pct}% · deposits & withdrawals ${sp.flows_pct >= 0 ? '+' : ''}${sp.flows_pct}%`]; if (Math.abs(sp.newly_valued_usd) >= 1) out.push(`newly priced (was staked, had no price): ${splitUsd(sp.newly_valued_usd)}`); if (Math.abs(sp.lost_value_usd) >= 1) out.push(`price lost (still staked): ${splitUsd(sp.lost_value_usd)}`); return out; }
                         }
                     }
                 },
@@ -13197,7 +13222,21 @@
         });
     }
     
-    function renderHistoryTable(points, metric) {
+    // T8.18: the two extra lines of the TVL history, on the SAME dollar axis (never a second axis).
+    //   Prices only — the first epoch's TVL carried forward by the rollup's price index (liquidity held still, prices moving)
+    //   TVL + pools that had no price — only where the rollup names pools staked with no price that later got one (an estimate)
+    function historySplitDatasets(points) {
+        const firstI = points.findIndex(p => !p.missed && p.priceIndex != null && p.value != null); if (firstI < 0) return [];
+        const base = points[firstI].value, i0 = points[firstI].priceIndex;
+        const pricesOnly = points.map(p => (!p.missed && p.priceIndex != null ? base * p.priceIndex / i0 : null));
+        const und = points.map(p => (!p.missed && p.unvalued && p.unvalued.later_valued && p.value != null ? p.value + p.unvalued.later_valued.est_usd_at_first_price : null));
+        const est = und.map((v, i) => (v != null ? v : ((und[i - 1] != null || und[i + 1] != null) && !points[i].missed ? points[i].value : null)));   // joined to the TVL line at both ends
+        const ds = [{ label: 'Prices only (E' + points[firstI].epoch + "'s liquidity at each week's prices)", data: pricesOnly, borderColor: '#a78bfa', backgroundColor: 'transparent', borderWidth: 2, fill: false, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#a78bfa', pointBorderColor: '#0b0f17', pointBorderWidth: 1, spanGaps: true }];
+        if (est.some(v => v != null)) ds.push({ label: 'TVL + staked pools that had no price (estimate)', data: est, borderColor: '#67e8f9', backgroundColor: 'transparent', borderWidth: 2, borderDash: [6, 5], fill: false, tension: 0.3, pointRadius: 0, spanGaps: false });
+        return ds;
+    }
+
+    function renderHistoryTable(points, metric, withSplit) {
         const tbody = document.getElementById('history-table-body');
         if (!tbody) return;
         
@@ -13221,7 +13260,7 @@
                     <tr class="border-b border-red-500/20 bg-red-500/5">
                         <td class="py-2 px-3 font-medium text-red-400">E${point.epoch}</td>
                         <td class="py-2 px-3 text-red-400/60">—</td>
-                        <td class="py-2 px-3 text-center" colspan="3">
+                        <td class="py-2 px-3 text-center" colspan="${withSplit ? 5 : 3}">
                             <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/20 text-red-400 text-sm">
                                 <i class="fas fa-exclamation-circle"></i>
                                 Snapshot Missed
@@ -13243,14 +13282,20 @@
                 
                 const dateStr = point.date ? new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-';
                 const priceStr = point.lunaPrice ? `$${point.lunaPrice.toFixed(4)}` : '-';
+                // T8.18: the week's change, split — from prices, from deposits & withdrawals; a pool that only got (or lost) its price is said apart
+                let splitCells = '', valueNote = '';
+                if (withSplit) { const sp = point.split; const cell = (pct, usd, what) => (pct == null ? '<span class="text-gray-500">—</span>' : `<span class="${pct > 0.05 ? 'text-emerald-400' : pct < -0.05 ? 'text-red-400' : 'text-gray-400'}" title="${splitUsd(usd)} ${what}${point.splitLive && point.splitAsOf ? ' — as of the last daily reading, ' + point.splitAsOf : ''}">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</span>`);
+                    const extra = sp ? [Math.abs(sp.newly_valued_usd) >= 1 ? `<div class="text-[13px] text-amber-300" data-hs="newly" title="Staked the week before with no price; priced this week — not a deposit: ${(sp.newly_valued || []).join(', ')}">${splitUsd(sp.newly_valued_usd)} newly priced</div>` : '', Math.abs(sp.lost_value_usd) >= 1 ? `<div class="text-[13px] text-amber-300" data-hs="lost" title="Still staked, but with no price this week — not a withdrawal: ${(sp.lost_value || []).join(', ')}">${splitUsd(sp.lost_value_usd)} price lost</div>` : '', Math.abs(sp.other_usd) >= 1 ? `<div class="text-[13px] text-gray-400" title="Could not be split (a unit price that moved more than 5× in the week): ${(sp.other || []).join(', ')}">${splitUsd(sp.other_usd)} not split</div>` : ''].join('') : '';
+                    splitCells = `<td class="py-2 px-3 text-right" data-hs="prices">${sp ? cell(sp.prices_pct, sp.prices_usd, 'from prices') : '<span class="text-gray-500">—</span>'}</td><td class="py-2 px-3 text-right" data-hs="flows">${sp ? cell(sp.flows_pct, sp.flows_usd, 'from deposits and withdrawals') + extra : '<span class="text-gray-500">—</span>'}</td>`;
+                    const lv = point.unvalued && point.unvalued.later_valued; if (lv) valueNote = `<div class="text-[13px] text-amber-300" data-hs="understated" title="${lv.names.join(', ')} were staked this week but had no price, so they are not in this figure. At the unit price each first got they would add about $${lv.est_usd_at_first_price.toLocaleString('en-US')} — an estimate.">understated · about +$${lv.est_usd_at_first_price.toLocaleString('en-US')}</div>`; }
                 
                 html += `
-                    <tr class="border-b border-white/5 hover:bg-white/5">
+                    <tr class="border-b border-white/5 hover:bg-white/5" data-epoch="${point.epoch}">
                         <td class="py-2 px-3 font-medium">E${point.epoch}</td>
                         <td class="py-2 px-3 text-gray-400">${dateStr}</td>
-                        <td class="py-2 px-3 text-right font-mono text-cyan-400">${metric.format(point.value)}</td>
+                        <td class="py-2 px-3 text-right font-mono text-cyan-400">${metric.format(point.value)}${valueNote}</td>
                         <td class="py-2 px-3 text-right">${changeHtml}</td>
-                        <td class="py-2 px-3 text-right text-gray-400">${priceStr}</td>
+                        ${splitCells}<td class="py-2 px-3 text-right text-gray-400">${priceStr}</td>
                     </tr>
                 `;
             }
@@ -13270,6 +13315,7 @@
     function showPoolHistory(poolName, bucket) {
         const modal = document.getElementById('history-modal');
         document.getElementById('history-modal-title').textContent = `${poolName} - Bucket % History`;
+        setHistorySplit(false);
         document.getElementById('history-table-col5').textContent = 'Status';
         
         // Helper to calculate bucket % for a pool (v3 compatible)
@@ -13457,6 +13503,7 @@
         const config = metricConfigs[metric];
         if (!config) return;
         
+        setHistorySplit(false);
         document.getElementById('history-modal-title').textContent = config.title;
         document.getElementById('history-table-col5').textContent = 'LUNA Price';
         
@@ -14053,7 +14100,7 @@
     <!-- Vercel Web Analytics (auto-enabled for Vercel-hosted sites) -->
     <script defer src="/_vercel/insights/script.js"></script>
     <!-- Mobile bottom tab bar — fixed to viewport, native-app feel -->
-<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T8.17', revDate: '2026-11-25', page: 'tla-stats' });   // T8.17 (2026-11-25, owner: "messy, confusing, hard to navigate"): the Vote Market tile is one screen (tile 2.0.0) — the question, its answer, one table, the rest in folds   // T8.16 (2026-11-25, owner): the tab bar is Overview · Member Portfolio · Slippage Simulator · Vote Simulator · LP Grades · Contract Watch · PD Watch, from the one list in lib/site-header.js — PD WATCH is the PD placements audit as its own main tab (#pdwatch; it was a view inside LP Grades, and older links to a placement still open it), VOTE SIMULATOR opens the Vote Market planner, Pools is off the bar (its section still opens at #pools) and Docs is off the bar (the docs hub is in the footer)   // T8.15 (2026-11-25): a Contract Watch tab in the tab bar (contract-watch.html) — nothing else on this page changed   // T8.14 (2026-11-24, checked number by number against the owner's captures of Eris's page and votion.money): Total VP is the lock contract's own total, the figure Eris prints (36.68M; the page had the largest gauge's boost-only votes, 33.98M) — from the next snapshot that carries it; Votion's VP counts its two Claim vaults (0.68M); the Vote Market tile uses every Votion vault (engine 1.6.0, tile 1.5.0)   // T8.13 (2026-11-24, owner: "this is super messy and I am still lost — how can Votion just not include these LPs?"): the Vote Market tile's This round board in far fewer words (tile 1.4.0) — four columns (pool · pot · Votion's votes · APR), one short caption a row, the rule in one line. The pools Votion's optimizer is not including are a group of their own, said once: no bribe there, of any size, moves its votes until it includes them — with one link to see the round as if it did. A bribe's effect is three short lines; a bribe that moves nothing adds no figures. Vault-by-vault % fold under "Check against Votion's own page".   // T8.12.1 (2026-11-24): the tile's "Votion's next move" tab shows the same votes as This round — where they end up once both vaults have cast, not the two published plans added together (a pool both planned to enter was counted twice) — lib 1.5.1, tile 1.3.1   // T8.12 (2026-11-24, owner: "a place you can see all of the LPs being bribed… the current APR… what Votion plans to do with its votes, the projected resulting APR… what if I added an additional xxx… the winner against the losers" and "I don't get 'not on Votion's list this round'… why does 'no Votion' exist?"): the Vote Market tile opens on THIS ROUND (tile 1.3.0, lib 1.5.0) — one bucket, every pot: what it pays per vote, Votion's votes now → after it casts, the APR now → next epoch, the reason in a sentence and each vault's % as Votion's page shows it; tap a pool to add a bribe and every row gains a third figure, with who gains, who pays and the totals that do not change. A funded pool Votion's optimizer is not counting says so as a state ("not counted by Votion now"), not a rule, and the round can be read the other way (every pot counted). "A vote costs" is the rate Votion's pools end on (it was the bigger vault's own level).   // T8.11 (2026-11-24, owner: "how much do I need to add to attract Votion… you don't see why"): the Vote Market tile explains itself (tile 1.2.0 on lib 1.4.0) — how Votion decides, in one paragraph with the bucket's going rate, and under every pool where it stands: how much more before Votion adds a vote, the price of the next 1M VP, or that Votion's list leaves the pool out this round. The numbers behind it now follow Votion's own rule (they assumed it took the best split), boost + fixed votes, and the reward list.   // T8.10.1 (2026-11-24): the Epoch Bribes tile says what it counts — last round's pots, paying out now ($587 today) — beside the Vote Market's "Bribes this round" ($424, the pots on offer for the vote now open). Two true numbers that read as one disagreement under the label "active this epoch".   // T8.10 (2026-11-24, pre-promotion health check): the footer rev had stayed at T6.13.5 through T7.0–T8.9.1; the tab title no longer ends in "TEST"; link-preview image is an absolute URL; a pool off its bucket's reward list (tla-snapshot 1.2.0) is listed under Currently inactive as "off the reward list" whatever its vote share; the asset notice is the curated one-liner only ("Terra has moved to USDC.inj" — owner); the unused August bribe-state download is gone · T6.13.5: the Member Portfolio tab is live (was greyed SOON) · T6.13.4: Noble USDC sweep — the Pools tab's wind-down pill reads lp-grades' alerts (the tla-snapshot row it was handed carries none, so it never showed) · T6.13.3: tile 1.1.1 — "Voting closes in" names the real deadline (Sun 23:59 UTC), not Votion's ~21:20 cast · T6.13.2: Vote Market tile 1.1.0 — the footer bar is gone; the filters are one compact toolbar ($ segments · Bucket · Rank by) · T6.13.1: a stray </div> after the Vote Market card closed its row early, so Movers This Epoch fell below it — Movers sits beside the tile again · T6.13: the Vote Market tile runs on the simulator's engine (lib/vote-market-tile.js 1.0.0) — Where $ does the most · Votion's next move (real VP) · Pots & rates, one pot total with the planner, the cast time from Votion's timing, a best-split teaser for the selected wallet, and the simulator one click from the header, every row and the footer · T6.12: the Vote Market tile shows Votion's next move only (the $X chips and their fine print are gone — the planner does that) + wind-down pills on its pool names · T6.11: the tile opens the planner (/vote-market.html) ·    // T6.10: the Pools tab's bucket charts plot votes — every pool in the bucket, its TLA VP or share of the bucket over the last 13 epochs (a 1% line on the share view; click an epoch for its whole vote); Liquidity & volume is still one pick away.   // T6.9: the Vote Breakdown shows any past epoch (Past epochs… picker, change vs the epoch before); bars never run off the card (the scale covers the locked-in outline; labels sit inside when long); the pool drill-down charts give each epoch's exact number on hover and jump to that epoch's whole vote.   // T6.8: every pool named before anything keys on names (Votion plan title / catalog underlyings for raw-address pools; a dewhitelisted twin gauge is "(old)" instead of hiding the live one)
+<script>if (window.SiteFooter) SiteFooter.mount({ rev: 'T8.18', revDate: '2026-11-27', page: 'tla-stats' });   // T8.18 (2026-11-27, owner on the TVL history: "is it outflows of liquidity or just prices … add a column for token prices and a second line in the chart"): the TVL history popup shows the week's change split into prices and deposits & withdrawals (two columns), a second line "prices only" on the same dollar axis, a dashed line where staked pools had no price, and marks those weeks as understated — all from the epoch-history rollup 1.2.0   // T8.17 (2026-11-25, owner: "messy, confusing, hard to navigate"): the Vote Market tile is one screen (tile 2.0.0) — the question, its answer, one table, the rest in folds   // T8.16 (2026-11-25, owner): the tab bar is Overview · Member Portfolio · Slippage Simulator · Vote Simulator · LP Grades · Contract Watch · PD Watch, from the one list in lib/site-header.js — PD WATCH is the PD placements audit as its own main tab (#pdwatch; it was a view inside LP Grades, and older links to a placement still open it), VOTE SIMULATOR opens the Vote Market planner, Pools is off the bar (its section still opens at #pools) and Docs is off the bar (the docs hub is in the footer)   // T8.15 (2026-11-25): a Contract Watch tab in the tab bar (contract-watch.html) — nothing else on this page changed   // T8.14 (2026-11-24, checked number by number against the owner's captures of Eris's page and votion.money): Total VP is the lock contract's own total, the figure Eris prints (36.68M; the page had the largest gauge's boost-only votes, 33.98M) — from the next snapshot that carries it; Votion's VP counts its two Claim vaults (0.68M); the Vote Market tile uses every Votion vault (engine 1.6.0, tile 1.5.0)   // T8.13 (2026-11-24, owner: "this is super messy and I am still lost — how can Votion just not include these LPs?"): the Vote Market tile's This round board in far fewer words (tile 1.4.0) — four columns (pool · pot · Votion's votes · APR), one short caption a row, the rule in one line. The pools Votion's optimizer is not including are a group of their own, said once: no bribe there, of any size, moves its votes until it includes them — with one link to see the round as if it did. A bribe's effect is three short lines; a bribe that moves nothing adds no figures. Vault-by-vault % fold under "Check against Votion's own page".   // T8.12.1 (2026-11-24): the tile's "Votion's next move" tab shows the same votes as This round — where they end up once both vaults have cast, not the two published plans added together (a pool both planned to enter was counted twice) — lib 1.5.1, tile 1.3.1   // T8.12 (2026-11-24, owner: "a place you can see all of the LPs being bribed… the current APR… what Votion plans to do with its votes, the projected resulting APR… what if I added an additional xxx… the winner against the losers" and "I don't get 'not on Votion's list this round'… why does 'no Votion' exist?"): the Vote Market tile opens on THIS ROUND (tile 1.3.0, lib 1.5.0) — one bucket, every pot: what it pays per vote, Votion's votes now → after it casts, the APR now → next epoch, the reason in a sentence and each vault's % as Votion's page shows it; tap a pool to add a bribe and every row gains a third figure, with who gains, who pays and the totals that do not change. A funded pool Votion's optimizer is not counting says so as a state ("not counted by Votion now"), not a rule, and the round can be read the other way (every pot counted). "A vote costs" is the rate Votion's pools end on (it was the bigger vault's own level).   // T8.11 (2026-11-24, owner: "how much do I need to add to attract Votion… you don't see why"): the Vote Market tile explains itself (tile 1.2.0 on lib 1.4.0) — how Votion decides, in one paragraph with the bucket's going rate, and under every pool where it stands: how much more before Votion adds a vote, the price of the next 1M VP, or that Votion's list leaves the pool out this round. The numbers behind it now follow Votion's own rule (they assumed it took the best split), boost + fixed votes, and the reward list.   // T8.10.1 (2026-11-24): the Epoch Bribes tile says what it counts — last round's pots, paying out now ($587 today) — beside the Vote Market's "Bribes this round" ($424, the pots on offer for the vote now open). Two true numbers that read as one disagreement under the label "active this epoch".   // T8.10 (2026-11-24, pre-promotion health check): the footer rev had stayed at T6.13.5 through T7.0–T8.9.1; the tab title no longer ends in "TEST"; link-preview image is an absolute URL; a pool off its bucket's reward list (tla-snapshot 1.2.0) is listed under Currently inactive as "off the reward list" whatever its vote share; the asset notice is the curated one-liner only ("Terra has moved to USDC.inj" — owner); the unused August bribe-state download is gone · T6.13.5: the Member Portfolio tab is live (was greyed SOON) · T6.13.4: Noble USDC sweep — the Pools tab's wind-down pill reads lp-grades' alerts (the tla-snapshot row it was handed carries none, so it never showed) · T6.13.3: tile 1.1.1 — "Voting closes in" names the real deadline (Sun 23:59 UTC), not Votion's ~21:20 cast · T6.13.2: Vote Market tile 1.1.0 — the footer bar is gone; the filters are one compact toolbar ($ segments · Bucket · Rank by) · T6.13.1: a stray </div> after the Vote Market card closed its row early, so Movers This Epoch fell below it — Movers sits beside the tile again · T6.13: the Vote Market tile runs on the simulator's engine (lib/vote-market-tile.js 1.0.0) — Where $ does the most · Votion's next move (real VP) · Pots & rates, one pot total with the planner, the cast time from Votion's timing, a best-split teaser for the selected wallet, and the simulator one click from the header, every row and the footer · T6.12: the Vote Market tile shows Votion's next move only (the $X chips and their fine print are gone — the planner does that) + wind-down pills on its pool names · T6.11: the tile opens the planner (/vote-market.html) ·    // T6.10: the Pools tab's bucket charts plot votes — every pool in the bucket, its TLA VP or share of the bucket over the last 13 epochs (a 1% line on the share view; click an epoch for its whole vote); Liquidity & volume is still one pick away.   // T6.9: the Vote Breakdown shows any past epoch (Past epochs… picker, change vs the epoch before); bars never run off the card (the scale covers the locked-in outline; labels sit inside when long); the pool drill-down charts give each epoch's exact number on hover and jump to that epoch's whole vote.   // T6.8: every pool named before anything keys on names (Votion plan title / catalog underlyings for raw-address pools; a dewhitelisted twin gauge is "(old)" instead of hiding the live one)
     //   // T6.7: pots price off the feed by the catalog symbol (network-and-prices 3.1.0); the T6.5 page bridge is gone · T6.6 (step 5): the Vote Market's +$X cell carries Votion's own threshold flags for the bucket (moves / holds, its published gain) and the per-bucket back-test error; a header chip shows the mean model-vs-plan error. Words + one derived number; no layout change.   // T6.5: live pots price through the catalog's own price when the feed keys a symbol differently (USDC.n vs USDC); a pot with tokens is never 'not funded' — the LUNA-EURe $10 pot for p203 was funded all along.   // T6.4: the Top-by-APR subline names the LUNA price the product is on (live / day price, as-of) and the trading-leg caveat for the four pools that read lower than Eris. Words only.   // T6.3: the Bribes popup reads the rollup too (1.1.0 oracle join); footer says why an epoch can be missing.   // T6.2: hero-tile popups read member-data/tla-snapshot/epoch-history.json (every epoch since E184 for pools / TVL / rewards / voting VP, APR from E196, on the tiles' own basis; bribes keep their live point until the oracle join); the band product is used only for epochs the rollup lacks — no mixed definitions. In place under the freeze.   // T6.1 (in place under the video freeze, handover §F0): one vocabulary — 'voting VP' never 'all TLA VP'; 'Voting round N · live' with the round→epoch rule; Bribe Runway 'state as of period N'; the liquidity line and the TVL tile name their basis; APR / Rewards tile tooltips carry theirs; the Vote Market's model text says what the HAR proved. No layout, no data change.</script>
 </body>
 </html>
